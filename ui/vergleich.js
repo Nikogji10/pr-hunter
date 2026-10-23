@@ -1,22 +1,27 @@
 // PR Hunter · Statistik-Karten Zielprognose (Funktionskatalog „Zielprognose“) und Vergleich mit dem Kumpel
 // („Vergleich mit Kumpel“, nur wenn beide in den Einstellungen zustimmen; Daten über public.compare_stats).
-import { html, useState, useEffect, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld } from './basis.js';
+import { html, useState, useEffect, useRef, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld, Avatar } from './basis.js';
 import { zielprognose } from '../js/auswertung.js';
 import { dots } from '../js/punkte.js';
 import { DIENSTE, wochen, e1rmWoche } from './stand.js';
+import { HAUPT } from '../js/daten.js';
 import { mround } from '../js/rechnen.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 
-/** Ziel je Lift (lokal gemerkt): geschätztes Datum aus dem e1RM-Trend der letzten 26 Wochen. */
-export function Zielprognose({ aktuell }) {
+/**
+ * Ziel je Lift: geschätztes Datum aus dem e1RM-Trend. Die Ziele liegen im Profil (einst.ziele, je Übungsschlüssel – dieselben
+ * wie auf der Übungsseite); ohne gesetztes Ziel wird aktuelle Form + 7,5 kg (auf 5 gerundet) vorgeschlagen.
+ */
+export function Zielprognose({ aktuell, ziele = {}, setZiel = null }) {
   const [lift, setLift] = useState(() => speicher.lies('prh-ziel-lift') ?? 'dead');
   const [fenster, setFenster] = useState(26);
-  const gemerkt = JSON.parse(speicher.lies('prh-ziele') ?? '{}');
   const vorschlag = (l) => (aktuell[l] != null ? mround(aktuell[l] + 7.5, 5) : null);
-  const [ziele, setZiele] = useState(() => Object.fromEntries(LIFTS.map((l) => [l, gemerkt[l] ?? vorschlag(l)])));
-  const setzeZiel = (v) => { const z = { ...ziele, [lift]: v }; setZiele(z); speicher.schreib('prh-ziele', JSON.stringify(z)); };
-  const ziel = ziele[lift];
+  const [entwurf, setEntwurf] = useState({});
+  const ziel = entwurf[lift] ?? ziele[HAUPT[lift]] ?? vorschlag(lift);
+  const uhr = useRef(null);
+  // ins Profil erst 1 s nach dem letzten Tippen (jede Änderung löst sonst einen Abgleich aus)
+  const setzeZiel = (v) => { setEntwurf((x) => ({ ...x, [lift]: v })); clearTimeout(uhr.current); if (v > 0 && setZiel) uhr.current = setTimeout(() => setZiel(HAUPT[lift], v), 1000); };
   const p = ziel > 0 ? zielprognose(wochen, e1rmWoche[lift], ziel, { fenster }) : null;
   return html`<section class="card pad stack">
     <div><span class="viz-t">Zielprognose</span><div class="viz-u">Aus dem e1RM-Trend (lineare Regression über die Wochen mit Training)</div></div>
@@ -59,7 +64,7 @@ export function Vergleich({ freigegeben }) {
     return html`<tr key=${titel}><td>${titel}</td>${w.map((x, i) => html`<td key=${i} class=${x != null && x === top ? 'k vorne' : 'k'}>${x == null ? '–' : titel === 'DOTS' ? fmt(x, 1) : gw(x, 1)}</td>`)}</tr>`;
   };
   return html`<section class="card pad stack">${kopf}
-    <div style="overflow-x:auto"><table class="rec vergleich"><thead><tr><th></th>${personen.map((p) => html`<th key=${p.id}>${p.ich ? 'Du' : p.name}</th>`)}</tr></thead>
+    <div style="overflow-x:auto"><table class="rec vergleich"><thead><tr><th></th>${personen.map((p) => html`<th key=${p.id}><span class="vgl-kopf"><${Avatar} bild=${p.avatar} name=${p.name} groesse=${30}/>${p.ich ? 'Du' : p.name}</span></th>`)}</tr></thead>
       <tbody>${LIFTS.map((l) => zeile(LIFT[l].name, (p) => p.lifts[l]?.aktuell))}
         ${zeile('Total', total)}
         ${zeile('Körpergewicht', (p) => p.koerpergewicht, 'keins')}

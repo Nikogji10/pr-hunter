@@ -101,7 +101,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         werte: { ...block.werte, ...Object.fromEntries(Object.entries(neueMaxe).filter(([, m]) => m.neuesMax != null).map(([l, m]) => [l, m.neuesMax])) },
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
       <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
-        <button class="btn btn-soft btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
+        <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Wähle unten eine Vorlage und starte sie mit deinen Maxen – oder lass dir mit dem Generator einen Block bis zu einem Termin bauen.</p></section>`}
     <div class="row wrap" style="gap:8px">
       <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'generator' })}>${I.programme} Block-Generator</button>
@@ -114,7 +114,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <h2 class="h2">Block beenden?</h2>
       <p style="margin:0">Erledigte Trainings bleiben im Verlauf. Der Plan verschwindet aus „Heute“, bis du einen neuen Block startest.</p>
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setBeenden(false)}>Abbrechen</button>
-        <button class="btn btn-chalk" style="flex:1" onClick=${() => { setBlock(null); setBeenden(false); toast({ titel: 'Block beendet', text: 'Starte eine Vorlage, wenn es weitergeht.' }); }}>Beenden</button></div>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${() => { setBlock(null); setBeenden(false); toast({ titel: 'Block beendet', text: 'Starte eine Vorlage, wenn es weitergeht.' }); }}>Beenden</button></div>
     <//>` : null}
   </div>`;
 }
@@ -200,7 +200,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
         <button class="btn btn-soft btn-sm" onClick=${async () => toast((await kopiere(json())) ? { titel: 'Kopiert', text: 'Programm als JSON in der Zwischenablage – z. B. für Claude.' } : { titel: 'Kopieren gesperrt', text: 'Der Browser erlaubt es hier nicht.' })}>Als JSON kopieren</button>
         <button class="btn btn-soft btn-sm" onClick=${teilen}>Teilen</button>
         ${prog.rules?.generator ? html`<button class="btn btn-soft btn-sm" onClick=${() => zumGenerator(prog.rules.generator)}>Im Generator ändern</button>` : null}
-        ${eigen && !aktiv ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('archivieren')}>Archivieren</button>` : null}
+        ${eigen && !aktiv ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setSheet('archivieren')}>Archivieren</button>` : null}
       </div>
       <span class="muted" style="font-size:12.5px">Teilen schickt das Programm als JSON (z. B. an den Kumpel); er importiert es und rechnet mit seinen eigenen Maxen.</span>
     </section>
@@ -219,7 +219,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       <h2 class="h2">Programm archivieren?</h2>
       <p style="margin:0">Es verschwindet aus der Liste. Alte Blöcke und Trainings bleiben unverändert.</p>
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Abbrechen</button>
-        <button class="btn btn-chalk" style="flex:1" onClick=${async () => { try { await DIENSTE.programmArchivieren?.(datei); zurueck(); toast({ titel: 'Archiviert', text: INFO[datei].kurz }); } catch (e) { toast({ titel: 'Nicht archiviert', text: e.message }); } }}>Archivieren</button></div>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${async () => { try { await DIENSTE.programmArchivieren?.(datei); zurueck(); toast({ titel: 'Archiviert', text: INFO[datei].kurz }); } catch (e) { toast({ titel: 'Nicht archiviert', text: e.message }); } }}>Archivieren</button></div>
     <//>` : null}
   </div>`;
 }

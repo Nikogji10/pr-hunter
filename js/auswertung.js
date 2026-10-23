@@ -162,3 +162,18 @@ export function bereitschaftsHinweis(wert) {
   return wert < 2 ? { leichter: true, text: 'Heute deutlich angeschlagen: Gewichte 5 % leichter, Top-Satz höchstens RPE 7, den letzten Back-off streichen.' }
     : { leichter: true, text: 'Nicht ganz frisch: Gewichte 5 % leichter oder Top-Satz höchstens RPE 8. Fühlen sich die Aufwärmsätze gut an, normal weitermachen.' };
 }
+
+// #################################################################
+// Körpergewicht im Zeitraum: Start, aktuell, Veränderung, Min/Max, Trend in kg je Woche (Regression über die Messtage)
+// #################################################################
+export function gewichtImZeitraum(messwerte, von) {
+  const m = messwerte.filter((x) => x.datum >= von && x.kg > 0);
+  if (!m.length) return null;
+  const t0 = Date.parse(`${m[0].datum}T00:00:00Z`);
+  const pkt = m.map((x) => [(Date.parse(`${x.datum}T00:00:00Z`) - t0) / 864e5, x.kg]);
+  const n = pkt.length, mx = pkt.reduce((a, p) => a + p[0], 0) / n, my = pkt.reduce((a, p) => a + p[1], 0) / n;
+  const sxx = pkt.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+  const steigung = sxx > 0 ? pkt.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / sxx : 0;
+  return { start: m[0].kg, aktuell: m.at(-1).kg, veraenderung: runde(m.at(-1).kg - m[0].kg, 1), min: Math.min(...m.map((x) => x.kg)),
+    max: Math.max(...m.map((x) => x.kg)), proWoche: n >= 3 ? runde(steigung * 7, 2) : null, anzahl: n, seit: m[0].datum };
+}

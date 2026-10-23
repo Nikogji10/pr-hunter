@@ -103,7 +103,7 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
       ${w.alternative_to ? html`<span class="muted" style="font-size:13px">* Alternative zu Woche ${w.alternative_to} (beim Blockstart wählbar).</span>` : null}
       <div class="row wrap" style="gap:6px">
         ${!w.alternative_to ? html`<button class="btn btn-soft btn-sm" onClick=${() => { setDef((d) => dupliziereWoche(d, wIndex)); setGeaendert(true); setWi(wIndex + 1); setStand((s) => s + 1); }}>Woche duplizieren</button>` : null}
-        ${def.weeks.length > 1 ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet({ art: 'woche-weg' })}>Woche löschen</button>` : null}
+        ${def.weeks.length > 1 ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setSheet({ art: 'woche-weg' })}>Woche löschen</button>` : null}
         <button class="btn btn-soft btn-sm" onClick=${neuerTag}>＋ Tag</button>
       </div>
       ${w.days.map((d, di) => html`<div class="ed-tag" key=${`${d.offset}-${di}`}>
@@ -158,13 +158,13 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
       <h2 class="h2">Änderungen verwerfen?</h2>
       <p style="margin:0">Nicht gespeicherte Änderungen gehen verloren.</p>
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Weiter bearbeiten</button>
-        <button class="btn btn-chalk" style="flex:1" onClick=${zurueck}>Verwerfen</button></div>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${zurueck}>Verwerfen</button></div>
     <//>` : null}
     ${sheet?.art === 'woche-weg' ? html`<${Sheet} zu=${() => setSheet(null)} label="Woche löschen">
       <h2 class="h2">Woche ${w.week} löschen?</h2>
       <p style="margin:0">${w.alternative_to ? 'Die Alternative verschwindet.' : 'Die folgenden Wochen rücken eine Woche nach vorn.'} ${kurzTitel(w.title)} · ${w.days.length} Tage.</p>
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Abbrechen</button>
-        <button class="btn btn-chalk" style="flex:1" onClick=${() => { setDef((d) => loescheWoche(d, wIndex)); setGeaendert(true); setWi(Math.max(0, wIndex - 1)); setStand((s) => s + 1); setSheet(null); }}>Löschen</button></div>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${() => { setDef((d) => loescheWoche(d, wIndex)); setGeaendert(true); setWi(Math.max(0, wIndex - 1)); setStand((s) => s + 1); setSheet(null); }}>Löschen</button></div>
     <//>` : null}
   </div>`;
 }

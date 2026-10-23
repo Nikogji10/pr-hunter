@@ -2,18 +2,20 @@
 // Mit ?demo laufen alle Ansichten mit Beispieldaten und ohne Anmeldung (Rendertests, Vorführen).
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
-import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt,
-  BlockHantel, PausenTimer, Sheet, incStandard } from './ui/basis.js';
+import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
+  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
-import { Verlauf } from './ui/verlauf.js';
+import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
 import { Einstellungen } from './ui/einstellungen.js';
 import { Statistik } from './ui/statistik.js';
 import { Rechner } from './ui/rechner.js';
 import { BereitschaftSheet } from './ui/bereitschaft.js';
+import { GewichtKarte } from './ui/gewicht.js';
+import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung } from './ui/hintergrund.js';
 import { KG_PRO_LB } from './js/rechnen.js';
 import { erstelleStand, plusTage, tageZwischen } from './js/daten.js';
 import { sollIst, neueMaxe, tageMitOptionen } from './js/block.js';
@@ -31,7 +33,21 @@ const PAUSE_HINWEIS_TAGE = 10;          // ab so vielen Tagen ohne Training: vor
 const ABGLEICH_ALLE_MS = 5 * 60 * 1000;
 const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))];
 
+// #################################################################
+// Navigation über die Browser-Historie: jede Ansicht ist ein Eintrag mit Adresse (#statistik, #uebung/<key>).
+// Zurück bleibt in der App (auf der ersten Ansicht passiert nichts), Neuladen öffnet dieselbe Ansicht an derselben Stelle.
+// #################################################################
+const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung']);
+function ausAdresse() {
+  const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
+  return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
+}
+const adresse = (a, key) => `#${a}${key ? `/${encodeURIComponent(key)}` : ''}`;
+
 if (DEMO) setzeStand(beispielStand());
+
+/** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
+const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
 
 /** Design anwenden: system = dem Gerät folgen (kein Attribut), sonst hell/dunkel fest. */
 function thema(wert) {
@@ -59,7 +75,7 @@ function Anmeldung({ angemeldet, zurueck = null }) {
     catch (x) { setFehler(x.message); setLaeuft(false); }
   };
   return html`<main class="anmeldung">
-    <span class="logo"><i></i>PR Hunter</span>
+    <span class="logo"><b>PR</b> Hunter</span>
     <p class="muted" style="margin:0">Programme, Sätze und Rekorde – auf dem Handy, auch ohne Netz im Keller. Anmeldung mit einem Code per E-Mail, kein Passwort.</p>
     ${schritt === 'email' ? html`<form class="card pad stack" onSubmit=${senden}>
         <label class="field" for="a-email"><span class="label">E-Mail</span>
@@ -92,11 +108,14 @@ function SyncPunkt({ sync, offen }) {
   return html`<span class=${`sync ${art}`} role="status"><i></i>${text}</span>`;
 }
 
-function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, sync, offen, zuEinstellungen, zuProgrammen, tagOption }) {
+function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+  startenAm, bearbeiten, loeschen, zuUebung }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
+  const [tagOffen, setTagOffen] = useState(null);       // Datum aus „Diese Woche“
   const kopf = html`<header class="topbar">
-    <span class="logo"><i></i>PR Hunter</span>
-    <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/><button class="iconbtn" onClick=${zuEinstellungen} aria-label="Einstellungen">${I.zahnrad}</button></div>
+    <span class="logo"><b>PR</b> Hunter</span>
+    <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/>
+      <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${38}/><span class="zahnrad">${I.zahnrad}</span></button></div>
   </header>`;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
@@ -108,6 +127,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
         <p class="muted" style="margin:0">Starte eine Vorlage mit deinen Maxen, dann steht hier jeden Tag dein Training. Oder trainiere frei und wähle die Übungen selbst.</p>
         <button class="btn btn-chalk btn-block" onClick=${zuProgrammen}>Programm wählen</button>
         ${ohnePlan}</section>
+      <${GewichtKarte} einst=${einst} setEinst=${setEinst}/>
       ${t ? html`<section class="card pad stack"><span class="eyebrow">Zuletzt trainiert · ${datumLang(letztes)}</span>
         <div class="row between"><b>${t.lifts.map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</b><span class="muted">${tonnage(t.tonnage)}</span></div></section>` : null}
     </div>`;
@@ -151,12 +171,13 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
       <h2 class="h2" style="font-size:24px">${liftsDes(tag).map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</h2>
       <div>${karten.map((k) => {
         const g0 = k.gruppen[0], lift = liftVon(k.key);
-        return html`<div class="plan-item" key=${k.id}>
+        return html`<button class="plan-item" key=${k.id} disabled=${!k.key} onClick=${() => k.key && zuUebung(k.key)}>
           <span class="stripe" style=${`background:${LIFT[lift].farbe}`}></span>
+          <span class="plan-bild">${k.key ? html`<${UebungsBild} schluessel=${k.key} groesse=${38}/>` : null}</span>
           <div style="min-width:0"><div class="name">${k.slot ? k.slot.label : nameVon(k.key)}</div>
             <div class="sets">${k.gruppen.map((g) => `${g.saetze.length} × ${g.wdhText}`).join(' + ')}${g0.rpe ? ` · ${g0.rpe.text ?? (g0.rpe.min === g0.rpe.max ? `RPE ${fmt(g0.rpe.min)}` : `RPE ${fmt(g0.rpe.min)}–${fmt(g0.rpe.max)}`)}` : ''}${k.gruppen.some((g) => g.gekuerzt) ? ' · Cut' : ''}</div></div>
           <div class="kg">${k.slot ? html`<span class="muted" style="font-size:14px;font-stretch:100%;font-weight:600">wählen</span>` : html`${gw(g0.saetze[0].kg)}<small>${einheit()}</small>`}</div>
-        </div>`;
+        </button>`;
       })}</div>
       ${training?.planDatum === tag.datum ? html`<button class="btn btn-chalk btn-block" onClick=${fortsetzen}>Training fortsetzen</button>`
         : html`<button class="btn btn-chalk btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>
@@ -182,11 +203,17 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
       <div class="row between"><span class="eyebrow">Diese Woche</span><span class="muted" style="font-size:13px">${tage.filter((t) => t.datum >= montag && t.datum < plusTage(montag, 7)).length} Einheiten</span></div>
       <div class="week-days">${Array.from({ length: 7 }, (_, i) => plusTage(montag, i)).map((d) => {
         const t = tage.find((x) => x.datum === d);
-        return html`<div key=${d} class=${`wd ${d === HEUTE ? 'today' : ''}`}><span>${wtKurz(d)}</span><b>${Number(d.slice(8, 10))}</b>
-          <span class="dots">${erledigt.has(d) ? html`<span style="font-size:11px">✓</span>` : t?.uebersprungen ? html`<span style="font-size:11px" class="muted">–</span>` : t ? liftsDes(t).map((l) => html`<i key=${l} style=${`background:${LIFT[l].farbe}`}></i>`) : null}</span></div>`;
+        const inhalt = html`<span>${wtKurz(d)}</span><b>${Number(d.slice(8, 10))}</b>
+          <span class="dots">${erledigt.has(d) ? html`<span style="font-size:11px">✓</span>` : t?.uebersprungen ? html`<span style="font-size:11px" class="muted">–</span>` : t ? liftsDes(t).map((l) => html`<i key=${l} style=${`background:${LIFT[l].farbe}`}></i>`) : null}</span>`;
+        // Tage mit Plan oder Training sind Knöpfe (öffnen den Tag), leere Tage nicht
+        return t || trainingsTage[d] ? html`<button key=${d} class=${`wd ${d === HEUTE ? 'today' : ''}`} onClick=${() => setTagOffen(d)} aria-label=${datumLang(d)}>${inhalt}</button>`
+          : html`<div key=${d} class=${`wd ${d === HEUTE ? 'today' : ''}`}>${inhalt}</div>`;
       })}</div>
     </section>
 
+    ${tagOffen ? html`<${TagSheet} d=${tagOffen} plan=${tage.find((x) => x.datum === tagOffen)} erledigt=${erledigt.has(tagOffen)} zu=${() => setTagOffen(null)}
+      startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
+    <${GewichtKarte} einst=${einst} setEinst=${setEinst}/>
     <div class="maxes">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`}>
       <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b><span class="muted" style="font-size:11.5px">Trainingsmax</span></div>`)}</div>
   </div>`;
@@ -220,8 +247,8 @@ function App() {
   const [einst, setEinstRoh] = useState(STANDARD_EINSTELLUNGEN);
   const [demoKg, setDemoKg] = useState(null);
   const [sync, setSync] = useState({ laeuft: false, zuletzt: null, fehler: null });
-  const [ansicht, setAnsicht] = useState('heute');
-  const [uebungAnsicht, setUebungAnsicht] = useState(null);     // { key, zurueck }
+  const [ansicht, setAnsicht] = useState(() => ausAdresse().ansicht);
+  const [uebungAnsicht, setUebungAnsicht] = useState(() => { const a = ausAdresse(); return a.key ? { key: a.key, zurueck: 'verlauf' } : null; });   // { key, zurueck }
   const [leichter, setLeichter] = useState(false);
   const [training, setTraining] = useState(null);
   const [timer, setTimer] = useState(null);
@@ -234,7 +261,9 @@ function App() {
   const sperre = useRef(null);
   const sp = useRef(null);
   const laeuft = useRef(false);
+  const nochmal = useRef(false);                                 // während eines Abgleichs angefordert → danach noch einmal
   const zuletzt = useRef(0);
+  const jetzt = useRef({ ansicht: 'heute', key: null });          // aktuelle Ansicht für den popstate-Handler
   const katalogStatisch = useRef([]);
   const eigeneUebungen = useRef([]);
   const zusammen = useRef({});                                   // zusammengeführte Übungen { alt: neu }
@@ -252,6 +281,8 @@ function App() {
   // #################################################################
   useEffect(() => {
     thema(speicher.lies('prh-thema'));                     // sofort, bevor das Profil geladen ist
+    schrift(Number(speicher.lies('prh-zoom')) || 1);
+    ladeHintergrund();
     (async () => {
       katalogStatisch.current = await (await fetch('daten/katalog.json')).json();
       setzeKatalog(katalogStatisch.current);
@@ -302,10 +333,19 @@ function App() {
   };
 
   // #################################################################
+  // Hintergrundbild (Update 11, eigene Tabelle); ohne Update 11 bleibt es auf dem Gerät
+  const hintergrundAbgleichen = async (sb) => {
+    const uid = JSON.parse(speicher.lies('prh-nutzer') ?? 'null')?.id;
+    try {
+      await hgAbgleichen({ hochladen: (bild) => konto.hintergrundHochladen(sb, uid, bild), stand: () => konto.hintergrundStand(sb), laden: () => konto.hintergrundLaden(sb) });
+    } catch { /* Tabelle fehlt (vor Update 11) oder kein Netz: beim nächsten Abgleich wieder */ }
+  };
+
   // Abgleich: Programme, Einstellungen, Körpergewicht, Block, dann Trainings (run_id braucht den Block)
   // #################################################################
   async function abgleich() {
-    if (DEMO || !sp.current || laeuft.current) return;
+    if (DEMO || !sp.current) return;
+    if (laeuft.current) { nochmal.current = true; return; }
     laeuft.current = true; zuletzt.current = Date.now();
     setSync((s) => ({ ...s, laeuft: true }));
     const sb = supabase(), s = sp.current, uid = JSON.parse(speicher.lies('prh-nutzer') ?? 'null')?.id;
@@ -322,9 +362,17 @@ function App() {
       for (const [key, a] of Object.entries(an)) if (a.offen) { await konto.anpassungHochladen(sb, key, a); an[key] = { ...a, offen: false }; }
       const anNeu = konto.mischeAnpassungen(an, await konto.ladeAnpassungen(sb));
       await s.setzeMeta('anpassungen', anNeu); setAnpassungen(anNeu);
+      // Einstellungen: offene hochladen, sonst vom Server übernehmen. Ändert der Nutzer währenddessen etwas, gewinnt seine
+      // Änderung (Stand vor dem Schreiben neu lesen) – sonst ginge sie beim Neuladen verloren
       const ei = await s.meta('einst');
-      if (ei?.offen) { await konto.speichereProfil(sb, uid, ei); await s.setzeMeta('einst', { ...ei, offen: false }); }
-      else { const e = konto.einstAusProfil(await konto.ladeProfil(sb, uid), ei ?? {}); await s.setzeMeta('einst', e); setEinstRoh({ ...STANDARD_EINSTELLUNGEN, ...e }); }
+      if (ei?.offen) {
+        await konto.speichereProfil(sb, uid, ei);
+        if (JSON.stringify(await s.meta('einst')) === JSON.stringify(ei)) await s.setzeMeta('einst', { ...ei, offen: false });
+      } else {
+        const e = konto.einstAusProfil(await konto.ladeProfil(sb, uid), ei ?? {});
+        if (!(await s.meta('einst'))?.offen) { await s.setzeMeta('einst', e); setEinstRoh({ ...STANDARD_EINSTELLUNGEN, ...e }); }
+      }
+      await hintergrundAbgleichen(sb, s);
       let me = (await s.meta('messwerte')) ?? [];
       for (const m of me.filter((x) => x.offen)) { await konto.messwertHochladen(sb, m); m.offen = false; }
       me = konto.mischeMesswerte(me, await konto.ladeMesswerte(sb));
@@ -338,7 +386,10 @@ function App() {
       setSync({ laeuft: false, zuletzt: new Date().toISOString(), fehler: erg.fehler.length ? erg.fehler : null });
     } catch (e) {
       setSync((alt) => ({ ...alt, laeuft: false, fehler: [{ meldung: navigator.onLine ? e.message : 'Kein Netz – wird später nachgeholt.' }] }));
-    } finally { laeuft.current = false; }
+    } finally {
+      laeuft.current = false;
+      if (nochmal.current) { nochmal.current = false; abgleich(); }
+    }
   }
 
   useEffect(() => {
@@ -353,13 +404,53 @@ function App() {
     return () => { removeEventListener('online', online); document.removeEventListener('visibilitychange', sichtbar); };
   }, []);
 
+  // Historie: Wurzel-Eintrag + aktuelle Ansicht; Zurück auf der Wurzel bleibt in der App
+  useEffect(() => {
+    const start = ausAdresse();
+    history.replaceState({ wurzel: true }, '', adresse(start.ansicht, start.key));
+    history.pushState(start, '', adresse(start.ansicht, start.key));
+    const zurueck = (e) => {
+      const st = e.state;
+      if (!st?.ansicht) { history.pushState(jetzt.current, '', adresse(jetzt.current.ansicht, jetzt.current.key)); return; }
+      setAnsicht(st.ansicht);
+      if (st.key) setUebungAnsicht((u) => (u?.key === st.key ? u : { key: st.key, zurueck: 'verlauf' }));
+    };
+    addEventListener('popstate', zurueck);
+    // Neuladen/Herunterziehen: Ansicht steht in der Adresse, die Scrollposition merken wir uns hier
+    const merken = () => { try { sessionStorage.setItem('prh-scroll', JSON.stringify({ hash: location.hash, y: scrollY })); } catch { /* egal */ } };
+    addEventListener('pagehide', merken);
+    return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); };
+  }, []);
+  useEffect(() => {
+    if (phase !== 'bereit') return;
+    try {
+      const m = JSON.parse(sessionStorage.getItem('prh-scroll') ?? 'null');
+      sessionStorage.removeItem('prh-scroll');
+      if (m && m.hash === location.hash && m.y > 0) setTimeout(() => scrollTo(0, m.y), 60);
+    } catch { /* egal */ }
+  }, [phase]);
+
   // Laufendes Training bei jeder Änderung sichern (übersteht Neuladen, Akku leer, App-Wechsel)
   useEffect(() => { if (!DEMO && sp.current && phase === 'bereit') sp.current.setzeMeta('laufend', training ?? null).catch(() => {}); }, [training]);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 3200); return () => clearTimeout(id); }, [toast]);
   useEffect(() => { thema(einst.thema); speicher.schreib('prh-thema', einst.thema ?? 'system'); }, [einst.thema]);
+  useEffect(() => { schrift(einst.zoom ?? 1); speicher.schreib('prh-zoom', String(einst.zoom ?? 1)); }, [einst.zoom]);
+  useEffect(() => { if (einst.hintergrundDunkel != null) setzeAbdunklung(einst.hintergrundDunkel); }, [einst.hintergrundDunkel]);
   useEffect(() => { if (!lichter) return; const id = setTimeout(() => setLichter(null), 1900); return () => clearTimeout(id); }, [lichter]);
 
   // Auswertungsstand für alle Ansichten (Live-Bindings in ui/stand.js)
+  // Blöcke (program_runs) als Zeiträume aus den Trainings: für „nur Bestwert je Block“ in den Übungs-Charts
+  const bloecke = useMemo(() => {
+    const m = new Map();
+    for (const t of trainings) {
+      if (!t.runId || t.geloescht) continue;
+      const b = m.get(t.runId) ?? { id: t.runId, von: t.datum, bis: t.datum };
+      if (t.datum < b.von) b.von = t.datum;
+      if (t.datum > b.bis) b.bis = t.datum;
+      m.set(t.runId, b);
+    }
+    return [...m.values()];
+  }, [trainings]);
   const stand = useMemo(() => (DEMO || phase !== 'bereit' ? null
     : erstelleStand(trainings, { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' })), [trainings, messwerte, heute, phase, einst.formel]);
   if (stand) setzeStand(stand);
@@ -414,8 +505,8 @@ function App() {
     });
   }
 
-  if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><i></i>PR Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
-  if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><i></i>PR Hunter</span><p class="muted">Lade …</p></div>`;
+  if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
+  if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="muted">Lade …</p></div>`;
   if (phase === 'anmelden') return html`<${Anmeldung} angemeldet=${(s) => starte({ id: s.user.id, email: s.user.email })}
     zurueck=${nutzer ? () => setPhase('bereit') : null}/>`;
 
@@ -433,8 +524,13 @@ function App() {
   const offen = trainings.filter((t) => t.offen).length;
   const einstUi = { ...einst, koerpergewicht: DEMO ? demoKg ?? KOERPERGEWICHT : KOERPERGEWICHT };
 
-  const gehe = (a) => { setAnsicht(a); scrollTo(0, 0); };
-  const zuUebung = (key, zurueck) => { setUebungAnsicht({ key, zurueck }); gehe('uebung'); };
+  const gehe = (a, key = null) => {
+    setAnsicht(a); scrollTo(0, 0);
+    const st = { ansicht: a, key };
+    if (history.state?.ansicht === a && history.state?.key === key) history.replaceState(st, '', adresse(a, key));
+    else history.pushState(st, '', adresse(a, key));
+  };
+  const zuUebung = (key, zurueck) => { setUebungAnsicht({ key, zurueck }); gehe('uebung', key); };
   const setEinst = (neu) => {
     if (neu.koerpergewicht !== einstUi.koerpergewicht && neu.koerpergewicht > 0) {
       if (DEMO) setDemoKg(neu.koerpergewicht);
@@ -583,31 +679,33 @@ function App() {
     location.reload();
   };
 
+  jetzt.current = { ansicht, key: ansicht === 'uebung' ? uebungAnsicht?.key ?? null : null };
   const imTraining = ansicht === 'training' && training;
   const leiste = training && ansicht !== 'training';
   const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
-  const aktiverTab = ansicht === 'training' ? 'heute' : ansicht === 'uebung' ? (uebungAnsicht?.zurueck === 'training' ? 'heute' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
+  const aktiverTab = ansicht === 'training' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     ${imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
         minimieren=${() => gehe('heute')} beenden=${beenden} zuVerlauf=${(key) => zuUebung(key, 'training')}/>`
-      : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key}
-          zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : 'verlauf')}
-          zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : 'Zurück zum Verlauf'}/>`
+      : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
+          zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
+          zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : uebungAnsicht.zurueck === 'heute' ? 'Zurück zu Heute' : 'Zurück zum Verlauf'}/>`
       : ansicht === 'programme' ? html`<${Programme} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
           sollIst=${aktiverBlock && !DEMO ? sollIst(tage, trainings, aktiverBlock.id) : []}
           neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
-      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
+      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
       : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen}/>`
       : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
-          starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} sync=${sync} offen=${offen}
-          zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}/>`}
+          starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
+          zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
+          startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')}/>`}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer}/>` : null}

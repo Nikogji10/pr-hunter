@@ -15,14 +15,19 @@ const num = (x) => (x == null ? null : Number(x));
 export const STANDARD_EINSTELLUNGEN = {
   pausen: { ...STANDARD_PAUSEN }, cut: false, sprache: 'de', einheit: 'kg', inc: 2.5, stange: 20, scheiben: [...STANDARD_SCHEIBEN],
   formel: 'rpe', thema: 'system', name: null, admin: false, vergleich: false,
-  bereitschaft: true,                       // Readiness-Check vor dem Training (nur auf dem Gerät)
+  // profiles.app_settings (Update 11): auf allen Geräten gleich; ohne 11 bleiben sie auf dem Gerät
+  bereitschaft: true, zoom: 1, ziele: {}, gewichtZiel: null, avatar: null, hintergrundDunkel: 0.55,
 };
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
     name: p.display_name ?? alt.name ?? null, admin: p.role === 'admin', sprache: p.language ?? 'de', einheit: p.unit ?? 'kg',
     inc: num(p.load_increment) ?? 2.5, stange: num(p.bar_weight_kg) ?? 20, scheiben: (p.plates_kg ?? STANDARD_SCHEIBEN).map(Number),
-    formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats };
+    formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats,
+    // app_settings: Spalte vorhanden → Werte von dort (und beim Speichern mitschicken), sonst die lokalen behalten
+    ...('app_settings' in p ? { ...Object.fromEntries(APP_SETTINGS.filter((k) => k in (p.app_settings ?? {})).map((k) => [k, p.app_settings[k]])), appSettings: true } : {}),
+    ...('avatar' in p ? { avatar: p.avatar ?? null } : {}) };
 }
 // Vor Update 3 hießen die Schlüssel main/variation/isolation; nur die neuen übernehmen
 const pausenOhneAlteSchluessel = (r) => Object.fromEntries(Object.entries(r ?? {}).filter(([k, v]) => k in STANDARD_PAUSEN && v > 0));
@@ -31,6 +36,8 @@ export const profilAusEinst = (e) => ({
   rest_defaults_s: e.pausen, cut_mode: !!e.cut, language: e.sprache ?? 'de', unit: e.einheit ?? 'kg', load_increment: e.inc ?? 2.5,
   bar_weight_kg: e.stange ?? 20, plates_kg: e.scheiben ?? STANDARD_SCHEIBEN, e1rm_formula: e.formel ?? 'rpe', theme: e.thema ?? 'system',
   ...(e.name ? { display_name: e.name } : {}), ...(e.vergleichGeaendert ? { share_stats: !!e.vergleich } : {}),
+  // Update 11 bringt app_settings und avatar gemeinsam
+  ...(e.appSettings ? { app_settings: Object.fromEntries(APP_SETTINGS.map((k) => [k, e[k] ?? STANDARD_EINSTELLUNGEN[k]])), avatar: e.avatar ?? null } : {}),
 });
 
 export const ladeProfil = async (sb, uid) => pruefe(await sb.from('profiles').select('*').eq('id', uid).single());
@@ -200,7 +207,8 @@ export async function blockHochladen(sb, b) {
 export function vergleichAusZeilen(zeilen) {
   const nach = new Map();
   for (const z of zeilen ?? []) {
-    const p = nach.get(z.user_id) ?? { id: z.user_id, name: z.display_name || 'Ohne Namen', ich: !!z.ich, koerpergewicht: z.bodyweight_kg == null ? null : Number(z.bodyweight_kg), lifts: {} };
+    const p = nach.get(z.user_id) ?? { id: z.user_id, name: z.display_name || 'Ohne Namen', ich: !!z.ich, avatar: z.avatar ?? null,
+      koerpergewicht: z.bodyweight_kg == null ? null : Number(z.bodyweight_kg), lifts: {} };
     p.lifts[z.lift] = { aktuell: z.e1rm_aktuell == null ? null : Number(z.e1rm_aktuell), best: z.e1rm_best == null ? null : Number(z.e1rm_best), datum: z.best_date ?? null };
     nach.set(z.user_id, p);
   }
@@ -225,6 +233,16 @@ export async function zusammenfuehren(sb, vonKey, nachKey) {
   if (!ids[vonKey] || !ids[nachKey]) throw new Error('Übung nicht gefunden.');
   return pruefe(await sb.rpc('merge_exercises', { p_from: ids[vonKey], p_into: ids[nachKey] }));
 }
+
+// #################################################################
+// Hintergrundbild = user_assets (Update 11): eigene Tabelle, geladen nur, wenn sich der Stand (updated_at) ändert
+// #################################################################
+export async function hintergrundHochladen(sb, uid, bild) {
+  const r = await pruefe(await sb.from('user_assets').upsert({ user_id: uid, hintergrund: bild ?? null }).select('updated_at').single());
+  return r.updated_at;
+}
+export const hintergrundStand = async (sb) => (await pruefe(await sb.from('user_assets').select('updated_at').maybeSingle()))?.updated_at ?? null;
+export const hintergrundLaden = async (sb) => (await pruefe(await sb.from('user_assets').select('hintergrund, updated_at').maybeSingle())) ?? null;
 
 // #################################################################
 // Körpergewicht = body_metrics (ein Wert je Tag)

@@ -2,6 +2,7 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, fmt, mmss, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
+import { UebungsBild } from './basis.js';
 import { e1rm, lastFuer, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { BEST_E1RM, E1RM_AKTUELL, LETZTES } from './stand.js';
@@ -36,11 +37,12 @@ export function baueTraining(tag, { leichter = false, koerperKg = 88 } = {}) {
       const n = g.saetze?.min ?? 1;                 // Bereich „5-10“: mit 5 starten, weitere per „+ Satz“
       const wdh = g.wdh?.min ?? g.wdh?.ziel ?? 1;
       let kg = g.kg != null ? (leichter ? mround(g.kg * 0.95) : g.kg) : null;
+      const kgBis = g.kgBis != null ? (leichter ? mround(g.kgBis * 0.95) : g.kgBis) : null;
       let ausE1rm = false;
       if (kg == null && u.key) { kg = vorschlag(u.key, wdh, g.rpe?.max, koerperKg); ausE1rm = kg != null; }
       karte.gruppen.push({
         rolle: g.rolle ?? u.rolle, wdhText: wdhText(g.wdh), rpe: g.rpe, notiz: g.notiz, vorschlag: ausE1rm, saetzeText: g.saetze?.text ?? null,
-        gekuerzt: g.gekuerzt,
+        gekuerzt: g.gekuerzt, kgBis,
         saetze: Array.from({ length: n }, () => ({ kg, kgPlan: kg, wdh, rpe: null, erledigt: false, e1rm: null, pr: false, geaendert: false })),
       });
     }
@@ -71,6 +73,10 @@ function setzeUebung(karte, key, koerperKg) {
 export function Training({ t, setT, timer, setTimer, einst, toast, lichter, minimieren, beenden, zuVerlauf }) {
   const [sheet, setSheet] = useState(null);
   useTakt(true, 1000);
+  const aktuell = (() => {
+    for (const [ki, k] of t.karten.entries()) if (k.key) for (const [gi, g] of k.gruppen.entries()) for (const [si, x] of g.saetze.entries()) if (!x.erledigt) return [ki, gi, si];
+    return null;
+  })();
   const dauer = (Date.now() - t.start) / 1000;
   const kg = einst.koerpergewicht;
   const aendere = (f) => setT((alt) => { const karten = structuredClone(alt.karten); f(karten); return { ...alt, karten }; });
@@ -122,7 +128,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
             <div class="ex-meta">${k.gruppen[0].saetze.length} × ${k.gruppen[0].wdhText}${k.gruppen[0].rpe ? ` · ${rpeText(k.gruppen[0].rpe)}` : ''} · Übung wählen</div></div></div>
         <div class="slot"><${UebungSuche} id=${`slot-${ki}`} familien=${k.slot.families?.length ? k.slot.families : null} onWahl=${(key) => aendere((ks) => setzeUebung(ks[ki], key, kg))}/></div>
       </section>`
-      : html`<${Karte} key=${k.id} k=${k} ki=${ki} karten=${t.karten} abhaken=${abhaken} aendere=${aendere} setSheet=${setSheet} einst=${einst} zuVerlauf=${zuVerlauf} bearbeiten=${!!t.bearbeiten}/>`)}
+      : html`<${Karte} key=${k.id} k=${k} ki=${ki} karten=${t.karten} abhaken=${abhaken} aendere=${aendere} setSheet=${setSheet} einst=${einst} zuVerlauf=${zuVerlauf} bearbeiten=${!!t.bearbeiten} aktuell=${aktuell}/>`)}
 
     <section class="card pad stack">
       <span class="viz-t">${t.karten.length ? 'Weitere Übung' : 'Erste Übung wählen'}</span>
@@ -145,7 +151,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
   </div>`;
 }
 
-function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false }) {
+function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null }) {
   const lift = liftVon(k.key), letzte = LETZTES[k.key], g0 = k.gruppen[0], koerper = koerperUebung(k.key), a = anpassung(k.key);
   const aufw = !bearbeiten && stangeVon(k.key) && g0.saetze[0].kg > 40 ? aufwaermen(g0.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() }) : [];
   const naechste = karten[ki + 1];
@@ -156,13 +162,13 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
   return html`<section class=${`card ex ${k.supersatz ? 'supersatz' : ''}`}>
     ${k.supersatz ? html`<div class="ss-marke">Supersatz ${String.fromCharCode(64 + k.supersatz)}</div>` : null}
     <div class="ex-head">
-      <div class="badge" style=${lift === 'andere' ? 'background:var(--raised);color:var(--ink)' : `background:${LIFT[lift].farbe};color:#0B0C0E`}>${LIFT[lift].kurz}</div>
+      <button class="bild-knopf" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung" style=${lift === 'andere' ? '' : `--c:${LIFT[lift].farbe}`}><${UebungsBild} schluessel=${k.key} groesse=${48}/></button>
       <div style="min-width:0;flex:1"><p class="ex-title">${nameVon(k.key)}</p>
         <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}</div>
         ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">
-        <button class="mini" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Fortschritt dieser Übung">${I.verlauf_uebung}</button>
+        <button class="mini akzent" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung">${I.statistik}</button>
         <button class="mini" onClick=${() => setSheet({ art: 'tausch', ki })} aria-label="Übung tauschen">${I.tausch}</button>
       </div>
     </div>
@@ -171,13 +177,18 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
         <span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (g.saetzeText ?? 'Arbeitssätze')}</span>
         <span class="target">${g.wdhText ? `${g.saetze.length} × ${g.wdhText}` : `${g.saetze.length} ${g.saetze.length === 1 ? 'Satz' : 'Sätze'}`}${g.rpe ? ` · ${rpeText(g.rpe)}` : ''}${g.vorschlag ? ' · kg aus e1RM' : ''}${g.gekuerzt ? ' · Cut −1' : ''}</span>
       </div>
+      ${g.kgBis && g.saetze.some((s) => !s.erledigt) ? html`<div class="spanne">
+        <span>Spielraum <b>${gw(g.saetze[0].kgPlan ?? g.saetze[0].kg)}–${gw(g.kgBis)} ${einheit()}</b> – nach Tagesform wählen</span>
+        <button class="chip" onClick=${() => aendere((ks) => { for (const s of ks[ki].gruppen[gi].saetze) if (!s.erledigt) { s.kg = g.kgBis; s.geaendert = true; } })}>auf ${gw(g.kgBis)}</button>
+      </div>` : null}
       ${gi === 0 && aufw.length ? html`<details class="warm">
         <summary><span>Aufwärmen</span><span class="muted" style="font-size:13px">${aufw.length} Sätze bis ${gwE(aufw.at(-1).kg)}</span></summary>
         <ol>${aufw.map((w, i) => html`<li key=${i}><span class="zahl">${gwE(w.kg)}</span><span class="muted">× ${w.wdh}</span><${Scheiben} kg=${w.kg}/></li>`)}</ol>
       </details>` : null}
       ${g.saetze.map((s, si) => {
         const extras = satzExtras(s);
-        return html`<div key=${si} class=${`set ${s.erledigt ? 'done' : ''} ${s.pr ? 'pr' : ''} ${s.typ === 'warmup' ? 'aufw' : ''}`}>
+        const jetzt = aktuell && aktuell[0] === ki && aktuell[1] === gi && aktuell[2] === si;
+        return html`<div key=${si} class=${`set ${s.erledigt ? 'done' : ''} ${jetzt ? 'jetzt' : ''} ${s.pr ? 'pr' : ''} ${s.typ === 'warmup' ? 'aufw' : ''}`}>
         <span class="n" title=${SATZTYP.find(([id]) => id === s.typ)?.[1] ?? null}>${SATZTYP_KURZ[s.typ] ?? si + 1}</span>
         <button class=${`cell ${s.geaendert || s.erledigt ? '' : 'plan'}`} onClick=${() => setSheet({ art: 'kg', ki, gi, si })} aria-label="Gewicht ändern">
           <span class="v">${koerper && s.kg > 0 ? '+' : ''}${gw(s.kg)}</span><span class="u">${koerper ? `${einheit()} Zusatz` : einheit()}</span></button>
@@ -305,7 +316,7 @@ function SatzSheet({ t, s: z, zu, satz, aendere, koerperKg }) {
     </div>` : html`<button class="link" style="justify-self:start" onClick=${() => setMehr(true)}>Bänder, Ketten, Geschwindigkeit …</button>`}
     <label class="field" for="x-notiz"><span class="label">Notiz zum Satz</span>
       <input id="x-notiz" class="text" type="text" placeholder="z. B. Knie nach innen" value=${notiz} onInput=${(e) => setNotiz(e.currentTarget.value)}/></label>
-    <div class="row"><button class="btn btn-soft" onClick=${entfernen}>Satz entfernen</button><button class="btn btn-chalk" style="flex:1" onClick=${nimm}>Übernehmen</button></div>
+    <div class="row"><button class="btn btn-gefahr" onClick=${entfernen}>Satz entfernen</button><button class="btn btn-chalk" style="flex:1" onClick=${nimm}>Übernehmen</button></div>
   <//>`;
 }
 
@@ -341,7 +352,7 @@ function EndeSheet({ t, zu, beenden }) {
     <label class="stack" style="gap:8px" for="ende-notiz"><span class="eyebrow">Notiz</span>
       <textarea id="ende-notiz" placeholder="z. B. Knie heute gut, Bank schnell" value=${notiz} onInput=${(e) => setNotiz(e.currentTarget.value)}></textarea></label>
     <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${zu}>Weiter</button>
-      <button class="btn btn-chalk" style="flex:1.4" onClick=${() => beenden({ sessionRpe: gefuehl, notiz: notiz.trim() || null })}>${saetze.length ? 'Speichern' : 'Verwerfen'}</button></div>
+      <button class=${`btn ${saetze.length ? 'btn-chalk' : 'btn-gefahr'}`} style="flex:1.4" onClick=${() => beenden({ sessionRpe: gefuehl, notiz: notiz.trim() || null })}>${saetze.length ? 'Speichern' : 'Verwerfen'}</button></div>
     <p class="muted" style="margin:0;font-size:12.5px">${!saetze.length ? (t.bearbeiten ? 'Kein Satz abgehakt – die Änderungen werden verworfen, das gespeicherte Training bleibt.' : 'Kein Satz abgehakt – das Training wird nicht gespeichert.')
       : t.bearbeiten ? 'Ersetzt das gespeicherte Training, auf dem Handy sofort und auf dem Server beim nächsten Abgleich.'
       : 'Das Training wird sofort auf dem Handy gesichert und hochgeladen, sobald Netz da ist.'}</p>

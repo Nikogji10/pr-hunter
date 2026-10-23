@@ -1,10 +1,10 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
 
-export { html, useState, useEffect };
+export { html, useState, useEffect, useRef };
 export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { maximumFractionDigits: stellen });
 
 // #################################################################
@@ -157,6 +157,7 @@ export const I = {
   extern: svg(html`<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>`),
   kopieren: svg(html`<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>`),
   import: svg(html`<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>`),
+  weiter: svg(html`<path d="M9 6l6 6-6 6"/>`),
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
@@ -181,8 +182,22 @@ export async function kopiere(text, feld) {
   catch { if (feld) { feld.focus(); feld.select(); } return false; }
 }
 
+/** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
 export function Sheet({ zu, children, label = 'Dialog' }) {
-  useEffect(() => { const k = (e) => e.key === 'Escape' && zu(); addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
+  const zuRef = useRef(zu);
+  zuRef.current = zu;
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && zuRef.current();
+    let perZurueck = false;
+    const pop = () => { perZurueck = true; zuRef.current(); };
+    history.pushState({ ...(history.state ?? {}), sheet: true }, '');
+    addEventListener('keydown', k);
+    addEventListener('popstate', pop);
+    return () => {
+      removeEventListener('keydown', k); removeEventListener('popstate', pop);
+      if (!perZurueck && history.state?.sheet) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
+    };
+  }, []);
   return html`<div class="backdrop" onClick=${(e) => e.target === e.currentTarget && zu()}>
     <div class="sheet" role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
   </div>`;
@@ -218,23 +233,62 @@ export function Hantel({ kg, stange = stangeKg() }) {
   </div>`;
 }
 
-/** Fortschritt eines Blocks als beladene Hantel: jede Woche eine Scheibe, innen Woche 1. */
+/**
+ * Fortschritt eines Blocks als beladene Hantel: jede Woche eine Scheibe in Wettkampffarben (innen Woche 1, rot 25 →
+ * blau 20 → gelb 15 → grün 10 → weiß 5 → schwarz 2,5). Erledigte Wochen voll mit Glanz, die aktuelle glüht,
+ * kommende sind nur angedeutet.
+ */
+const BLOCK_FARBEN = ['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', 'var(--p5)', 'var(--p2)'];
+const BLOCK_HOEHEN = [100, 100, 100, 100, 76, 64];
 export function BlockHantel({ wochen, aktuell }) {
-  const n = wochen.length, b = Math.min(13, 96 / n), teile = [];
+  const n = wochen.length, b = Math.min(14, 98 / n), abstand = 2.5, teile = [], zahlen = [];
   for (let i = 0; i < n; i++) {
     const zustand = i + 1 < aktuell ? 'fertig' : i + 1 === aktuell ? 'jetzt' : 'offen';
-    const st = zustand === 'fertig' ? 'fill:var(--ink)' : zustand === 'jetzt' ? 'fill:url(#raendel);stroke:var(--ink);stroke-width:2' : 'fill:transparent;stroke:var(--line);stroke-width:1.5';
-    const xr = 230 + i * (b + 3), xl = 110 - b - i * (b + 3);
-    teile.push(html`<g key=${i}>
-      <rect x=${xr} y="14" width=${b} height="92" rx="2.5" style=${st}/><rect x=${xl} y="14" width=${b} height="92" rx="2.5" style=${st}/>
-      <text x=${xr + b / 2} y="122" text-anchor="middle" style=${`fill:${zustand === 'offen' ? 'var(--muted)' : 'var(--ink)'};font:800 10px var(--f)`}>${i + 1}</text></g>`);
+    const farbe = BLOCK_FARBEN[i % 6], h = BLOCK_HOEHEN[i % 6], y = 62 - h / 2;
+    const xr = 231 + i * (b + abstand), xl = 109 - b - i * (b + abstand);
+    for (const [seite, x] of [['r', xr], ['l', xl]]) {
+      teile.push(html`<g key=${`${seite}${i}`} class=${zustand === 'jetzt' ? 'jetzt' : ''} style=${zustand === 'jetzt' ? `filter:drop-shadow(0 0 7px ${farbe})` : ''}>
+        <rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style=${`fill:${farbe};opacity:${zustand === 'offen' ? 0.14 : 1}`}/>
+        ${zustand === 'offen'
+          ? html`<rect x=${x + 0.6} y=${y + 0.6} width=${b - 1.2} height=${h - 1.2} rx="2" style=${`fill:none;stroke:${farbe};stroke-width:1.2;opacity:.55`}/>`
+          : html`<rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style="fill:url(#glanz)"/>
+            <rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style="fill:none;stroke:rgba(0,0,0,.45);stroke-width:1"/>`}
+      </g>`);
+    }
+    zahlen.push(html`<text key=${`z${i}`} x=${xr + b / 2} y="126" text-anchor="middle"
+      style=${`fill:${zustand === 'jetzt' ? 'var(--acc-text)' : zustand === 'offen' ? 'var(--muted)' : 'var(--ink)'};font:800 ${zustand === 'jetzt' ? 11.5 : 10}px var(--f)`}>${i + 1}</text>`);
   }
-  return html`<div class="hantel"><svg viewBox="0 0 340 128" role="img" aria-label=${`Woche ${aktuell} von ${n}`}>
-    <defs><pattern id="raendel" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <rect width="5" height="5" style="fill:var(--raised)"/><rect width="1.6" height="5" style="fill:var(--ink)"/></pattern></defs>
-    <rect x="4" y="57" width="332" height="6" rx="3" style="fill:var(--axis)"/>
-    <rect x="114" y="46" width="5" height="28" rx="1.5" style="fill:var(--muted)"/><rect x="221" y="46" width="5" height="28" rx="1.5" style="fill:var(--muted)"/>
-    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((k) => html`<line key=${k} x1=${140 + k * 5} x2=${144 + k * 5} y1="57" y2="63" style="stroke:var(--line)"/>`)}
-    ${teile}
+  return html`<div class="hantel"><svg viewBox="0 0 340 132" role="img" aria-label=${`Woche ${aktuell} von ${n}`}>
+    <defs>
+      <linearGradient id="glanz" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".22" stop-color="#fff" stop-opacity=".1"/>
+        <stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient>
+      <linearGradient id="stahl" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#C9CED6"/><stop offset=".45" stop-color="#7B828C"/><stop offset="1" stop-color="#2E333A"/></linearGradient>
+    </defs>
+    <rect x="2" y="58.5" width="336" height="7" rx="3.5" style="fill:url(#stahl)"/>
+    <rect x="104" y="47" width="6" height="30" rx="1.5" style="fill:url(#stahl)"/><rect x="230" y="47" width="6" height="30" rx="1.5" style="fill:url(#stahl)"/>
+    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((k) => html`<line key=${k} x1=${124 + k * 5} x2=${128 + k * 5} y1="58.5" y2="65.5" style="stroke:rgba(0,0,0,.35)"/>`)}
+    ${teile}${zahlen}
   </svg></div>`;
+}
+
+/** Profilbild rund; ohne Bild die Initialen auf rotem Grund. */
+export function Avatar({ bild, name, groesse = 40 }) {
+  const initialen = (name ?? '?').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((t) => t[0].toUpperCase()).join('') || '?';
+  return bild ? html`<img class="avatar" src=${bild} alt="" style=${`width:${groesse}px;height:${groesse}px`}/>`
+    : html`<span class="avatar leer" style=${`width:${groesse}px;height:${groesse}px;font-size:${Math.round(groesse * 0.38)}px`} aria-hidden="true">${initialen}</span>`;
+}
+
+// Übungsbild aus der Free Exercise DB (gemeinfrei); ohne Bild ein Hantel-Symbol in der Farbe des Lifts
+const BILD_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+export const bildVon = (key) => { const i = uebung(key)?.i ?? uebung(kanon(key))?.i; return i ? `${BILD_URL}${encodeURIComponent(i)}/0.jpg` : null; };
+export function UebungsBild({ schluessel, groesse = 44 }) {
+  const [kaputt, setKaputt] = useState(false);
+  const url = bildVon(schluessel), lift = liftVon(schluessel);
+  const masse = `width:${groesse}px;height:${groesse}px`;
+  if (!url || kaputt) {
+    return html`<span class="uebung-bild leer" style=${`${masse};color:${lift === 'andere' ? 'var(--ink-2)' : LIFT[lift].farbe}`} aria-hidden="true">${I.heute}</span>`;
+  }
+  return html`<img class="uebung-bild" src=${url} alt="" loading="lazy" decoding="async" style=${masse} onError=${() => setKaputt(true)}/>`;
 }
