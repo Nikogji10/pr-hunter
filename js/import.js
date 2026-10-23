@@ -1,7 +1,7 @@
 // PR Hunter · Programm-Import als CSV. Die KI-Anleitung (KI_ANLEITUNG) wird in der App kopiert, die KI liefert
 // die CSV, leseProgrammCsv macht daraus eine Vorlage im Programmformat (siehe CLAUDE.md „Programmformat“).
 // Unbekannte Übungen, Tage oder Lastangaben stoppen den Import mit Zeilennummer.
-import { leseSaetze, leseWdh, leseRpe, leseFormel } from './programm.js';
+import { leseSaetze, leseWdh, leseRpe, leseFormel, formelNamen } from './programm.js';
 
 export const SPALTEN = ['woche', 'tag', 'uebung', 'rolle', 'saetze', 'wdh', 'last', 'rpe', 'cut', 'notiz'];
 
@@ -198,12 +198,15 @@ export function lastText(load) {
   return s;
 }
 
-/** Eingabetext → Formel: „84%S“, „80%B+2,5“, „100kg“, leer oder eine gültige Formel (R(S*0.95*0.84)). */
-export function textZuLast(text) {
+/** Eingabetext → Formel: „84%S“, „80%B+2,5“, „100kg“, leer oder eine gültige Formel (R(S*0.95*0.84), v3: R(TS*0.8)). */
+export function textZuLast(text, namen = []) {
   const r = leseLast(text);
   if (!r.fehler) return { load: r.load };
-  try { leseFormel(text.trim()); return { load: text.trim() }; } catch { return { fehler: r.fehler }; }
+  try { leseFormel(text.trim(), namen); return { load: text.trim() }; } catch { return { fehler: r.fehler }; }
 }
+
+// Maxe hinter den Formelnamen: TS/TD (Trainingsmax aus Kniebeuge/Kreuzheben) brauchen S bzw. D
+const MAX_VON = { TS: 'S', TD: 'D' };
 
 /**
  * Programm im JSON-Format prüfen. Rückgabe { programm, fehler }: programm ist normalisiert (inputs aus den Formeln,
@@ -217,6 +220,7 @@ export function pruefeProgrammJson(text, katalog) {
   if (!roh || !Array.isArray(roh.weeks) || !roh.weeks.length) return { programm: null, fehler: ['„weeks“ fehlt oder ist leer.'] };
   const keys = new Set(katalog.map((e) => e.k));
   const variablen = new Set();
+  const namen = formelNamen(roh);
   const weeks = roh.weeks.map((w, wi) => {
     const wort = `Woche ${w.week ?? wi + 1}`;
     // Eine Woche ohne Tage nur mit Hinweisen (Candito 6 Week: „Woche 6 – drei Optionen“)
@@ -231,8 +235,9 @@ export function pruefeProgrammJson(text, katalog) {
         // Freie Zusatzplätze (slot) dürfen ohne Vorgabe sein (Candito 6 Week: „Optional 1/2“)
         if ((!Array.isArray(it.groups) || !it.groups.length) && !it.slot) fehler.push(`${iw}: keine Satzgruppen („groups“).`);
         return { ...it, groups: (it.groups ?? []).map((g, gi) => {
-          if (g.load != null && g.load !== '') {
-            try { leseFormel(String(g.load)); for (const v of String(g.load).match(/\b[SBDG]\b/g) ?? []) variablen.add(v); }
+          for (const feld of ['load', 'load_hi']) {
+            if (g[feld] == null || g[feld] === '') continue;
+            try { leseFormel(String(g[feld]), namen); for (const v of String(g[feld]).match(/\b(?:[SBDG]|TS|TD)\b/g) ?? []) variablen.add(MAX_VON[v] ?? v); }
             catch (e) { fehler.push(`${iw}, Gruppe ${gi + 1}: ${e.message}`); }
           }
           if (g.sets == null || g.reps == null) fehler.push(`${iw}, Gruppe ${gi + 1}: „sets“ und „reps“ nötig.`);

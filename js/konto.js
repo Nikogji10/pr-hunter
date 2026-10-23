@@ -147,7 +147,15 @@ export async function programmAnlegen(sb, definition, { quelle = 'import', basie
   return [dateiVon(p), { id: p.id, version: 1, name: p.name, vorlage: false, versionen: { 1: definition } }];
 }
 
-/** Neue Version eines eigenen Programms (Bearbeiten erzeugt Versionen, alte bleiben erhalten). */
+/**
+ * Eigenes Programm überschreiben (aktuelle Version, keine neue – Nikos Entscheidung 23.10.2026). Ohne Update 09 fehlt
+ * das Update-Recht; RLS lässt die Zeile dann stumm unverändert, deshalb die Prüfung auf eine geänderte Zeile.
+ */
+export async function programmUeberschreiben(sb, programmId, version, definition) {
+  const zeilen = await pruefe(await sb.from('program_versions').update({ definition }).eq('program_id', programmId).eq('version', version).select('version'));
+  if (!zeilen?.length) throw new Error('Nicht gespeichert: Der Datenbank fehlt Update 09 (Recht zum Überschreiben).');
+}
+/** Neue Version eines Programms (nur noch für Vorlagen-Updates per SQL genutzt; die App überschreibt). */
 export const programmVersionSpeichern = async (sb, programmId, definition, notiz = null) =>
   pruefe(await sb.rpc('save_program_version', { p_program: programmId, p_definition: definition, p_note: notiz }));
 export const programmUmbenennen = async (sb, id, name) => pruefe(await sb.from('programs').update({ name }).eq('id', id));

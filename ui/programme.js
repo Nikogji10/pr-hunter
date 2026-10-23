@@ -25,18 +25,26 @@ function SollIst({ zeilen }) {
 }
 
 /** Neue Maxe nach der Projektionsregel des Programms, sobald in der Testwoche Sätze erledigt sind. */
-function NeueMaxe({ maxe, planen }) {
+function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
   const liste = Object.entries(maxe).filter(([, m]) => m.neuesMax != null || m.projiziert != null);
   if (!liste.length) return null;
   return html`<div class="stack" style="gap:6px"><span class="eyebrow">Neue Maxe aus dem Test</span>
+    ${vertrauen != null ? html`<div class="seg" role="group" aria-label="Wiederholungen im Test">
+      <button aria-pressed=${String(vertrauen === 1)} onClick=${() => setVertrauen(1)}>Wdh sauber (100 %)</button>
+      <button aria-pressed=${String(vertrauen === 0.5)} onClick=${() => setVertrauen(0.5)}>Wdh unsauber (50 %)</button></div>
+      <span class="muted" style="font-size:12px">Unsauber: das neue Max geht nur den halben Weg vom alten zum projizierten Wert.</span>` : null}
     <table class="rec"><thead><tr><th>Lift</th><th>Test</th><th>bisher</th><th>neu</th></tr></thead>
       <tbody>${liste.map(([l, m]) => html`<tr key=${l}><td>${MAX_NAME[l]}</td><td class="muted">${gw(m.kg)} × ${m.wdh}</td><td>${gw(m.alt)}</td>
         <td class="k">${m.neuesMax != null ? gw(m.neuesMax) : 'von Hand'}${m.projiziert != null && m.neuesMax !== m.projiziert ? html` <span class="muted">(${gw(m.projiziert)})</span>` : null}</td></tr>`)}</tbody></table>
-    <span class="muted" style="font-size:12px">In Klammern der rechnerische Wert, wenn die Regel des Programms ihn begrenzt (z. B. höchstens +2 %).</span>
+    <span class="muted" style="font-size:12px">In Klammern der projizierte Wert, wenn die Regel des Programms das neue Max davon abweichen lässt.</span>
     <button class="btn btn-chalk btn-sm" onClick=${planen}>Nächsten Block mit diesen Maxen planen</button></div>`;
 }
 
-export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxe = {} }) {
+export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null }) {
+  // Vertrauensfaktor der v3-Projektion (rpe10_table): 1,0 bei sauberen Wdh, 0,5 bei unsauberen
+  const [vertrauen, setVertrauen] = useState(1);
+  const mitVertrauen = programme[block?.datei]?.rules?.projection?.method === 'rpe10_table';
+  const neueMaxe = neueMaxeFuer?.(mitVertrauen ? vertrauen : null) ?? {};
   // { art: 'detail' | 'import' | 'generator' | 'editor', datei, werte, start, ausTest, vorgabe }
   const [ansicht, setAnsicht] = useState(null);
   const [beenden, setBeenden] = useState(false);
@@ -51,10 +59,12 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} speichern=${(p) => speichernNeu(p, { quelle: 'import' })}/>`;
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
-    versionen=${info[ansicht.datei]?.versionen ?? {}} start=${block?.datei === ansicht.datei ? block.start : null}
+    start=${block?.datei === ansicht.datei ? block.start : null}
     zurueck=${() => setAnsicht({ art: 'detail', datei: ansicht.datei })} toast=${toast}/>`;
   if (ansicht?.art === 'detail' && programme[ansicht.datei]) return html`<${Detail} key=${ansicht.datei} datei=${ansicht.datei} prog=${programme[ansicht.datei]} vorgabe=${ansicht.werte}
     ausTest=${!!ansicht.ausTest} startVorschlag=${ansicht.start} block=${block} einst=${einst} setEinst=${setEinst} toast=${toast} zurueck=${zurListe}
+    neueVersion=${block?.datei === ansicht.datei && info[ansicht.datei]?.version != null && block.version != null && info[ansicht.datei].version !== block.version ? info[ansicht.datei].version : null}
+    umstellen=${(v) => { setBlock({ ...block, version: v }); toast({ titel: `Block auf Version ${v} umgestellt`, text: 'Gilt ab der nächsten Einheit; erledigte Trainings bleiben, wie sie waren.' }); }}
     bearbeiten=${(d) => setAnsicht({ art: 'editor', datei: d })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
     zumGenerator=${(vorgabe) => setAnsicht({ art: 'generator', vorgabe })}
     starten=${(b) => { setBlock(b); setAnsicht(null); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); zuHeute(); }}/>`;
@@ -87,7 +97,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       </div>
       <div class="row wrap" style="gap:6px">${Object.entries(block.werte).map(([k, v]) => html`<span key=${k} class="chip" style="cursor:default">${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</div>
       <${SollIst} zeilen=${sollIst}/>
-      <${NeueMaxe} maxe=${neueMaxe} planen=${() => setAnsicht({ art: 'detail', datei: block.datei, ausTest: true,
+      <${NeueMaxe} maxe=${neueMaxe} vertrauen=${mitVertrauen ? vertrauen : null} setVertrauen=${setVertrauen} planen=${() => setAnsicht({ art: 'detail', datei: block.datei, ausTest: true,
         werte: { ...block.werte, ...Object.fromEntries(Object.entries(neueMaxe).filter(([, m]) => m.neuesMax != null).map(([l, m]) => [l, m.neuesMax])) },
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
       <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
@@ -109,7 +119,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   </div>`;
 }
 
-function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, setEinst, toast, zurueck, starten, bearbeiten, kopieBearbeiten, zumGenerator }) {
+function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, setEinst, toast, zurueck, starten, bearbeiten, kopieBearbeiten, zumGenerator, neueVersion = null, umstellen }) {
   const aktiv = block?.datei === datei;
   const eigen = datei.startsWith('prog:') || datei.startsWith('import:');
   const [start, setStart] = useState(aktiv && !vorgabe ? block.start : startVorschlag ?? HEUTE);
@@ -143,6 +153,11 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       <div style="flex:1;min-width:0"><div class="eyebrow">${aktiv && !vorgabe ? 'Aktiver Block' : eigen ? 'Eigenes Programm' : 'Vorlage'}</div><h1 class="h1" style="font-size:26px">${INFO[datei].kurz}</h1></div>
     </header>
     <p class="muted" style="margin:0">${INFO[datei].text}</p>
+    ${neueVersion != null && !vorgabe ? html`<section class="card pad stack">
+      <span class="viz-t">Neue Version der Vorlage</span>
+      <p style="margin:0;font-size:14px">Dein Block läuft mit Version ${block.version}, aktuell ist Version ${neueVersion}. Umstellen ändert die Gewichte ab der nächsten Einheit; erledigte Trainings bleiben unverändert.</p>
+      <button class="btn btn-soft btn-sm" onClick=${() => umstellen(neueVersion)}>Auf Version ${neueVersion} umstellen</button>
+    </section>` : null}
     ${ausTest ? html`<section class="hint">${I.warn}<span class="t">Neue Maxe übernommen</span><span></span><p>Aus dem Test des letzten Blocks vorgeschlagen. Vor dem Start prüfen; der aktive Block wird dabei beendet.</p></section>` : null}
     <section class="card pad stack">
       <div class="eyebrow">Einrichten</div>
@@ -155,8 +170,12 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       ${alt ? html`<div class="stack" style="gap:8px"><span class="eyebrow">Woche ${alt.alternative_to}</span>
         <div class="seg" role="group" aria-label="Variante Woche 6"><button aria-pressed=${String(!alternativ)} onClick=${() => setAlternativ(false)}>Deload</button>
           <button aria-pressed=${String(alternativ)} onClick=${() => setAlternativ(true)}>Taper + Testtag</button></div></div>` : null}
-      ${regel?.source ? html`<details><summary class="link" style="cursor:pointer">Wie das neue Max nach dem Test berechnet wird</summary>
-        <p class="muted" style="margin:6px 0 0;font-size:13px">${regel.source}${regel.note ? ` ${regel.note}` : ''}</p>
+      ${prog.params ? html`<span class="muted" style="font-size:13px">Trainingsmax ${fmt(prog.params.TM_BULK * 100)} % (Cut ${fmt(prog.params.TM_CUT * 100)} %), zuerst gerundet ·
+        Pause-Kniebeuge × ${fmt(prog.params.VF)} · Test ${fmt(prog.params.TEST * 100, 1)} % vom echten 1RM · ändern unter „Bearbeiten“ bzw. „Kopie bearbeiten“</span>` : null}
+      ${regel?.source || regel?.formula ? html`<details><summary class="link" style="cursor:pointer">Wie das neue Max nach dem Test berechnet wird</summary>
+        <p class="muted" style="margin:6px 0 0;font-size:13px">${regel.method === 'rpe10_table'
+          ? 'Projiziert = Testgewicht ÷ %1RM aus der RPE-10-Tabelle (96/92/89/86/84/81 % für 2–7 Wdh), auf die Steigerung gerundet. Unter 2 Wdh bleibt das alte Max; sonst altes Max + (projiziert − alt) × Vertrauen (1,0 bei sauberen, 0,5 bei unsauberen Wdh). Keine Obergrenze.'
+          : `${regel.source}${regel.note ? ` ${regel.note}` : ''}`}</p>
         ${prog.rules?.projection_bench ? html`<p class="muted" style="margin:6px 0 0;font-size:13px">Bankdrücken (aus dem AMRAP in Woche ${prog.rules.projection_bench.week}): ${prog.rules.projection_bench.source}</p>` : null}</details>` : null}
     </section>
     ${pana.fehler.length ? html`<section class="hint">${I.warn}<span class="t">${pana.fehler.length} ${pana.fehler.length === 1 ? 'Wert' : 'Werte'} außerhalb der Pana-Grenzen</span><span></span>

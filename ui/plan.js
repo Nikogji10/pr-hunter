@@ -7,7 +7,7 @@ import { DEMO, E1RM_AKTUELL } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 
 const INFO_BASIS = {
-  pr_hybrid_candito_pana: { kurz: 'Candito/Pana-Hybrid', text: 'Bankdrücken und Zubehör exakt nach Candito Advanced Bench. Kniebeuge und Kreuzheben als Top-Satz mit Back-offs innerhalb der Pana-Grenzen.', tags: ['Top-Satz/Back-off', 'Bank-Fokus', 'Cut-Modus'] },
+  pr_hybrid_candito_pana: { kurz: 'Candito/Pana-Hybrid', text: 'v3: Bankdrücken und Zubehör exakt nach Candito Advanced Bench. Kniebeuge und Kreuzheben als Top-Satz mit Back-offs vom Trainingsmax (95 %, Cut 92 %), Pause-Kniebeuge am zweiten Tag, Test in Woche 5.', tags: ['Top-Satz/Back-off', 'Bank-Fokus', 'Cut-Modus', 'v3'] },
   candito_int_adv_bench: { kurz: 'Candito Advanced Bench', text: 'Candito-Block mit Bankdrücken-Spezialisierung auf ein Wunsch-Max. Woche 6 wahlweise als Deload oder Taper mit Testtag.', tags: ['Bank-Spezialisierung', 'AMRAP', 'Taper'] },
   candito_6_week: { kurz: 'Candito 6 Week', text: 'Das Original: Hypertrophie, Kraftausdauer, Maximalkraft, schwere Gewöhnung, Test in Woche 5.', tags: ['Klassiker', 'AMRAP', 'Test'] },
 };
@@ -18,6 +18,14 @@ export const INFO = new Proxy(INFO_BASIS, {
   get: (ziel, datei) => ziel[datei] ?? { kurz: NAMEN[datei] ?? String(datei).replace(/^(import|prog):/, ''), text: 'Eigenes Programm (Import, Generator oder bearbeitete Kopie).', tags: ['Eigenes'], importiert: true },
 });
 export const BEISPIEL_MAXE = { S: 205, D: 210, B: 155, G: 158 };
+/** Parameter des Hybrid v3 (programme/BERECHNUNG_HYBRID_V3.md): Beschriftung und Erklärung im Editor. */
+export const PARAMETER = {
+  TM_BULK: ['Trainingsmax Aufbau', 'Anteil vom 1RM'], TM_CUT: ['Trainingsmax Cut', 'Anteil vom 1RM im Cut-Modus'],
+  VF: ['Faktor Pause-Kniebeuge', 'auf die Prozent der Variante'], TEST: ['Testgewicht Woche 5', 'vom echten 1RM'],
+  TEST_BO: ['Back-off nach dem Test', 'vom echten 1RM'], DPDL: ['Defizit-Kreuzheben', 'Anteil vom Kreuzheben-1RM'],
+  BAR: ['Stange', 'kg, für Scheiben pro Seite'], CUT_BACKOFF: ['Cut: Back-offs', 'Sätze weniger'],
+  CUT_ACCESSORY: ['Cut: Zubehör', 'Sätze weniger'], CUT_BENCH_VARIATIONS: ['Cut auch für Bank-Varianten', 'Close Grip, Incline, Pins'],
+};
 export const MAX_NAME = { S: 'Kniebeuge', B: 'Bankdrücken', D: 'Kreuzheben', G: 'Bank-Ziel' };
 
 /** Startwerte für einen neuen Block: aktuelle Form aus dem Verlauf (auf 2,5 kg), Bank-Ziel +5 kg; sonst Beispielwerte. */
@@ -46,7 +54,7 @@ export const wochenListe = (tage) => [...new Set(tage.map((t) => t.woche))];
 
 function zeile(u, g) {
   const s = g.saetze?.text ?? (g.saetze?.min === g.saetze?.max ? g.saetze?.min : `${g.saetze?.min}–${g.saetze?.max}`);
-  const w = g.wdh?.amrap ? 'max' : g.wdh?.text ?? (g.wdh?.min === g.wdh?.max ? g.wdh?.min : `${g.wdh?.min}–${g.wdh?.max}`);
+  const w = g.wdh?.amrap ? 'max' : g.wdh?.text ?? (g.wdh?.plus ? `${g.wdh.min}+` : g.wdh?.min === g.wdh?.max ? g.wdh?.min : `${g.wdh?.min}–${g.wdh?.max}`);
   const last = g.kg != null ? `${gw(g.kg)}${g.kgBis ? `–${gw(g.kgBis)}` : ''} ${einheit()}` : rpeText(g.rpe) ?? 'frei';
   return [`${s} × ${w ?? '–'}`, last];
 }

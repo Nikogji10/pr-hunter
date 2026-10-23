@@ -7,7 +7,7 @@ import { UebungSuche } from './suche.js';
 import { BEST_E1RM, E1RM_AKTUELL, LETZTES } from './stand.js';
 
 const e1rmFuer = (key) => E1RM_AKTUELL[key] ?? BEST_E1RM[key] ?? null;   // aktuelle Form, sonst Bestwert
-const wdhText = (w) => !w ? '1' : w.amrap ? (w.ziel ? `max (Ziel ${w.ziel})` : 'max') : w.text ? w.text : w.min !== w.max ? `${w.min}–${w.max}` : String(w.min);
+const wdhText = (w) => !w ? '1' : w.amrap ? (w.ziel ? `max (Ziel ${w.ziel})` : 'max') : w.text ? w.text : w.plus ? `${w.min}+` : w.min !== w.max ? `${w.min}–${w.max}` : String(w.min);
 
 /** Vorschlag aus e1RM und Ziel-RPE; bei Körpergewichtsübungen das Zusatzgewicht. */
 function vorschlag(key, wdh, rpe, koerperKg) {
@@ -39,7 +39,7 @@ export function baueTraining(tag, { leichter = false, koerperKg = 88 } = {}) {
       let ausE1rm = false;
       if (kg == null && u.key) { kg = vorschlag(u.key, wdh, g.rpe?.max, koerperKg); ausE1rm = kg != null; }
       karte.gruppen.push({
-        rolle: u.rolle, wdhText: wdhText(g.wdh), rpe: g.rpe, notiz: g.notiz, vorschlag: ausE1rm, saetzeText: g.saetze?.text ?? null,
+        rolle: g.rolle ?? u.rolle, wdhText: wdhText(g.wdh), rpe: g.rpe, notiz: g.notiz, vorschlag: ausE1rm, saetzeText: g.saetze?.text ?? null,
         gekuerzt: g.gekuerzt,
         saetze: Array.from({ length: n }, () => ({ kg, kgPlan: kg, wdh, rpe: null, erledigt: false, e1rm: null, pr: false, geaendert: false })),
       });

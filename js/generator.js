@@ -2,7 +2,7 @@
 // mit Top-Satz und Back-offs für genau die Wochen bis zu einem Termin. Prozente der Wochentypen 1:1 aus Nikos
 // korrigiertem Hybrid (programme/pr_hybrid_candito_pana.json, W1–W6, gegen Excel geprüft); alle Werte in % vom
 // Trainingsmax, nur der Test rechnet vom echten 1RM. Jeder Wert wird gegen die Pana-Grenzen geprüft.
-import { rechneFormel, leseWdh } from './programm.js';
+import { rechneFormel, leseWdh, ableiten } from './programm.js';
 
 /** Pana-Grenzen in % vom Trainingsmax je Wdh-Zahl. */
 export const PANA = {
@@ -141,38 +141,53 @@ function canditoWochen(vorlage, wochen) {
 }
 
 /**
- * Pana-Prüfung eines beliebigen Programms: Top-Sätze und Back-offs (role) mit fester Wdh-Zahl gegen die Grenzen
- * in % vom Trainingsmax; Sprünge des Top-Satzes je Lift über 5 Prozentpunkte von Woche zu Woche.
- * Test- und Deload-Wochen sind ausgenommen. Der Trainingsmax-Anteil steht in rules.generator.tm (sonst 1).
+ * Pana-Prüfung eines beliebigen Programms: Top-Sätze und Back-offs mit fester Wdh-Zahl gegen die Grenzen in % vom
+ * Trainingsmax; Sprünge des Top-Satzes je Übung (höchster Top-Satz der Woche) über 5 Prozentpunkte von Woche zu Woche.
+ * Test- und Deload-Wochen sind ausgenommen. Trainingsmax: params.TM_BULK (Hybrid v3, Lasten über TS/TD),
+ * sonst rules.generator.tm, sonst 1. Back-off ist ein Eintrag mit role backoff oder eine Gruppe mit cut = backoff (v3).
+ * Der Variantenfaktor VF zählt nicht mit: Pana gilt für die nominellen Prozent der Variante.
  */
 export function pruefePana(programm) {
-  const tm = programm.rules?.generator?.tm ?? 1, fehler = [], hinweise = [];
+  const params = programm.params;
+  const tm = params ? params.TM_BULK ?? 1 : programm.rules?.generator?.tm ?? 1, fehler = [], hinweise = [];
   const prozent = (load, v) => {
-    try { return (rechneFormel(load, { S: 0, D: 0, B: 0, G: 0, [v]: 10000 }, 1e-9) / 10000 / tm) * 100; } catch { return null; }
+    try {
+      const werte = { S: 0, D: 0, B: 0, G: 0, [v]: 10000 };
+      const env = params ? { ...ableiten(programm, werte, { inc: 1e-9 }), VF: 1 } : werte;
+      return (rechneFormel(load, env, 1e-9) / 10000 / tm) * 100;
+    } catch { return null; }
   };
-  const variable = (load) => ['S', 'D', 'B'].find((v) => new RegExp(`\\b${v}\\b`).test(load ?? ''));
-  const topJeWoche = {};
+  const variable = (load) => {
+    const t = load ?? '';
+    if (/\bTS\b/.test(t)) return 'S';
+    if (/\bTD\b/.test(t)) return 'D';
+    return ['S', 'D', 'B'].find((v) => new RegExp(`\\b${v}\\b`).test(t));
+  };
+  const topJeWoche = {};                       // Übung → { Woche: höchster Top-Satz in % }
   for (const w of programm.weeks) {
     if (w.typ === 'test' || w.typ === 'deload' || /deload|test|taper/i.test(w.title ?? '')) continue;
     for (const d of w.days) for (const it of d.items) {
-      if (it.role !== 'top' && it.role !== 'backoff') continue;
       for (const g of it.groups) {
+        const rolle = g.cut === 'backoff' ? 'backoff' : it.role;
+        if (rolle !== 'top' && rolle !== 'backoff') continue;
         const v = variable(g.load), wdh = leseWdh(g.reps);
         if (!v || wdh?.min == null || wdh.min !== wdh.max) continue;
-        const p = prozent(g.load, v), grenze = PANA[it.role][wdh.min];
+        const p = prozent(g.load, v), grenze = PANA[rolle][wdh.min];
         if (p == null) continue;
         const r = Math.round(p * 10) / 10;
-        if (!grenze) hinweise.push(`W${w.week} ${it.exercise_key}: ${it.role === 'top' ? 'Top-Satz' : 'Back-off'} mit ${wdh.min} Wdh hat keine Pana-Grenze.`);
-        else if (r < grenze[0] - 1e-9 || r > grenze[1] + 1e-9) fehler.push(`W${w.week} ${it.exercise_key}: ${it.role === 'top' ? 'Top-Satz' : 'Back-off'} ${wdh.min} Wdh @ ${r} % liegt außerhalb ${grenze[0]}–${grenze[1]} %.`);
-        if (it.role === 'top') (topJeWoche[`${v}`] ??= []).push([w.week, r]);
+        const art = rolle === 'top' ? 'Top-Satz' : 'Back-off';
+        if (!grenze) hinweise.push(`W${w.week} ${it.exercise_key}: ${art} mit ${wdh.min} Wdh hat keine Pana-Grenze.`);
+        else if (r < grenze[0] - 1e-9 || r > grenze[1] + 1e-9) fehler.push(`W${w.week} ${it.exercise_key}: ${art} ${wdh.min} Wdh @ ${r} % liegt außerhalb ${grenze[0]}–${grenze[1]} %.`);
+        if (rolle === 'top') { const m = (topJeWoche[it.exercise_key ?? v] ??= {}); m[w.week] = Math.max(m[w.week] ?? -Infinity, r); }
       }
     }
   }
-  for (const [v, liste] of Object.entries(topJeWoche)) {
-    liste.sort((a, b) => a[0] - b[0]);
-    for (let i = 1; i < liste.length; i++) {
-      if (liste[i][0] === liste[i - 1][0] + 1 && liste[i][1] - liste[i - 1][1] > MAX_SPRUNG + 1e-9) {
-        fehler.push(`${v}: Top-Satz springt von W${liste[i - 1][0]} auf W${liste[i][0]} um ${Math.round((liste[i][1] - liste[i - 1][1]) * 10) / 10} Prozentpunkte (höchstens ${MAX_SPRUNG}).`);
+  for (const [key, m] of Object.entries(topJeWoche)) {
+    const wochen = Object.keys(m).map(Number).sort((a, b) => a - b);
+    for (let i = 1; i < wochen.length; i++) {
+      const sprung = m[wochen[i]] - m[wochen[i - 1]];
+      if (wochen[i] === wochen[i - 1] + 1 && sprung > MAX_SPRUNG + 1e-9) {
+        fehler.push(`${key}: Top-Satz springt von W${wochen[i - 1]} auf W${wochen[i]} um ${Math.round(sprung * 10) / 10} Prozentpunkte (höchstens ${MAX_SPRUNG}).`);
       }
     }
   }

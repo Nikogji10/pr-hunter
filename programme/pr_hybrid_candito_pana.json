@@ -1,7 +1,8 @@
 {
  "id": "pr-hybrid-candito-pana",
- "name": "Candito/Pana-Hybrid (korrigiert)",
- "source": "Candito_Bench_Pana_Lower_2x_Fixed_3.xlsx, Bench und Zubehör auf Candito Advanced Bench zurückgesetzt",
+ "name": "Candito/Pana-Hybrid v3",
+ "version_note": "aus Candito_Pana_6Week_Program_v3.xlsx (von Niko aktuell genutzt)",
+ "source": "Candito_Pana_6Week_Program_v3.xlsx; Bench und Zubehör nach Candito Intermediate + Advanced Bench",
  "owner": "Niko",
  "inputs": [
   "S",
@@ -9,102 +10,197 @@
   "B",
   "G"
  ],
+ "params": {
+  "TM_BULK": 0.95,
+  "TM_CUT": 0.92,
+  "VF": 0.92,
+  "TEST": 0.975,
+  "TEST_BO": 0.8,
+  "DPDL": 0.58,
+  "BAR": 20,
+  "CUT_ACCESSORY": 1,
+  "CUT_BACKOFF": 1,
+  "CUT_BENCH_VARIATIONS": true
+ },
+ "derived": {
+  "TM": "TM_CUT if cut else TM_BULK",
+  "TS": "R(S*TM)",
+  "TD": "R(D*TM)"
+ },
+ "cut_rules": {
+  "backoff": "sets = max(1, sets - CUT_BACKOFF)",
+  "accessory": "sets = max(1, sets - CUT_ACCESSORY)",
+  "bench_variation": "sets = max(1, sets - CUT_ACCESSORY) wenn CUT_BENCH_VARIATIONS"
+ },
+ "pana_bounds": {
+  "top": {
+   "1": [
+    0.88,
+    1.0
+   ],
+   "2": [
+    0.86,
+    0.95
+   ],
+   "3": [
+    0.82,
+    0.92
+   ],
+   "4": [
+    0.79,
+    0.87
+   ],
+   "5": [
+    0.76,
+    0.84
+   ]
+  },
+  "backoff": {
+   "3": [
+    0.8,
+    0.86
+   ],
+   "4": [
+    0.76,
+    0.82
+   ],
+   "5": [
+    0.72,
+    0.8
+   ],
+   "6": [
+    0.68,
+    0.78
+   ]
+  }
+ },
+ "rules": {
+  "fail_rule": "Bei einem verpassten Pflicht-Wdh das Max des Lifts um 2,5 % senken.",
+  "projection": {
+   "method": "rpe10_table",
+   "table": {
+    "1": 1,
+    "2": 0.96,
+    "3": 0.92,
+    "4": 0.89,
+    "5": 0.86,
+    "6": 0.84,
+    "7": 0.81
+   },
+   "formula": "projiziert = R(Testgewicht / Tabelle[Wdh]); nächster Input = Wdh < 2 ? alter Input : R(alt + (projiziert - alt) * Vertrauensfaktor)",
+   "confidence_default": 1
+  },
+  "week6": [
+   "Projiziertes Max nehmen und Woche 6 auslassen",
+   "Woche 6 als Deload, dann mit projiziertem Max neu starten",
+   "Optionaler Taper und echter 1RM-Test"
+  ],
+  "coach": [
+   "Prozent ist Startgewicht, die RIR-/RPE-Grenze hat Vorrang.",
+   "Keine verpassten Wdh in W1–4; Top-Sätze W3–4 nicht über RPE 8,5.",
+   "Zweiteinheiten bei RPE 5–7 halten.",
+   "Bei stechendem oder zunehmendem Schmerz abbrechen; bei langsamen Aufwärmsätzen 5–10 % runter und letzten Back-off streichen."
+  ]
+ },
  "weeks": [
   {
    "week": 1,
-   "title": "Week 1 - Hypertrophy (w/ Moderate Difficulty)",
+   "title": "Week 1  ·  Hypertrophy (w/ Moderate Difficulty)",
+   "intro": "Introduction. Day 1 is the heavy main day (Squat + Deadlift), Day 4 is the variation day. Bench is pure Candito.",
    "days": [
     {
      "offset": 0,
+     "label": "Squat  ·  Bench  ·  Close Grip Bench  ·  Deadlift",
      "items": [
       {
        "exercise": "Squat",
        "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.8)",
+         "rpe": "~3 RIR",
+         "reps": "5",
          "sets": "1",
-         "reps": "3",
-         "load": "R(S*0.84)",
-         "rpe": "3 RIR"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Squat",
-       "role": "backoff",
-       "groups": [
+         "plan_id": "W1D1-SQ-T",
+         "note": "Main Top Set · 80% of Training Max"
+        },
         {
+         "load": "R(TS*0.73)",
+         "rpe": "~4 RIR",
+         "reps": "5",
          "sets": "3",
-         "reps": "6",
-         "load": "R(S*0.7)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true
+         "cut": "backoff",
+         "plan_id": "W1D1-SQ-B",
+         "note": "Main Back-Off · 73% of Training Max"
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.7)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.7)"
+         "sets": "3",
+         "note": "Candito prescription - unchanged."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "8",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
-       "exercise": "Paused Deadlift",
-       "role": "secondary",
+       "exercise": "Deadlift",
+       "role": "top",
        "groups": [
         {
+         "load": "R(TD*0.8)",
+         "rpe": "~3 RIR",
+         "reps": "5",
+         "sets": "1",
+         "plan_id": "W1D1-DL-T",
+         "note": "Main Top Set · 80% of Training Max  —  The only heavy Deadlift session this week."
+        },
+        {
+         "load": "R(TD*0.73)",
+         "rpe": "~4 RIR",
+         "reps": "5",
          "sets": "2",
-         "reps": "4",
-         "load": "R(D*0.65)",
-         "rpe": "RPE 6"
+         "cut": "backoff",
+         "plan_id": "W1D1-DL-B",
+         "note": "Main Back-Off · 73% of Training Max"
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "conventional_deadlift_pause_below_knee"
+       "exercise_key": "competition_deadlift"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "note": "Note, perform sets of 4 reps if an 'Explosive Lower Body' exercise is chosen here or at any point as a 'Lower Accessory'",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory",
+         "note": "Perform sets of 4 reps if an 'Explosive Lower Body' exercise is chosen here, or at any point as a 'Lower Accessory'."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -118,18 +214,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -146,99 +240,89 @@
     },
     {
      "offset": 1,
+     "label": "Bench  ·  Incline DB Press  ·  Upper push accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.7)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.7)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "incline_dumbbell_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Push Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 1",
         "families": [
@@ -252,18 +336,16 @@
       },
       {
        "exercise": "Upper Push Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 2",
         "families": [
@@ -280,99 +362,89 @@
     },
     {
      "offset": 3,
+     "label": "Bench  ·  Close Grip Bench  ·  Upper pull accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.7)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.7)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Pull Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 1",
         "families": [
@@ -386,18 +458,16 @@
       },
       {
        "exercise": "Upper Pull Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 2",
         "families": [
@@ -414,109 +484,86 @@
     },
     {
      "offset": 4,
+     "label": "Squat variation  ·  Bench  ·  Incline DB Press  ·  Deadlift variation",
      "items": [
       {
-       "exercise": "Squat (Technik-Single)",
-       "role": "secondary",
+       "exercise": "Pause Squat (2ct)",
+       "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.78*VF)",
+         "rpe": "~3 RIR",
+         "reps": "5",
          "sets": "1",
-         "reps": "1",
-         "load": "R(S*0.75)",
-         "rpe": "RPE 6-7"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Pause Squat (1s)",
-       "role": "secondary",
-       "groups": [
+         "plan_id": "W1D4-SV-T",
+         "note": "Variation Top Set · 78% of Training Max x 92% variation factor"
+        },
         {
-         "sets": "1",
-         "reps": "4",
-         "load": "R(S*0.68)",
-         "rpe": "RPE 6-7"
+         "load": "R(TS*0.72*VF)",
+         "rpe": "~4 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W1D4-SV-B",
+         "note": "Variation Back-Off · 72% of Training Max x 92% variation factor"
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat_pause"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.7)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.7)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "3",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "incline_dumbbell_press"
       },
       {
-       "exercise": "Deadlift",
-       "role": "top",
+       "exercise": "Deficit Paused Deadlift",
+       "role": "candito",
        "groups": [
         {
-         "sets": "1",
-         "reps": "1",
-         "load": "R(D*0.89)",
-         "rpe": "RPE 7"
+         "load": "R(D*DPDL)",
+         "rpe": "RPE8",
+         "reps": "8",
+         "sets": "3",
+         "cut": "accessory",
+         "note": "Scheiben pro Seite rechnet die App. 2-5 cm deficit, 1-2 s pause just below the knee, dead stop between reps. Suggested start - adjust to hit RPE8."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Deadlift",
-       "role": "backoff",
-       "groups": [
-        {
-         "sets": "2",
-         "reps": "4",
-         "load": "R(D*0.76)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true,
-         "note": "korrigiert: 72 % → 76 % (Pana-Grenze 4 Wdh 76–82 %)"
-        }
-       ],
-       "source": "Fixed_3 korrigiert",
-       "exercise_key": "competition_deadlift"
+       "exercise_key": "conventional_deadlift_deficit_paused"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -530,18 +577,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -558,99 +603,89 @@
     },
     {
      "offset": 5,
+     "label": "Bench  ·  Close Grip Bench  ·  Upper accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.7)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.7)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "3",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 1",
         "families": [
@@ -665,18 +700,16 @@
       },
       {
        "exercise": "Upper Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 2",
         "families": [
@@ -696,88 +729,95 @@
   },
   {
    "week": 2,
-   "title": "Week 2 - Muscular Conditioning/Hypertrophy (W/ Higher Difficulty)",
+   "title": "Week 2  ·  Muscular Conditioning / Hypertrophy (w/ Higher Difficulty)",
+   "intro": "Accumulation, ~2 RIR. A main Deadlift was added to Day 1 - Candito ran this week deadlift-free, which leaves too big a gap once the weekly deadlift count drops to one.",
    "days": [
     {
      "offset": 7,
+     "label": "Squat  ·  Bench  ·  Deadlift",
      "items": [
       {
        "exercise": "Squat",
        "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.83)",
+         "rpe": "~2 RIR",
+         "reps": "4",
          "sets": "1",
-         "reps": "3",
-         "load": "R(S*0.86)",
-         "rpe": "2 RIR"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Squat",
-       "role": "backoff",
-       "groups": [
+         "plan_id": "W2D1-SQ-T",
+         "note": "Main Top Set · 83% of Training Max  —  Replaces the Candito MR10 squat set."
+        },
         {
+         "load": "R(TS*0.75)",
+         "rpe": "~3 RIR",
+         "reps": "5",
          "sets": "3",
-         "reps": "6",
-         "load": "R(S*0.72)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true
+         "cut": "backoff",
+         "plan_id": "W2D1-SQ-B",
+         "note": "Main Back-Off · 75% of Training Max  —  Replaces the Candito extra-volume 5x3 block."
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "1",
          "load": "R(B*0.9)",
-         "note": "Still complete the 5 sets of 3 reps regardless even if you do perform less than 8 reps on the MR10 set."
+         "rpe": null,
+         "reps": "1",
+         "sets": "3",
+         "note": "Candito prescription - unchanged."
         },
         {
-         "sets": "3",
+         "load": "R(B*0.75)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.75)"
+         "sets": "3",
+         "note": "Candito's own bench back-off work."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
-       "exercise": "Paused Deadlift",
-       "role": "secondary",
+       "exercise": "Deadlift",
+       "role": "top",
        "groups": [
         {
-         "sets": "2",
+         "load": "R(TD*0.83)",
+         "rpe": "~2 RIR",
          "reps": "4",
-         "load": "R(D*0.675)",
-         "rpe": "RPE 6-7"
+         "sets": "1",
+         "plan_id": "W2D1-DL-T",
+         "note": "Main Top Set · 83% of Training Max  —  Added: keeps deadlift frequency at once per week across the block."
+        },
+        {
+         "load": "R(TD*0.75)",
+         "rpe": "~3 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W2D1-DL-B",
+         "note": "Main Back-Off · 75% of Training Max"
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "conventional_deadlift_pause_below_knee"
+       "exercise_key": "competition_deadlift"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory",
+         "note": "Candito's deadlift-variation slot was removed from this day only - a main Deadlift now occupies the hinge slot."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -791,18 +831,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -819,99 +857,89 @@
     },
     {
      "offset": 8,
+     "label": "Bench  ·  Low Pin Press  ·  Upper push accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.75)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.75)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Low Pin Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bench_press_low_pin"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Push Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 1",
         "families": [
@@ -925,18 +953,16 @@
       },
       {
        "exercise": "Upper Push Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 2",
         "families": [
@@ -953,99 +979,89 @@
     },
     {
      "offset": 10,
+     "label": "Bench  ·  High Pin Press  ·  Upper pull accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.75)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.75)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "High Pin Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bench_press_high_pin"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Pull Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 1",
         "families": [
@@ -1059,18 +1075,16 @@
       },
       {
        "exercise": "Upper Pull Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 2",
         "families": [
@@ -1087,111 +1101,86 @@
     },
     {
      "offset": 11,
+     "label": "Squat variation  ·  Bench  ·  Low Pin Press  ·  RDL",
      "items": [
       {
-       "exercise": "Squat (Technik-Single)",
-       "role": "secondary",
+       "exercise": "Pause Squat (2ct)",
+       "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.8*VF)",
+         "rpe": "~2 RIR",
+         "reps": "5",
          "sets": "1",
-         "reps": "1",
-         "load": "R(S*0.775)",
-         "rpe": "RPE 6-7"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Pause Squat (1s)",
-       "role": "secondary",
-       "groups": [
+         "plan_id": "W2D4-SV-T",
+         "note": "Variation Top Set · 80% of Training Max x 92% variation factor"
+        },
         {
-         "sets": "1",
-         "reps": "4",
-         "load": "R(S*0.7)",
-         "rpe": "RPE 6-7"
+         "load": "R(TS*0.73*VF)",
+         "rpe": "~3 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W2D4-SV-B",
+         "note": "Variation Back-Off · 73% of Training Max x 92% variation factor"
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat_pause"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "note": "If you completed 8-9 reps on the MR10 set, perform 8 sets of 3 reps per set, with 60 seconds rest between sets."
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Low Pin Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": null,
          "rpe": "RPE9",
-         "note": "If you completed 7 reps on the MR 10 set, perform 5 sets of 3 reps per set, with 60 seconds rest between sets.",
-         "cut_reduce": true
+         "reps": "3",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bench_press_low_pin"
       },
       {
-       "exercise": "Deadlift",
-       "role": "top",
+       "exercise": "Deficit Paused Deadlift",
+       "role": "candito",
        "groups": [
         {
-         "sets": "1",
-         "reps": "1",
-         "load": "R(D*0.92)",
-         "rpe": "RPE 7.5-8"
+         "load": "R(D*DPDL)",
+         "rpe": "RPE8",
+         "reps": "8",
+         "sets": "3",
+         "cut": "accessory",
+         "note": "Scheiben pro Seite rechnet die App. 2-5 cm deficit, 1-2 s pause just below the knee, dead stop between reps. Suggested start - adjust to hit RPE8."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Deadlift",
-       "role": "backoff",
-       "groups": [
-        {
-         "sets": "2",
-         "reps": "4",
-         "load": "R(D*0.78)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true,
-         "note": "korrigiert: 75 % → 78 % (Pana-Grenze 4 Wdh 76–82 %)"
-        }
-       ],
-       "source": "Fixed_3 korrigiert",
-       "exercise_key": "competition_deadlift"
+       "exercise_key": "conventional_deadlift_deficit_paused"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -1205,18 +1194,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -1233,99 +1220,89 @@
     },
     {
      "offset": 13,
+     "label": "Bench  ·  High Pin Press  ·  Upper accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.75)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(B*0.75)"
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "High Pin Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "3",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bench_press_high_pin"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 1",
         "families": [
@@ -1340,18 +1317,16 @@
       },
       {
        "exercise": "Upper Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 2",
         "families": [
@@ -1371,73 +1346,81 @@
   },
   {
    "week": 3,
-   "title": "Week 3 - Linear Max OT Phase",
+   "title": "Week 3  ·  Linear Max OT Phase",
+   "intro": "Overload, ~1 RIR. Heaviest normal-volume week of the block.",
    "days": [
     {
      "offset": 14,
+     "label": "Squat  ·  Bench  ·  Deadlift",
      "items": [
       {
        "exercise": "Squat",
        "role": "top",
        "groups": [
         {
-         "sets": "1",
+         "load": "R(TS*0.88)",
+         "rpe": "~1 RIR",
          "reps": "3",
-         "load": "R(S*0.89)",
-         "rpe": "1-2 RIR"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Squat",
-       "role": "backoff",
-       "groups": [
+         "sets": "1",
+         "plan_id": "W3D1-SQ-T",
+         "note": "Main Top Set · 88% of Training Max"
+        },
         {
+         "load": "R(TS*0.79)",
+         "rpe": "~2 RIR",
+         "reps": "4",
          "sets": "3",
-         "reps": "6",
-         "load": "R(S*0.75)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true
+         "cut": "backoff",
+         "plan_id": "W3D1-SQ-B",
+         "note": "Main Back-Off · 79% of Training Max"
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(B*0.9)",
+         "rpe": null,
          "reps": "1",
-         "load": "R(B*0.9)"
+         "sets": "3",
+         "note": "Candito prescription - unchanged."
         },
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "load_hi": "R(B*0.8)"
+         "load_hi": "R(B*0.8)",
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
-       "exercise": "Paused Deadlift",
-       "role": "secondary",
+       "exercise": "Deadlift",
+       "role": "top",
        "groups": [
         {
-         "sets": "2",
+         "load": "R(TD*0.87)",
+         "rpe": "~1 RIR",
+         "reps": "3",
+         "sets": "1",
+         "plan_id": "W3D1-DL-T",
+         "note": "Main Top Set · 87% of Training Max"
+        },
+        {
+         "load": "R(TD*0.78)",
+         "rpe": "~2 RIR",
          "reps": "4",
-         "load": "R(D*0.7)",
-         "rpe": "RPE 7"
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W3D1-DL-B",
+         "note": "Main Back-Off · 78% of Training Max"
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "conventional_deadlift_pause_below_knee"
+       "exercise_key": "competition_deadlift"
       }
      ],
      "notes": [
@@ -1446,100 +1429,90 @@
     },
     {
      "offset": 15,
+     "label": "Bench  ·  Close Grip Bench  ·  Upper pull accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "load_hi": "R(B*0.8)"
+         "load_hi": "R(B*0.8)",
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "12",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "12",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Pull Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 1",
         "families": [
@@ -1553,18 +1526,16 @@
       },
       {
        "exercise": "Upper Pull Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Zug 2",
         "families": [
@@ -1581,100 +1552,90 @@
     },
     {
      "offset": 16,
+     "label": "Bench  ·  Incline DB Press  ·  Upper push accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "load_hi": "R(B*0.8)"
+         "load_hi": "R(B*0.8)",
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "12",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "12",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "incline_dumbbell_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Push Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 1",
         "families": [
@@ -1688,18 +1649,16 @@
       },
       {
        "exercise": "Upper Push Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Druck 2",
         "families": [
@@ -1716,95 +1675,74 @@
     },
     {
      "offset": 18,
+     "label": "Squat variation  ·  Bench  ·  Close Grip Bench  ·  RDL",
      "items": [
       {
-       "exercise": "Squat (Technik-Single)",
-       "role": "secondary",
+       "exercise": "Pause Squat (2ct)",
+       "role": "top",
        "groups": [
         {
-         "sets": "1",
-         "reps": "1",
-         "load": "R(S*0.8)",
-         "rpe": "RPE 6-7"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Pause Squat (1s)",
-       "role": "secondary",
-       "groups": [
-        {
-         "sets": "1",
+         "load": "R(TS*0.82*VF)",
+         "rpe": "~2 RIR",
          "reps": "4",
-         "load": "R(S*0.72)",
-         "rpe": "RPE 6-7"
+         "sets": "1",
+         "plan_id": "W3D4-SV-T",
+         "note": "Variation Top Set · 82% of Training Max x 92% variation factor"
+        },
+        {
+         "load": "R(TS*0.76*VF)",
+         "rpe": "~3 RIR",
+         "reps": "4",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W3D4-SV-B",
+         "note": "Variation Back-Off · 76% of Training Max x 92% variation factor"
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat_pause"
       },
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "load_hi": "R(B*0.8)"
+         "load_hi": "R(B*0.8)",
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "10",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "10",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
-       "exercise": "Deadlift",
-       "role": "top",
+       "exercise": "Deficit Paused Deadlift",
+       "role": "candito",
        "groups": [
         {
+         "load": "R(D*DPDL)",
+         "rpe": "RPE8",
+         "reps": "8",
          "sets": "1",
-         "reps": "1",
-         "load": "R(D*0.95)",
-         "rpe": "RPE 8-8.5"
+         "cut": "accessory",
+         "note": "Scheiben pro Seite rechnet die App. 2-5 cm deficit, 1-2 s pause just below the knee, dead stop between reps. Suggested start - adjust to hit RPE8."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Deadlift",
-       "role": "backoff",
-       "groups": [
-        {
-         "sets": "2",
-         "reps": "3",
-         "load": "R(D*0.8)",
-         "rpe": "RPE 6-8",
-         "cut_reduce": true,
-         "note": "korrigiert: 78 % → 80 % (Pana-Grenze 3 Wdh 80–86 %)"
-        }
-       ],
-       "source": "Fixed_3 korrigiert",
-       "exercise_key": "competition_deadlift"
+       "exercise_key": "conventional_deadlift_deficit_paused"
       }
      ],
      "notes": [
@@ -1813,100 +1751,90 @@
     },
     {
      "offset": 19,
+     "label": "Bench  ·  Incline DB Press  ·  Upper accessories",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.75)",
-         "load_hi": "R(B*0.8)"
+         "load_hi": "R(B*0.8)",
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "10",
          "load": null,
          "rpe": "RPE9",
-         "cut_reduce": true
+         "reps": "10",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "incline_dumbbell_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       },
       {
        "exercise": "Upper Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 1",
         "families": [
@@ -1921,18 +1849,16 @@
       },
       {
        "exercise": "Upper Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "20",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "20",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Oberkörper 2",
         "families": [
@@ -1952,68 +1878,64 @@
   },
   {
    "week": 4,
-   "title": "Week 4 - Heavy Weight Acclimation",
+   "title": "Week 4  ·  Heavy Weight Acclimation",
+   "intro": "Peak preparation. Day 1 is a light variation day; Day 3 carries the heaviest Squat and Deadlift of the block and sits 4 days before the Week 5 test. Bench is exactly Candito Week 4.",
    "days": [
     {
      "offset": 21,
+     "label": "Squat variation (light)  ·  RDL",
      "items": [
       {
-       "exercise": "Squat",
+       "exercise": "Pause Squat (2ct)",
        "role": "top",
        "groups": [
         {
-         "sets": "1",
-         "reps": "3",
-         "load": "R(S*0.91)",
-         "rpe": "RPE 8-8.5"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Squat",
-       "role": "backoff",
-       "groups": [
-        {
-         "sets": "2",
+         "load": "R(TS*0.79*VF)",
+         "rpe": "~3 RIR",
          "reps": "4",
-         "load": "R(S*0.76)",
-         "rpe": "RPE 7",
-         "cut_reduce": true
+         "sets": "1",
+         "plan_id": "W4D1-SV-T",
+         "note": "Variation Top Set · 79% of Training Max x 92% variation factor  —  Deliberately light - the heavy work is on Day 3 this week."
+        },
+        {
+         "load": "R(TS*0.73*VF)",
+         "rpe": "~4 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W4D1-SV-B",
+         "note": "Variation Back-Off · 73% of Training Max x 92% variation factor"
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
+       "exercise_key": "competition_squat_pause"
       },
       {
-       "exercise": "Paused Deadlift",
-       "role": "secondary",
+       "exercise": "Deficit Paused Deadlift",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "3",
-         "load": "R(D*0.65)",
-         "rpe": "RPE 6"
+         "load": "R(D*(DPDL+0.04))",
+         "rpe": "RPE8",
+         "reps": "6",
+         "sets": "3",
+         "cut": "accessory",
+         "note": "Scheiben pro Seite rechnet die App. 2-5 cm deficit, 1-2 s pause just below the knee, dead stop between reps. Suggested start - adjust to hit RPE8. Slightly heavier for the 6-rep sets."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "conventional_deadlift_pause_below_knee"
+       "exercise_key": "conventional_deadlift_deficit_paused"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -2027,18 +1949,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -2055,86 +1975,77 @@
     },
     {
      "offset": 22,
+     "label": "Bench (desired max)  ·  Close Grip Bench PR peak set",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "10",
-         "reps": "3",
          "load": "R(G*0.8)",
          "load_hi": "R(G*0.825)",
-         "note": "On week 4 the prescribed rep range is 15-20 for just 1 set.  The goal here is a true 20 rep max if possible, but 15 is acceptable as a no break minimum since predicting with accuracy will be difficult.  "
+         "rpe": null,
+         "reps": "3",
+         "sets": "10",
+         "note": "Week 4 bench: Candito's heavy-weight acclimation block, driven by your DESIRED bench max. On the accessory peak set the prescribed range is 15-20 reps for a single set - a true 20-rep max if possible, 15 as a no-break minimum. After at least 15 reps you may rack the bar and rest as little as possible before squeezing out the remainder; 20 total reps should be completed."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "PR Peak Set",
-         "reps": "15-20",
          "load": null,
          "rpe": "RPE10",
-         "note": "After getting at least 15 reps, then you can rack the weight to just rest as little as possible before squeezing out the rest.  No matter what 20 total reps should be completed.  "
+         "reps": "15-20",
+         "sets": "PR Peak Set",
+         "note": "Due to fatigue from the bench sets, optimal performance on these accessory peak sets is not expected - don't be disappointed if you need lighter weight than anticipated."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "note": "Due to the fatigue from the bench press sets, optimal performance on these accessory peak sets is not expected.  So don't be dissapointed if you have to use lighter weight than you anticipated.",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       }
      ],
@@ -2144,79 +2055,68 @@
     },
     {
      "offset": 24,
+     "label": "Squat  ·  Deadlift  ·  last heavy exposure before the test",
      "items": [
       {
-       "exercise": "Squat (Technik-Single)",
-       "role": "secondary",
+       "exercise": "Squat",
+       "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.93)",
+         "rpe": "~1 RIR",
+         "reps": "2",
          "sets": "1",
-         "reps": "1",
-         "load": "R(S*0.8)",
-         "rpe": "RPE 6-7"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Pause Squat (1s)",
-       "role": "secondary",
-       "groups": [
+         "plan_id": "W4D3-SQ-T",
+         "note": "Main Top Set · 93% of Training Max  —  Heaviest squat of the block. Elite lifters peak intensity roughly 2 weeks out; this sits 4 days before the test."
+        },
         {
-         "sets": "2",
+         "load": "R(TS*0.83)",
+         "rpe": "~2 RIR",
          "reps": "3",
-         "load": "R(S*0.67)",
-         "rpe": "RPE 6"
+         "sets": "1",
+         "cut": "backoff",
+         "plan_id": "W4D3-SQ-B",
+         "note": "Main Back-Off · 83% of Training Max  —  Single back-off set - fatigue control before test week."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat_pause"
+       "exercise_key": "competition_squat"
       },
       {
        "exercise": "Deadlift",
        "role": "top",
        "groups": [
         {
+         "load": "R(TD*0.92)",
+         "rpe": "~1 RIR",
+         "reps": "2",
          "sets": "1",
-         "reps": "1",
-         "load": "R(D*0.92)",
-         "rpe": "RPE 8-8.5"
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Deadlift",
-       "role": "backoff",
-       "groups": [
+         "plan_id": "W4D3-DL-T",
+         "note": "Main Top Set · 92% of Training Max  —  Heaviest deadlift of the block."
+        },
         {
-         "sets": "2",
+         "load": "R(TD*0.82)",
+         "rpe": "~2 RIR",
          "reps": "3",
-         "load": "R(D*0.8)",
-         "rpe": "RPE 7",
-         "cut_reduce": true,
-         "note": "korrigiert: 75 % → 80 % (Pana-Grenze 3 Wdh 80–86 %)"
+         "sets": "1",
+         "cut": "backoff",
+         "plan_id": "W4D3-DL-B",
+         "note": "Main Back-Off · 82% of Training Max  —  Single back-off set only."
         }
        ],
-       "source": "Fixed_3 korrigiert",
        "exercise_key": "competition_deadlift"
       },
       {
        "exercise": "Lower Accessory 1",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 1",
         "families": [
@@ -2230,18 +2130,16 @@
       },
       {
        "exercise": "Lower Accessory 2",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE7",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "3",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "slot": {
         "label": "Zusatz Beine 2",
         "families": [
@@ -2258,87 +2156,76 @@
     },
     {
      "offset": 25,
+     "label": "Bench (desired max)  ·  Incline DB Press PR peak set",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "5-10",
-         "reps": "3",
          "load": "R(G*0.8)+inc",
          "load_hi": "R(G*0.825)+(3*inc)",
-         "note": "I'd rather have you choose the maximum weight and hit just 5 sets than the minumum"
+         "rpe": null,
+         "reps": "3",
+         "sets": "5-10",
+         "note": "I'd rather you choose the maximum weight and hit just 5 sets than the minimum weight for 10 sets. Pick the heaviest weight possible, then do as many sets as you can. If you manage both the max weight and max sets (10) and feel no nagging pain from overuse, then add 5 back-off sets x 3 reps with 80% of your goal max, using extended pauses (3 seconds) on each rep."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
+       "role": "candito",
        "groups": [
         {
-         "sets": "PR Peak Set",
-         "reps": "15-20",
          "load": null,
          "rpe": "RPE10",
-         "note": "weight for 10 sets.  So pick the heaviest weight if possible then do as many sets as you can.  If you do"
+         "reps": "15-20",
+         "sets": "PR Peak Set"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "incline_dumbbell_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "6-10",
          "load": null,
          "rpe": "RPE8",
-         "note": "manage to hit both the max weight and max amount of sets (10), and feel no nagging pain from overuse,",
-         "cut_reduce": true
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "note": "then add 5 backoff sets x 3 reps with 80% of your goal max for extended pauses (3 seconds) on each rep.  ",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "4",
-         "reps": "8-12",
          "load": null,
          "rpe": "RPE8",
-         "cut_reduce": true
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
       }
      ],
@@ -2350,425 +2237,224 @@
   },
   {
    "week": 5,
-   "title": "Week 5 - High Intensity Strength",
+   "title": "Week 5  ·  Testing Week (High Intensity Strength)",
+   "intro": "TEST WEEK. Squat, Deadlift and Bench all tested; Squat & Deadlift loads come from the ACTUAL entered 1RM x 97.5%, never the Training Max. Accessory volume is tapered by roughly 40% - generic slots out, Row/OHP/Pull-up at 2 sets @ RPE6.",
    "days": [
     {
      "offset": 28,
+     "label": "SQUAT TEST  ·  Deadlift primer",
      "items": [
       {
        "exercise": "Squat",
        "role": "test",
        "groups": [
         {
+         "load": "R(S*TEST)",
+         "rpe": "RPE10",
+         "reps": "2+",
          "sets": "1",
-         "reps": "1-2",
-         "load": "R(S*0.975)",
-         "rpe": "RPE 9-10",
-         "note": "Test, max. 2 Wdh. Nach 1 Wdh stoppen, wenn langsam, technisch unsauber oder RPE 9,5+."
+         "plan_id": "W5D1-SQ-T",
+         "note": "Main Top Set · 98% of entered 1RM  —  TEST: 1 top set @ RPE10, target 2+ reps. It should be highly unlikely to get more than 4 reps here - 2-4 reps is very good. The option to go beyond exists for cases where knee sleeves or a belt were introduced during the program, or form changed enough to allow serious gains."
+        },
+        {
+         "load": "R(S*TEST_BO)",
+         "rpe": "~RPE8",
+         "reps": "3",
+         "sets": "1",
+         "cut": "backoff",
+         "plan_id": "W5D1-SQ-B",
+         "note": "Main Back-Off · 80% of entered 1RM  —  One light back-off. Skip it entirely if the test set was a grinder."
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_squat"
       },
       {
-       "exercise": "Deadlift (Technik)",
-       "role": "secondary",
+       "exercise": "Deadlift",
+       "role": "top",
        "groups": [
         {
+         "load": "R(D*0.725)",
+         "rpe": "~RPE6",
+         "reps": "2",
+         "sets": "1",
+         "plan_id": "W5D1-DL-T",
+         "note": "Main Top Set · 73% of entered 1RM  —  Primer only - deliberately sub-maximal before the deadlift test on Day 3."
+        },
+        {
+         "load": "R(D*0.675)",
+         "rpe": "~RPE6",
+         "reps": "4",
          "sets": "2",
-         "reps": "3",
-         "load": "R(D*0.625)",
-         "rpe": "RPE 5-6"
+         "cut": "backoff",
+         "plan_id": "W5D1-DL-B",
+         "note": "Main Back-Off · 68% of entered 1RM  —  Primer volume - keep it easy."
         }
        ],
-       "source": "Fixed_3",
        "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Lower Accessory 1",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "8-12",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Beine 1",
-        "families": [
-         "leg_iso",
-         "lunge",
-         "squat_machine",
-         "hinge",
-         "core"
-        ]
-       }
-      },
-      {
-       "exercise": "Lower Accessory 2",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "8-12",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Beine 2",
-        "families": [
-         "leg_iso",
-         "lunge",
-         "squat_machine",
-         "hinge",
-         "core"
-        ]
-       }
       }
      ],
-     "notes": []
+     "notes": [
+      "No Accessory Lifts  ·  tapered out for test week"
+     ]
     },
     {
      "offset": 30,
+     "label": "BENCH TEST",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "1",
-         "reps": "1-7",
          "load": "R(B*0.975)",
          "rpe": "RPE10",
-         "note": "Note, it should be highly unlikely to get any more than 4 reps here - achieving 2-4 reps should be considered very good. The option to go beyond this is for those incidents where"
+         "reps": "1-7",
+         "sets": "1",
+         "note": "Candito bench test - unchanged. It should be highly unlikely to get more than 4 reps here - 2-4 reps is very good. The option to go beyond exists for cases where knee sleeves or a belt were introduced during the program, or form changed enough to allow serious gains."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-8",
          "load": null,
-         "rpe": "RPE8",
-         "note": "knee sleeves or a belt were introduced during this program (or form was changed which allowed for some serious freakish strength gains to be made).",
-         "cut_reduce": true
+         "rpe": "RPE6",
+         "reps": "6-8",
+         "sets": "2",
+         "note": "Week 5 taper: 2 sets @ RPE6. Generic accessory slots are out this week."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-8",
          "load": null,
-         "rpe": "RPE8",
-         "cut_reduce": true
+         "rpe": "RPE6",
+         "reps": "6-8",
+         "sets": "2"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": null,
+         "rpe": "RPE6",
          "reps": "6-8",
-         "load": null,
-         "rpe": "RPE8",
-         "cut_reduce": true
+         "sets": "2"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
-      },
-      {
-       "exercise": "Upper Accessory 1",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "20",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Oberkörper 1",
-        "families": [
-         "curl",
-         "triceps",
-         "shoulder_iso",
-         "fly",
-         "row",
-         "pulldown"
-        ]
-       }
-      },
-      {
-       "exercise": "Upper Accessory 2",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "20",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Oberkörper 2",
-        "families": [
-         "curl",
-         "triceps",
-         "shoulder_iso",
-         "fly",
-         "row",
-         "pulldown"
-        ]
-       }
       }
      ],
      "notes": []
     },
     {
      "offset": 32,
+     "label": "DEADLIFT TEST",
      "items": [
       {
        "exercise": "Deadlift",
        "role": "test",
        "groups": [
         {
+         "load": "R(D*TEST)",
+         "rpe": "RPE10",
+         "reps": "2+",
          "sets": "1",
-         "reps": "1-2",
-         "load": "R(D*0.975)",
-         "rpe": "RPE 9-10",
-         "note": "Test, max. 2 Wdh. Nach 1 Wdh stoppen, wenn langsam, technisch unsauber oder RPE 9,5+."
-        }
-       ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_deadlift"
-      },
-      {
-       "exercise": "Squat (Technik)",
-       "role": "secondary",
-       "groups": [
+         "plan_id": "W5D3-DL-T",
+         "note": "Main Top Set · 98% of entered 1RM  —  TEST: 1 top set @ RPE10, target 2+ reps. It should be highly unlikely to get more than 4 reps here - 2-4 reps is very good. The option to go beyond exists for cases where knee sleeves or a belt were introduced during the program, or form changed enough to allow serious gains."
+        },
         {
-         "sets": "2",
+         "load": "R(D*TEST_BO)",
+         "rpe": "~RPE8",
          "reps": "3",
-         "load": "R(S*0.625)",
-         "rpe": "RPE 5-6"
+         "sets": "1",
+         "cut": "backoff",
+         "plan_id": "W5D3-DL-B",
+         "note": "Main Back-Off · 80% of entered 1RM  —  Optional single back-off - skip if the test set was maximal."
         }
        ],
-       "source": "Fixed_3",
-       "exercise_key": "competition_squat"
-      },
-      {
-       "exercise": "Lower Accessory 1",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "8-12",
-         "load": null,
-         "rpe": "RPE7",
-         "note": "knee sleeves or a belt were introduced during this program (or form was changed which allowed for some serious freakish strength gains to be made).",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Beine 1",
-        "families": [
-         "leg_iso",
-         "lunge",
-         "squat_machine",
-         "hinge",
-         "core"
-        ]
-       }
-      },
-      {
-       "exercise": "Lower Accessory 2",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "8-12",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Beine 2",
-        "families": [
-         "leg_iso",
-         "lunge",
-         "squat_machine",
-         "hinge",
-         "core"
-        ]
-       }
+       "exercise_key": "competition_deadlift"
       }
      ],
-     "notes": []
+     "notes": [
+      "No Accessory Lifts  ·  tapered out for test week"
+     ]
     },
     {
      "offset": 33,
+     "label": "Bench peak set",
      "items": [
       {
        "exercise": "Bench",
+       "role": "candito",
        "groups": [
         {
-         "sets": "1",
-         "reps": "5",
          "load": null,
          "rpe": "RPE10",
-         "note": "Gewicht in der Vorlage nicht angegeben: frei wählen, 5 Wdh bei RPE 10."
+         "reps": "5",
+         "sets": "1",
+         "note": "Candito prescribes no load here - work up to a top set of 5 @ RPE10."
         },
         {
-         "sets": "5",
+         "load": "R(G*0.85)",
+         "rpe": null,
          "reps": "3",
-         "load": "R(G*0.85)"
+         "sets": "5",
+         "note": "85% of your desired bench max - Candito, unchanged."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Barbell Row",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-8",
          "load": null,
-         "rpe": "RPE8",
-         "cut_reduce": true
+         "rpe": "RPE6",
+         "reps": "6-8",
+         "sets": "2",
+         "note": "Week 5 taper: 2 sets @ RPE6. Generic accessory slots are out this week."
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "6-8",
          "load": null,
-         "rpe": "RPE8",
-         "cut_reduce": true
+         "rpe": "RPE6",
+         "reps": "6-8",
+         "sets": "2"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
+         "load": null,
+         "rpe": "RPE6",
          "reps": "6-8",
-         "load": null,
-         "rpe": "RPE8",
-         "cut_reduce": true
+         "sets": "2"
         }
        ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
        "exercise_key": "weighted_neutral_grip_pull_up"
-      },
-      {
-       "exercise": "Upper Accessory 1",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "20",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Oberkörper 1",
-        "families": [
-         "curl",
-         "triceps",
-         "shoulder_iso",
-         "fly",
-         "row",
-         "pulldown"
-        ]
-       }
-      },
-      {
-       "exercise": "Upper Accessory 2",
-       "groups": [
-        {
-         "sets": "3",
-         "reps": "20",
-         "load": null,
-         "rpe": "RPE7",
-         "cut_reduce": true
-        }
-       ],
-       "notes": [],
-       "source": "Candito",
-       "role": "candito",
-       "slot": {
-        "label": "Zusatz Oberkörper 2",
-        "families": [
-         "curl",
-         "triceps",
-         "shoulder_iso",
-         "fly",
-         "row",
-         "pulldown"
-        ]
-       }
       }
      ],
      "notes": []
@@ -2777,63 +2463,85 @@
   },
   {
    "week": 6,
-   "title": "Woche 6 – Deload",
+   "title": "Week 6  ·  Deload",
+   "intro": "Candito deload order and bench structure kept. Squat, variation and Deadlift all get deload loads. Do not test this week - enter your Week 5 reps on Projected Maxes, then restart.",
    "days": [
     {
      "offset": 35,
+     "label": "Squat  ·  Bench  ·  Close Grip Bench  ·  Deadlift",
      "items": [
       {
        "exercise": "Squat",
-       "source": "Fixed_3",
+       "role": "top",
        "groups": [
         {
-         "sets": "3",
+         "load": "R(TS*0.7)",
+         "rpe": "~5 RIR",
          "reps": "3",
-         "load": "R(S*0.6)",
-         "rpe": "RPE 5-6",
-         "note": "Deload exposure 1. Every rep should be fast and technically clean."
+         "sets": "1",
+         "plan_id": "W6D1-SQ-T",
+         "note": "Main Top Set · 70% of Training Max"
+        },
+        {
+         "load": "R(TS*0.62)",
+         "rpe": "~5 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W6D1-SQ-B",
+         "note": "Main Back-Off · 62% of Training Max"
         }
        ],
        "exercise_key": "competition_squat"
       },
       {
        "exercise": "Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.7)",
-         "rpe": "-",
-         "note": "Candito deload bench unchanged."
+         "rpe": null,
+         "reps": "3",
+         "sets": "3",
+         "note": "Candito deload bench - unchanged."
         }
        ],
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Easy deload accessory; stop well short of failure."
+         "rpe": "RPE9",
+         "reps": "8",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Deadlift",
-       "source": "Fixed_3",
+       "role": "top",
        "groups": [
         {
-         "sets": "2",
+         "load": "R(TD*0.7)",
+         "rpe": "~5 RIR",
          "reps": "3",
-         "load": "R(D*0.55)",
-         "rpe": "RPE 5",
-         "note": "Deload exposure 1. Technique work only."
+         "sets": "1",
+         "plan_id": "W6D1-DL-T",
+         "note": "Main Top Set · 70% of Training Max"
+        },
+        {
+         "load": "R(TD*0.62)",
+         "rpe": "~5 RIR",
+         "reps": "5",
+         "sets": "2",
+         "cut": "backoff",
+         "plan_id": "W6D1-DL-B",
+         "note": "Main Back-Off · 62% of Training Max"
         }
        ],
        "exercise_key": "competition_deadlift"
@@ -2843,73 +2551,73 @@
     },
     {
      "offset": 36,
+     "label": "Bench  ·  Incline DB Press",
      "items": [
       {
        "exercise": "Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.7)",
-         "rpe": "-",
-         "note": "Candito deload bench unchanged."
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Easy deload accessory."
+         "rpe": "RPE9",
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
        "exercise_key": "incline_dumbbell_press"
       },
       {
        "exercise": "Barbell Row",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6-10",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "8-12",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "8-12",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "weighted_neutral_grip_pull_up"
@@ -2919,73 +2627,73 @@
     },
     {
      "offset": 38,
+     "label": "Bench  ·  Close Grip Bench",
      "items": [
       {
        "exercise": "Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.7)",
-         "rpe": "-",
-         "note": "Candito deload bench unchanged."
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Close Grip Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Easy deload accessory; stop well short of failure."
+         "rpe": "RPE9",
+         "reps": "6",
+         "sets": "3",
+         "cut": "bench_variation"
         }
        ],
        "exercise_key": "close-grip_barbell_bench_press"
       },
       {
        "exercise": "Barbell Row",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6-10",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "6-10",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "bent_over_barbell_row"
       },
       {
        "exercise": "OHP",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "8-12",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "standing_military_press"
       },
       {
        "exercise": "Weighted Pull-up (neutral grip)",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "8-12",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Optional easy deload accessory; skip if not improving recovery."
+         "rpe": "RPE8",
+         "reps": "8-12",
+         "sets": "4",
+         "cut": "accessory"
         }
        ],
        "exercise_key": "weighted_neutral_grip_pull_up"
@@ -2995,62 +2703,74 @@
     },
     {
      "offset": 39,
+     "label": "Squat variation  ·  Bench  ·  Incline DB Press  ·  RDL",
      "items": [
       {
-       "exercise": "Squat",
-       "source": "Fixed_3",
+       "exercise": "Pause Squat (2ct)",
+       "role": "top",
        "groups": [
         {
+         "load": "R(TS*0.65*VF)",
+         "rpe": "~5 RIR",
+         "reps": "4",
+         "sets": "1",
+         "plan_id": "W6D4-SV-T",
+         "note": "Variation Top Set · 65% of Training Max x 92% variation factor"
+        },
+        {
+         "load": "R(TS*0.58*VF)",
+         "rpe": "~5 RIR",
+         "reps": "5",
          "sets": "2",
-         "reps": "3",
-         "load": "R(S*0.55)",
-         "rpe": "RPE 5",
-         "note": "Deload exposure 2. Technique work only."
+         "cut": "backoff",
+         "plan_id": "W6D4-SV-B",
+         "note": "Variation Back-Off · 58% of Training Max x 92% variation factor"
         }
        ],
-       "exercise_key": "competition_squat"
+       "exercise_key": "competition_squat_pause"
       },
       {
        "exercise": "Bench",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "3",
-         "reps": "3",
          "load": "R(B*0.7)",
-         "rpe": "-",
-         "note": "Candito deload bench unchanged."
+         "rpe": null,
+         "reps": "3",
+         "sets": "3"
         }
        ],
        "exercise_key": "competition_bench_press"
       },
       {
        "exercise": "Incline DB Press",
-       "source": "Fixed_3",
+       "role": "candito",
        "groups": [
         {
-         "sets": "2",
-         "reps": "6",
          "load": null,
-         "rpe": "RPE 6",
-         "note": "Easy deload accessory."
+         "rpe": "RPE9",
+         "reps": "3",
+         "sets": "3",
+         "cut": "bench_variation",
+         "note": "Original workbook had the RPE typed into the weight column here - corrected."
         }
        ],
        "exercise_key": "incline_dumbbell_press"
       },
       {
-       "exercise": "Deadlift",
-       "source": "Fixed_3",
+       "exercise": "Deficit Paused Deadlift",
+       "role": "candito",
        "groups": [
         {
+         "load": "R(D*(DPDL-0.08))",
+         "rpe": "RPE7",
+         "reps": "8",
          "sets": "2",
-         "reps": "3",
-         "load": "R(D*0.6)",
-         "rpe": "RPE 5-6",
-         "note": "Deload exposure 2. Every rep should be fast."
+         "cut": "accessory",
+         "note": "Scheiben pro Seite rechnet die App. 2-5 cm deficit, 1-2 s pause just below the knee, dead stop between reps. Suggested start - adjust to hit RPE7. Deload load - 8 percentage points under the working %."
         }
        ],
-       "exercise_key": "competition_deadlift"
+       "exercise_key": "conventional_deadlift_deficit_paused"
       }
      ],
      "notes": []
@@ -3073,32 +2793,5 @@
     "Tests"
    ]
   }
- },
- "rules": {
-  "projection": {
-   "method": "divide",
-   "table": {
-    "1": 1,
-    "2": 0.96,
-    "3": 0.92,
-    "4": 0.89,
-    "5": 0.86,
-    "6": 0.84,
-    "7": 0.81
-   },
-   "round_to": "inc",
-   "min_reps": 2,
-   "max_increase": {
-    "S": 0.02,
-    "D": 0.02
-   },
-   "source": "Candito_Bench_Pana_Lower_2x_Fixed_3.xlsx, Blatt Projected Maxes: MROUND(Testgewicht ÷ %1RM; inc); unter 2 Wdh altes Max behalten; Kniebeuge und Kreuzheben höchstens MROUND(altes Max × 1,02; inc)."
-  },
-  "coach": [
-   "Prozent ist Startgewicht, die RIR-/RPE-Grenze hat Vorrang.",
-   "Keine verpassten Wdh in W1–4; Top-Sätze W3–4 nicht über RPE 8,5.",
-   "Zweiteinheiten bei RPE 5–7 halten.",
-   "Bei stechendem oder zunehmendem Schmerz abbrechen; bei langsamen Aufwärmsätzen 5–10 % runter und letzten Back-off streichen."
-  ]
  }
 }

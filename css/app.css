@@ -460,3 +460,5 @@ textarea.code { font: 500 12.5px/1.45 ui-monospace, "Cascadia Mono", Consolas, m
 .bereit-zeile { display: flex; flex-direction: column; gap: 6px; }
 .bereit-wahl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .bereit-wahl .chip { justify-content: center; min-height: 40px; font-size: 15px; }
+.ed-param { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-top: 10px; }
+.ed-param .breit { grid-column: 1 / -1; }

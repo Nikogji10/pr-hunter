@@ -72,14 +72,14 @@ export function testErgebnisse(programm, blockId, trainings, woche = testWoche(p
  * Neue Maxe nach der Projektionsregel des Programms (rules.projection) aus den Testergebnissen. Generator-Blöcke mit
  * Candito-Bankdrücken haben für die Bank eine eigene Regel (rules.projection_bench mit week und lift).
  */
-export function neueMaxe(programm, block, trainings, projiziere, inc = 2.5) {
+export function neueMaxe(programm, block, trainings, projiziere, inc = 2.5, { vertrauen = null } = {}) {
   const bank = programm.rules?.projection_bench, aus = {};
   const regeln = [[programm.rules?.projection, testWoche(programm), null], [bank, bank?.week, bank?.lift]];
   for (const [regel, woche, nur] of regeln) {
     if (!regel || woche == null) continue;
     for (const [lift, e] of Object.entries(testErgebnisse(programm, block.id, trainings, woche))) {
       if (nur ? lift !== nur : bank && lift === bank.lift) continue;
-      const r = projiziere(regel, { kg: e.kg, wdh: e.wdh, altesMax: block.werte?.[lift] ?? null, lift, inc });
+      const r = projiziere(regel, { kg: e.kg, wdh: e.wdh, altesMax: block.werte?.[lift] ?? null, lift, inc, vertrauen });
       aus[lift] = { ...e, alt: block.werte?.[lift] ?? null, projiziert: r?.projiziert ?? null, neuesMax: r?.neuesMax ?? null };
     }
   }

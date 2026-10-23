@@ -38,6 +38,7 @@ export const DIENSTE = {
   aehnliche: null,              // (name) → Promise<[{ key, name_de, name_en, matched, score }]>
   neueUebungStarten: null,      // (suchtext, beiWahl) → öffnet das Formular
   darfAendern: () => false,     // (katalogEintrag) → Ersteller oder Admin
+  programmSpeichern: null,      // (datei, definition) → Promise; überschreibt das eigene Programm
 };
 export function setzeDienste(d) { Object.assign(DIENSTE, d); }
 

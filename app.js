@@ -537,17 +537,15 @@ function App() {
     setInfo(inf); await sp.current.setzeMeta('programme', inf);
     return d;
   };
-  // Eigene Programme: neue Version (der aktive Block wechselt mit, erledigte Trainings bleiben), umbenennen, archivieren
+  // Eigene Programme: überschreiben (der aktive Block rechnet ab sofort damit, erledigte Trainings bleiben), umbenennen, archivieren
   const infoSetzen = async (inf) => { setInfo(inf); if (!DEMO) await sp.current.setzeMeta('programme', inf); };
   setzeDienste({
     meldung: setToast,
-    programmVersion: async (datei, def, notiz) => {
+    programmSpeichern: async (datei, def) => {
       const p = info[datei];
       if (!DEMO && !navigator.onLine) throw new Error('Zum Speichern braucht das Handy Netz.');
-      const v = DEMO || !p.id ? Math.max(0, ...Object.keys(p.versionen).map(Number)) + 1 : await konto.programmVersionSpeichern(supabase(), p.id, def, notiz);
-      await infoSetzen({ ...info, [datei]: { ...p, version: v, versionen: { ...p.versionen, [v]: def } } });
-      if (block?.datei === datei) await blockSetzen({ ...block, version: v });
-      return v;
+      if (!DEMO && p.id) await konto.programmUeberschreiben(supabase(), p.id, p.version, def);
+      await infoSetzen({ ...info, [datei]: { ...p, versionen: { ...p.versionen, [p.version]: def } } });
     },
     programmUmbenennen: async (datei, name) => {
       if (!DEMO) { if (!navigator.onLine) throw new Error('Zum Umbenennen braucht das Handy Netz.'); await konto.programmUmbenennen(supabase(), info[datei].id, name); }
@@ -598,7 +596,7 @@ function App() {
           zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : 'Zurück zum Verlauf'}/>`
       : ansicht === 'programme' ? html`<${Programme} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
           sollIst=${aktiverBlock && !DEMO ? sollIst(tage, trainings, aktiverBlock.id) : []}
-          neueMaxe=${aktiverBlock && !DEMO ? neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard()) : {}}
+          neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`

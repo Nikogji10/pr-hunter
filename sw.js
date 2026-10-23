@@ -1,7 +1,7 @@
 // PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache.
-const VERSION = 'ae669b183eb9';
+const VERSION = '65bac43d9ba9';
 const DATEIEN = [
   "./",
   "app.js",

@@ -42,6 +42,9 @@ export const bereinigt = (prog) => {
 /** Maxe, die das Programm braucht: die bisherigen plus alle Variablen in den Lastformeln. */
 export function eingabenVon(prog) {
   const v = new Set(prog.inputs ?? []);
-  for (const w of prog.weeks) for (const d of w.days) for (const it of d.items) for (const g of it.groups) for (const x of String(g.load ?? '').match(/\b[SBDG]\b/g) ?? []) v.add(x);
+  const max = { TS: 'S', TD: 'D' };
+  for (const w of prog.weeks) for (const d of w.days) for (const it of d.items) for (const g of it.groups) {
+    for (const x of `${g.load ?? ''} ${g.load_hi ?? ''}`.match(/\b(?:[SBDG]|TS|TD)\b/g) ?? []) v.add(max[x] ?? x);
+  }
   return ['S', 'B', 'D', 'G'].filter((x) => v.has(x));
 }
