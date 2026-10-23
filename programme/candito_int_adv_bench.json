@@ -1,0 +1,2885 @@
+{
+ "id": "candito-int-adv-bench",
+ "name": "Candito 6 Week Intermediate + Advanced Bench",
+ "source": "Vorlage Candito_AdvancedBench.xlsx; Squat/Deadlift gegen LiftVault-Kopie des Originals geprüft",
+ "inputs": [
+  "S",
+  "D",
+  "B",
+  "G"
+ ],
+ "weeks": [
+  {
+   "week": 1,
+   "sheet": "Week 1",
+   "title": "Week 1 - Hypertrophy (w/ Moderate Difficulty)",
+   "days": [
+    {
+     "offset": 0,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6",
+         "load": "R(S*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "6",
+         "load": "R(D*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7",
+         "note": "Note, perform sets of 4 reps if an 'Explosive Lower Body' exercise is chosen here or at any point as a 'Lower Accessory'"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 1,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Push Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 1",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Push Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 2",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 3,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Pull Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 1",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Pull Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 2",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 4,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8",
+         "load": "R(S*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "8",
+         "load": "R(D*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 5,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 1",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 2",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 2,
+   "sheet": "Week 2",
+   "title": "Week 2 - Muscular Conditioning/Hypertrophy (W/ Higher Difficulty)",
+   "days": [
+    {
+     "offset": 7,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "MR10",
+         "load": "R(S*0.8)",
+         "note": "Extra Volume Squats - Add 5 lbs or 2.5 kg if using kg plates, then perform 5 sets x 3 reps each set with 60 seconds rest between sets."
+        },
+        {
+         "sets": "5",
+         "reps": "3",
+         "load": "R(S*0.8)+inc",
+         "note": "Note - If you were not able to complete a minimum of 8 reps on the MR10 set, reduce max entered by 2.5% moving forward."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "1",
+         "load": "R(B*0.9)",
+         "note": "Still complete the 5 sets of 3 reps regardless even if you do perform less than 8 reps on the MR10 set."
+        },
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Deadlift-Variante",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "default": "Pause Deadlift",
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 8,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Low Pin Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bench_press_low_pin"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Push Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 1",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Push Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 2",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 10,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "High Pin Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bench_press_high_pin"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Pull Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 1",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Pull Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 2",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 11,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "MR10",
+         "load": "R(S*0.8)+inc",
+         "note": "Back Off Squats - Reduce weight by 10 lbs or 5 kg if using kg plates.  Then proceed with the following:"
+        },
+        {
+         "sets": "5-10",
+         "reps": "3",
+         "load": "R(S*0.8)-inc",
+         "note": "If you were able to complete 10 reps on the MR10 set, perform 10 sets of 3 reps per set, with 60 seconds rest between sets."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "note": "If you completed 8-9 reps on the MR10 set, perform 8 sets of 3 reps per set, with 60 seconds rest between sets."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Low Pin Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": null,
+         "rpe": "RPE9",
+         "note": "If you completed 7 reps on the MR 10 set, perform 5 sets of 3 reps per set, with 60 seconds rest between sets."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bench_press_low_pin"
+      },
+      {
+       "exercise": "Deadlift-Variante",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8",
+         "load": null,
+         "rpe": "RPE9",
+         "note": "If you completed less than 7 reps, skip back off sets entirely and reduce your entered 1 rep max by at least 2.5% for following weeks."
+        }
+       ],
+       "notes": [],
+       "default": "Pause Deadlift",
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 13,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "High Pin Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bench_press_high_pin"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 1",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 2",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 3,
+   "sheet": "Week 3",
+   "title": "Week 3 - Linear Max OT Phase",
+   "days": [
+    {
+     "offset": 14,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "4-6",
+         "load": "R(S*0.85)+inc"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "1",
+         "load": "R(B*0.9)"
+        },
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "load_hi": "R(B*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "3-6",
+         "load": "R(D*0.875)",
+         "note": "2 Sätze wie im Candito-Original (Vorlage hatte 3)."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    },
+    {
+     "offset": 15,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "load_hi": "R(B*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "12",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Pull Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 1",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Pull Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Zug 2",
+        "families": [
+         "curl",
+         "row",
+         "pulldown",
+         "shoulder_iso",
+         "shrug"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 16,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "load_hi": "R(B*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "12",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Push Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 1",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Push Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Druck 2",
+        "families": [
+         "triceps",
+         "fly",
+         "shoulder_iso",
+         "push_up",
+         "dip"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 18,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "4-6",
+         "load": "R(S*0.85)+inc+inc"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "load_hi": "R(B*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "10",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Deadlift-Variante",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "8",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "default": "Pause Deadlift",
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    },
+    {
+     "offset": 19,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.75)",
+         "load_hi": "R(B*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "10",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 1",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 2",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 4,
+   "sheet": "Week 4",
+   "title": "Week 4 - Heavy Weight Acclimation",
+   "days": [
+    {
+     "offset": 21,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(S*0.9)-inc"
+        },
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(S*0.9)"
+        },
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(S*0.9)+inc"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift-Variante",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "default": "Pause Deadlift",
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 22,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "10",
+         "reps": "3",
+         "load": "R(G*0.8)",
+         "load_hi": "R(G*0.825)",
+         "note": "On week 4 the prescribed rep range is 15-20 for just 1 set.  The goal here is a true 20 rep max if possible, but 15 is acceptable as a no break minimum since predicting with accuracy will be difficult.  "
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "PR Peak Set",
+         "reps": "15-20",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "After getting at least 15 reps, then you can rack the weight to just rest as little as possible before squeezing out the rest.  No matter what 20 total reps should be completed.  "
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8",
+         "note": "Due to the fatigue from the bench press sets, optimal performance on these accessory peak sets is not expected.  So don't be dissapointed if you have to use lighter weight than you anticipated."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    },
+    {
+     "offset": 24,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(S*0.9)+inc"
+        },
+        {
+         "sets": "1",
+         "reps": "1-2",
+         "load": "R(S*0.95)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(D*0.9)+inc"
+        },
+        {
+         "sets": "1",
+         "reps": "1-2",
+         "load": "R(D*0.95)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 25,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "5-10",
+         "reps": "3",
+         "load": "R(G*0.8)+inc",
+         "load_hi": "R(G*0.825)+(3*inc)",
+         "note": "I'd rather have you choose the maximum weight and hit just 5 sets than the minumum"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "PR Peak Set",
+         "reps": "15-20",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "weight for 10 sets.  So pick the heaviest weight if possible then do as many sets as you can.  If you do"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8",
+         "note": "manage to hit both the max weight and max amount of sets (10), and feel no nagging pain from overuse,"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8",
+         "note": "then add 5 backoff sets x 3 reps with 80% of your goal max for extended pauses (3 seconds) on each rep.  "
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    }
+   ]
+  },
+  {
+   "week": 5,
+   "sheet": "Week 5",
+   "title": "Week 5 - High Intensity Strength",
+   "days": [
+    {
+     "offset": 28,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1-7",
+         "load": "R(S*0.975)",
+         "rpe": "RPE10",
+         "note": "Note, it should be highly unlikely to get any more than 4 reps here - achieving 2-4 reps should be considered very good. The option to go beyond this is for those incidents where"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "4",
+         "load": "R(D*0.675)",
+         "note": "knee sleeves or a belt were introduced during this program (or form was changed which allowed for some serious freakish strength gains to be made)."
+        },
+        {
+         "sets": "1",
+         "reps": "4",
+         "load": "R(D*0.7)"
+        },
+        {
+         "sets": "1",
+         "reps": "2",
+         "load": "R(D*0.725)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 30,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1-7",
+         "load": "R(B*0.975)",
+         "rpe": "RPE10",
+         "note": "Note, it should be highly unlikely to get any more than 4 reps here - achieving 2-4 reps should be considered very good. The option to go beyond this is for those incidents where"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8",
+         "note": "knee sleeves or a belt were introduced during this program (or form was changed which allowed for some serious freakish strength gains to be made)."
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 1",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 2",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 32,
+     "items": [
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1-7",
+         "load": "R(D*0.975)",
+         "rpe": "RPE10",
+         "note": "Note, it should be highly unlikely to get any more than 4 reps here - achieving 2-4 reps should be considered very good. The option to go beyond this is for those incidents where"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Lower Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7",
+         "note": "knee sleeves or a belt were introduced during this program (or form was changed which allowed for some serious freakish strength gains to be made)."
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 1",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Lower Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Beine 2",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "hinge",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 33,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "5",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "Gewicht in der Vorlage nicht angegeben: frei wählen, 5 Wdh bei RPE 10."
+        },
+        {
+         "sets": "5",
+         "reps": "3",
+         "load": "R(G*0.85)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6-8",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      },
+      {
+       "exercise": "Upper Accessory 1",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 1",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      },
+      {
+       "exercise": "Upper Accessory 2",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "20",
+         "load": null,
+         "rpe": "RPE7"
+        }
+       ],
+       "notes": [],
+       "slot": {
+        "label": "Zusatz Oberkörper 2",
+        "families": [
+         "curl",
+         "triceps",
+         "shoulder_iso",
+         "fly",
+         "row",
+         "pulldown"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 6,
+   "sheet": "Deload",
+   "title": "Deload (optional, Woche 6)",
+   "days": [
+    {
+     "offset": 35,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6",
+         "load": "R(S*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "8",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "6",
+         "load": "R(D*0.8)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 36,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 38,
+     "items": [
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Close Grip Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "6",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "close-grip_barbell_bench_press"
+      },
+      {
+       "exercise": "Barbell Row",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "6-10",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "bent_over_barbell_row"
+      },
+      {
+       "exercise": "OHP",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "standing_military_press"
+      },
+      {
+       "exercise": "Weighted Pull-up (neutral grip)",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8-12",
+         "load": null,
+         "rpe": "RPE8"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "weighted_neutral_grip_pull_up"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 39,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "8",
+         "load": "R(S*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Incline DB Press",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": null,
+         "rpe": "RPE9"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "incline_dumbbell_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "8",
+         "load": "R(D*0.7)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 7,
+   "sheet": "Taper",
+   "title": "Taper (optional, Woche 6)",
+   "days": [
+    {
+     "offset": 35,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(S*0.92)",
+         "rpe": "RPE8",
+         "note": "Note - Set 1 above is an estimated opener ~ RPE8 / 92%"
+        },
+        {
+         "sets": "3",
+         "reps": "2",
+         "load": "R(S*0.82)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(B*0.92)",
+         "rpe": "RPE8",
+         "note": "Note - Set 1 above is an estimated opener ~ RPE8 / 92%"
+        },
+        {
+         "sets": "3",
+         "reps": "2",
+         "load": "R(B*0.84)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 36,
+     "items": [
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(D*0.92)",
+         "rpe": "RPE8",
+         "note": "Note - Set 1 above is an estimated opener ~ RPE8 / 92%"
+        },
+        {
+         "sets": "2",
+         "reps": "2",
+         "load": "R(D*0.82)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "4",
+         "reps": "1",
+         "load": "R(B*0.85)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 38,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(S*0.85)"
+        },
+        {
+         "sets": "2",
+         "reps": "2",
+         "load": "R(S*0.78)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(B*0.85)"
+        },
+        {
+         "sets": "3",
+         "reps": "2",
+         "load": "R(B*0.78)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(D*0.82)"
+        },
+        {
+         "sets": "2",
+         "reps": "2",
+         "load": "R(D*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 39,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "2",
+         "reps": "3",
+         "load": "R(S*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "3",
+         "reps": "3",
+         "load": "R(B*0.78)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "3",
+         "load": "R(D*0.75)"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 42,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(S*0.92)",
+         "rpe": "RPE8",
+         "note": "1. Versuch (Opener, ca. RPE 8)"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "-",
+         "note": "2. Versuch nach Gefühl"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "3. Versuch"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Bench",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(B*0.92)",
+         "rpe": "RPE8",
+         "note": "1. Versuch (Opener, ca. RPE 8)"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "-",
+         "note": "2. Versuch nach Gefühl"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "3. Versuch"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": "R(D*0.82)",
+         "rpe": "RPE8",
+         "note": "1. Versuch (Opener, ca. RPE 8)"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "-",
+         "note": "2. Versuch nach Gefühl"
+        },
+        {
+         "sets": "1",
+         "reps": "1",
+         "load": null,
+         "rpe": "RPE10",
+         "note": "3. Versuch"
+        }
+       ],
+       "notes": [],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": [
+      "Test day - estimated opener is input - but not limitted to this. 2nd and 3rd attempts are left to your own judgment. Get it!",
+      "Testtag: Original-Excel sagt Start + 6 (Fehler). Wie in Candito_7Week_DeadliftOverload eine Woche nach Taper-Beginn gelegt (Tag 42)."
+     ]
+    }
+   ],
+   "alternative_to": 6
+  }
+ ],
+ "rules": {
+  "fail_rule": "Bei einem verpassten Pflicht-Wdh das Max des Lifts um 2,5 % senken.",
+  "projection": {
+   "method": "factor",
+   "table": {
+    "1": 1,
+    "2": 1.04,
+    "3": 1.09,
+    "4": 1.12,
+    "5": 1.16,
+    "6": 1.19,
+    "7": 1.23
+   },
+   "round_to": 2.5,
+   "source": "Candito_AdvancedBench.xlsx, Blatt Projected: MROUND(Faktor × Gewicht Woche 5; 2,5), Faktor = MROUND(1 / %1RM; 0,01) mit %1RM 100/96/92/89/86/84/81 für 1–7 Wdh.",
+   "note": "Der Text im Blatt sagt „bei 1 Wdh 1RM gleich lassen“; die Formel ergibt das Gewicht aus Woche 5."
+  },
+  "week6": [
+   "Projiziertes Max nehmen und neu starten",
+   "Deload-Woche, dann neu starten",
+   "Taper und 1RM testen"
+  ]
+ }
+}

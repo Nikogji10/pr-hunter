@@ -1,0 +1,1678 @@
+{
+ "id": "candito-6-week",
+ "name": "Candito 6 Week Strength Program",
+ "author": "Jonnie Candito",
+ "source": "LiftVault-Kopie des Original-Spreadsheets (Daten 2015)",
+ "inputs": [
+  "S",
+  "D",
+  "B"
+ ],
+ "weeks": [
+  {
+   "week": 1,
+   "title": "Week 1 - Muscular Conditioning (W/ Moderate Difficulty)",
+   "days": [
+    {
+     "offset": 0,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "6",
+         "load": "R((S*0.8))"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "6",
+         "load": "R((D*0.8))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 1,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.5))"
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.675))"
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": "R((B*0.75))"
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": "R((B*0.775))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 3,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.5))"
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.675))"
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": "R((B*0.75))"
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": "R((B*0.775))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 4,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8",
+         "load": "R((S*0.7))",
+         "note": "Korrigiert: Die LiftVault-Tabelle rundet hier auf 5 kg (falscher Zellbezug). App rundet auf das Ladeinkrement."
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "8",
+         "load": "R((D*0.7))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 5,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "MR",
+         "load": "R((B*0.8))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 2,
+   "title": "Week 2 - Muscular Conditioning/Hypertrophy (W/ Higher Difficulty)",
+   "days": [
+    {
+     "offset": 7,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "MR10",
+         "load": "R((S*0.8))"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift Variation",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": [
+      "Extra Volume Squats - Add 5 lbs or 2.5 kg if using kg plates, then perform 5 sets x 3 reps each set with 60 seconds rest between sets.",
+      "Note - If you were not able to complete a minimum of 8 reps on the MR10 set, reduce max entered by 2.5% moving forward.",
+      "Still complete the 5 sets of 3 reps regardless even if you do perform less than 8 reps on the MR10 set."
+     ]
+    },
+    {
+     "offset": 8,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.725))"
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": "R((B*0.775))"
+        },
+        {
+         "sets": 1,
+         "reps": "6-8",
+         "load": "R((B*0.8))+inc"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 10,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "MR10",
+         "load": "R((S*0.8))+inc"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift Variation",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": [
+      "Back Off Squats - Reduce weight by 10 lbs or 5 kg if using kg plates.  Then proceed with the following:",
+      "If you were able to complete 10 reps on the MR10 set, perform 10 sets of 3 reps per set, with 60 seconds rest between sets.",
+      "If you completed 8-9 reps on the MR10 set, perform 8 sets of 3 reps per set, with 60 seconds rest between sets.",
+      "If you completed 7 reps on the MR 10 set, perform 5 sets of 3 reps per set, with 60 seconds rest between sets.",
+      "If you completed less than 7 reps, skip back off sets entirely and reduce your entered 1 rep max by at least 2.5% for following weeks."
+     ]
+    },
+    {
+     "offset": 11,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": "R((B*0.725))"
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": "R((B*0.775))"
+        },
+        {
+         "sets": 1,
+         "reps": "6-8",
+         "load": "R((B*0.8))+inc"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 13,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "MR",
+         "load": "R((B*0.8))-inc"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 3,
+   "title": "Week 3 - Linear Max OT Phase",
+   "days": [
+    {
+     "offset": 14,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "4-6",
+         "load": "R((S*0.85))+inc"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "3-6",
+         "load": "R((D*0.875))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    },
+    {
+     "offset": 16,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "4-6",
+         "load": "R((B*0.85))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      }
+     ],
+     "notes": [
+      "No Optional Exercises"
+     ]
+    },
+    {
+     "offset": 18,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "4-6",
+         "load": "R(((S*0.85)+inc))+inc"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift Variation",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      }
+     ],
+     "notes": [
+      "No Accessory Lifts"
+     ]
+    },
+    {
+     "offset": 19,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "4-6",
+         "load": "(R((B*0.85)))+inc"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      }
+     ],
+     "notes": [
+      "No Optional Exercises"
+     ]
+    }
+   ]
+  },
+  {
+   "week": 4,
+   "title": "Week 4 - Heavy Weight Acclimation",
+   "days": [
+    {
+     "offset": 21,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((S*0.9))-inc"
+        },
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((S*0.9))"
+        },
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((S*0.9))+inc"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift Variation",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Deadlift-Variante",
+        "families": [
+         "deadlift",
+         "hinge"
+        ],
+        "default_key": "conventional_deadlift_pause_below_knee"
+       }
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 22,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R(((B*0.875)-5))"
+        },
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R(((B*0.9)-5))"
+        },
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((B*0.9))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 24,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((S*0.9))+inc"
+        },
+        {
+         "sets": 1,
+         "reps": "1-2",
+         "load": "R((S*0.95))"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((D*0.9))+inc"
+        },
+        {
+         "sets": 1,
+         "reps": "1-2",
+         "load": "R((D*0.95))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 25,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "3",
+         "load": "R((B*0.875))"
+        },
+        {
+         "sets": 1,
+         "reps": "2-4",
+         "load": "R((B*0.9))"
+        },
+        {
+         "sets": 1,
+         "reps": "1-2",
+         "load": "R((B*0.95))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 2,
+         "reps": "12",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "10",
+         "load": null
+        },
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 4,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 5,
+   "title": "Week 5 - High Intensity Strength",
+   "days": [
+    {
+     "offset": 28,
+     "items": [
+      {
+       "exercise": "Squat",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "1-4",
+         "load": "R((S*0.975))"
+        }
+       ],
+       "exercise_key": "competition_squat"
+      },
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "4",
+         "load": "R((D*0.675))"
+        },
+        {
+         "sets": 1,
+         "reps": "4",
+         "load": "R((D*0.7))"
+        },
+        {
+         "sets": 1,
+         "reps": "2",
+         "load": "R((D*0.725))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Optional Lower Body",
+       "groups": [],
+       "slot": {
+        "label": "Optional Beine",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Optional Lower Body",
+       "groups": [],
+       "slot": {
+        "label": "Optional Beine",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 30,
+     "items": [
+      {
+       "exercise": "Bench Press",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "1-4",
+         "load": "R((B*0.975))"
+        }
+       ],
+       "exercise_key": "competition_bench_press"
+      },
+      {
+       "exercise": "Machine Row",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "low_row_machine"
+      },
+      {
+       "exercise": "Seated Dumbbell OHP",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "seated_dumbbell_press"
+      },
+      {
+       "exercise": "Lat Pulldown",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "8",
+         "load": null
+        },
+        {
+         "sets": 2,
+         "reps": "6",
+         "load": null
+        }
+       ],
+       "exercise_key": "lat_pulldown_medium_grip"
+      },
+      {
+       "exercise": "Optional Exercise 1",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 1",
+        "families": []
+       }
+      },
+      {
+       "exercise": "Optional Exercise 2",
+       "groups": [
+        {
+         "sets": 3,
+         "reps": "8-12",
+         "load": null
+        }
+       ],
+       "slot": {
+        "label": "Optional 2",
+        "families": []
+       }
+      }
+     ],
+     "notes": []
+    },
+    {
+     "offset": 32,
+     "items": [
+      {
+       "exercise": "Deadlift",
+       "groups": [
+        {
+         "sets": 1,
+         "reps": "1-4",
+         "load": "R((D*0.975))"
+        }
+       ],
+       "exercise_key": "competition_deadlift"
+      },
+      {
+       "exercise": "Optional Lower Body",
+       "groups": [],
+       "slot": {
+        "label": "Optional Beine",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "core"
+        ]
+       }
+      },
+      {
+       "exercise": "Optional Lower Body",
+       "groups": [],
+       "slot": {
+        "label": "Optional Beine",
+        "families": [
+         "leg_iso",
+         "lunge",
+         "squat_machine",
+         "core"
+        ]
+       }
+      }
+     ],
+     "notes": []
+    }
+   ]
+  },
+  {
+   "week": 6,
+   "title": "Woche 6 – drei Optionen",
+   "days": [],
+   "notes": [
+    "Woche 6 auslassen und mit projiziertem Max neu starten",
+    "Deload: Woche 1 wiederholen ohne letzte Oberkörpereinheit",
+    "1RM testen, danach Deload oder neuer Zyklus"
+   ]
+  }
+ ],
+ "rules": {
+  "fail_rule": "Bei einem verpassten Pflicht-Wdh das Max des Lifts um 2,5 % senken.",
+  "projection": {
+   "method": "factor",
+   "table": {
+    "1": 1,
+    "2": 1.03,
+    "3": 1.06,
+    "4": 1.09
+   },
+   "round_to": "inc",
+   "source": "Candito_6_Week_Program___LiftVault.com.xlsx, Blatt Week 6: Gewicht aus Woche 5 × 1,03 (2 Wdh), 1,06 (3 Wdh), 1,09 (4 Wdh). Gerundet wie die Cosmo-Fassung (MROUND)."
+  },
+  "week6": [
+   "Woche 6 auslassen und mit projiziertem Max neu starten",
+   "Deload: Woche 1 wiederholen ohne letzte Oberkörpereinheit",
+   "1RM testen, danach Deload oder neuer Zyklus"
+  ]
+ }
+}

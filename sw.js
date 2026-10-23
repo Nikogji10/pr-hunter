@@ -1,0 +1,80 @@
+// PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
+// VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
+// Anfragen an Supabase gehen nie durch den Cache.
+const VERSION = 'ae669b183eb9';
+const DATEIEN = [
+  "./",
+  "app.js",
+  "css/app.css",
+  "css/schriften.css",
+  "daten/katalog.json",
+  "fonts/archivo-100-900-latin-ext.woff2",
+  "fonts/archivo-100-900-latin.woff2",
+  "fonts/big-shoulders-stencil-display-800-latin-ext.woff2",
+  "fonts/big-shoulders-stencil-display-800-latin.woff2",
+  "fonts/big-shoulders-stencil-display-900-latin-ext.woff2",
+  "fonts/big-shoulders-stencil-display-900-latin.woff2",
+  "icons/apple-touch-icon.png",
+  "icons/favicon-32.png",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "index.html",
+  "js/auswertung.js",
+  "js/bearbeiten.js",
+  "js/block.js",
+  "js/daten.js",
+  "js/generator.js",
+  "js/import.js",
+  "js/konto.js",
+  "js/lokal.js",
+  "js/programm.js",
+  "js/punkte.js",
+  "js/rechnen.js",
+  "js/supabase.js",
+  "js/sync.js",
+  "js/verweise.js",
+  "manifest.webmanifest",
+  "programme/candito_6_week.json",
+  "programme/candito_int_adv_bench.json",
+  "programme/pr_hybrid_candito_pana.json",
+  "ui/basis.js",
+  "ui/beispiel.js",
+  "ui/bereitschaft.js",
+  "ui/diagramme.js",
+  "ui/editor.js",
+  "ui/einstellungen.js",
+  "ui/generator.js",
+  "ui/koerper.js",
+  "ui/plan.js",
+  "ui/programme.js",
+  "ui/rechner.js",
+  "ui/stand.js",
+  "ui/statistik.js",
+  "ui/suche.js",
+  "ui/training.js",
+  "ui/uebung.js",
+  "ui/vergleich.js",
+  "ui/verlauf.js",
+  "vendor/htm-preact.js",
+  "vendor/supabase.js"
+];
+const CACHE = `prh-${VERSION}`;
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys()
+    .then((alle) => Promise.all(alle.filter((k) => k.startsWith('prh-') && k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // App-Dateien: erst Cache, sonst Netz. Seitenaufrufe (auch mit ?demo) bekommen die gespeicherte index.html.
+  const schluessel = e.request.mode === 'navigate' ? new URL('./index.html', self.location).href : e.request;
+  e.respondWith(caches.match(schluessel, { ignoreSearch: e.request.mode === 'navigate' }).then((treffer) => treffer ?? fetch(e.request)));
+});
