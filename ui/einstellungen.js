@@ -3,7 +3,8 @@
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
 import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz } from './basis.js';
 import { DEMO } from './stand.js';
-import { hintergrund, speichereHintergrund, bildVerkleinern, profilbildAusDatei, ABDUNKELN } from './hintergrund.js';
+import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung } from './hintergrund.js';
+import { Zuschnitt, bildLaden } from './zuschnitt.js';
 import { KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 
 const KG_SCHEIBEN = [25, 20, 15, 10, 5, 2.5, 2, 1.25, 1, 0.5, 0.25];
@@ -34,16 +35,22 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   const [name, setName] = useState(einst.name ?? '');
   const [bild, setBild] = useState(hintergrund);
   const [bildFehler, setBildFehler] = useState(null);
+  const [zuschnitt, setZuschnitt] = useState(null);      // { img, url } während des Zuschneidens
   const bildWaehlen = async (datei) => {
     if (!datei) return;
     setBildFehler(null);
-    try {
-      const url = await bildVerkleinern(datei);
-      if (!speichereHintergrund(url, einst.hintergrundDunkel ?? bild.dunkel)) { setBildFehler('Das Bild ist zu groß für den Speicher dieses Browsers.'); return; }
-      setBild({ ...bild, bild: url });
-      abgleich?.();
-    } catch (e) { setBildFehler(e.message); }
+    try { setZuschnitt(await bildLaden(datei)); } catch (e) { setBildFehler(e.message); }
   };
+  const zuschnittZu = () => { URL.revokeObjectURL(zuschnitt.url); setZuschnitt(null); };
+  const bildUebernehmen = (url) => {
+    zuschnittZu();
+    if (!speichereHintergrund(url, einst.hintergrundDunkel ?? bild.dunkel)) { setBildFehler('Das Bild ist zu groß für den Speicher dieses Browsers.'); return; }
+    setBild({ ...bild, bild: url });
+    abgleich?.();
+  };
+  // Regler: beim Ziehen sofort zeigen, beim Loslassen speichern (sonst ein Abgleich je Pixel)
+  const [deck, setDeck] = useState(Math.round((einst.deckkraft ?? 0.88) * 100));
+  const [sicht, setSicht] = useState(Math.round((1 - (einst.hintergrundDunkel ?? bild.dunkel)) * 100));
   const aendere = (art, d) => setEinst({ ...einst, pausen: { ...einst.pausen, [art]: Math.max(15, Math.min(900, einst.pausen[art] + d)) } });
   const zahl = (t) => { const n = Number(String(t).replace(',', '.')); return t.trim() && Number.isFinite(n) ? n : null; };
   const lb = einst.einheit === 'lb';
@@ -156,10 +163,18 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           <input id="e-bild" type="file" accept="image/*" hidden onChange=${(e) => { bildWaehlen(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }}/>
           ${bild.bild ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => { speichereHintergrund(null, bild.dunkel); setBild({ ...bild, bild: null }); abgleich?.(); }}>Entfernen</button>` : null}
         </div>
-        ${bild.bild ? html`<${Seg} label="Abdunkeln" werte=${ABDUNKELN} wert=${einst.hintergrundDunkel ?? bild.dunkel}
-          setze=${(v) => setEinst({ ...einst, hintergrundDunkel: v })}/>` : null}
+        ${bild.bild ? html`<label class="regler-zeile" for="e-sicht"><span>Bild sichtbar</span><b>${sicht} %</b>
+          <input id="e-sicht" class="regler" type="range" min="10" max="90" step="5" value=${sicht} style="grid-column:1 / -1"
+            onInput=${(e) => { const v = Number(e.currentTarget.value); setSicht(v); setzeAbdunklung(1 - v / 100); }}
+            onChange=${(e) => setEinst({ ...einst, hintergrundDunkel: Math.round(100 - Number(e.currentTarget.value)) / 100 })}/></label>` : null}
         ${bildFehler ? html`<p class="fehler">${bildFehler}</p>` : null}
-        <span class="muted" style="font-size:12.5px">Wird mit deinem Konto gespeichert (ab Update 11). Die Karten werden zu Glas, damit das Bild durchscheint.</span></div>
+        <span class="muted" style="font-size:12.5px">Beim Hochladen wählst du den Ausschnitt passend zum Bildschirm. Wird mit deinem Konto gespeichert (ab Update 11).</span></div>
+      <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Flächen</span>
+        <label class="regler-zeile" for="e-deck"><span>Deckkraft</span><b>${deck} %</b>
+          <input id="e-deck" class="regler" type="range" min="40" max="100" step="2" value=${deck} style="grid-column:1 / -1"
+            onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String(v / 100)); }}
+            onChange=${(e) => setEinst({ ...einst, deckkraft: Number(e.currentTarget.value) / 100 })}/></label>
+        <span class="muted" style="font-size:12.5px">Gilt für alle Karten, Fenster und Leisten gleich. 100 % = undurchsichtig.</span></div>
     </section>
 
 `
@@ -196,6 +211,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         ${kontoLoeschen ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setLoeschen({ text: '' })}>Konto löschen …</button>` : null}
       </section>`}
     </div>
+    ${zuschnitt ? html`<${Zuschnitt} quelle=${zuschnitt} uebernehmen=${bildUebernehmen} zu=${zuschnittZu}/>` : null}
     ${loeschen ? html`<${Sheet} zu=${() => !loeschen.laeuft && setLoeschen(null)} label="Konto löschen">
       <h2 class="h2">Konto löschen</h2>
       <p style="margin:0">Löscht dein Konto mit allen Trainings, Sätzen, Blöcken, eigenen Programmen, Körperwerten und Anpassungen – auf dem Server und auf diesem Handy. Das lässt sich nicht rückgängig machen.</p>

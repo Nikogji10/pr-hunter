@@ -16,6 +16,7 @@ import { Rechner } from './ui/rechner.js';
 import { BereitschaftSheet } from './ui/bereitschaft.js';
 import { GewichtKarte } from './ui/gewicht.js';
 import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung } from './ui/hintergrund.js';
+import { setzeSprache } from './ui/sprache.js';
 import { KG_PRO_LB } from './js/rechnen.js';
 import { erstelleStand, plusTage, tageZwischen } from './js/daten.js';
 import { sollIst, neueMaxe, tageMitOptionen } from './js/block.js';
@@ -48,6 +49,7 @@ if (DEMO) setzeStand(beispielStand());
 
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
+const deckkraft = (d) => document.documentElement.style.setProperty('--deckkraft', String(d >= 0.3 && d <= 1 ? d : 0.88));
 
 /** Design anwenden: system = dem Gerät folgen (kein Attribut), sonst hell/dunkel fest. */
 function thema(wert) {
@@ -158,6 +160,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
         <button class="chip" onClick=${zuProgrammen}>Block ›</button>
       </div>
       <${BlockHantel} wochen=${wochen} aktuell=${akt}/>
+      <div class="hantel-legende">Jede Scheibe ist eine Woche, innen Woche 1 · voll = erledigt, leuchtend = jetzt</div>
     </section>
 
     ${tag?.datum === HEUTE && !erledigt.has(HEUTE) && !training && pause >= PAUSE_HINWEIS_TAGE ? html`<section class="hint" aria-live="polite">${I.warn}
@@ -282,6 +285,8 @@ function App() {
   useEffect(() => {
     thema(speicher.lies('prh-thema'));                     // sofort, bevor das Profil geladen ist
     schrift(Number(speicher.lies('prh-zoom')) || 1);
+    deckkraft(Number(speicher.lies('prh-deckkraft')) || 0.88);
+    setzeSprache(speicher.lies('prh-sprache') ?? 'de');
     ladeHintergrund();
     (async () => {
       katalogStatisch.current = await (await fetch('daten/katalog.json')).json();
@@ -434,8 +439,12 @@ function App() {
   useEffect(() => { if (!DEMO && sp.current && phase === 'bereit') sp.current.setzeMeta('laufend', training ?? null).catch(() => {}); }, [training]);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 3200); return () => clearTimeout(id); }, [toast]);
   useEffect(() => { thema(einst.thema); speicher.schreib('prh-thema', einst.thema ?? 'system'); }, [einst.thema]);
-  useEffect(() => { schrift(einst.zoom ?? 1); speicher.schreib('prh-zoom', String(einst.zoom ?? 1)); }, [einst.zoom]);
-  useEffect(() => { if (einst.hintergrundDunkel != null) setzeAbdunklung(einst.hintergrundDunkel); }, [einst.hintergrundDunkel]);
+  // Vor dem Laden (einst noch der Standard) gilt der Gerätespeicher vom Start – nicht mit Standardwerten überschreiben
+  const geladen = einst !== STANDARD_EINSTELLUNGEN;
+  useEffect(() => { if (!geladen) return; schrift(einst.zoom ?? 1); speicher.schreib('prh-zoom', String(einst.zoom ?? 1)); }, [einst.zoom, geladen]);
+  useEffect(() => { if (geladen && einst.hintergrundDunkel != null) setzeAbdunklung(einst.hintergrundDunkel); }, [einst.hintergrundDunkel, geladen]);
+  useEffect(() => { if (!geladen) return; deckkraft(einst.deckkraft ?? 0.88); speicher.schreib('prh-deckkraft', String(einst.deckkraft ?? 0.88)); }, [einst.deckkraft, geladen]);
+  useEffect(() => { if (!geladen) return; setzeSprache(einst.sprache); speicher.schreib('prh-sprache', einst.sprache ?? 'de'); }, [einst.sprache, geladen]);
   useEffect(() => { if (!lichter) return; const id = setTimeout(() => setLichter(null), 1900); return () => clearTimeout(id); }, [lichter]);
 
   // Auswertungsstand für alle Ansichten (Live-Bindings in ui/stand.js)

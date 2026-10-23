@@ -51,10 +51,14 @@ export const tonnage = (kg) => (kg == null ? '–' : ANZEIGE.einheit === 'lb' ? 
 /** Gewicht mit Einheit („172,5 kg“). */
 export const gwE = (kg, stellen = 2) => (kg == null ? '–' : `${gw(kg, stellen)} ${ANZEIGE.einheit}`);
 export const mmss = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
-const WT = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WT_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const MON_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WT_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MON_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const en = () => ANZEIGE.sprache === 'en';
 const d = (iso) => new Date(`${iso}T00:00:00Z`);
-export const datumLang = (iso) => `${WT[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()}. ${MON[d(iso).getUTCMonth()]}`;
+export const datumLang = (iso) => (en() ? `${WT_EN[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()} ${MON_EN[d(iso).getUTCMonth()]}`
+  : `${WT_DE[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()}. ${MON_DE[d(iso).getUTCMonth()]}`);
 export const datumKurz = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 /** „150×5“ in der Anzeigeeinheit; ohne Gewicht (Körpergewicht ohne Zusatz) „8 Wdh“. */
 export const satzKurz = (s) => (s.kg > 0 ? `${gw(s.kg)}×${s.wdh ?? '–'}` : `${s.wdh ?? '–'} Wdh`);
@@ -72,8 +76,8 @@ export function satzExtras(s, { mitTyp = false } = {}) {
   return teile;
 }
 const TYP_NAME = { drop: 'Drop', failure: 'Versagen', amrap: 'AMRAP' };
-export const wtKurz = (iso) => WT[d(iso).getUTCDay()].slice(0, 2);
-export const monatName = (jahr, monat) => `${MON[monat]} ${jahr}`;
+export const wtKurz = (iso) => (en() ? WT_EN : WT_DE)[d(iso).getUTCDay()].slice(0, 2);
+export const monatName = (jahr, monat) => `${(en() ? MON_EN : MON_DE)[monat]} ${jahr}`;
 
 export const LIFT = {
   squat: { name: 'Kniebeuge', kurz: 'KB', farbe: 'var(--lift-squat)' },
@@ -198,8 +202,47 @@ export function Sheet({ zu, children, label = 'Dialog' }) {
       if (!perZurueck && history.state?.sheet) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
     };
   }, []);
+  // Nach unten wegziehen: nur wenn der Inhalt ganz oben steht und die Geste eindeutig nach unten geht
+  const ref = useRef(null), zug = useRef(null);
+  const start = (e) => {
+    if (e.touches.length !== 1 || ref.current.scrollTop > 0 || e.target.closest?.('.zuschnitt, input[type="range"]')) return;
+    const t = e.touches[0];
+    zug.current = { x: t.clientX, y: t.clientY, dy: 0, aktiv: false, t0: Date.now() };
+  };
+  const ziehe = (e) => {
+    const z = zug.current, s = ref.current;
+    if (!z) return;
+    const t = e.touches[0], dy = t.clientY - z.y, dx = t.clientX - z.x;
+    if (!z.aktiv) {
+      if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+      if (dy <= 0 || Math.abs(dx) > dy || s.scrollTop > 0) { zug.current = null; return; }
+      z.aktiv = true; s.classList.add('zieht');
+    }
+    z.dy = Math.max(0, dy);
+    s.style.transform = `translateY(${z.dy}px)`;
+    if (e.cancelable) e.preventDefault();
+  };
+  const loslassen = () => {
+    const z = zug.current, s = ref.current;
+    zug.current = null;
+    if (!z?.aktiv) return;
+    s.classList.remove('zieht');
+    const schnell = z.dy > 50 && Date.now() - z.t0 < 250;
+    if (schnell || z.dy > Math.min(140, s.offsetHeight * 0.3)) {
+      s.style.transition = 'transform .16s ease-in'; s.style.transform = 'translateY(100%)';
+      setTimeout(() => zuRef.current(), 150);
+    } else {
+      s.style.transition = 'transform .2s ease'; s.style.transform = '';
+    }
+  };
+  useEffect(() => {
+    // direkt registriert: touchmove muss preventDefault dürfen (passive: false)
+    const s = ref.current, plan = [['touchstart', start], ['touchmove', ziehe], ['touchend', loslassen], ['touchcancel', loslassen]];
+    for (const [typ, f] of plan) s.addEventListener(typ, f, { passive: false });
+    return () => { for (const [typ, f] of plan) s.removeEventListener(typ, f); };
+  }, []);
   return html`<div class="backdrop" onClick=${(e) => e.target === e.currentTarget && zu()}>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
+    <div class="sheet" ref=${ref} role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
   </div>`;
 }
 

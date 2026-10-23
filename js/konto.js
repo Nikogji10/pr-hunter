@@ -16,9 +16,9 @@ export const STANDARD_EINSTELLUNGEN = {
   pausen: { ...STANDARD_PAUSEN }, cut: false, sprache: 'de', einheit: 'kg', inc: 2.5, stange: 20, scheiben: [...STANDARD_SCHEIBEN],
   formel: 'rpe', thema: 'system', name: null, admin: false, vergleich: false,
   // profiles.app_settings (Update 11): auf allen Geräten gleich; ohne 11 bleiben sie auf dem Gerät
-  bereitschaft: true, zoom: 1, ziele: {}, gewichtZiel: null, avatar: null, hintergrundDunkel: 0.55,
+  bereitschaft: true, zoom: 1, ziele: {}, gewichtZiel: null, avatar: null, hintergrundDunkel: 0.55, deckkraft: 0.88,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel'];
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
