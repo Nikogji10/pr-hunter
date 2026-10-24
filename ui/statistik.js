@@ -1,9 +1,9 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, I, datumKurz, uebung, MUSKEL_DE } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, I, datumKurz, uebung, MUSKEL_DE, speicher } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
-import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT } from '../js/auswertung.js';
+import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum } from '../js/auswertung.js';
 import { SYMMETRIC_RECHNER } from '../js/verweise.js';
 import { LinienChart, StapelSaeulen, Heatmap, Sparkline, ZonenBalken, Rangliste } from './diagramme.js';
 import { KoerperKarte } from './koerper.js';
@@ -27,7 +27,12 @@ function wochenDaten(x) {
   });
 }
 
-export function Statistik({ einst, blockStart = null, trainings = [] }) {
+// Reiter: Kraft (Total, Lifts, Verläufe, Ziele, Rekorde) · Profil (Muskeln, Vergleich) · Belastung · Training · Körper
+const STAT_REITER = [['kraft', 'Kraft'], ['profil', 'Profil'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
+
+export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [] }) {
+  const [reiter, setReiter] = useState(() => speicher.lies('prh-stat-reiter') ?? 'kraft');
+  const waehleReiter = (k) => { setReiter(k); speicher.schreib('prh-stat-reiter', k); scrollTo({ top: 0 }); };
   const [bereich, setBereich] = useState(52);
   const [rekLift, setRekLift] = useState('squat');
   // Zeitraum in Wochen: 0 = alles, -1 = seit Beginn des aktiven Blocks
@@ -55,6 +60,14 @@ export function Statistik({ einst, blockStart = null, trainings = [] }) {
     saeulen.push({ label: teil[0].woche, teile: Object.fromEntries(['squat', 'bench', 'dead', 'andere'].map((l) => [l, teil.reduce((a, v) => a + v[l], 0)])) });
   }
   const volSerien = [...LIFTS.map((l) => ({ id: l, name: LIFT[l].name, farbe: LIFT[l].farbe })), { id: 'andere', name: 'Zubehör', farbe: 'var(--andere)' }];
+  // Trainingszeit: Minuten je Woche (bzw. je 4/8 Wochen wie beim Volumen), Summe, Ø je Einheit, längste Einheit
+  const mitDauer = wd.flatMap((w) => w.trainings).filter((t) => t.dauer > 0);
+  const zeitSaeulen = [];
+  for (let i = 0; i < wd.length; i += gruppe) {
+    const teil = wd.slice(i, i + gruppe);
+    zeitSaeulen.push({ label: teil[0].woche, teile: { min: teil.reduce((a, w) => a + w.trainings.reduce((b, t) => b + (t.dauer ?? 0), 0), 0) } });
+  }
+  const zeitGesamt = mitDauer.reduce((a, t) => a + t.dauer, 0);
   // Frequenz und Kalender
   const montag = plusTage(HEUTE, -((new Date(`${HEUTE}T00:00:00Z`).getUTCDay() + 6) % 7));
   const von = plusTage(montag, -7 * n);
@@ -94,7 +107,8 @@ export function Statistik({ einst, blockStart = null, trainings = [] }) {
   // Verläufe je Woche: Total aus der aktuellen Form (bestes e1RM der letzten 12 Wochen je Lift), Körpergewicht, Punkte
   const formReihe = Object.fromEntries(LIFTS.map((l) => [l, e1rmWoche[l].map((_, i) => form(e1rmWoche[l], i + 1))]));
   const totalReihe = wochen.map((_, i) => (LIFTS.every((l) => formReihe[l][i] != null) ? LIFTS.reduce((a, l) => a + formReihe[l][i], 0) : null));
-  const gemessen = wochen.map((wo) => { const m = KOERPERVERLAUF.filter((k) => k.datum >= wo && k.datum < plusTage(wo, 7)); return m.length ? m.at(-1).kg : null; });
+  // Wochendurchschnitt: das Gewicht schwankt von Tag zu Tag, ein einzelner Messwert wäre zu zufällig
+  const gemessen = wochen.map((wo) => { const m = KOERPERVERLAUF.filter((k) => k.datum >= wo && k.datum < plusTage(wo, 7)); return m.length ? Math.round((m.reduce((a, k) => a + k.kg, 0) / m.length) * 10) / 10 : null; });
   const kgWoche = wochen.map((wo) => (KOERPERVERLAUF.length ? koerperAm(plusTage(wo, 6), KOERPERVERLAUF) : null));
   const relativ = totalReihe.map((t, i) => (t != null && kgWoche[i] ? Math.round((t / kgWoche[i]) * 100) / 100 : null));
   const dotsReihe = totalReihe.map((t, i) => (t != null && kgWoche[i] ? dots(t, kgWoche[i]) : null));
@@ -113,78 +127,30 @@ export function Statistik({ einst, blockStart = null, trainings = [] }) {
   </div>`;
 
   return html`<div class="screen">
-    <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}</header>
+    <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
+      <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav></header>
     <div class="filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>
 
+    <div class="reiter-inhalt" key=${reiter}>
+    ${reiter === 'kraft' ? html`
     <section class="card total">
       <div><div class="eyebrow">Total · bestes e1RM der letzten ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>
         ${totalVorher != null ? html`<div class=${`delta ${total >= totalVorher ? 'auf' : 'ab'}`}>${pfeil(total - totalVorher)} ${einheit()} seit ${datumKurz(x[0])}${x[0].slice(0, 4)}</div>`
           : html`<div class="muted" style="font-size:13px">${total == null ? 'Braucht je einen Satz in Kniebeuge, Bankdrücken und Kreuzheben.' : 'Im Zeitraum nicht alle drei Lifts trainiert.'}</div>`}</div>
       <div class="dots-wert"><div class="eyebrow">DOTS</div><b>${total != null && kg > 0 ? fmt(dots(total, kg), 1) : '–'}</b><span class="muted" style="font-size:12px">${kg > 0 ? `IPF GL ${fmt(ipfGl(total, kg), 1)} · bei ${gwE(kg)}` : 'Körpergewicht fehlt'}</span></div>
     </section>
-
     <div class="kacheln">${LIFTS.map((l) => {
       const w = e1rmWoche[l].slice(-n), jetzt = aktuell[l], d = jetzt != null && vorher[l] != null ? jetzt - vorher[l] : null;
       return html`<div class="kachel" key=${l}><span class="l"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i>${LIFT[l].name}</span>
         <b>${gw(jetzt, 1)}</b>${d != null ? html`<span class=${`delta ${d >= 0 ? 'auf' : 'ab'}`}>${pfeil(d)}</span>` : null}<${Sparkline} werte=${w} farbe=${LIFT[l].farbe}/></div>`;
     })}</div>
-
     ${hinweise.length ? html`<section class="stack" style="gap:8px">${hinweise.map((h) => html`<div key=${h.t} class="hint">${I.warn}<span class="t">${h.t}</span><span></span><p>${h.text}</p></div>`)}</section>` : null}
-
     <${LinienChart} titel="e1RM-Verlauf" unter="Bester Satz je Woche" x=${x} serien=${serien} einheit=${einheit()}/>
     ${hat(totalReihe) ? html`<${LinienChart} titel="Total" unter="Summe der besten e1RM der jeweils letzten 12 Wochen" x=${x} serien=${[{ id: 'total', name: 'Total', farbe: 'var(--ink)', werte: ab(totalReihe).map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}/>` : null}
     ${hat(dotsReihe) ? html`<${LinienChart} titel="Punkte" unter="DOTS und IPF GL aus Total und Körpergewicht (zeitlich nächster Messwert)" x=${x}
       serien=${[{ id: 'dots', name: 'DOTS', farbe: 'var(--lift-bench)', werte: ab(dotsReihe) }, { id: 'gl', name: 'IPF GL', farbe: 'var(--lift-squat)', werte: ab(glReihe) }]} einheit="" hoehe=${180}/>` : null}
-    ${hat(gemessen) ? html`<${LinienChart} titel="Körpergewicht" unter="Letzter Messwert je Woche (Einstellungen, Trainings)" x=${x} serien=${[{ id: 'kg', name: 'Körpergewicht', farbe: 'var(--seq-3)', werte: ab(gemessen).map(inAnzeige) }]} einheit=${einheit()} hoehe=${170}/>` : null}
     ${hat(relativ) ? html`<${LinienChart} titel="Relative Stärke" unter="Total ÷ Körpergewicht" x=${x} serien=${[{ id: 'rel', name: 'Total ÷ KG', farbe: 'var(--lift-dead)', werte: ab(relativ) }]} einheit="×" stellen=${2} hoehe=${170}/>` : null}
-    ${rpeIst.some((v) => v != null) ? html`<${LinienChart} titel="RPE-Trend" unter=${rpeSoll.some((v) => v != null) ? 'Ø RPE der Arbeitssätze je Woche gegen das geplante Ziel-RPE' : 'Ø RPE der Arbeitssätze je Woche (nur Sätze mit RPE)'} x=${x}
-      serien=${[{ id: 'ist', name: 'Ist', farbe: 'var(--lift-squat)', werte: rpeIst }, ...(rpeSoll.some((v) => v != null) ? [{ id: 'soll', name: 'Ziel', farbe: 'var(--muted)', werte: rpeSoll }] : [])]} einheit="" hoehe=${170}/>` : null}
-
-    <section class="card pad stack">
-      <div class="row between" style="align-items:flex-start"><div><span class="viz-t">Kraftprofil</span>
-        <div class="viz-u">Nach der veröffentlichten Methode von Symmetric Strength · ${gwE(kg)} Körpergewicht</div></div>
-        <div class="dots-wert"><div class="eyebrow">Gesamt</div><b>${fmt(profil.gesamt, 1)}</b></div></div>
-      <${KoerperKarte} muskeln=${profil.muskeln}/>
-      <div class="stack" style="gap:10px">${LIFTS.map((l) => profil.lifts[l] && html`<div key=${l} class="stufe-zeile">
-        <span class="row" style="gap:6px"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i><b>${LIFT[l].name}</b></span>
-        <span class="stufe-spur"><i style=${`width:${Math.min(100, (profil.lifts[l].wert / 125) * 100)}%`}></i></span>
-        <span class="stufe-text"><b>${fmt(profil.lifts[l].wert, 1)}</b> ${profil.lifts[l].stufe}</span>
-        <span class="muted stufe-naechste">${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span>
-      </div>`)}</div>
-      <p class="muted" style="margin:0;font-size:12.5px">Schulterdrücken, Klimmzug und Rudern bewertet Symmetric Strength mit unveröffentlichten Werten. Die vollständige Analyse gibt es dort.</p>
-      <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
-        <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
-    </section>
-
-    <${Zielprognose} aktuell=${aktuell}/>
-    <${Vergleich} freigegeben=${!!einst.vergleich}/>
-
-    ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
-      <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>
-      <div class="kachel"><span class="l">Monotonie</span><b>${fmt(letzte.foster.monotonie, 2)}</b><span class="muted" style="font-size:12px">Ø ÷ Streuung</span></div>
-      <div class="kachel"><span class="l">Strain</span><b>${fmt(letzte.foster.strain, 0)}</b><span class="muted" style="font-size:12px">Last × Monotonie</span></div>
-    </section>
-    <${StapelSaeulen} titel="Trainingsbelastung" unter=${`Session-RPE × Minuten je Woche (Foster), letzte ${belastung.length} Wochen`}
-      daten=${belastung.map((w) => ({ label: w.woche, teile: { last: w.foster.last } }))} serien=${[{ id: 'last', name: 'Belastung', farbe: 'var(--seq-3)' }]} einheit="AU"/>`
-    : html`<section class="card pad stack"><span class="viz-t">Trainingsbelastung</span>
-      <p class="muted" style="margin:0;font-size:14px">Rechnet mit Session-RPE × Minuten (Foster). Die Session-RPE fragt die App beim Beenden ab; Jefit hat sie nicht gespeichert. Mit den nächsten Trainings füllt sich das hier.</p></section>`}
-
-    <${LinienChart} titel="INOL je Lift" unter=${`Wdh ÷ (100 − % e1RM), summiert je Woche · Richtwert ${INOL_RICHTWERT.quelle}`}
-      x=${x} serien=${LIFTS.map((l) => ({ id: l, name: LIFT[l].name, farbe: LIFT[l].farbe, werte: wd.map((w) => Math.round(w.inol[l] * 100) / 100) }))}
-      einheit="" stellen=${2} referenz=${{ wert: INOL_RICHTWERT.wocheSehrHart, text: 'über 4 je Woche: sehr hart' }}/>
-
-    <${Rangliste} titel="Harte Sätze je Muskel" unter="Ø je Woche, Sätze ab RPE 7 (ohne RPE geschätzt), Hauptmuskel zählt" zeilen=${hart}/>
-    <${StapelSaeulen} titel="Volumen" unter=${gruppe > 1 ? 'Bewegte kg je 4 Wochen' : 'Bewegte kg je Woche'} daten=${saeulen} serien=${volSerien}/>
-
-    <section class="kacheln">
-      <div class="kachel"><span class="l">Einheiten</span><b>${imBereich.length}</b><span class="muted" style="font-size:12px">im Zeitraum</span></div>
-      <div class="kachel"><span class="l">Pro Woche</span><b>${fmt(imBereich.length / n, 1)}</b><span class="muted" style="font-size:12px">im Schnitt</span></div>
-      <div class="kachel"><span class="l">Beste Serie</span><b>${beste}</b><span class="muted" style="font-size:12px">Wochen mit 3+</span></div>
-    </section>
-    <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
-      markiere=${imUrlaub}/>
-    <${ZonenBalken} titel="Intensität" unter="Arbeitssätze nach % vom e1RM" zonen=${zonen}/>
-
+    <${Zielprognose} aktuell=${aktuell} ziele=${einst.ziele ?? {}} setZiel=${setEinst ? (key, kg) => setEinst({ ...einst, ziele: { ...(einst.ziele ?? {}), [key]: kg } }) : null}/>
     <section class="card pad stack">
       <div class="row between"><span class="viz-t">Neue Rekorde</span><span class="muted" style="font-size:12.5px">e1RM</span></div>
       ${!PR_FEED.length ? html`<p class="muted" style="margin:0;font-size:14px">Noch keine Rekorde in Kniebeuge, Bankdrücken oder Kreuzheben.</p>` : null}
@@ -201,6 +167,77 @@ export function Statistik({ einst, blockStart = null, trainings = [] }) {
       <table class="rec"><thead><tr><th>Wdh</th><th>Gewicht</th><th>Datum</th><th>e1RM</th></tr></thead>
         <tbody>${REKORDE[rekLift].map((r, i) => r ? html`<tr key=${i}><td>${i + 1}</td><td class="k">${gwE(r[0])}</td><td class="muted">${datumKurz(r[1])}</td><td>${gw(e1rm(r[0], i + 1), 1)}</td></tr>`
           : html`<tr key=${i}><td>${i + 1}</td><td class="k muted">–</td><td></td><td></td></tr>`)}</tbody></table>
+    </section>`
+    : reiter === 'profil' ? html`
+    <section class="card pad stack">
+      <div class="row between" style="align-items:flex-start"><div><span class="viz-t">Kraftprofil</span>
+        <div class="viz-u">Nach der veröffentlichten Methode von Symmetric Strength · ${gwE(kg)} Körpergewicht</div></div>
+        <div class="dots-wert"><div class="eyebrow">Gesamt</div><b>${fmt(profil.gesamt, 1)}</b></div></div>
+      <${KoerperKarte} muskeln=${profil.muskeln}/>
+      <div class="stack" style="gap:10px">${LIFTS.map((l) => profil.lifts[l] && html`<div key=${l} class="stufe-zeile">
+        <span class="row" style="gap:6px"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i><b>${LIFT[l].name}</b></span>
+        <span class="stufe-spur"><i style=${`width:${Math.min(100, (profil.lifts[l].wert / 125) * 100)}%`}></i></span>
+        <span class="stufe-text"><b>${fmt(profil.lifts[l].wert, 1)}</b> ${profil.lifts[l].stufe}</span>
+        <span class="muted stufe-naechste">${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span>
+      </div>`)}</div>
+      <p class="muted" style="margin:0;font-size:12.5px">Schulterdrücken, Klimmzug und Rudern bewertet Symmetric Strength mit unveröffentlichten Werten. Die vollständige Analyse gibt es dort.</p>
+      <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
+        <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
+    <${Vergleich} freigegeben=${!!einst.vergleich}/>`
+    : reiter === 'belastung' ? html`
+    ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
+      <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>
+      <div class="kachel"><span class="l">Monotonie</span><b>${fmt(letzte.foster.monotonie, 2)}</b><span class="muted" style="font-size:12px">Ø ÷ Streuung</span></div>
+      <div class="kachel"><span class="l">Strain</span><b>${fmt(letzte.foster.strain, 0)}</b><span class="muted" style="font-size:12px">Last × Monotonie</span></div>
+    </section>
+    <${StapelSaeulen} titel="Trainingsbelastung" unter=${`Session-RPE × Minuten je Woche (Foster), letzte ${belastung.length} Wochen`}
+      daten=${belastung.map((w) => ({ label: w.woche, teile: { last: w.foster.last } }))} serien=${[{ id: 'last', name: 'Belastung', farbe: 'var(--seq-3)' }]} einheit="AU"/>`
+    : html`<section class="card pad stack"><span class="viz-t">Trainingsbelastung</span>
+      <p class="muted" style="margin:0;font-size:14px">Rechnet mit Session-RPE × Minuten (Foster). Die Session-RPE fragt die App beim Beenden ab; Jefit hat sie nicht gespeichert. Mit den nächsten Trainings füllt sich das hier.</p></section>`}
+    <${LinienChart} titel="INOL je Lift" unter=${`Wdh ÷ (100 − % e1RM), summiert je Woche · Richtwert ${INOL_RICHTWERT.quelle}`}
+      x=${x} serien=${LIFTS.map((l) => ({ id: l, name: LIFT[l].name, farbe: LIFT[l].farbe, werte: wd.map((w) => Math.round(w.inol[l] * 100) / 100) }))}
+      einheit="" stellen=${2} referenz=${{ wert: INOL_RICHTWERT.wocheSehrHart, text: 'über 4 je Woche: sehr hart' }}/>
+    ${rpeIst.some((v) => v != null) ? html`<${LinienChart} titel="RPE-Trend" unter=${rpeSoll.some((v) => v != null) ? 'Ø RPE der Arbeitssätze je Woche gegen das geplante Ziel-RPE' : 'Ø RPE der Arbeitssätze je Woche (nur Sätze mit RPE)'} x=${x}
+      serien=${[{ id: 'ist', name: 'Ist', farbe: 'var(--lift-squat)', werte: rpeIst }, ...(rpeSoll.some((v) => v != null) ? [{ id: 'soll', name: 'Ziel', farbe: 'var(--muted)', werte: rpeSoll }] : [])]} einheit="" hoehe=${170}/>` : null}
+    <${Rangliste} titel="Harte Sätze je Muskel" unter="Ø je Woche, Sätze ab RPE 7 (ohne RPE geschätzt), Hauptmuskel zählt" zeilen=${hart}/>
+    <${ZonenBalken} titel="Intensität" unter="Arbeitssätze nach % vom e1RM" zonen=${zonen}/>`
+    : reiter === 'training' ? html`
+    <section class="kacheln">
+      <div class="kachel"><span class="l">Einheiten</span><b>${imBereich.length}</b><span class="muted" style="font-size:12px">im Zeitraum</span></div>
+      <div class="kachel"><span class="l">Pro Woche</span><b>${fmt(imBereich.length / n, 1)}</b><span class="muted" style="font-size:12px">im Schnitt</span></div>
+      <div class="kachel"><span class="l">Beste Serie</span><b>${beste}</b><span class="muted" style="font-size:12px">Wochen mit 3+</span></div>
+    </section>
+    <${StapelSaeulen} titel="Volumen" unter=${gruppe > 1 ? 'Bewegte kg je 4 Wochen' : 'Bewegte kg je Woche'} daten=${saeulen} serien=${volSerien}/>
+    ${mitDauer.length ? html`<section class="kacheln">
+      <div class="kachel"><span class="l">Trainingszeit</span><b>${fmt(zeitGesamt / 60, 1)}</b><span class="muted" style="font-size:12px">Stunden im Zeitraum</span></div>
+      <div class="kachel"><span class="l">Ø je Einheit</span><b>${fmt(zeitGesamt / mitDauer.length, 0)}</b><span class="muted" style="font-size:12px">Minuten</span></div>
+      <div class="kachel"><span class="l">Längste</span><b>${fmt(Math.max(...mitDauer.map((t) => t.dauer)), 0)}</b><span class="muted" style="font-size:12px">Minuten</span></div>
+    </section>
+    <${StapelSaeulen} titel="Trainingszeit" unter=${`Minuten je ${gruppe > 1 ? `${gruppe} Wochen` : 'Woche'} · ${mitDauer.length} Einheiten mit Dauer`} daten=${zeitSaeulen}
+      serien=${[{ id: 'min', name: 'Minuten', farbe: 'var(--acc)' }]} einheit="min"/>` : null}
+    <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
+      markiere=${imUrlaub}/>`
+    : html`
+    ${hat(gemessen) ? html`<${KoerperStatistik} x=${x} werte=${ab(gemessen)} von=${x[0]} ziel=${einst.gewichtZiel}/>` : null}
+      ${!hat(gemessen) ? html`<section class="card pad"><p class="muted" style="margin:0">Noch kein Körpergewicht im Zeitraum – auf „Heute“ mit −/+ eintragen.</p></section>` : null}`}
+    </div>
   </div>`;
+}
+
+/** Körpergewicht im Zeitraum: Kacheln (aktuell, Veränderung, Trend je Woche, Spanne) und Verlauf mit Ziellinie. */
+function KoerperStatistik({ x, werte, von, ziel }) {
+  const g = gewichtImZeitraum(KOERPERVERLAUF, von);
+  const vz = (d, st = 1) => (d == null ? '–' : `${d > 0 ? '+' : d < 0 ? '−' : '±'}${gw(Math.abs(d), st)}`);
+  return html`<section class="stack" style="gap:8px">
+    ${g ? html`<div class="kacheln vier">
+      <div class="kachel"><span class="l">Aktuell</span><b>${gw(g.aktuell, 1)}</b><span class="muted" style="font-size:12px">${einheit()}${ziel ? ` · Ziel ${gw(ziel, 1)}` : ''}</span></div>
+      <div class="kachel"><span class="l">Im Zeitraum</span><b>${vz(g.veraenderung)}</b><span class="muted" style="font-size:12px">seit ${datumKurz(g.seit)}</span></div>
+      <div class="kachel"><span class="l">Trend</span><b>${vz(g.proWoche, 2)}</b><span class="muted" style="font-size:12px">${einheit()} je Woche</span></div>
+      <div class="kachel"><span class="l">Spanne</span><b>${gw(g.max - g.min, 1)}</b><span class="muted" style="font-size:12px">${gw(g.min, 1)}–${gw(g.max, 1)}</span></div>
+    </div>` : null}
+    <${LinienChart} titel="Körpergewicht" unter=${`Durchschnitt je Woche · ${g?.anzahl ?? 0} Messungen im Zeitraum`} x=${x}
+      serien=${[{ id: 'kg', name: 'Körpergewicht', farbe: 'var(--acc)', werte: werte.map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}
+      referenz=${ziel ? { wert: inAnzeige(ziel), text: `Ziel ${gw(ziel, 1)}` } : null}/>
+  </section>`;
 }

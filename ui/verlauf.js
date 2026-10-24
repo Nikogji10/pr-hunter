@@ -1,5 +1,5 @@
 // PR Hunter · Verlauf – Monatskalender (erledigt, geplant, Urlaub), Tag antippen zeigt das Training.
-import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage } from './basis.js';
+import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige } from './basis.js';
 import { HEUTE, URLAUB, DEMO, trainingAm, trainingsTage, imUrlaub } from './stand.js';
 
 const liftNamen = (t) => [...new Set(t.uebungen.filter((u) => u.lift !== 'andere').map((u) => LIFT[u.lift].name))].join(' · ') || 'Zubehör';
@@ -58,13 +58,14 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
       })}${Object.keys(trainingsTage).length ? null : html`<p class="muted" style="margin:0;font-size:14px">Noch keine Trainings gespeichert.</p>`}</div>
     </section>
     ${tag ? html`<${TagSheet} d=${tag} plan=${geplant[tag]} erledigt=${erledigt.has(tag)} zu=${() => setTag(null)} startenAm=${startenAm}
-      bearbeiten=${bearbeiten} loeschen=${loeschen}/>` : null}
+      bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
   </div>`;
 }
 
 const liftsVon = (planTag) => !planTag ? [] : [...new Set(planTag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))];
 
-function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen }) {
+/** Ein Tag: gespeichertes Training (Bearbeiten, Löschen) oder Plan (Starten, Vorziehen). Auch von „Heute“ aus geöffnet. */
+export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen, zuUebung = null }) {
   const t = trainingAm(d);
   const [frage, setFrage] = useState(null);              // id der Einheit, deren Löschen bestätigt werden soll
   const mehrere = (t?.einheiten.length ?? 0) > 1;
@@ -75,21 +76,32 @@ function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen }) {
         <div><span class="eyebrow">Session-RPE</span><b>${t.sessionRpe != null ? fmt(t.sessionRpe) : '–'}</b></div></div>
       ${t.uebungen.map((u, k) => html`<div key=${`${u.key}-${k}`} class="stack" style="gap:8px">
         <div class="row"><span class="badge" style=${u.lift === 'andere' ? 'background:var(--raised);color:var(--ink);width:30px;height:30px;font-size:12px' : `background:${LIFT[u.lift].farbe};color:#0B0C0E;width:30px;height:30px;font-size:12px`}>${LIFT[u.lift].kurz}</span>
-          <b>${nameVon(u.key)}</b></div>
-        <div class="satzchips">${u.saetze.map((s, i) => html`<span key=${i}>${satzKurz(s)}${rpeKlein(s)}</span>`)}</div>
+          ${zuUebung ? html`<button class="link-zeile" onClick=${() => { zu(); zuUebung(u.key); }}><b>${nameVon(u.key)}</b>${I.weiter}</button>` : html`<b>${nameVon(u.key)}</b>`}</div>
+        <${SatzTabelle} u=${u}/>
         ${u.saetze.some((s) => satzExtras(s, { mitTyp: true }).length) ? html`<div class="muted" style="font-size:12.5px">${u.saetze.map((s, i) => [i, satzExtras(s, { mitTyp: true })])
           .filter(([, x]) => x.length).map(([i, x]) => `Satz ${i + 1}: ${x.join(', ')}`).join(' · ')}</div>` : null}
         ${u.notiz ? html`<div class="cue notiz">${u.notiz}</div>` : null}</div>`)}
       ${t.notizen?.length ? html`<div class="notizen">${t.notizen.map((n, i) => html`<p key=${i}><b>Notiz</b> ${n}</p>`)}</div>` : null}
       ${bearbeiten && !frage ? t.einheiten.map((id, i) => html`<div key=${id} class="row">
         <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => { zu(); bearbeiten(id); }}>${mehrere ? `Einheit ${i + 1} bearbeiten` : 'Bearbeiten'}</button>
-        <button class="btn btn-soft btn-sm" onClick=${() => setFrage(id)}>Löschen</button></div>`) : null}
+        <button class="btn btn-gefahr btn-sm" onClick=${() => setFrage(id)}>Löschen</button></div>`) : null}
       ${frage ? html`<div class="hint" role="alertdialog" aria-label="Löschen bestätigen">${I.warn}<span class="t">${mehrere ? `Einheit ${t.einheiten.indexOf(frage) + 1}` : 'Training'} löschen?</span><span></span>
         <p>Es verschwindet hier und beim nächsten Abgleich auch auf dem Server. Das nächtliche Backup behält den alten Stand.</p><span></span>
         <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${() => setFrage(null)}>Abbrechen</button>
-          <button class="btn btn-chalk btn-sm" onClick=${() => { zu(); loeschen(frage); }}>Löschen</button></div></div>` : null}`
+          <button class="btn btn-gefahr btn-sm" onClick=${() => { zu(); loeschen(frage); }}>Löschen</button></div></div>` : null}`
     : plan ? html`<${TagPlan} tag=${plan}/>
-      ${d === HEUTE && !erledigt ? html`<button class="btn btn-chalk btn-block" onClick=${() => { zu(); startenAm(d); }}>Training starten</button>` : null}`
+      ${d >= HEUTE && !erledigt && !plan.uebersprungen && startenAm ? html`<button class="btn btn-chalk btn-block" onClick=${() => { zu(); startenAm(d); }}>${d === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>` : null}`
     : html`<p class="muted" style="margin:0">An diesem Tag war kein Training.</p>`}
   <//>`;
+}
+
+/** Sätze einer Übung als Tabelle wie die Jefit-History: Aufwärmsätze als W, bester Satz (e1RM) hervorgehoben. */
+export function SatzTabelle({ u }) {
+  const alle = [...(u.aufwaermen ?? []).map((s) => [s, 'W']), ...u.saetze.map((s, i) => [s, i + 1])];
+  const mitRpe = alle.some(([s]) => s.rpe != null);
+  const beste = u.saetze.reduce((m, s, j) => (s.e1rm != null && (m < 0 || s.e1rm > u.saetze[m].e1rm) ? j : m), -1);
+  return html`<table class="saetze"><thead><tr><th>Satz</th><th>Gewicht × Wdh</th>${mitRpe ? html`<th>RPE</th>` : null}<th>e1RM</th></tr></thead>
+    <tbody>${alle.map(([s, nr], i) => html`<tr key=${i} class=${nr !== 'W' && nr - 1 === beste ? 'beste' : ''}>
+      <td class=${`satz-nr ${nr === 'W' ? 'w' : ''}`}>${nr}</td><td class="k">${satzKurz(s).replace('×', ' × ')}</td>
+      ${mitRpe ? html`<td class="muted">${s.rpe != null ? `@${fmt(s.rpe)}` : ''}</td>` : null}<td>${s.e1rm != null ? fmt(inAnzeige(s.e1rm), 0) : '–'}</td></tr>`)}</tbody></table>`;
 }

@@ -1,59 +1,87 @@
-// PR Hunter · Prototyp: Körperkarte für das Kraftprofil (vorne/hinten), Farbe = Stufe der beteiligten Lifts.
+// PR Hunter · Muskeldiagramm für das Kraftprofil (vorne/hinten), im Stil von Symmetric Strength: anatomische Figur,
+// jeder Muskel in der Farbe seiner Stärkestufe (aus den beteiligten Lifts), Licht-Verlauf für Plastizität.
+// Eigene Zeichnung (keine Grafik von Symmetric Strength übernommen). Linke Körperhälfte wird gespiegelt.
 import { html, useState, fmt } from './basis.js';
-import { stufe } from '../js/auswertung.js';
+import { stufe, STUFEN } from '../js/auswertung.js';
 
 export const MUSKEL_NAME = {
   quadrizeps: 'Quadrizeps', gesaess: 'Gesäß', adduktoren: 'Adduktoren', beinbeuger: 'Beinbeuger', ruecken_unten: 'Unterer Rücken',
   trapez: 'Trapez', unterarme: 'Unterarme', brust: 'Brust', schulter_vorn: 'Vordere Schulter', trizeps: 'Trizeps',
-  latissimus: 'Latissimus', bizeps: 'Bizeps', schulter_seite: 'Seitliche Schulter', bauch: 'Bauch', waden: 'Waden',
+  latissimus: 'Latissimus', bizeps: 'Bizeps', schulter_seite: 'Hintere/seitliche Schulter', bauch: 'Bauch', waden: 'Waden',
 };
-// Stufen zusammengefasst auf 4 Töne einer Farbe (geordnet: kräftiger = stärker)
-const TOENE = [[100, 4, 'ab Herausragend'], [87.5, 3, 'Fortgeschritten'], [60, 2, 'Mittelstufe bis Versiert'], [-Infinity, 1, 'darunter']];
-const ton = (w) => TOENE.find(([g]) => w >= g)[1];
+// Farbe je Stärkestufe (von unten nach oben): dunkelrot → rot → orange → gelb → grün → smaragd → türkis → violett
+const STUFEN_FARBE = {
+  'Unter Untrainiert': '#6B1220', Untrainiert: '#9E1B2C', Einsteiger: '#D2412D', Mittelstufe: '#E8822A', Versiert: '#E7C23B',
+  Fortgeschritten: '#7CC243', Herausragend: '#25B07A', Elite: '#22A7C9', Weltklasse: '#8B5CF6',
+};
+const farbeVon = (w) => STUFEN_FARBE[stufe(w).name];
 
-const e = (cx, cy, rx, ry) => ({ t: 'e', cx, cy, rx, ry });
-const r = (x, y, w, h, rx = 7) => ({ t: 'r', x, y, w, h, rx });
-const p = (d) => ({ t: 'p', d });
+// Grundfigur (Silhouette) und Muskeln der linken Körperhälfte im Koordinatensystem 0…200 × 0…430; rechts gespiegelt
+const KOERPER = 'M100 10 C84 10 76 22 76 40 C76 54 82 64 88 68 L86 78 C74 82 60 84 50 90 C38 96 34 110 36 126 C34 140 38 156 40 170 C36 188 32 206 32 226 C32 234 30 244 34 250 C40 252 44 246 46 238 C48 224 52 206 56 190 C60 176 62 162 64 150 L70 176 C70 192 68 208 70 226 C66 240 62 262 62 290 C62 316 68 330 70 340 C66 360 64 384 66 404 C64 412 62 420 70 422 L84 422 C86 412 84 404 84 396 C86 376 88 356 86 340 C90 320 94 300 96 270 C97 258 98 248 100 244 Z';
 const VORNE = {
-  trapez: [p('M66 48 L94 48 L104 56 L56 56 Z')], schulter_vorn: [e(54, 64, 11, 10), e(106, 64, 11, 10)],
-  brust: [r(59, 56, 20, 26), r(81, 56, 20, 26)], bizeps: [e(46, 92, 7, 16), e(114, 92, 7, 16)],
-  unterarme: [e(41, 128, 6, 17), e(119, 128, 6, 17)], bauch: [r(65, 85, 30, 46, 8)],
-  quadrizeps: [e(68, 176, 11, 30), e(92, 176, 11, 30)], adduktoren: [e(76.5, 162, 3.5, 15), e(83.5, 162, 3.5, 15)],
-  waden: [e(68, 246, 7, 24), e(92, 246, 7, 24)],
+  trapez: ['M88 72 C80 76 68 80 60 86 C70 88 80 88 90 82 Z'],
+  schulter_vorn: ['M58 88 C46 90 38 100 38 116 C38 128 42 134 46 136 C50 122 58 108 70 100 C70 94 66 89 58 88 Z'],
+  brust: ['M100 92 L74 92 C64 98 56 110 54 124 C62 138 76 142 90 140 C96 139 100 134 100 128 Z'],
+  bizeps: ['M46 140 C40 152 38 168 42 182 C48 186 54 182 56 176 C60 162 60 148 56 138 Z'],
+  unterarme: ['M42 188 C36 202 34 218 34 232 C36 240 42 240 46 236 C50 220 54 204 56 188 C52 184 46 184 42 188 Z'],
+  bauch: ['M100 142 L88 142 C86 162 86 186 88 208 C90 220 94 230 100 234 Z'],
+  schraeg: ['M86 144 C78 150 72 162 72 178 C72 196 76 212 86 222 C84 196 84 168 86 144 Z'],
+  quadrizeps: ['M98 246 C90 240 80 236 72 238 C66 256 64 280 66 302 C68 318 74 330 82 334 C90 326 94 310 96 290 C96 276 96 260 98 246 Z'],
+  adduktoren: ['M99 246 C96 258 96 274 95 292 C98 290 100 280 100 268 Z'],
+  waden: ['M72 346 C66 362 66 382 70 398 C74 402 80 400 82 396 C84 378 84 360 82 344 C78 340 74 340 72 346 Z'],
 };
 const HINTEN = {
-  trapez: [p('M80 44 L100 56 L80 90 L60 56 Z')], schulter_seite: [e(54, 64, 11, 10), e(106, 64, 11, 10)],
-  latissimus: [p('M62 70 L78 92 L78 120 L64 104 Z'), p('M98 70 L82 92 L82 120 L96 104 Z')],
-  trizeps: [e(46, 92, 7, 16), e(114, 92, 7, 16)], unterarme: [e(41, 128, 6, 17), e(119, 128, 6, 17)],
-  ruecken_unten: [r(70, 112, 20, 24, 6)], gesaess: [e(70, 146, 11, 11), e(90, 146, 11, 11)],
-  beinbeuger: [e(68, 186, 10, 26), e(92, 186, 10, 26)], waden: [e(68, 246, 8, 24), e(92, 246, 8, 24)],
+  trapez: ['M100 64 L88 72 C78 78 66 82 58 88 C70 92 82 96 90 108 C94 118 98 132 100 144 Z'],
+  schulter_seite: ['M58 88 C46 90 38 100 38 116 C38 128 42 134 46 136 C50 122 56 108 66 100 C68 94 64 89 58 88 Z'],
+  latissimus: ['M70 104 C62 118 62 136 66 152 C72 168 82 180 94 186 C96 170 96 152 92 136 C86 124 80 112 70 104 Z'],
+  trizeps: ['M46 140 C40 152 38 168 42 182 C48 186 54 182 56 176 C60 162 60 148 56 138 Z'],
+  unterarme: ['M42 188 C36 202 34 218 34 232 C36 240 42 240 46 236 C50 220 54 204 56 188 C52 184 46 184 42 188 Z'],
+  ruecken_unten: ['M100 150 L93 152 C89 168 86 188 84 206 C86 214 92 220 100 224 Z'],
+  gesaess: ['M100 226 C88 222 76 224 70 236 C66 250 68 264 78 272 C88 276 98 270 100 258 Z'],
+  beinbeuger: ['M96 278 C86 276 76 276 70 284 C66 300 66 318 72 330 C78 336 86 334 90 326 C94 312 96 296 96 278 Z'],
+  waden: ['M72 342 C64 354 62 372 66 388 C70 396 78 396 82 388 C86 372 86 356 82 342 C78 338 74 338 72 342 Z'],
 };
+// Bauch zählt für das Kraftprofil nicht – die schrägen Bauchmuskeln werden wie der Bauch eingefärbt
+const GRUPPE = { schraeg: 'bauch' };
+// feine Linien: Sixpack, Quadrizeps-Teilung, Brustfaser – nur Optik
+const LINIEN_VORNE = ['M88 162 L100 162 M88 184 L100 184 M88 206 L100 206', 'M84 260 C82 280 82 300 84 318', 'M76 104 C84 112 92 118 100 120'];
+const LINIEN_HINTEN = ['M100 70 L100 224', 'M90 300 C88 310 86 320 84 326', 'M76 356 C76 370 76 380 78 388'];
 
-function Figur({ teile, werte, aktiv, waehle, titel }) {
-  const form = (s, i, m) => {
-    const w = werte[m];
-    const stil = w == null ? 'fill:var(--raised);stroke:var(--line);stroke-width:1' : `fill:var(--seq-${ton(w)});stroke:${aktiv === m ? 'var(--gold)' : 'var(--surface)'};stroke-width:${aktiv === m ? 2.5 : 1.5}`;
-    const props = { key: `${m}${i}`, style: stil, onClick: () => waehle(m), class: 'muskel' };
-    return s.t === 'e' ? html`<ellipse ...${props} cx=${s.cx} cy=${s.cy} rx=${s.rx} ry=${s.ry}/>`
-      : s.t === 'r' ? html`<rect ...${props} x=${s.x} y=${s.y} width=${s.w} height=${s.h} rx=${s.rx}/>` : html`<path ...${props} d=${s.d}/>`;
-  };
-  return html`<figure class="figur"><svg viewBox="0 0 160 285" role="img" aria-label=${`Körper ${titel}`}>
-    <circle cx="80" cy="24" r="14" style="fill:var(--raised)"/><rect x="73" y="36" width="14" height="10" rx="3" style="fill:var(--raised)"/>
-    <rect x="62" y="131" width="36" height="14" rx="6" style="fill:var(--raised)"/>
-    <rect x="61" y="271" width="14" height="7" rx="3" style="fill:var(--raised)"/><rect x="85" y="271" width="14" height="7" rx="3" style="fill:var(--raised)"/>
-    ${Object.entries(teile).flatMap(([m, formen]) => formen.map((s, i) => form(s, i, m)))}
+function Figur({ teile, linien, werte, aktiv, waehle, titel }) {
+  const seite = (spiegeln) => Object.entries(teile).flatMap(([m, pfade]) => pfade.map((d, i) => {
+    const gruppe = GRUPPE[m] ?? m, w = werte[gruppe];
+    const ist = aktiv === gruppe;
+    return html`<g key=${`${m}${i}${spiegeln}`} class=${`muskel ${ist ? 'aktiv' : ''}`} onClick=${() => waehle(gruppe)}>
+      <path d=${d} style=${`fill:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}/>
+      <path d=${d} style="fill:url(#muskelLicht)"/>
+      <path d=${d} class="muskel-rand"/>
+    </g>`;
+  }));
+  const haelfte = (spiegeln) => html`<g transform=${spiegeln ? 'translate(200 0) scale(-1 1)' : null}>
+    <path d=${KOERPER} class="koerper-grund"/>
+    ${seite(spiegeln)}
+    ${linien.map((d, i) => html`<path key=${i} d=${d} class="muskel-linie"/>`)}
+  </g>`;
+  return html`<figure class="figur"><svg viewBox="0 0 200 430" role="img" aria-label=${`Muskeln ${titel}`}>
+    <defs>
+      <radialGradient id="muskelLicht" cx="35%" cy="25%" r="85%">
+        <stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".45" stop-color="#fff" stop-opacity=".06"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".42"/></radialGradient>
+    </defs>
+    ${haelfte(false)}${haelfte(true)}
   </svg><figcaption>${titel}</figcaption></figure>`;
 }
 
 export function KoerperKarte({ muskeln }) {
   const [aktiv, setAktiv] = useState('quadrizeps');
   const w = muskeln[aktiv];
+  const vorkommend = STUFEN.map(([, name]) => name).reverse().filter((name) => Object.values(muskeln).some((x) => x != null && stufe(x).name === name));
   return html`<div class="koerper">
-    <div class="figuren"><${Figur} teile=${VORNE} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne"/>
-      <${Figur} teile=${HINTEN} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten"/></div>
-    <div class="row between" style="min-height:24px"><b>${MUSKEL_NAME[aktiv]}</b>
-      <span class="muted" style="font-size:13px">${w == null ? 'keine Daten – über Schulterdrücken, Klimmzug oder Rudern bei Symmetric Strength prüfen' : `${fmt(w, 1)} · ${stufe(w).name}`}</span></div>
-    <div class="skala" style="flex-wrap:wrap;gap:10px">${TOENE.slice().reverse().map(([, t, text]) => html`<span key=${t} class="row" style="gap:4px"><i style=${`background:var(--seq-${t})`}></i>${text}</span>`)}
-      <span class="row" style="gap:4px"><i style="background:var(--raised);box-shadow:inset 0 0 0 1px var(--line)"></i>keine Daten</span></div>
+    <div class="figuren"><${Figur} teile=${VORNE} linien=${LINIEN_VORNE} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne"/>
+      <${Figur} teile=${HINTEN} linien=${LINIEN_HINTEN} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten"/></div>
+    <div class="muskel-info"><i style=${`background:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
+      <span class="muted">${w == null ? 'keine Daten (über Schulterdrücken, Klimmzug oder Rudern bei Symmetric Strength prüfen)' : `${fmt(w, 1)} · ${stufe(w).name}`}</span></div>
+    <div class="stufen-skala">${STUFEN.slice(0, -1).reverse().map(([, name]) => html`<span key=${name} class=${vorkommend.includes(name) ? 'da' : ''}>
+      <i style=${`background:${STUFEN_FARBE[name]}`}></i>${name}</span>`)}</div>
   </div>`;
 }

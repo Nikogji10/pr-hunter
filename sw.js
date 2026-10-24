@@ -1,7 +1,8 @@
 // PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
-// Anfragen an Supabase gehen nie durch den Cache.
-const VERSION = '65bac43d9ba9';
+// Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
+// einem eigenen Cache, der Versionswechsel überdauert.
+const VERSION = '8c7e546bee9b';
 const DATEIEN = [
   "./",
   "app.js",
@@ -44,11 +45,15 @@ const DATEIEN = [
   "ui/diagramme.js",
   "ui/editor.js",
   "ui/einstellungen.js",
+  "ui/en.js",
   "ui/generator.js",
+  "ui/gewicht.js",
+  "ui/hintergrund.js",
   "ui/koerper.js",
   "ui/plan.js",
   "ui/programme.js",
   "ui/rechner.js",
+  "ui/sprache.js",
   "ui/stand.js",
   "ui/statistik.js",
   "ui/suche.js",
@@ -56,10 +61,13 @@ const DATEIEN = [
   "ui/uebung.js",
   "ui/vergleich.js",
   "ui/verlauf.js",
+  "ui/zuschnitt.js",
   "vendor/htm-preact.js",
   "vendor/supabase.js"
 ];
 const CACHE = `prh-${VERSION}`;
+const BILDER = 'bilder-v1';
+const BILD_QUELLE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));
@@ -73,6 +81,11 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+  if (e.request.method === 'GET' && e.request.url.startsWith(BILD_QUELLE)) {
+    e.respondWith(caches.open(BILDER).then((c) => c.match(e.request).then((treffer) => treffer
+      ?? fetch(e.request).then((antwort) => { if (antwort.ok || antwort.type === 'opaque') c.put(e.request, antwort.clone()); return antwort; }))));
+    return;
+  }
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   // App-Dateien: erst Cache, sonst Netz. Seitenaufrufe (auch mit ?demo) bekommen die gespeicherte index.html.
   const schluessel = e.request.mode === 'navigate' ? new URL('./index.html', self.location).href : e.request;

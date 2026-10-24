@@ -1,10 +1,10 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
 
-export { html, useState, useEffect };
+export { html, useState, useEffect, useRef };
 export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { maximumFractionDigits: stellen });
 
 // #################################################################
@@ -51,10 +51,14 @@ export const tonnage = (kg) => (kg == null ? '–' : ANZEIGE.einheit === 'lb' ? 
 /** Gewicht mit Einheit („172,5 kg“). */
 export const gwE = (kg, stellen = 2) => (kg == null ? '–' : `${gw(kg, stellen)} ${ANZEIGE.einheit}`);
 export const mmss = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
-const WT = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WT_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const MON_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WT_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MON_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const en = () => ANZEIGE.sprache === 'en';
 const d = (iso) => new Date(`${iso}T00:00:00Z`);
-export const datumLang = (iso) => `${WT[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()}. ${MON[d(iso).getUTCMonth()]}`;
+export const datumLang = (iso) => (en() ? `${WT_EN[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()} ${MON_EN[d(iso).getUTCMonth()]}`
+  : `${WT_DE[d(iso).getUTCDay()]}, ${d(iso).getUTCDate()}. ${MON_DE[d(iso).getUTCMonth()]}`);
 export const datumKurz = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 /** „150×5“ in der Anzeigeeinheit; ohne Gewicht (Körpergewicht ohne Zusatz) „8 Wdh“. */
 export const satzKurz = (s) => (s.kg > 0 ? `${gw(s.kg)}×${s.wdh ?? '–'}` : `${s.wdh ?? '–'} Wdh`);
@@ -72,8 +76,8 @@ export function satzExtras(s, { mitTyp = false } = {}) {
   return teile;
 }
 const TYP_NAME = { drop: 'Drop', failure: 'Versagen', amrap: 'AMRAP' };
-export const wtKurz = (iso) => WT[d(iso).getUTCDay()].slice(0, 2);
-export const monatName = (jahr, monat) => `${MON[monat]} ${jahr}`;
+export const wtKurz = (iso) => (en() ? WT_EN : WT_DE)[d(iso).getUTCDay()].slice(0, 2);
+export const monatName = (jahr, monat) => `${(en() ? MON_EN : MON_DE)[monat]} ${jahr}`;
 
 export const LIFT = {
   squat: { name: 'Kniebeuge', kurz: 'KB', farbe: 'var(--lift-squat)' },
@@ -157,6 +161,7 @@ export const I = {
   extern: svg(html`<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>`),
   kopieren: svg(html`<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>`),
   import: svg(html`<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>`),
+  weiter: svg(html`<path d="M9 6l6 6-6 6"/>`),
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
@@ -181,10 +186,63 @@ export async function kopiere(text, feld) {
   catch { if (feld) { feld.focus(); feld.select(); } return false; }
 }
 
+/** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
 export function Sheet({ zu, children, label = 'Dialog' }) {
-  useEffect(() => { const k = (e) => e.key === 'Escape' && zu(); addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
+  const zuRef = useRef(zu);
+  zuRef.current = zu;
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && zuRef.current();
+    let perZurueck = false;
+    const pop = () => { perZurueck = true; zuRef.current(); };
+    history.pushState({ ...(history.state ?? {}), sheet: true }, '');
+    addEventListener('keydown', k);
+    addEventListener('popstate', pop);
+    return () => {
+      removeEventListener('keydown', k); removeEventListener('popstate', pop);
+      if (!perZurueck && history.state?.sheet) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
+    };
+  }, []);
+  // Nach unten wegziehen: nur wenn der Inhalt ganz oben steht und die Geste eindeutig nach unten geht
+  const ref = useRef(null), zug = useRef(null);
+  const start = (e) => {
+    if (e.touches.length !== 1 || ref.current.scrollTop > 0 || e.target.closest?.('.zuschnitt, input[type="range"]')) return;
+    const t = e.touches[0];
+    zug.current = { x: t.clientX, y: t.clientY, dy: 0, aktiv: false, t0: Date.now() };
+  };
+  const ziehe = (e) => {
+    const z = zug.current, s = ref.current;
+    if (!z) return;
+    const t = e.touches[0], dy = t.clientY - z.y, dx = t.clientX - z.x;
+    if (!z.aktiv) {
+      if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+      if (dy <= 0 || Math.abs(dx) > dy || s.scrollTop > 0) { zug.current = null; return; }
+      z.aktiv = true; s.classList.add('zieht');
+    }
+    z.dy = Math.max(0, dy);
+    s.style.transform = `translateY(${z.dy}px)`;
+    if (e.cancelable) e.preventDefault();
+  };
+  const loslassen = () => {
+    const z = zug.current, s = ref.current;
+    zug.current = null;
+    if (!z?.aktiv) return;
+    s.classList.remove('zieht');
+    const schnell = z.dy > 50 && Date.now() - z.t0 < 250;
+    if (schnell || z.dy > Math.min(140, s.offsetHeight * 0.3)) {
+      s.style.transition = 'transform .16s ease-in'; s.style.transform = 'translateY(100%)';
+      setTimeout(() => zuRef.current(), 150);
+    } else {
+      s.style.transition = 'transform .2s ease'; s.style.transform = '';
+    }
+  };
+  useEffect(() => {
+    // direkt registriert: touchmove muss preventDefault dürfen (passive: false)
+    const s = ref.current, plan = [['touchstart', start], ['touchmove', ziehe], ['touchend', loslassen], ['touchcancel', loslassen]];
+    for (const [typ, f] of plan) s.addEventListener(typ, f, { passive: false });
+    return () => { for (const [typ, f] of plan) s.removeEventListener(typ, f); };
+  }, []);
   return html`<div class="backdrop" onClick=${(e) => e.target === e.currentTarget && zu()}>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
+    <div class="sheet" ref=${ref} role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
   </div>`;
 }
 
@@ -218,23 +276,62 @@ export function Hantel({ kg, stange = stangeKg() }) {
   </div>`;
 }
 
-/** Fortschritt eines Blocks als beladene Hantel: jede Woche eine Scheibe, innen Woche 1. */
+/**
+ * Fortschritt eines Blocks als beladene Hantel: jede Woche eine Scheibe in Wettkampffarben (innen Woche 1, rot 25 →
+ * blau 20 → gelb 15 → grün 10 → weiß 5 → schwarz 2,5). Erledigte Wochen voll mit Glanz, die aktuelle glüht,
+ * kommende sind nur angedeutet.
+ */
+const BLOCK_FARBEN = ['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', 'var(--p5)', 'var(--p2)'];
+const BLOCK_HOEHEN = [100, 100, 100, 100, 76, 64];
 export function BlockHantel({ wochen, aktuell }) {
-  const n = wochen.length, b = Math.min(13, 96 / n), teile = [];
+  const n = wochen.length, b = Math.min(14, 98 / n), abstand = 2.5, teile = [], zahlen = [];
   for (let i = 0; i < n; i++) {
     const zustand = i + 1 < aktuell ? 'fertig' : i + 1 === aktuell ? 'jetzt' : 'offen';
-    const st = zustand === 'fertig' ? 'fill:var(--ink)' : zustand === 'jetzt' ? 'fill:url(#raendel);stroke:var(--ink);stroke-width:2' : 'fill:transparent;stroke:var(--line);stroke-width:1.5';
-    const xr = 230 + i * (b + 3), xl = 110 - b - i * (b + 3);
-    teile.push(html`<g key=${i}>
-      <rect x=${xr} y="14" width=${b} height="92" rx="2.5" style=${st}/><rect x=${xl} y="14" width=${b} height="92" rx="2.5" style=${st}/>
-      <text x=${xr + b / 2} y="122" text-anchor="middle" style=${`fill:${zustand === 'offen' ? 'var(--muted)' : 'var(--ink)'};font:800 10px var(--f)`}>${i + 1}</text></g>`);
+    const farbe = BLOCK_FARBEN[i % 6], h = BLOCK_HOEHEN[i % 6], y = 62 - h / 2;
+    const xr = 231 + i * (b + abstand), xl = 109 - b - i * (b + abstand);
+    for (const [seite, x] of [['r', xr], ['l', xl]]) {
+      teile.push(html`<g key=${`${seite}${i}`} class=${zustand === 'jetzt' ? 'jetzt' : ''} style=${zustand === 'jetzt' ? `filter:drop-shadow(0 0 7px ${farbe})` : ''}>
+        <rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style=${`fill:${farbe};opacity:${zustand === 'offen' ? 0.14 : 1}`}/>
+        ${zustand === 'offen'
+          ? html`<rect x=${x + 0.6} y=${y + 0.6} width=${b - 1.2} height=${h - 1.2} rx="2" style=${`fill:none;stroke:${farbe};stroke-width:1.2;opacity:.55`}/>`
+          : html`<rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style="fill:url(#glanz)"/>
+            <rect x=${x} y=${y} width=${b} height=${h} rx="2.5" style="fill:none;stroke:rgba(0,0,0,.45);stroke-width:1"/>`}
+      </g>`);
+    }
+    zahlen.push(html`<text key=${`z${i}`} x=${xr + b / 2} y="126" text-anchor="middle"
+      style=${`fill:${zustand === 'jetzt' ? 'var(--acc-text)' : zustand === 'offen' ? 'var(--muted)' : 'var(--ink)'};font:800 ${zustand === 'jetzt' ? 11.5 : 10}px var(--f)`}>${i + 1}</text>`);
   }
-  return html`<div class="hantel"><svg viewBox="0 0 340 128" role="img" aria-label=${`Woche ${aktuell} von ${n}`}>
-    <defs><pattern id="raendel" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <rect width="5" height="5" style="fill:var(--raised)"/><rect width="1.6" height="5" style="fill:var(--ink)"/></pattern></defs>
-    <rect x="4" y="57" width="332" height="6" rx="3" style="fill:var(--axis)"/>
-    <rect x="114" y="46" width="5" height="28" rx="1.5" style="fill:var(--muted)"/><rect x="221" y="46" width="5" height="28" rx="1.5" style="fill:var(--muted)"/>
-    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((k) => html`<line key=${k} x1=${140 + k * 5} x2=${144 + k * 5} y1="57" y2="63" style="stroke:var(--line)"/>`)}
-    ${teile}
+  return html`<div class="hantel"><svg viewBox="0 0 340 132" role="img" aria-label=${`Woche ${aktuell} von ${n}`}>
+    <defs>
+      <linearGradient id="glanz" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".22" stop-color="#fff" stop-opacity=".1"/>
+        <stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient>
+      <linearGradient id="stahl" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#C9CED6"/><stop offset=".45" stop-color="#7B828C"/><stop offset="1" stop-color="#2E333A"/></linearGradient>
+    </defs>
+    <rect x="2" y="58.5" width="336" height="7" rx="3.5" style="fill:url(#stahl)"/>
+    <rect x="104" y="47" width="6" height="30" rx="1.5" style="fill:url(#stahl)"/><rect x="230" y="47" width="6" height="30" rx="1.5" style="fill:url(#stahl)"/>
+    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((k) => html`<line key=${k} x1=${124 + k * 5} x2=${128 + k * 5} y1="58.5" y2="65.5" style="stroke:rgba(0,0,0,.35)"/>`)}
+    ${teile}${zahlen}
   </svg></div>`;
+}
+
+/** Profilbild rund; ohne Bild die Initialen auf rotem Grund. */
+export function Avatar({ bild, name, groesse = 40 }) {
+  const initialen = (name ?? '?').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((t) => t[0].toUpperCase()).join('') || '?';
+  return bild ? html`<img class="avatar" src=${bild} alt="" style=${`width:${groesse}px;height:${groesse}px`}/>`
+    : html`<span class="avatar leer" style=${`width:${groesse}px;height:${groesse}px;font-size:${Math.round(groesse * 0.38)}px`} aria-hidden="true">${initialen}</span>`;
+}
+
+// Übungsbild aus der Free Exercise DB (gemeinfrei); ohne Bild ein Hantel-Symbol in der Farbe des Lifts
+const BILD_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+export const bildVon = (key) => { const i = uebung(key)?.i ?? uebung(kanon(key))?.i; return i ? `${BILD_URL}${encodeURIComponent(i)}/0.jpg` : null; };
+export function UebungsBild({ schluessel, groesse = 44 }) {
+  const [kaputt, setKaputt] = useState(false);
+  const url = bildVon(schluessel), lift = liftVon(schluessel);
+  const masse = `width:${groesse}px;height:${groesse}px`;
+  if (!url || kaputt) {
+    return html`<span class="uebung-bild leer" style=${`${masse};color:${lift === 'andere' ? 'var(--ink-2)' : LIFT[lift].farbe}`} aria-hidden="true">${I.heute}</span>`;
+  }
+  return html`<img class="uebung-bild" src=${url} alt="" loading="lazy" decoding="async" style=${masse} onError=${() => setKaputt(true)}/>`;
 }

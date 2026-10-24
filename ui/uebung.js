@@ -1,55 +1,88 @@
-// PR Hunter · Übungsseite: Steckbrief (Muskeln, Bild, Anleitung), persönliche Anpassung, Rekordtafel, Fortschritt,
-// Volumen, Vergleich, alle Einheiten. Dazu das Formular zum Anlegen und Ändern von Übungen mit Duplikatprüfung.
+// PR Hunter · Übungsseite wie bei Jefit in Reitern: Verlauf (jede Einheit als Satztabelle), Chart (e1RM oder Volumen
+// je Einheit, Zeitraum, Ziellinie, Min/Max, Zielprognose), Rekorde (bestes Gewicht je Wdh-Zahl), Info (Steckbrief, Bild,
+// Anleitung, persönliche Anpassung, Basisdaten, Zusammenführen). Dazu das Formular zum Anlegen und Ändern von Übungen.
 import { html, useState, useEffect, fmt, gw, gwE, einheit, inAnzeige, I, Sheet, LIFT, liftVon, nameVon, katalogName, uebung, anpassung, MUSKEL_DE,
-  datumKurz, koerperUebung, mmss, satzKurz, rpeKlein, katalogListe } from './basis.js';
-import { DEMO, DIENSTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, LETZTES, kanon, letzterWert, ersterWert, rekordeVon } from './stand.js';
+  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild } from './basis.js';
+import { DEMO, DIENSTE, HEUTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, kanon, rekordeVon } from './stand.js';
 import { FAMILIE, EQUIPMENT, UebungSuche } from './suche.js';
-import { LinienChart, StapelSaeulen } from './diagramme.js';
+import { LinienChart } from './diagramme.js';
 import { vergleichsLinks } from '../js/verweise.js';
-import { plateau } from '../js/auswertung.js';
+import { plateau, zielprognose } from '../js/auswertung.js';
 import { e1rm } from '../js/rechnen.js';
+import { tageZwischen } from '../js/daten.js';
 
-const BEREICHE = [['3 Monate', 13], ['6 Monate', 26], ['1 Jahr', 52], ['Alles', 0]];
 export const LASTART = {
   barbell: 'Langhantel', dumbbell: 'Kurzhantel', cable: 'Kabel', machine: 'Maschine', kettlebell: 'Kettlebell', band: 'Band',
   bodyweight_plus: 'Körpergewicht + Zusatz', bodyweight_minus: 'Körpergewicht mit Unterstützung', time: 'Zeit', distance: 'Strecke',
 };
 const BASIS = { '': 'keine', squat: 'Kniebeuge', bench: 'Bankdrücken', deadlift: 'Kreuzheben', ohp: 'Überkopfdrücken' };
+const ZEITRAEUME = [['14T', 14], ['1M', 31], ['3M', 92], ['6M', 183], ['12M', 366], ['Alles', 0]];
+const REITER = [['verlauf', 'Verlauf'], ['chart', 'Chart'], ['rekorde', 'Rekorde'], ['info', 'Info']];
+const MONATE_LANG = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const datumMitJahr = (iso) => `${datumLang(iso)} ${iso.slice(0, 4)}`;
+const monatJahr = (iso) => `${MONATE_LANG[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+
+/** Alle Einheiten einer Übung (neueste zuerst): Arbeitssätze, Aufwärmsätze, bestes e1RM, Volumen. */
+export function einheitenVon(key) {
+  return Object.keys(trainingsTage).sort().reverse().map((d) => {
+    const eintraege = trainingAm(d)?.uebungen.filter((u) => u.key === key) ?? [];
+    if (!eintraege.length) return null;
+    const saetze = eintraege.flatMap((u) => u.saetze), aufwaermen = eintraege.flatMap((u) => u.aufwaermen ?? []);
+    const best = saetze.reduce((m, x) => (x.e1rm != null && (m == null || x.e1rm > m) ? x.e1rm : m), null);
+    return { datum: d, saetze, aufwaermen, best, volumen: saetze.reduce((a, x) => a + (x.kg ?? 0) * (x.wdh ?? 0), 0), notiz: eintraege.find((u) => u.notiz)?.notiz ?? null };
+  }).filter(Boolean);
+}
 
 // #################################################################
 // Übungsseite
 // #################################################################
-export function UebungsSeite({ schluessel, zurueck, zurueckText }) {
-  const [bereich, setBereich] = useState(26);
-  const [sheet, setSheet] = useState(null);                  // 'anpassen' | 'aendern' | 'zusammen'
+export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, setEinst = null, reiterStart = 'verlauf', bloecke = [] }) {
+  const [reiter, setReiter] = useState(reiterStart);
+  const [zeitraum, setZeitraum] = useState(183);
+  const [art, setArt] = useState('e1rm');                   // 'e1rm' | 'volumen'
+  const [mehr, setMehr] = useState(15);
+  const [sheet, setSheet] = useState(null);                  // 'anpassen' | 'aendern' | 'zusammen' | 'ziel'
   const [details, setDetails] = useState(null);
   const [mitVarianten, setMitVarianten] = useState(false);
+  const [nurSpitzen, setNurSpitzen] = useState(false);
   const [ziel, setZiel] = useState(null);                    // Zusammenführen: gewählte Zielübung
+  const [zielKg, setZielKg] = useState(null);                // Ziel-1RM im Sheet
   const [laeuft, setLaeuft] = useState(false);
   const [, neuZeichnen] = useState(0);
-  const key = kanon(schluessel), lift = liftVon(key), farbe = LIFT[lift].farbe, e = uebung(schluessel) ?? uebung(key);
+  const key = kanon(schluessel), lift = liftVon(key), farbe = lift === 'andere' ? 'var(--acc)' : LIFT[lift].farbe, e = uebung(schluessel) ?? uebung(key);
   const a = anpassung(schluessel) ?? anpassung(key) ?? {};
+  const zielWert = einst.ziele?.[key] ?? null;
   useEffect(() => {
     let aktiv = true;
     DIENSTE.ladeUebungDetails?.(schluessel).then((d) => aktiv && setDetails(d)).catch(() => {});
     return () => { aktiv = false; };
   }, [schluessel]);
-  const n = bereich || wochen.length;
-  // Varianten (gleiche Grundübung, z. B. Pause-Kniebeuge → Kniebeuge): je Woche das beste e1RM aller Varianten
+  // Varianten (gleiche Grundübung, z. B. Pause-Kniebeuge → Kniebeuge) für den e1RM-Chart zuschaltbar
   const varianten = e?.b ? katalogListe().filter((v) => v.b === e.b && v.k !== e.k && kanon(v.k) !== key && verlaufUebung(v.k)?.some((x) => x != null)).map((v) => v.k) : [];
-  const voll = mitVarianten && varianten.length
-    ? verlaufUebung(schluessel)?.map((v, i) => { const alle = [v, ...varianten.map((k) => verlaufUebung(k)[i])].filter((x) => x != null); return alle.length ? Math.max(...alle) : null; })
-    : verlaufUebung(schluessel);
-  const x = wochen.slice(-n), reihe = voll?.slice(-n);
-  const w = reihe?.some((v) => v != null) ? reihe : null;
-  const jetzt = letzterWert(w);
-  const einheiten = Object.keys(trainingsTage).filter((d) => d >= x[0]).sort().reverse()
-    .map((d) => [d, trainingAm(d)?.uebungen.find((u) => u.key === key)]).filter(([, u]) => u);
-  const volumen = x.map((wo, i) => {
-    const bis = x[i + 1] ?? plusTage(wo, 7);
-    return { label: wo, teile: { v: einheiten.filter(([d]) => d >= wo && d < bis).reduce((s, [, u]) => s + u.saetze.reduce((b, z) => b + (z.kg ?? 0) * (z.wdh ?? 0), 0), 0) } };
-  });
-  const p = w ? plateau(w) : null;
+  const einheiten = einheitenVon(key);
+  const mitV = mitVarianten && varianten.length ? [...einheiten, ...varianten.flatMap((k) => einheitenVon(kanon(k)))] : einheiten;
+  // Chart: eine Spalte je Trainingstag (bei Varianten der beste Wert des Tages), aufsteigend
+  const jeTag = new Map();
+  for (const x of mitV) {
+    const w = art === 'e1rm' ? x.best : x.volumen;
+    if (w == null || !(w > 0)) continue;
+    jeTag.set(x.datum, Math.max(jeTag.get(x.datum) ?? 0, w));
+  }
+  const ab = zeitraum ? plusTage(HEUTE, -zeitraum) : '';
+  let punkte = [...jeTag.entries()].filter(([d]) => d >= ab).sort((p, q) => p[0].localeCompare(q[0]));
+  // Nur Bestwert je Block: leichte Wochen (Deload, Technik) erscheinen nicht als Kraftverlust. Block = program_run,
+  // Trainings ohne Block (z. B. aus Jefit) in 6-Wochen-Abschnitten wie ein Candito-Block
+  if (nurSpitzen) {
+    const blockVon = (d) => bloecke.find((b) => d >= b.von && d <= b.bis)?.id ?? `abschnitt-${Math.floor(tageZwischen('2020-01-06', d) / 42)}`;
+    const best = new Map();
+    for (const q of punkte) { const b = blockVon(q[0]); if (!best.has(b) || q[1] > best.get(b)[1]) best.set(b, q); }
+    punkte = [...best.values()].sort((p, q) => p[0].localeCompare(q[0]));
+  }
+  const minP = punkte.reduce((m, p) => (!m || p[1] < m[1] ? p : m), null), maxP = punkte.reduce((m, p) => (!m || p[1] > m[1] ? p : m), null);
+  // Zielprognose aus dem Wochen-e1RM (gleiche Rechnung wie in der Statistik)
+  const reihe = verlaufUebung(schluessel);
+  const prognose = zielWert && reihe ? zielprognose(wochen, reihe, zielWert) : null;
+  const p = reihe ? plateau(reihe.slice(-26)) : null;
   const links = vergleichsLinks(schluessel);
   const rek = rekordeVon(schluessel);
   const favorit = async () => {
@@ -58,73 +91,112 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText }) {
     neuZeichnen((z) => z + 1);
   };
   const muskeln = (liste) => liste?.length ? liste.map((m) => MUSKEL_DE[m] ?? m).join(', ') : '–';
+  const satzZeile = (x, nr, beste, mitRpe, k) => html`<tr key=${k} class=${beste ? 'beste' : ''}>
+    <td class=${`satz-nr ${nr === 'W' ? 'w' : ''}`}>${nr}</td>
+    <td class="k">${x.kg != null && (x.kg > 0 || !koerperUebung(key)) ? `${gw(x.kg)} ${einheit()}` : koerperUebung(key) ? 'Körpergewicht' : '–'} × ${x.wdh ?? '–'}</td>
+    ${mitRpe ? html`<td class="muted">${x.rpe != null ? `@${fmt(x.rpe)}` : ''}</td>` : null}
+    <td>${x.e1rm != null ? gw(x.e1rm, 0) : '–'}</td></tr>`;
   return html`<div class="screen">
     <header class="topbar">
       <button class="iconbtn" onClick=${zurueck} aria-label=${zurueckText}>${I.zurueck}</button>
-      <div style="flex:1;min-width:0"><div class="eyebrow">${FAMILIE[e?.f] ?? 'Übung'}${DEMO ? ' · Beispieldaten' : ''}</div><h1 class="h1" style="font-size:24px">${nameVon(schluessel)}</h1></div>
+      <div style="flex:1;min-width:0"><div class="eyebrow">${FAMILIE[e?.f] ?? 'Übung'}${DEMO ? ' · Beispieldaten' : ''}</div><h1 class="h1">${nameVon(schluessel)}</h1></div>
+      <${UebungsBild} schluessel=${schluessel} groesse=${56}/>
       ${DIENSTE.speichereAnpassung ? html`<button class=${`iconbtn ${a.favorit ? 'fav' : ''}`} onClick=${favorit} aria-pressed=${String(!!a.favorit)}
         aria-label=${a.favorit ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten'}>${a.favorit ? '★' : '☆'}</button>` : null}
+      <div class="uebung-kopf">
+        ${setEinst ? html`<button class="chip" onClick=${() => { setZielKg(zielWert); setSheet('ziel'); }}>${zielWert ? `Ziel: ${gwE(zielWert)}` : 'Ziel setzen'}</button>` : null}
+        ${rek.e1rm ? html`<span class="muted" style="font-size:12.5px">bestes e1RM <b style="color:var(--ink)">${gwE(rek.e1rm.wert, 1)}</b></span>` : null}
+      </div>
+      <nav class="reiter" role="tablist" aria-label="Ansicht">${REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>${t}</button>`)}</nav>
     </header>
-    ${zurueckText === 'Zurück zum Training' ? html`<button class="btn btn-soft btn-block" onClick=${zurueck}>${I.zurueck} Zurück zum Training</button>` : null}
+    ${zurueckText === 'Zurück zum Training' ? html`<button class="btn btn-soft btn-sm" onClick=${zurueck}>${I.zurueck} Zurück zum Training</button>` : null}
 
-    <section class="card pad stack">
-      ${details?.bilder?.length ? html`<div class="bilder">${details.bilder.slice(0, 2).map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy"
-        onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null}
-      <div class="steckbrief">
-        ${a.name ? html`<div><span class="eyebrow">Katalogname</span><b>${katalogName(schluessel)}</b></div>` : null}
-        <div><span class="eyebrow">Typ</span><b>${LASTART[e?.lt] ?? '–'}</b></div>
-        <div><span class="eyebrow">Equipment</span><b>${EQUIPMENT[e?.eq] ?? e?.eq ?? '–'}</b></div>
-        <div><span class="eyebrow">Hauptmuskeln</span><b>${muskeln(e?.m)}</b></div>
-        ${(details?.m2 ?? e?.m2)?.length ? html`<div><span class="eyebrow">Nebenmuskeln</span><b>${muskeln(details?.m2 ?? e?.m2)}</b></div>` : null}
-      </div>
-      ${a.cues || a.rack || a.notiz || a.pause ? html`<div class="notizen">
-        ${a.cues ? html`<p><b>Cues</b> ${a.cues}</p>` : null}${a.rack ? html`<p><b>Rack</b> ${a.rack}</p>` : null}
-        ${a.pause ? html`<p><b>Pause</b> ${mmss(a.pause)} (eigene)</p>` : null}${a.notiz ? html`<p><b>Notiz</b> ${a.notiz}</p>` : null}</div>` : null}
-      ${details?.anleitung?.length ? html`<details><summary class="link" style="cursor:pointer">Anleitung (Englisch, Free Exercise DB)</summary>
-        <ol class="anleitung">${details.anleitung.map((s, i) => html`<li key=${i}>${s}</li>`)}</ol></details>` : null}
-      <div class="row wrap">
-        ${DIENSTE.speichereAnpassung ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('anpassen')}>Für mich anpassen</button>` : null}
-        ${e && DIENSTE.uebungAendern && DIENSTE.darfAendern(e) ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('aendern')}>Basisdaten ändern</button>` : null}
-        ${e && DIENSTE.zusammenfuehren && DIENSTE.darfAendern(e) ? html`<button class="btn btn-soft btn-sm" onClick=${() => { setZiel(null); setSheet('zusammen'); }}>Zusammenführen …</button>` : null}
-      </div>
-    </section>
-
-    <div class="filter" role="group" aria-label="Zeitraum">${BEREICHE.map(([t, b]) => html`<button key=${b} class="chip" aria-pressed=${String(bereich === b)} onClick=${() => setBereich(b)}>${t}</button>`)}
-      ${varianten.length ? html`<button class="chip" aria-pressed=${String(mitVarianten)} onClick=${() => setMitVarianten(!mitVarianten)}
-        title=${varianten.map((k) => nameVon(k)).join(', ')}>${mitVarianten ? '✓ ' : ''}mit ${varianten.length} ${varianten.length === 1 ? 'Variante' : 'Varianten'}</button>` : null}</div>
-    ${w ? html`
-      <div class="kacheln">
-        <div class="kachel"><span class="l">e1RM zuletzt${koerperUebung(key) ? ' (ges.)' : ''}</span><b>${gw(jetzt, 1)}</b></div>
-        <div class="kachel"><span class="l">Im Zeitraum</span><b>${jetzt >= ersterWert(w) ? '+' : ''}${gw(jetzt - ersterWert(w), 1)}</b><span class="muted" style="font-size:12px">${einheit()} e1RM</span></div>
-        <div class="kachel"><span class="l">Einheiten</span><b>${einheiten.length}</b><span class="muted" style="font-size:12px">${LETZTES[key] ? `zuletzt ${LETZTES[key][1]}` : ''}</span></div>
-      </div>
+    ${reiter === 'verlauf' ? html`
+      ${!einheiten.length ? html`<section class="card pad"><p class="muted" style="margin:0">Für diese Übung gibt es noch keine Einheiten.</p></section>` : null}
+      ${einheiten.slice(0, mehr).map((x) => {
+        const beste = x.saetze.reduce((m, y, j) => (y.e1rm != null && (m < 0 || y.e1rm > x.saetze[m].e1rm) ? j : m), -1);
+        const mitRpe = [...x.saetze, ...x.aufwaermen].some((y) => y.rpe != null);
+        return html`<section key=${x.datum} class="card pad einheit">
+          <div class="row between"><b>${datumMitJahr(x.datum)}</b>${x.best != null ? html`<span class="muted" style="font-size:12.5px">e1RM <b style="color:var(--ink)">${gw(x.best, 1)}</b></span>` : null}</div>
+          <table class="saetze"><thead><tr><th>Satz</th><th>Gewicht × Wdh</th>${mitRpe ? html`<th>RPE</th>` : null}<th>e1RM</th></tr></thead>
+            <tbody>${x.aufwaermen.map((y, j) => satzZeile(y, 'W', false, mitRpe, `w${j}`))}${x.saetze.map((y, j) => satzZeile(y, j + 1, j === beste, mitRpe, `s${j}`))}</tbody></table>
+          ${x.notiz ? html`<div class="cue notiz">${x.notiz}</div>` : null}
+        </section>`;
+      })}
+      ${einheiten.length > mehr ? html`<button class="btn btn-soft btn-sm" onClick=${() => setMehr(mehr + 20)}>Ältere Einheiten (${einheiten.length - mehr})</button>` : null}`
+    : reiter === 'chart' ? html`
+      <section class="card pad stack">
+        <div class="seg" role="group" aria-label="Zeitraum">${ZEITRAEUME.map(([t, z]) => html`<button key=${t} aria-pressed=${String(zeitraum === z)} onClick=${() => setZeitraum(z)}>${t}</button>`)}</div>
+        <div class="row wrap" style="gap:6px">
+          <button class="chip" aria-pressed=${String(art === 'e1rm')} onClick=${() => setArt('e1rm')}>1RM (geschätzt)</button>
+          <button class="chip" aria-pressed=${String(art === 'volumen')} onClick=${() => setArt('volumen')}>Volumen</button>
+          <button class="chip" aria-pressed=${String(nurSpitzen)} onClick=${() => setNurSpitzen(!nurSpitzen)}
+            title="Je Block nur die beste Einheit – leichte Wochen verfälschen den Verlauf nicht">${nurSpitzen ? '✓ ' : ''}Bestwert je Block</button>
+          ${varianten.length ? html`<button class="chip" aria-pressed=${String(mitVarianten)} onClick=${() => setMitVarianten(!mitVarianten)}
+            title=${varianten.map((k) => nameVon(k)).join(', ')}>${mitVarianten ? '✓ ' : ''}mit ${varianten.length} ${varianten.length === 1 ? 'Variante' : 'Varianten'}</button>` : null}
+        </div>
+        ${punkte.length ? html`<span class="muted" style="font-size:12.5px">${datumKurz(punkte[0][0])}${punkte[0][0].slice(0, 4)} – ${datumKurz(punkte.at(-1)[0])}${punkte.at(-1)[0].slice(0, 4)} · ${punkte.length} ${nurSpitzen ? 'Blöcke (Bestwert je Block, ohne Block je 6 Wochen)' : 'Einheiten'}</span>` : null}
+        ${punkte.length > 1 ? html`<${LinienChart} ohneRahmen=${true} titel=${art === 'e1rm' ? 'Geschätztes 1RM' : 'Volumen'} x=${punkte.map((q) => q[0])} zeitlich=${true} punkte=${true}
+          serien=${[{ id: 'w', name: art === 'e1rm' ? 'e1RM' : 'Volumen', farbe, werte: punkte.map((q) => inAnzeige(q[1])) }]} hoehe=${230}
+          einheit=${einheit()} stellen=${art === 'e1rm' ? 1 : 0} tipKopf=${datumMitJahr}
+          referenz=${art === 'e1rm' && zielWert ? { wert: inAnzeige(zielWert), text: `Ziel ${gw(zielWert)}` } : null}/>`
+          : html`<p class="muted" style="margin:0">${punkte.length ? 'Nur eine Einheit im Zeitraum – für einen Verlauf einen längeren Zeitraum wählen.' : 'Im Zeitraum keine Einheit mit Gewicht.'}</p>`}
+      </section>
+      ${minP ? html`<div class="kacheln zwei">
+        <div class="kachel"><span class="l">Min</span><b>${art === 'e1rm' ? gw(minP[1], 1) : gw(minP[1], 0)}<small> ${einheit()}</small></b><span class="muted" style="font-size:12px">${monatJahr(minP[0])}</span></div>
+        <div class="kachel"><span class="l">Max</span><b>${art === 'e1rm' ? gw(maxP[1], 1) : gw(maxP[1], 0)}<small> ${einheit()}</small></b><span class="muted" style="font-size:12px">${monatJahr(maxP[0])}</span></div>
+      </div>` : null}
+      ${prognose ? html`<section class="card pad stack" style="gap:6px"><span class="viz-t">Ziel ${gwE(zielWert)}</span>
+        <p style="margin:0;font-size:14px">${prognose.grund === 'erreicht' ? `Schon erreicht – Trendwert ${gwE(prognose.aktuell, 1)}.`
+          : prognose.grund === 'keinTrend' ? `Derzeit kein Aufwärtstrend (${fmt(prognose.proWoche, 2)} ${einheit()} je Woche), daher kein Datum.`
+          : prognose.grund === 'zuWenig' ? 'Zu wenige Wochen mit dieser Übung für eine Prognose.'
+          : html`Voraussichtlich <b>${datumMitJahr(prognose.datum)}</b> (in ${prognose.wochen} Wochen, +${fmt(prognose.proWoche, 2)} ${einheit()} je Woche).`}</p></section>` : null}
       ${p?.plateau ? html`<section class="hint">${I.warn}<span class="t">Seit ${p.wochenOhneRekord} Trainingswochen kein neues e1RM</span><span></span>
-        <p>Bestwert im Zeitraum ${gwE(p.best, 1)}, seitdem keine Woche mehr als 0,5 % darüber. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}
-      <${LinienChart} titel="Geschätztes 1RM" unter="Bester Satz je Woche" x=${x} serien=${[{ id: lift, name: nameVon(schluessel), farbe, werte: w.map(inAnzeige) }]} hoehe=${200} einheit=${einheit()}/>
-      ${volumen.some((v) => v.teile.v > 0) ? html`<${StapelSaeulen} titel="Volumen" unter="Bewegte kg je Woche" daten=${volumen} serien=${[{ id: 'v', name: 'Volumen', farbe }]}/>` : null}`
-      : html`<section class="card pad"><p class="muted" style="margin:0">${verlaufUebung(schluessel) ? 'Im gewählten Zeitraum kein Satz mit e1RM.' : 'Für diese Übung gibt es noch keinen Verlauf.'}</p></section>`}
+        <p>Bestwert im letzten halben Jahr ${gwE(p.best, 1)}. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}`
+    : reiter === 'rekorde' ? html`
+      ${rek.wdh.some(Boolean) ? html`<section class="card pad">
+        <div class="row between" style="margin-bottom:8px"><span class="viz-t">Rekordtafel</span>
+          ${rek.e1rm ? html`<span class="muted" style="font-size:12.5px">bestes e1RM <b style="color:var(--ink)">${gwE(rek.e1rm.wert, 1)}</b> · ${datumKurz(rek.e1rm.datum)}${rek.e1rm.datum.slice(0, 4)}</span>` : null}</div>
+        <table class="rec"><thead><tr><th>Wdh</th><th>Gewicht</th><th>Datum</th><th>e1RM</th></tr></thead>
+          <tbody>${rek.wdh.map((r, i) => r ? html`<tr key=${i}><td>${i + 1}</td><td class="k">${gwE(r[0])}</td><td class="muted">${datumKurz(r[1])}${r[1].slice(2, 4)}</td><td>${gw(e1rm(r[0], i + 1), 1)}</td></tr>`
+            : html`<tr key=${i}><td>${i + 1}</td><td class="k muted">–</td><td></td><td></td></tr>`)}</tbody></table>
+        ${koerperUebung(key) ? html`<p class="muted" style="margin:8px 0 0;font-size:12.5px">Gewichte = Zusatzgewicht; das e1RM rechnet mit der Gesamtlast.</p>` : null}
+      </section>` : html`<section class="card pad"><p class="muted" style="margin:0">Noch keine Rekorde.</p></section>`}
+      ${links.length ? html`<section class="card pad stack">
+        <span class="viz-t">Mit anderen vergleichen</span>
+        <p class="muted" style="margin:0;font-size:13px">Dein bestes e1RM eintragen und sehen, wo du stehst. PR Hunter übernimmt keine Daten von dort.</p>
+        <div class="row wrap">${links.map((l) => html`<a key=${l.name} class="btn btn-soft btn-sm" href=${l.url} target="_blank" rel="noopener">${l.name} ${I.extern}</a>`)}</div>
+      </section>` : null}`
+    : html`
+      <section class="card pad stack">
+        ${details?.bilder?.length ? html`<div class="bilder">${details.bilder.slice(0, 2).map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy"
+          onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null}
+        <div class="steckbrief">
+          ${a.name ? html`<div><span class="eyebrow">Katalogname</span><b>${katalogName(schluessel)}</b></div>` : null}
+          <div><span class="eyebrow">Typ</span><b>${LASTART[e?.lt] ?? '–'}</b></div>
+          <div><span class="eyebrow">Equipment</span><b>${EQUIPMENT[e?.eq] ?? e?.eq ?? '–'}</b></div>
+          <div><span class="eyebrow">Hauptmuskeln</span><b>${muskeln(e?.m)}</b></div>
+          ${(details?.m2 ?? e?.m2)?.length ? html`<div><span class="eyebrow">Nebenmuskeln</span><b>${muskeln(details?.m2 ?? e?.m2)}</b></div>` : null}
+        </div>
+        ${a.cues || a.rack || a.notiz || a.pause ? html`<div class="notizen">
+          ${a.cues ? html`<p><b>Cues</b> ${a.cues}</p>` : null}${a.rack ? html`<p><b>Rack</b> ${a.rack}</p>` : null}
+          ${a.pause ? html`<p><b>Pause</b> ${mmss(a.pause)} (eigene)</p>` : null}${a.notiz ? html`<p><b>Notiz</b> ${a.notiz}</p>` : null}</div>` : null}
+        ${details?.anleitung?.length ? html`<details><summary class="link" style="cursor:pointer">Anleitung (Englisch, Free Exercise DB)</summary>
+          <ol class="anleitung">${details.anleitung.map((t, i) => html`<li key=${i}>${t}</li>`)}</ol></details>` : null}
+        <div class="row wrap">
+          ${DIENSTE.speichereAnpassung ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('anpassen')}>Für mich anpassen</button>` : null}
+          ${e && DIENSTE.uebungAendern && DIENSTE.darfAendern(e) ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('aendern')}>Basisdaten ändern</button>` : null}
+          ${e && DIENSTE.zusammenfuehren && DIENSTE.darfAendern(e) ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => { setZiel(null); setSheet('zusammen'); }}>Zusammenführen …</button>` : null}
+        </div>
+      </section>`}
 
-    ${rek.wdh.some(Boolean) ? html`<section class="card pad">
-      <div class="row between" style="margin-bottom:8px"><span class="viz-t">Rekordtafel</span>
-        ${rek.e1rm ? html`<span class="muted" style="font-size:12.5px">bestes e1RM <b style="color:var(--ink)">${gwE(rek.e1rm.wert, 1)}</b> · ${datumKurz(rek.e1rm.datum)}</span>` : null}</div>
-      <table class="rec"><thead><tr><th>Wdh</th><th>Gewicht</th><th>Datum</th><th>e1RM</th></tr></thead>
-        <tbody>${rek.wdh.map((r, i) => r ? html`<tr key=${i}><td>${i + 1}</td><td class="k">${gwE(r[0])}</td><td class="muted">${datumKurz(r[1])}</td><td>${gw(e1rm(r[0], i + 1), 1)}</td></tr>`
-          : html`<tr key=${i}><td>${i + 1}</td><td class="k muted">–</td><td></td><td></td></tr>`)}</tbody></table>
-      ${koerperUebung(key) ? html`<p class="muted" style="margin:8px 0 0;font-size:12.5px">Gewichte = Zusatzgewicht; das e1RM oben rechnet mit der Gesamtlast.</p>` : null}
-    </section>` : null}
-
-    ${links.length ? html`<section class="card pad stack">
-      <span class="viz-t">Mit anderen vergleichen</span>
-      <p class="muted" style="margin:0;font-size:13.5px">Dein bestes e1RM eintragen und sehen, wo du im Vergleich stehst. PR Hunter übernimmt keine Daten von dort.</p>
-      <div class="row wrap">${links.map((l) => html`<a key=${l.name} class="btn btn-soft btn-sm" href=${l.url} target="_blank" rel="noopener">${l.name} ${I.extern}</a>`)}</div>
-    </section>` : null}
-    <section class="card pad stack">
-      <div class="row between"><span class="viz-t">Einheiten</span><span class="muted" style="font-size:12.5px">${einheiten.length} im Zeitraum</span></div>
-      ${einheiten.length ? einheiten.slice(0, 20).map(([d, u]) => html`<div key=${d} class="row" style="align-items:flex-start">
-        <div class="datum-box" style="width:50px;flex:none"><b>${d.slice(8, 10)}</b><span>${datumKurz(d).slice(3)}</span></div>
-        <div class="satzchips">${u.saetze.map((s, i) => html`<span key=${i}>${satzKurz(s)}${rpeKlein(s)}</span>`)}</div></div>`)
-      : html`<p class="muted" style="margin:0">Keine Einheiten in diesem Zeitraum.</p>`}
-    </section>
+    ${sheet === 'ziel' ? html`<${Sheet} zu=${() => setSheet(null)} label="Ziel für diese Übung">
+      <h2 class="h2">Ziel-1RM</h2>
+      <p class="muted" style="margin:0;font-size:13px">Erscheint als Linie im Chart; die App schätzt aus dem Trend, wann du es erreichst.</p>
+      <${ZahlFeld} id="u-ziel" label=${`Ziel (${einheit()})`} kg=${true} wert=${zielKg} setze=${setZielKg} platzhalter="–"/>
+      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => { const z = { ...(einst.ziele ?? {}) }; delete z[key]; setEinst({ ...einst, ziele: z }); setSheet(null); }}>Kein Ziel</button>
+        <button class="btn btn-chalk" style="flex:1.4" disabled=${!(zielKg > 0)} onClick=${() => { setEinst({ ...einst, ziele: { ...(einst.ziele ?? {}), [key]: zielKg } }); setSheet(null); }}>Speichern</button></div>
+    <//>` : null}
     ${sheet === 'anpassen' ? html`<${AnpassenSheet} schluessel=${schluessel} zu=${() => { setSheet(null); neuZeichnen((z) => z + 1); }}/>` : null}
     ${sheet === 'aendern' && e ? html`<${UebungFormular} modus="aendern" eintrag=${e} zu=${() => setSheet(null)} fertig=${() => { setSheet(null); neuZeichnen((z) => z + 1); }}/>` : null}
     ${sheet === 'zusammen' && e ? html`<${Sheet} zu=${() => !laeuft && setSheet(null)} label="Zusammenführen">
@@ -135,7 +207,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText }) {
         <ul style="margin:0;padding-left:18px;font-size:14px"><li>Alle Sätze aller Nutzer, Maxe, Anpassungen und Programme zeigen danach auf „${nameVon(ziel)}“.</li>
           <li>Der alte Name wird Suchbegriff (auch für den Jefit-Import).</li><li>Lässt sich nicht rückgängig machen.</li></ul>
         <div class="row"><button class="btn btn-soft" style="flex:1" disabled=${laeuft} onClick=${() => setZiel(null)}>Andere wählen</button>
-          <button class="btn btn-chalk" style="flex:1" disabled=${laeuft} onClick=${async () => {
+          <button class="btn btn-gefahr" style="flex:1" disabled=${laeuft} onClick=${async () => {
             setLaeuft(true);
             try { await DIENSTE.zusammenfuehren(e.k, ziel); setSheet(null); zurueck(); }
             catch (x) { DIENSTE.meldung?.({ titel: 'Nicht zusammengeführt', text: x.message }); }

@@ -43,8 +43,18 @@ export function Legende({ serien, art = 'linie' }) {
 /** Index des letzten Werts einer Reihe mit Lücken (null = Woche ohne Training). */
 const letzterIndex = (w) => { for (let k = w.length - 1; k >= 0; k--) if (w[k] != null) return k; return -1; };
 
-/** Mehrere Linien über denselben x-Werten (ISO-Daten). Eine Reihe bekommt eine 10-%-Fläche. Lücken werden überbrückt. */
-export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg', hoehe = 220, referenz = null, stellen = 1 }) {
+/** Achsenbeschriftung: Monat; geht der Zeitraum über einen Jahreswechsel, mit Jahr am ersten Tick und an jedem Tick in einem neuen Jahr. */
+function monatsText(d, vorher, jahreUebergreifend) {
+  const m = MONATE[Number(d.slice(5, 7)) - 1];
+  return jahreUebergreifend && (!vorher || vorher.slice(0, 4) !== d.slice(0, 4)) ? `${m} ’${d.slice(2, 4)}` : m;
+}
+
+/**
+ * Mehrere Linien über denselben x-Werten (ISO-Daten). Eine Reihe bekommt eine 10-%-Fläche. Lücken werden überbrückt.
+ * zeitlich: Abstände nach Datum statt gleichmäßig (für einzelne Einheiten); punkte: jeden Wert als Punkt zeigen.
+ */
+export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg', hoehe = 220, referenz = null, stellen = 1, zeitlich = false, punkte = false,
+  tipKopf = (d) => `Woche ab ${datumKurz(d)}`, ohneRahmen = false }) {
   const [i, setI] = useState(null);
   const ref = useRef(null);
   const serien = alleSerien.filter((s) => letzterIndex(s.werte) >= 0);
@@ -56,33 +66,41 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
   const alle = [...serien.flatMap((s) => s.werte).filter((v) => v != null), ...(referenz ? [referenz.wert] : [])];
   const ticks = schritte(Math.min(...alle), Math.max(...alle));
   const lo = ticks[0], hi = ticks.at(-1);
-  const px = (k) => L + (k * (W - L - R)) / Math.max(1, x.length - 1);
+  const t = x.map((d) => Date.parse(`${d}T00:00:00Z`)), t0 = t[0], t1 = t.at(-1);
+  const pt = (ms) => L + ((ms - t0) * (W - L - R)) / Math.max(1, t1 - t0);
+  const px = zeitlich ? (k) => pt(t[k]) : (k) => L + (k * (W - L - R)) / Math.max(1, x.length - 1);
   const py = (v) => T + ((hi - v) * (H - T - U)) / (hi - lo || 1);
   const pfad = (w) => w.map((v, k) => [v, k]).filter(([v]) => v != null).map(([v, k], j) => `${j ? 'L' : 'M'}${px(k).toFixed(1)} ${py(v).toFixed(1)}`).join(' ');
   // Endbeschriftungen am letzten Wert; bei Kollision (< 13 px) zur Seite rücken mit Verbindungslinie
   const enden = serien.map((s) => { const k = letzterIndex(s.werte); return { s, k, y: py(s.werte[k]) }; }).sort((a, b) => a.y - b.y);
   for (let k = 1; k < enden.length; k++) if (enden[k].y - enden[k - 1].y < 13) enden[k].ly = (enden[k - 1].ly ?? enden[k - 1].y) + 13;
-  const monatsTicks = []; let letztes = -Infinity;           // Monatsanfänge, mindestens 34 px auseinander
-  x.forEach((d, k) => {
-    if ((k === 0 || d.slice(5, 7) !== x[k - 1].slice(5, 7)) && px(k) - letztes >= 34) { monatsTicks.push([d, k]); letztes = px(k); }
-  });
+  // Monatsanfänge als Ticks, mindestens 34 px auseinander (bei langen Zeiträumen wird es so je Quartal/Halbjahr)
+  const kandidaten = [];
+  if (zeitlich) {
+    const d = new Date(t0); d.setUTCDate(1); if (d.getTime() < t0) d.setUTCMonth(d.getUTCMonth() + 1);
+    for (; d.getTime() <= t1; d.setUTCMonth(d.getUTCMonth() + 1)) kandidaten.push([d.toISOString().slice(0, 10), pt(d.getTime())]);
+  } else x.forEach((d, k) => { if (k === 0 || d.slice(5, 7) !== x[k - 1].slice(5, 7)) kandidaten.push([d, px(k)]); });
+  const jahre = x[0].slice(0, 4) !== x.at(-1).slice(0, 4);
+  const monatsTicks = []; let letztes = -Infinity;
+  for (const [d, pos] of kandidaten) if (pos - letztes >= (jahre ? 40 : 34)) { monatsTicks.push([d, pos]); letztes = pos; }
   const zeige = (e) => {
     const r = ref.current.getBoundingClientRect();
     const xs = ((e.clientX - r.left) / r.width) * W;
-    setI(Math.max(0, Math.min(x.length - 1, Math.round(((xs - L) / (W - L - R)) * (x.length - 1)))));
+    let best = 0;
+    for (let k = 1; k < x.length; k++) if (Math.abs(px(k) - xs) < Math.abs(px(best) - xs)) best = k;
+    setI(best);
   };
   const tabelle = html`<table class="rec"><thead><tr><th>Woche</th>${serien.map((s) => html`<th key=${s.id}>${s.name}</th>`)}</tr></thead>
     <tbody>${[...x].reverse().map((d, k) => html`<tr key=${d}><td>${datumKurz(d)}</td>${serien.map((s) => html`<td key=${s.id}>${fmt(s.werte[x.length - 1 - k])}</td>`)}</tr>`)}</tbody></table>`;
-  return html`<${Rahmen} titel=${titel} unter=${unter} tabelle=${tabelle}
-    legende=${serien.length > 1 ? html`<${Legende} serien=${serien}/>` : null}
-    kinder=${html`<div class="viz-plot" onPointerLeave=${() => setI(null)}>
+  const plot = html`<div class="viz-plot" onPointerLeave=${() => setI(null)}>
       <svg ref=${ref} viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${titel} onPointerMove=${zeige} onPointerDown=${zeige}>
         ${ticks.map((t) => html`<g key=${t}><line class="g" x1=${L} x2=${W - R} y1=${py(t)} y2=${py(t)}/><text class="ax" x=${L - 6} y=${py(t) + 4} text-anchor="end">${fmt(t, 0)}</text></g>`)}
-        ${monatsTicks.map(([d, k]) => html`<text key=${d} class="ax" x=${px(k)} y=${H - 8} text-anchor="middle">${MONATE[Number(d.slice(5, 7)) - 1]}</text>`)}
+        ${monatsTicks.map(([d, pos], j) => html`<text key=${d} class="ax" x=${pos} y=${H - 8} text-anchor="middle">${monatsText(d, monatsTicks[j - 1]?.[0], jahre)}</text>`)}
         ${referenz ? html`<g><line x1=${L} x2=${W - R} y1=${py(referenz.wert)} y2=${py(referenz.wert)} style="stroke:var(--warn)" stroke-width="1.5" stroke-dasharray="5 4"/>
           <text class="ax" x=${L + 4} y=${py(referenz.wert) - 5} style="fill:var(--warn)">${referenz.text}</text></g>` : null}
         ${serien.length === 1 ? html`<path d=${`${pfad(serien[0].werte)} L${px(letzterIndex(serien[0].werte))} ${H - U} L${px(serien[0].werte.findIndex((v) => v != null))} ${H - U} Z`} style=${`fill:${serien[0].farbe};opacity:.1`}/>` : null}
         ${serien.map((s) => html`<path key=${s.id} d=${pfad(s.werte)} fill="none" style=${`stroke:${s.farbe}`} stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`)}
+        ${punkte ? serien.map((s) => s.werte.map((v, k) => (v == null ? null : html`<circle key=${`${s.id}${k}`} cx=${px(k)} cy=${py(v)} r="2.6" style=${`fill:${s.farbe}`}/>`))) : null}
         ${enden.map(({ s, k, y, ly }) => html`<g key=${s.id}>
           <circle cx=${px(k)} cy=${y} r="4.5" style=${`fill:${s.farbe};stroke:var(--surface)`} stroke-width="2"/>
           ${ly ? html`<line x1=${px(k) + 6} y1=${y} x2=${px(k) + 10} y2=${ly} style="stroke:var(--axis)"/>` : null}
@@ -92,10 +110,13 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
           ${serien.filter((s) => s.werte[i] != null).map((s) => html`<circle key=${s.id} cx=${px(i)} cy=${py(s.werte[i])} r="4.5" style=${`fill:${s.farbe};stroke:var(--surface)`} stroke-width="2"/>`)}</g>` : null}
       </svg>
       ${i != null ? html`<div class="tip" style=${`left:${Math.min(70, Math.max(4, (px(i) / W) * 100 - 15))}%`}>
-        <div class="tip-d">Woche ab ${datumKurz(x[i])}</div>
+        <div class="tip-d">${tipKopf(x[i])}</div>
         ${serien.map((s) => html`<div key=${s.id} class="tip-r"><i class="k-linie" style=${`background:${s.farbe}`}></i><b>${fmt(s.werte[i], stellen)}${einheit ? ` ${einheit}` : ''}</b><span>${s.name}</span></div>`)}
       </div>` : null}
-    </div>`}/>`;
+    </div>`;
+  if (ohneRahmen) return plot;
+  return html`<${Rahmen} titel=${titel} unter=${unter} tabelle=${tabelle}
+    legende=${serien.length > 1 ? html`<${Legende} serien=${serien}/>` : null} kinder=${plot}/>`;
 }
 
 /** Gestapelte Säulen (Teile eines Ganzen je Woche), 2 px Lücke, abgerundetes Ende nur oben. */
