@@ -131,7 +131,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav></header>
     <div class="filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>
 
-    <div class="reiter-inhalt" key=${reiter}>
+    <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
     ${reiter === 'kraft' ? html`
     <section class="card total">
       <div><div class="eyebrow">Total · bestes e1RM der letzten ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>

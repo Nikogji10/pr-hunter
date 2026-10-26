@@ -72,7 +72,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 8px; }
 .muted { color: var(--muted); }
 .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-stretch: 110%; }
-.h1 { font: 900 clamp(22px, 6.6vw, 28px)/0.95 var(--f); font-stretch: 122%; text-transform: uppercase; letter-spacing: -.01em; margin: 0; text-wrap: balance; hyphens: auto; overflow-wrap: anywhere; }
+.h1 { font: 900 clamp(20px, 5.8vw, 28px)/0.95 var(--f); font-stretch: 122%; text-transform: uppercase; letter-spacing: -.01em; margin: 0; text-wrap: balance; hyphens: auto; overflow-wrap: anywhere; }
 .h2 { font: 800 17px/1.08 var(--f); font-stretch: 112%; text-transform: uppercase; margin: 0; letter-spacing: .01em; text-wrap: balance; }
 .h3 { font: 700 16px/1.15 var(--f); margin: 0; text-wrap: balance; }
 .zahl { font-weight: 800; font-stretch: 68%; letter-spacing: -.01em; }
@@ -84,11 +84,11 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 
 #app { max-width: 520px; margin: 0 auto; min-height: 100%; position: relative; }
 .screen {
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px));
   padding-block: 4px calc(150px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px;
 }
 .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--flaeche-2) var(--deck), transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
-  margin-inline: -16px; padding: 10px 16px 9px; border-bottom: 1px solid var(--kante); display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 12px; }
+  margin-inline: -10px; padding: 10px 16px 9px; border: 1px solid var(--kante); border-top: 0; border-radius: 0 0 var(--r-xl) var(--r-xl); display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 12px; }
 .topbar > * { min-width: 0; }
 .logo { font: 900 22px/1 var(--f-logo); letter-spacing: .05em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
 .logo b { color: var(--acc); text-shadow: 0 0 14px var(--acc-glow); font-weight: inherit; }
@@ -314,7 +314,7 @@ textarea { width: 100%; min-height: 72px; border-radius: var(--r-md); border: 1p
 .delta.ab { color: var(--muted); }
 .dots-wert { text-align: right; }
 .dots-wert b { display: block; font: 900 28px/1 var(--f); font-stretch: 70%; }
-.kacheln { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kacheln { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .kachel { background: var(--karte); border: 1px solid var(--kante); border-radius: var(--r-lg); padding: 11px 11px 8px; box-shadow: var(--shadow); min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .kachel .l { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .kachel b { font: 900 26px/1 var(--f); font-stretch: 68%; }
@@ -605,8 +605,8 @@ html.mit-bild body { background: var(--bg); }
 /* Einstellungen: Menü mit Unterseiten */
 .einst-menue { display: flex; flex-direction: column; gap: 10px; }
 .einst-punkt { display: grid; grid-template-columns: 46px 1fr 18px; gap: 12px; align-items: center; padding: 13px 14px; text-align: left; width: 100%; }
-.einst-icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: var(--acc-text);
-  background: radial-gradient(circle at 30% 25%, var(--acc-soft), transparent 70%), var(--sunken); border: 1px solid color-mix(in srgb, var(--acc) 35%, transparent); box-shadow: 0 0 16px -6px var(--acc-glow); }
+.einst-icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: var(--ic, var(--acc-text));
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--ic, var(--acc)) 26%, transparent), transparent 70%), var(--sunken); border: 1px solid color-mix(in srgb, var(--ic, var(--acc)) 40%, transparent); box-shadow: 0 0 16px -6px color-mix(in srgb, var(--ic, var(--acc)) 70%, transparent); }
 .einst-icon svg { width: 22px; height: 22px; }
 .einst-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .einst-text b { font-size: 15.5px; }
@@ -649,3 +649,30 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 /* Zuschneiden des Hintergrundbilds */
 .zuschnitt { position: relative; margin: 0 auto; border-radius: 18px; overflow: hidden; touch-action: none; border: 2px solid var(--acc); box-shadow: 0 0 24px -6px var(--acc-glow); background: #000; }
 .zuschnitt img { position: absolute; left: 0; top: 0; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; pointer-events: none; max-width: none; }
+
+/* Statistik: mehr Luft zwischen den Karten eines Reiters */
+.statistik-inhalt { display: flex; flex-direction: column; gap: 16px; }
+
+/* Heute kompakt: dünne Kopfleiste, Gewicht und Maxe oben, möglichst ohne Scrollen */
+.topbar.duenn { align-items: center; padding: 6px 12px 6px 14px; }
+.topbar.duenn .logo { font-size: 15px; }
+.topbar.duenn .profil-knopf .zahnrad { display: none; }
+.gewicht.kompakt { display: grid; grid-template-columns: 1fr 38px auto 38px; align-items: center; gap: 8px; padding: 9px 10px 9px 13px; }
+.gewicht.kompakt .gw-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+.gewicht.kompakt .gw-text .muted { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.gewicht.kompakt .gw-text .link { font-size: 11.5px; padding: 0; color: var(--acc-text); }
+.gewicht.kompakt .rund { width: 38px; height: 38px; font-size: 20px; }
+.gewicht.kompakt .zahl { font: 900 26px/1 var(--f); font-stretch: 70%; white-space: nowrap; text-align: center; }
+.gewicht.kompakt .zahl small { font-size: 12px; color: var(--muted); font-weight: 700; font-stretch: 100%; }
+.maxes.kompakt .max { padding: 8px 9px 8px 12px; }
+.maxes.kompakt .max .eyebrow { font-size: 10px; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.maxes.kompakt .max b { font-size: 22px; margin-top: 2px; }
+.hero.kompakt { padding: 10px 13px 8px; }
+.hero.kompakt .hero-zahl b { font-size: 26px; }
+.hero.kompakt .hero-zahl span { font-size: 15px; }
+.hero.kompakt .hantel svg { max-height: 52px; margin-top: 2px; }
+.heute-plan { gap: 8px; padding-block: 12px; }
+.heute-plan .h2 { font-size: 15px; font-stretch: 100%; }
+.heute-plan .plan-item { padding: 6px 0; }
+.heute-knoepfe { display: flex; gap: 6px; }
+.heute-knoepfe .btn { flex: 1; padding-inline: 6px; white-space: nowrap; }

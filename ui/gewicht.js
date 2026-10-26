@@ -6,7 +6,7 @@ import { Sparkline } from './diagramme.js';
 
 const runde1 = (x) => Math.round(x * 10) / 10;
 
-export function GewichtKarte({ einst, setEinst }) {
+export function GewichtKarte({ einst, setEinst, kompakt = false }) {
   const letzter = KOERPERVERLAUF.at(-1) ?? null;
   const heute = letzter?.datum === HEUTE;
   const basis = einst.koerpergewicht ?? letzter?.kg ?? null;
@@ -25,6 +25,25 @@ export function GewichtKarte({ einst, setEinst }) {
   const zielAnzeige = einst.gewichtZiel != null ? runde1(inAnzeige(einst.gewichtZiel)) : null;
   const abstand = zielAnzeige != null && wert != null ? runde1(wert - zielAnzeige) : null;
   const verlauf = KOERPERVERLAUF.filter((m) => m.datum >= plusTage(HEUTE, -56)).map((m) => inAnzeige(m.kg));
+  const status = entwurf != null ? 'wird gespeichert …' : heute ? 'heute gewogen' : letzter ? `zuletzt ${datumKurz(letzter.datum)} – tippen für heute` : 'noch kein Wert';
+  const zielText = abstand == null ? null : abstand === 0 ? 'Ziel erreicht' : abstand > 0 ? `noch ${fmt(abstand, 1)} ${einheit()} runter` : `noch ${fmt(-abstand, 1)} ${einheit()} rauf`;
+  const zielSheet = zielOffen ? html`<${Sheet} zu=${() => setZielOffen(false)} label="Gewichtsziel">
+      <h2 class="h2">Gewichtsziel</h2>
+      <${ZahlFeld} id="g-ziel" label=${`Ziel (${einheit()})`} kg=${true} wert=${ziel} setze=${setZiel} platzhalter="–"/>
+      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => { setEinst({ ...einst, gewichtZiel: null }); setZielOffen(false); }}>Kein Ziel</button>
+        <button class="btn btn-chalk" style="flex:1.4" disabled=${!(ziel >= 30 && ziel <= 250)} onClick=${() => { setEinst({ ...einst, gewichtZiel: runde1(ziel) }); setZielOffen(false); }}>Speichern</button></div>
+    <//>` : null;
+  const zielKnopf = (klasse) => html`<button class=${klasse} onClick=${() => { setZiel(einst.gewichtZiel ?? null); setZielOffen(true); }}>${zielAnzeige != null ? `Ziel ${fmt(zielAnzeige, 1)} ${einheit()}` : 'Ziel setzen'}</button>`;
+  if (kompakt) {
+    return html`<section class="card gewicht kompakt">
+      <div class="gw-text"><span class="viz-t">Körpergewicht</span>
+        <span class="muted">${zielText ?? status}</span>${zielKnopf('link')}</div>
+      <button class="rund" onClick=${() => tippe(-0.1)} aria-label=${`0,1 ${einheit()} weniger`}>−</button>
+      <b class="zahl tab-num" aria-live="polite" title=${status}>${wert != null ? fmt(wert, 1) : '–'}<small> ${einheit()}</small></b>
+      <button class="rund" onClick=${() => tippe(0.1)} aria-label=${`0,1 ${einheit()} mehr`}>+</button>
+      ${zielSheet}
+    </section>`;
+  }
   return html`<section class="card pad gewicht">
     <div class="row between"><span class="viz-t">Körpergewicht</span>
       <button class="chip" onClick=${() => { setZiel(einst.gewichtZiel ?? null); setZielOffen(true); }}>${zielAnzeige != null ? `Ziel ${fmt(zielAnzeige, 1)} ${einheit()}` : 'Ziel setzen'}</button></div>

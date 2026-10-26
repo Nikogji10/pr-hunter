@@ -12,6 +12,7 @@ const LB_SCHEIBEN = [55, 45, 35, 25, 10, 5, 2.5, 1.25];
 export const LB_STANDARD = [45, 35, 25, 10, 5, 2.5];
 const kgVonLb = (lb) => Math.round(lb * KG_PRO_LB * 100) / 100;      // wie in der DB gespeichert (numeric 5,2)
 const gleich = (a, b) => Math.abs(a - b) < 0.02;
+const ICON_FARBEN = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#f97316'];   // Symbole im Menü, je Bereich eine Farbe
 
 /** Neue Einheit: Stange, Steigerung und Scheiben auf die üblichen Werte der Einheit setzen. */
 export function aufEinheit(e, einheitNeu) {
@@ -81,8 +82,8 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     <div class="reiter-inhalt" key=${bereich ?? 'menue'}>
     ${!bereich ? html`
       <section class="einst-menue">
-        ${Object.entries(bereiche).map(([id, [name, was, icon, stand]]) => html`<button key=${id} class="einst-punkt card" onClick=${() => oeffne(id)}>
-          <span class="einst-icon">${icon}</span>
+        ${Object.entries(bereiche).map(([id, [name, was, icon, stand]], i) => html`<button key=${id} class="einst-punkt card" onClick=${() => oeffne(id)}>
+          <span class="einst-icon" style=${`--ic:${ICON_FARBEN[i % ICON_FARBEN.length]}`}>${icon}</span>
           <span class="einst-text"><b>${name}</b><span class="muted">${was}</span><small>${stand}</small></span>
           <span class="einst-pfeil">${I.weiter}</span></button>`)}
       </section>
@@ -171,7 +172,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <span class="muted" style="font-size:12.5px">Beim Hochladen wählst du den Ausschnitt passend zum Bildschirm. Wird mit deinem Konto gespeichert (ab Update 11).</span></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Flächen</span>
         <label class="regler-zeile" for="e-deck"><span>Deckkraft</span><b>${deck} %</b>
-          <input id="e-deck" class="regler" type="range" min="40" max="100" step="2" value=${deck} style="grid-column:1 / -1"
+          <input id="e-deck" class="regler" type="range" min="0" max="100" step="2" value=${deck} style="grid-column:1 / -1"
             onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String(v / 100)); }}
             onChange=${(e) => setEinst({ ...einst, deckkraft: Number(e.currentTarget.value) / 100 })}/></label>
         <span class="muted" style="font-size:12.5px">Gilt für alle Karten, Fenster und Leisten gleich. 100 % = undurchsichtig.</span></div>

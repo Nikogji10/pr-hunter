@@ -8,7 +8,7 @@ import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWI
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
-import { Verlauf, TagSheet } from './ui/verlauf.js';
+import { Verlauf } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
 import { Einstellungen } from './ui/einstellungen.js';
 import { Statistik } from './ui/statistik.js';
@@ -49,7 +49,7 @@ if (DEMO) setzeStand(beispielStand());
 
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
-const deckkraft = (d) => document.documentElement.style.setProperty('--deckkraft', String(d >= 0.3 && d <= 1 ? d : 0.88));
+const deckkraft = (d) => document.documentElement.style.setProperty('--deckkraft', String(d >= 0 && d <= 1 ? d : 0.88));
 
 /** Design anwenden: system = dem Gerät folgen (kein Attribut), sonst hell/dunkel fest. */
 function thema(wert) {
@@ -113,23 +113,22 @@ function SyncPunkt({ sync, offen }) {
 function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, zuUebung }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
-  const [tagOffen, setTagOffen] = useState(null);       // Datum aus „Diese Woche“
-  const kopf = html`<header class="topbar">
+  const kopf = html`<header class="topbar duenn">
     <span class="logo"><b>PR</b> Hunter</span>
     <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/>
-      <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${38}/><span class="zahnrad">${I.zahnrad}</span></button></div>
+      <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${30}/><span class="zahnrad">${I.zahnrad}</span></button></div>
   </header>`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/>`;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
     : training && !training.planDatum ? 'Freies Training fortsetzen' : 'Ohne Plan trainieren'}</button>`;
   if (!block) {
     const t = letztes ? trainingsTage[letztes] : null;
-    return html`<div class="screen">${kopf}
+    return html`<div class="screen">${kopf}${gewicht}
       <section class="card pad stack"><h2 class="h2">Kein aktiver Block</h2>
         <p class="muted" style="margin:0">Starte eine Vorlage mit deinen Maxen, dann steht hier jeden Tag dein Training. Oder trainiere frei und wähle die Übungen selbst.</p>
         <button class="btn btn-chalk btn-block" onClick=${zuProgrammen}>Programm wählen</button>
         ${ohnePlan}</section>
-      <${GewichtKarte} einst=${einst} setEinst=${setEinst}/>
       ${t ? html`<section class="card pad stack"><span class="eyebrow">Zuletzt trainiert · ${datumLang(letztes)}</span>
         <div class="row between"><b>${t.lifts.map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</b><span class="muted">${tonnage(t.tonnage)}</span></div></section>` : null}
     </div>`;
@@ -147,20 +146,21 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   const karten = !tag ? [] : training?.planDatum === tag.datum ? training.karten
     : baueTraining(tag, { leichter: tag.datum === HEUTE && leichter, koerperKg: einst.koerpergewicht });
   const pause = letztes ? tageZwischen(letztes, HEUTE) : null;
-  const montag = plusTage(HEUTE, -((new Date(`${HEUTE}T00:00:00Z`).getUTCDay() + 6) % 7));
   // Dauer grob: je Satz 45 s Arbeit plus die Pause aus den Einstellungen, ohne Aufwärmen
   const minuten = Math.round(karten.reduce((a, k) => a + k.gruppen.reduce((b, g) => b + g.saetze.length * (45 + pauseVon(k.key, g.rolle, einst.pausen)), 0), 0) / 60 / 5) * 5;
   return html`<div class="screen">
     ${kopf}
-    <section class="card hero">
+    ${gewicht}
+    <div class="maxes kompakt">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`} title="Trainingsmax">
+      <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b></div>`)}</div>
+    <section class="card hero kompakt">
       <div class="row between" style="align-items:flex-start">
-        <div><div class="eyebrow">${INFO[block.datei].kurz}${einst.cut ? ' · Cut-Modus' : ''}</div>
+        <div style="min-width:0"><div class="eyebrow">${INFO[block.datei].kurz}${einst.cut ? ' · Cut-Modus' : ''}</div>
           <div class="hero-zahl"><b>Woche ${akt}</b><span>/ ${wochen.length}</span></div>
-          <div class="muted" style="font-size:13.5px;margin-top:6px">${wochenTitel} · ${datumKurz(block.start)} – ${datumKurz(tage.at(-1).datum)}</div></div>
+          <div class="muted" style="font-size:12.5px;margin-top:3px">${wochenTitel} · ${datumKurz(block.start)} – ${datumKurz(tage.at(-1).datum)}</div></div>
         <button class="chip" onClick=${zuProgrammen}>Block ›</button>
       </div>
       <${BlockHantel} wochen=${wochen} aktuell=${akt}/>
-      <div class="hantel-legende">Jede Scheibe ist eine Woche, innen Woche 1 · voll = erledigt, leuchtend = jetzt</div>
     </section>
 
     ${tag?.datum === HEUTE && !erledigt.has(HEUTE) && !training && pause >= PAUSE_HINWEIS_TAGE ? html`<section class="hint" aria-live="polite">${I.warn}
@@ -169,26 +169,28 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
       <span></span><div class="row wrap" style="margin-top:6px"><button class="chip" aria-pressed=${String(leichter)} onClick=${() => setLeichter(!leichter)}>${leichter ? '✓ Heute 5 % leichter' : 'Heute 5 % leichter'}</button></div>
     </section>` : null}
 
-    ${tag ? html`<section class="card pad stack">
+    ${tag ? html`<section class="card pad stack heute-plan">
       <div class="row between" style="align-items:flex-start"><span class="eyebrow">${tag.datum === HEUTE ? 'Heute' : 'Nächstes Training'} · ${datumLang(tag.datum)}</span><span class="muted" style="font-size:13px;white-space:nowrap">ca. ${minuten} min</span></div>
-      <h2 class="h2" style="font-size:24px">${liftsDes(tag).map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</h2>
+      <h2 class="h2">${liftsDes(tag).map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</h2>
       <div>${karten.map((k) => {
         const g0 = k.gruppen[0], lift = liftVon(k.key);
         return html`<button class="plan-item" key=${k.id} disabled=${!k.key} onClick=${() => k.key && zuUebung(k.key)}>
           <span class="stripe" style=${`background:${LIFT[lift].farbe}`}></span>
-          <span class="plan-bild">${k.key ? html`<${UebungsBild} schluessel=${k.key} groesse=${38}/>` : null}</span>
+          <span class="plan-bild">${k.key ? html`<${UebungsBild} schluessel=${k.key} groesse=${32}/>` : null}</span>
           <div style="min-width:0"><div class="name">${k.slot ? k.slot.label : nameVon(k.key)}</div>
             <div class="sets">${k.gruppen.map((g) => `${g.saetze.length} × ${g.wdhText}`).join(' + ')}${g0.rpe ? ` · ${g0.rpe.text ?? (g0.rpe.min === g0.rpe.max ? `RPE ${fmt(g0.rpe.min)}` : `RPE ${fmt(g0.rpe.min)}–${fmt(g0.rpe.max)}`)}` : ''}${k.gruppen.some((g) => g.gekuerzt) ? ' · Cut' : ''}</div></div>
           <div class="kg">${k.slot ? html`<span class="muted" style="font-size:14px;font-stretch:100%;font-weight:600">wählen</span>` : html`${gw(g0.saetze[0].kg)}<small>${einheit()}</small>`}</div>
         </button>`;
       })}</div>
       ${training?.planDatum === tag.datum ? html`<button class="btn btn-chalk btn-block" onClick=${fortsetzen}>Training fortsetzen</button>`
-        : html`<button class="btn btn-chalk btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>
-          ${tagOption ? html`<div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setSheet('verschieben')}>Verschieben</button>
-            <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setSheet('ueberspringen')}>Überspringen</button></div>` : null}`}
+        : html`<button class="btn btn-chalk btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
+      <div class="heute-knoepfe">${tagOption && training?.planDatum !== tag.datum ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
+        <button class="btn btn-soft btn-sm" onClick=${() => setSheet('ueberspringen')}>Überspringen</button>` : null}
+        <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
+          : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
       ${tag.verschoben ? html`<span class="muted" style="font-size:13px">Verschoben – ursprünglich am ${datumKurz(plusTage(block.start, tag.offset))}.</span>` : null}
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}
-    ${ohnePlan}
+    ${tag ? null : ohnePlan}
     ${sheet === 'verschieben' && tag ? html`<${Sheet} zu=${() => setSheet(null)} label="Training verschieben">
       <h2 class="h2">Training verschieben</h2>
       <p class="muted" style="margin:0">${datumLang(tag.datum)} auf einen anderen Tag legen. Der Rest des Blocks bleibt, wie er ist.</p>
@@ -202,23 +204,6 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
         <button class="btn btn-chalk" style="flex:1" onClick=${() => { tagOption(tag.offset, { weg: true }); setSheet(null); }}>Überspringen</button></div>
     <//>` : null}
 
-    <section class="card pad stack">
-      <div class="row between"><span class="eyebrow">Diese Woche</span><span class="muted" style="font-size:13px">${tage.filter((t) => t.datum >= montag && t.datum < plusTage(montag, 7)).length} Einheiten</span></div>
-      <div class="week-days">${Array.from({ length: 7 }, (_, i) => plusTage(montag, i)).map((d) => {
-        const t = tage.find((x) => x.datum === d);
-        const inhalt = html`<span>${wtKurz(d)}</span><b>${Number(d.slice(8, 10))}</b>
-          <span class="dots">${erledigt.has(d) ? html`<span style="font-size:11px">✓</span>` : t?.uebersprungen ? html`<span style="font-size:11px" class="muted">–</span>` : t ? liftsDes(t).map((l) => html`<i key=${l} style=${`background:${LIFT[l].farbe}`}></i>`) : null}</span>`;
-        // Tage mit Plan oder Training sind Knöpfe (öffnen den Tag), leere Tage nicht
-        return t || trainingsTage[d] ? html`<button key=${d} class=${`wd ${d === HEUTE ? 'today' : ''}`} onClick=${() => setTagOffen(d)} aria-label=${datumLang(d)}>${inhalt}</button>`
-          : html`<div key=${d} class=${`wd ${d === HEUTE ? 'today' : ''}`}>${inhalt}</div>`;
-      })}</div>
-    </section>
-
-    ${tagOffen ? html`<${TagSheet} d=${tagOffen} plan=${tage.find((x) => x.datum === tagOffen)} erledigt=${erledigt.has(tagOffen)} zu=${() => setTagOffen(null)}
-      startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
-    <${GewichtKarte} einst=${einst} setEinst=${setEinst}/>
-    <div class="maxes">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`}>
-      <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b><span class="muted" style="font-size:11.5px">Trainingsmax</span></div>`)}</div>
   </div>`;
 }
 
@@ -285,7 +270,8 @@ function App() {
   useEffect(() => {
     thema(speicher.lies('prh-thema'));                     // sofort, bevor das Profil geladen ist
     schrift(Number(speicher.lies('prh-zoom')) || 1);
-    deckkraft(Number(speicher.lies('prh-deckkraft')) || 0.88);
+    const gemerkteDeckkraft = speicher.lies('prh-deckkraft');
+    deckkraft(gemerkteDeckkraft != null && gemerkteDeckkraft !== '' ? Number(gemerkteDeckkraft) : 0.88);
     setzeSprache(speicher.lies('prh-sprache') ?? 'de');
     ladeHintergrund();
     (async () => {
