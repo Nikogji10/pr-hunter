@@ -12,12 +12,13 @@ const RECHNER = [['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['1rm', '1RM'], ['pro
   ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche']];
 const runde1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
-export function Rechner({ einst }) {
+export function Rechner({ einst, vorlage = null }) {
   const E = einheit(), lb = E === 'lb', inc = einst.inc ?? (lb ? 5 : 2.5);
   const start = (kg) => runde1(inAnzeige(kg));
-  const [art, setArt] = useState('scheiben');
+  const [art, setArt] = useState(vorlage ? '1rm' : 'scheiben');
   const [ziel, setZiel] = useState(() => start(182.5));
-  const [b, setB] = useState(() => ({ kg: start(180), wdh: 3, rpe: 8 }));
+  // Läuft ein Training: Gewicht und Wdh des aktuellen Satzes; RPE 10 als Standard (Satz bis Versagen)
+  const [b, setB] = useState(() => ({ kg: start(vorlage?.kg ?? 180), wdh: vorlage?.wdh ?? 3, rpe: 10 }));
   const [z, setZ] = useState({ wdh: 5, rpe: 8 });
   const [top, setTop] = useState(() => start(200));
   const [max, setMax] = useState(() => start(E1RM_AKTUELL[HAUPT.squat] ?? 200));

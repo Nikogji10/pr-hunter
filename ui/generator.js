@@ -55,7 +55,7 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     <select value=${f.varianten[lift]} onChange=${(e) => setze('varianten', { ...f.varianten, [lift]: e.currentTarget.value })}>
       ${varianten(lift).map((e) => html`<option key=${e.k} value=${e.k}>${nameVon(e.k)}</option>`)}</select></label>`;
   return html`<div class="screen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label="Zurück zu den Programmen">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">Top-Satz und Back-off bis zum Termin</div><h1 class="h1" style="font-size:26px">Block-Generator</h1></div>
     </header>

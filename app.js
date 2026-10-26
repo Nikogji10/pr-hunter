@@ -2,13 +2,13 @@
 // Mit ?demo laufen alle Ansichten mit Beispieldaten und ohne Anmeldung (Rendertests, Vorführen).
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
-import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild } from './ui/basis.js';
+import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
+  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
-import { Verlauf } from './ui/verlauf.js';
+import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
 import { Einstellungen } from './ui/einstellungen.js';
 import { Statistik } from './ui/statistik.js';
@@ -50,6 +50,14 @@ if (DEMO) setzeStand(beispielStand());
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
 const deckkraft = (d) => document.documentElement.style.setProperty('--deckkraft', String(d >= 0 && d <= 1 ? d : 0.88));
+// iOS ignoriert user-scalable=no: Zwei-Finger-Zoom hier abfangen
+for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+document.addEventListener('touchstart', () => {}, { passive: true });   // iOS zeigt :active sonst nicht (Druckgefühl)
+// Hinweise sind eingeklappt (nur die Überschrift); Tippen klappt den Text auf. Rückfragen (role) und .immer bleiben offen.
+document.addEventListener('click', (e) => {
+  const h = e.target.closest?.('.hint:not([role]):not(.immer)');
+  if (h && !e.target.closest('button, a, input, label, textarea')) h.classList.toggle('offen');
+});
 
 /** Design anwenden: system = dem Gerät folgen (kein Attribut), sonst hell/dunkel fest. */
 function thema(wert) {
@@ -110,11 +118,40 @@ function SyncPunkt({ sync, offen }) {
   return html`<span class=${`sync ${art}`} role="status"><i></i>${text}</span>`;
 }
 
+/** Wochen des Blocks und die Woche des nächsten offenen Plantags (1-basiert). */
+function blockStand(tage, erledigt) {
+  const wochen = wochenListe(tage);
+  const naechster = tage.find((t) => t.datum >= HEUTE && !erledigt.has(t.datum) && !t.uebersprungen);
+  return { wochen, akt: naechster ? wochen.indexOf(naechster.woche) + 1 : wochen.length };
+}
+
+/** Plan des Blocks auf Heute: Woche wählen, Tage mit Lifts und Stand; Tippen öffnet den Tag. */
+function PlanAnsicht({ tage, erledigt, wochen, akt, prog, oeffne }) {
+  const [w, setW] = useState(akt || 1);
+  const woche = wochen[w - 1];
+  const tageDerWoche = tage.filter((t) => t.woche === woche);
+  return html`<section class="card pad stack plan-ansicht">
+    <div class="filter einreihig" role="group" aria-label="Woche">${wochen.map((_, i) => html`<button key=${i} class="chip" aria-pressed=${String(w === i + 1)} onClick=${() => setW(i + 1)}>W${i + 1}</button>`)}</div>
+    <span class="muted" style="font-size:12.5px">${kurzTitel(prog.weeks.find((x) => x.week === woche)?.title) || `Woche ${w}`}</span>
+    <div>${tageDerWoche.map((t) => html`<button key=${t.offset} class=${`plan-tag ${t.datum === HEUTE ? 'heute' : ''}`} onClick=${() => oeffne(t.datum)}>
+      <span class="pt-datum"><b>${wtKurz(t.datum)}</b> ${datumKurz(t.datum)}</span>
+      <span class="pt-lifts">${liftsDes(t).map((l) => html`<i key=${l} style=${`background:${LIFT[l].farbe}`}></i>`)}<span>${liftsDes(t).map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</span></span>
+      <span class="pt-stand">${erledigt.has(t.datum) ? '✓' : t.uebersprungen ? '–' : t.datum === HEUTE ? 'heute' : ''}</span>
+    </button>`)}</div>
+  </section>`;
+}
+
 function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, zuUebung }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
+  const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
+  const [planOffen, setPlanOffen] = useState(false);
+  const [tagOffen, setTagOffen] = useState(null);       // Datum aus „Plan ansehen“
+  const stand = block ? blockStand(tage, erledigt) : null;
   const kopf = html`<header class="topbar duenn">
     <span class="logo"><b>PR</b> Hunter</span>
+    ${stand ? html`<button class="kopf-hantel" onClick=${zuProgrammen} aria-label=${`Block: Woche ${stand.akt} von ${stand.wochen.length}`}>
+      <${BlockHantel} wochen=${stand.wochen} aktuell=${stand.akt}/></button>` : html`<span></span>`}
     <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/>
       <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${30}/><span class="zahnrad">${I.zahnrad}</span></button></div>
   </header>`;
@@ -138,8 +175,10 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   const tag = heute ?? tage.find((t) => t.datum > HEUTE && offenerTag(t));
   // Verschieben auf einen der nächsten 7 Tage, an dem kein anderer Plantag liegt
   const frei = (d) => !tage.some((t) => t.datum === d && t.offset !== tag?.offset && !t.uebersprungen);
-  const ziele = tag ? Array.from({ length: 8 }, (_, i) => plusTage(HEUTE, i)).filter((d) => d !== tag.datum && frei(d)) : [];
-  const wochen = wochenListe(tage);
+  // Ganzer Rest: jeder der nächsten 21 Tage; nur dieser Tag: nur Tage ohne anderen Plantag (nächste 14)
+  const ziele = !tag ? [] : mitRest ? Array.from({ length: 21 }, (_, i) => plusTage(HEUTE, i)).filter((d) => d !== tag.datum)
+    : Array.from({ length: 14 }, (_, i) => plusTage(HEUTE, i)).filter((d) => d !== tag.datum && frei(d));
+  const { wochen } = stand;
   const akt = tag ? wochen.indexOf(tag.woche) + 1 : wochen.length;
   const wochenTitel = kurzTitel(prog.weeks.find((w) => w.week === (tag?.woche ?? wochen.at(-1)))?.title);
   // Läuft das Training dieses Tages schon, zeigt der Plan dessen Stand (z. B. gewählte Zusatzübungen)
@@ -153,24 +192,21 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
     ${gewicht}
     <div class="maxes kompakt">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`} title="Trainingsmax">
       <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b></div>`)}</div>
-    <section class="card hero kompakt">
-      <div class="row between" style="align-items:flex-start">
-        <div style="min-width:0"><div class="eyebrow">${INFO[block.datei].kurz}${einst.cut ? ' · Cut-Modus' : ''}</div>
-          <div class="hero-zahl"><b>Woche ${akt}</b><span>/ ${wochen.length}</span></div>
-          <div class="muted" style="font-size:12.5px;margin-top:3px">${wochenTitel} · ${datumKurz(block.start)} – ${datumKurz(tage.at(-1).datum)}</div></div>
-        <button class="chip" onClick=${zuProgrammen}>Block ›</button>
-      </div>
-      <${BlockHantel} wochen=${wochen} aktuell=${akt}/>
-    </section>
+    ${planOffen ? html`<${PlanAnsicht} tage=${tage} erledigt=${erledigt} wochen=${wochen} akt=${akt} prog=${prog} oeffne=${setTagOffen}/>` : null}
 
     ${tag?.datum === HEUTE && !erledigt.has(HEUTE) && !training && pause >= PAUSE_HINWEIS_TAGE ? html`<section class="hint" aria-live="polite">${I.warn}
       <span class="t">Erste Einheit nach ${pause} Tagen Pause</span><span></span>
-      <p>Vorsichtig einsteigen: Top-Satz höchstens RPE 7. Fühlen sich die Aufwärmsätze langsam an, 5–10 % runter und den letzten Back-off streichen.</p>
+      <p>Top-Satz höchstens RPE 7. Fühlt sich das Aufwärmen schwer an: 5–10 % weniger und den letzten Back-off weglassen.</p>
       <span></span><div class="row wrap" style="margin-top:6px"><button class="chip" aria-pressed=${String(leichter)} onClick=${() => setLeichter(!leichter)}>${leichter ? '✓ Heute 5 % leichter' : 'Heute 5 % leichter'}</button></div>
     </section>` : null}
 
     ${tag ? html`<section class="card pad stack heute-plan">
       <div class="row between" style="align-items:flex-start"><span class="eyebrow">${tag.datum === HEUTE ? 'Heute' : 'Nächstes Training'} · ${datumLang(tag.datum)}</span><span class="muted" style="font-size:13px;white-space:nowrap">ca. ${minuten} min</span></div>
+      <div class="block-zeile">
+        <div style="min-width:0"><b>${INFO[block.datei].kurz}</b><span class="muted"> · Woche ${akt}/${wochen.length}${wochenTitel ? ` · ${wochenTitel}` : ''}${einst.cut ? ' · Cut' : ''}</span></div>
+        <div class="row" style="gap:6px;flex:none"><button class="chip" aria-expanded=${String(planOffen)} onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan zu' : 'Plan'}</button>
+          <button class="chip" onClick=${zuProgrammen}>Block ›</button></div>
+      </div>
       <h2 class="h2">${liftsDes(tag).map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</h2>
       <div>${karten.map((k) => {
         const g0 = k.gruppen[0], lift = liftVon(k.key);
@@ -182,19 +218,23 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
           <div class="kg">${k.slot ? html`<span class="muted" style="font-size:14px;font-stretch:100%;font-weight:600">wählen</span>` : html`${gw(g0.saetze[0].kg)}<small>${einheit()}</small>`}</div>
         </button>`;
       })}</div>
-      ${training?.planDatum === tag.datum ? html`<button class="btn btn-chalk btn-block" onClick=${fortsetzen}>Training fortsetzen</button>`
-        : html`<button class="btn btn-chalk btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
+      ${training?.planDatum === tag.datum ? html`<button class="btn btn-go btn-block" onClick=${fortsetzen}>Training fortsetzen</button>`
+        : html`<button class="btn btn-go btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
       <div class="heute-knoepfe">${tagOption && training?.planDatum !== tag.datum ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
         <button class="btn btn-soft btn-sm" onClick=${() => setSheet('ueberspringen')}>Überspringen</button>` : null}
         <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
           : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
       ${tag.verschoben ? html`<span class="muted" style="font-size:13px">Verschoben – ursprünglich am ${datumKurz(plusTage(block.start, tag.offset))}.</span>` : null}
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}
-    ${tag ? null : ohnePlan}
+    ${tag ? null : html`${ohnePlan}<button class="btn btn-soft btn-block" onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan schließen' : 'Plan ansehen'}</button>`}
+    ${tagOffen ? html`<${TagSheet} d=${tagOffen} plan=${tage.find((x) => x.datum === tagOffen)} erledigt=${erledigt.has(tagOffen)} zu=${() => setTagOffen(null)}
+      startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
     ${sheet === 'verschieben' && tag ? html`<${Sheet} zu=${() => setSheet(null)} label="Training verschieben">
       <h2 class="h2">Training verschieben</h2>
-      <p class="muted" style="margin:0">${datumLang(tag.datum)} auf einen anderen Tag legen. Der Rest des Blocks bleibt, wie er ist.</p>
-      <div class="filter">${ziele.map((d) => html`<button key=${d} class="chip" onClick=${() => { tagOption(tag.offset, { datum: d }); setSheet(null); }}>${wtKurz(d)} ${datumKurz(d)}</button>`)}</div>
+      <label class="schalter" for="v-rest"><span>Restlichen Block mitverschieben</span>
+        <input type="checkbox" id="v-rest" checked=${mitRest} onChange=${(e) => setMitRest(e.currentTarget.checked)}/></label>
+      <p class="muted" style="margin:0;font-size:13px">${mitRest ? `${datumLang(tag.datum)} und alle folgenden Einheiten rücken um denselben Abstand.` : `Nur ${datumLang(tag.datum)} wandert, der Rest bleibt.`}</p>
+      <div class="filter">${ziele.map((d) => html`<button key=${d} class="chip" onClick=${() => { tagOption(tag.offset, { datum: d, rest: mitRest }); setSheet(null); }}>${wtKurz(d)} ${datumKurz(d)}</button>`)}</div>
       ${tag.verschoben ? html`<button class="btn btn-soft btn-block" onClick=${() => { tagOption(tag.offset, { datum: null }); setSheet(null); }}>Zurück auf den ${datumKurz(plusTage(block.start, tag.offset))}</button>` : null}
     <//>` : null}
     ${sheet === 'ueberspringen' && tag ? html`<${Sheet} zu=${() => setSheet(null)} label="Training überspringen">
@@ -216,7 +256,7 @@ function LaufLeiste({ training, oeffnen }) {
   return html`<button class="live" onClick=${oeffnen} aria-label="Zum laufenden Training">
     <span class="puls"></span>
     <div style="min-width:0"><b>${training.bearbeiten ? 'Bearbeitung offen' : 'Training läuft'}</b><span>${training.titel} · ${s.filter((x) => x.erledigt).length}/${s.length} Sätze</span></div>
-    ${training.bearbeiten ? null : html`<span class="zahl tab-num">${mmss((Date.now() - training.start) / 1000)}</span>`}
+    ${training.bearbeiten ? null : html`<span class="zahl tab-num">${uhr((Date.now() - training.start) / 1000)}</span>`}
   </button>`;
 }
 
@@ -252,6 +292,8 @@ function App() {
   const nochmal = useRef(false);                                 // während eines Abgleichs angefordert → danach noch einmal
   const zuletzt = useRef(0);
   const jetzt = useRef({ ansicht: 'heute', key: null });          // aktuelle Ansicht für den popstate-Handler
+  const scrollPos = useRef({});                                    // Scrollposition je Ansicht (zurück ins Training = gleiche Stelle)
+  const [startbild, setStartbild] = useState(true);               // Logo mit Hantel nur kurz beim Öffnen
   const katalogStatisch = useRef([]);
   const eigeneUebungen = useRef([]);
   const zusammen = useRef({});                                   // zusammengeführte Übungen { alt: neu }
@@ -403,7 +445,10 @@ function App() {
     const zurueck = (e) => {
       const st = e.state;
       if (!st?.ansicht) { history.pushState(jetzt.current, '', adresse(jetzt.current.ansicht, jetzt.current.key)); return; }
+      scrollPos.current[jetzt.current.ansicht] = scrollY;
       setAnsicht(st.ansicht);
+      const y = scrollPos.current[st.ansicht] ?? 0;
+      setTimeout(() => scrollTo(0, y), 30);
       if (st.key) setUebungAnsicht((u) => (u?.key === st.key ? u : { key: st.key, zurueck: 'verlauf' }));
     };
     addEventListener('popstate', zurueck);
@@ -412,6 +457,7 @@ function App() {
     addEventListener('pagehide', merken);
     return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); };
   }, []);
+  useEffect(() => { if (phase === 'bereit' && startbild) { const id = setTimeout(() => setStartbild(false), 1500); return () => clearTimeout(id); } }, [phase]);
   useEffect(() => {
     if (phase !== 'bereit') return;
     try {
@@ -431,7 +477,11 @@ function App() {
   useEffect(() => { if (geladen && einst.hintergrundDunkel != null) setzeAbdunklung(einst.hintergrundDunkel); }, [einst.hintergrundDunkel, geladen]);
   useEffect(() => { if (!geladen) return; deckkraft(einst.deckkraft ?? 0.88); speicher.schreib('prh-deckkraft', String(einst.deckkraft ?? 0.88)); }, [einst.deckkraft, geladen]);
   useEffect(() => { if (!geladen) return; setzeSprache(einst.sprache); speicher.schreib('prh-sprache', einst.sprache ?? 'de'); }, [einst.sprache, geladen]);
-  useEffect(() => { if (!lichter) return; const id = setTimeout(() => setLichter(null), 1900); return () => clearTimeout(id); }, [lichter]);
+  useEffect(() => {
+    if (!lichter) return;
+    if (lichter.gold) try { navigator.vibrate?.([70, 50, 70, 50, 160]); } catch { /* ohne Vibration */ }
+    const id = setTimeout(() => setLichter(null), lichter.gold ? 3200 : 1900); return () => clearTimeout(id);
+  }, [lichter]);
 
   // Auswertungsstand für alle Ansichten (Live-Bindings in ui/stand.js)
   // Blöcke (program_runs) als Zeiträume aus den Trainings: für „nur Bestwert je Block“ in den Übungs-Charts
@@ -520,7 +570,11 @@ function App() {
   const einstUi = { ...einst, koerpergewicht: DEMO ? demoKg ?? KOERPERGEWICHT : KOERPERGEWICHT };
 
   const gehe = (a, key = null) => {
-    setAnsicht(a); scrollTo(0, 0);
+    scrollPos.current[jetzt.current.ansicht] = scrollY;
+    setAnsicht(a);
+    // Ins laufende Training an die gleiche Stelle zurück, sonst nach oben
+    const y = a === 'training' ? scrollPos.current.training ?? 0 : 0;
+    scrollTo(0, 0); if (y) setTimeout(() => scrollTo(0, y), 30);
     const st = { ansicht: a, key };
     if (history.state?.ansicht === a && history.state?.key === key) history.replaceState(st, '', adresse(a, key));
     else history.pushState(st, '', adresse(a, key));
@@ -613,12 +667,17 @@ function App() {
     await sp.current.setzeMeta('block', neu); setBlock(neu); abgleich();
   };
   // Einen Plantag verschieben ({ datum }, null = zurück) oder überspringen ({ weg: true })
-  const tagOption = (offset, { datum, weg = false }) => {
+  const tagOption = (offset, { datum, weg = false, rest = false }) => {
     const verschoben = { ...(aktiverBlock.verschoben ?? {}) };
-    if (datum !== undefined) { if (datum) verschoben[offset] = datum; else delete verschoben[offset]; }
+    if (rest && datum) {
+      // Rest des Blocks mitverschieben: dieser und alle späteren offenen Plantage um denselben Abstand
+      const von = tage.find((x) => x.offset === offset);
+      const delta = tageZwischen(von.datum, datum);
+      for (const x of tage) if (x.datum >= von.datum && !erledigt.has(x.datum) && !x.uebersprungen) verschoben[x.offset] = plusTage(x.datum, delta);
+    } else if (datum !== undefined) { if (datum) verschoben[offset] = datum; else delete verschoben[offset]; }
     const uebersprungen = weg ? [...new Set([...(aktiverBlock.uebersprungen ?? []), offset])] : aktiverBlock.uebersprungen ?? [];
     blockSetzen({ ...aktiverBlock, verschoben, uebersprungen });
-    setToast(weg ? { titel: 'Übersprungen', text: 'Weiter mit dem nächsten Plantag.' } : datum ? { titel: 'Verschoben', text: `Auf ${datumLang(datum)}` } : { titel: 'Zurück auf dem Plan', text: '' });
+    setToast(weg ? { titel: 'Übersprungen', text: 'Weiter mit dem nächsten Plantag.' } : datum ? { titel: rest ? 'Block verschoben' : 'Verschoben', text: `${rest ? 'Ab ' : 'Auf '}${datumLang(datum)}` } : { titel: 'Zurück auf dem Plan', text: '' });
   };
   const importieren = async (p, { quelle = 'import', datei: von = null } = {}) => {
     if (DEMO) { const d = `import:${p.name}`; setInfo({ ...info, [d]: { id: null, version: 1, name: p.name, vorlage: false, versionen: { 1: p } } }); return d; }
@@ -679,8 +738,10 @@ function App() {
   const leiste = training && ansicht !== 'training';
   const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
   const aktiverTab = ansicht === 'training' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
+  const sb = aktiverBlock ? blockStand(tage, erledigt) : { wochen: [1, 2, 3, 4, 5, 6], akt: 7 };
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
+    ${startbild ? html`<div class="startbild" aria-hidden="true"><span class="logo"><b>PR</b> Hunter</span><${BlockHantel} wochen=${sb.wochen} aktuell=${sb.akt}/></div>` : null}
     ${imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
         minimieren=${() => gehe('heute')} beenden=${beenden} zuVerlauf=${(key) => zuUebung(key, 'training')}/>`
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
@@ -693,7 +754,10 @@ function App() {
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
-      : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi}/>`
+      : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi} vorlage=${(() => {
+          const s = training?.karten.flatMap((k) => (k.key && !koerperUebung(k.key) ? k.gruppen.flatMap((g) => g.saetze) : [])).find((x) => !x.erledigt && x.kg > 0);
+          return s ? { kg: s.kg, wdh: s.wdh } : null;
+        })()}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen}/>`
@@ -707,7 +771,8 @@ function App() {
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onClick=${() => gehe(k)}>
       ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}</button>`)}</nav></div>
-    ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div></div>` : null}
+    ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
+      ${lichter.gold ? html`<div class="konfetti" aria-hidden="true">${Array.from({ length: 28 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 7) * 0.09}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff'][i % 5]}`}></i>`)}</div>` : null}</div>` : null}
     ${toast ? html`<div class="toast" role="status"><div><b>${toast.titel}</b><span class="muted" style="font-size:14px">${toast.text}</span></div></div>` : null}
     ${bereit ? html`<${BereitschaftSheet} mitLeichter=${!bereit.frei} leichter=${!!bereit.tag && bereit.tag.datum === HEUTE && leichter} zu=${() => setBereit(null)}
       los=${(r, l) => { const b = bereit; setBereit(null); if (b.frei) starteFrei(r); else startePlan(b.tag, r, l); }}/>` : null}

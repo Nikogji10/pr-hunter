@@ -23,6 +23,6 @@ export function BereitschaftSheet({ los, zu, leichter: leichterVorher = false, m
     ${mitLeichter ? html`<label class="schalter" for="b-leichter"><span><b>Gewichte 5 % leichter</b><br/><span class="muted" style="font-size:13px">Gilt nur für dieses Training.</span></span>
       <input type="checkbox" id="b-leichter" checked=${leichterJetzt} onChange=${(e) => { setAngepasst(true); setLeichter(e.currentTarget.checked); }}/></label>` : null}
     <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => los(null, leichterVorher)}>Ohne Check starten</button>
-      <button class="btn btn-chalk" style="flex:1" disabled=${!alle} onClick=${() => los({ ...r }, leichterJetzt)}>Training starten</button></div>
+      <button class="btn btn-go" style="flex:1" disabled=${!alle} onClick=${() => los({ ...r }, leichterJetzt)}>Training starten</button></div>
   <//>`;
 }

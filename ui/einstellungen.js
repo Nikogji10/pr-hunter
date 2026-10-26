@@ -75,7 +75,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   };
   const titel = bereich ? bereiche[bereich][0] : 'Einstellungen';
   return html`<div class="screen einstellungen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${bereich ? () => history.back() : zurueck} aria-label="Zurück">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">${bereich ? 'Einstellungen' : 'Gilt für alle Programme'}</div><h1 class="h1">${titel}</h1></div>
     </header>

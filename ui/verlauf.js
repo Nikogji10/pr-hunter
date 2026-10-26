@@ -1,5 +1,5 @@
 // PR Hunter · Verlauf – Monatskalender (erledigt, geplant, Urlaub), Tag antippen zeigt das Training.
-import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige } from './basis.js';
+import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige, minutenText } from './basis.js';
 import { HEUTE, URLAUB, DEMO, trainingAm, trainingsTage, imUrlaub } from './stand.js';
 
 const liftNamen = (t) => [...new Set(t.uebungen.filter((u) => u.lift !== 'andere').map((u) => LIFT[u.lift].name))].join(' · ') || 'Zubehör';
@@ -54,7 +54,7 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
           <div class="datum-box"><b>${d.slice(8, 10)}</b><span>${datumLang(d).slice(0, 2)}</span></div>
           <div style="min-width:0"><div style="font-weight:700">${liftNamen(t)}</div>
             <div class="muted" style="font-size:13px">${t.uebungen.length} Übungen · ${tonnage(t.tonnage)}${t.sessionRpe != null ? ` · RPE ${fmt(t.sessionRpe)}` : ''}</div></div>
-          <span class="muted" style="font-size:13px">${t.dauer ? `${t.dauer} min` : datumKurz(d)}</span></button>`;
+          <span class="muted" style="font-size:13px">${t.dauer ? minutenText(t.dauer) : datumKurz(d)}</span></button>`;
       })}${Object.keys(trainingsTage).length ? null : html`<p class="muted" style="margin:0;font-size:14px">Noch keine Trainings gespeichert.</p>`}</div>
     </section>
     ${tag ? html`<${TagSheet} d=${tag} plan=${geplant[tag]} erledigt=${erledigt.has(tag)} zu=${() => setTag(null)} startenAm=${startenAm}
@@ -72,7 +72,7 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
   return html`<${Sheet} zu=${zu} label="Training am Tag">
     <div><div class="eyebrow">${t ? 'Training' : erledigt ? 'Erledigt' : 'Geplant'}${plan ? ` · Woche ${plan.woche}` : ''}</div><h2 class="h2">${datumLang(d)}</h2></div>
     ${t ? html`
-      <div class="kv"><div><span class="eyebrow">Dauer</span><b>${t.dauer ? `${t.dauer} min` : '–'}</b></div><div><span class="eyebrow">Volumen</span><b>${tonnage(t.tonnage)}</b></div>
+      <div class="kv"><div><span class="eyebrow">Dauer</span><b>${t.dauer ? minutenText(t.dauer) : '–'}</b></div><div><span class="eyebrow">Volumen</span><b>${tonnage(t.tonnage)}</b></div>
         <div><span class="eyebrow">Session-RPE</span><b>${t.sessionRpe != null ? fmt(t.sessionRpe) : '–'}</b></div></div>
       ${t.uebungen.map((u, k) => html`<div key=${`${u.key}-${k}`} class="stack" style="gap:8px">
         <div class="row"><span class="badge" style=${u.lift === 'andere' ? 'background:var(--raised);color:var(--ink);width:30px;height:30px;font-size:12px' : `background:${LIFT[u.lift].farbe};color:#0B0C0E;width:30px;height:30px;font-size:12px`}>${LIFT[u.lift].kurz}</span>
@@ -90,7 +90,7 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
         <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${() => setFrage(null)}>Abbrechen</button>
           <button class="btn btn-gefahr btn-sm" onClick=${() => { zu(); loeschen(frage); }}>Löschen</button></div></div>` : null}`
     : plan ? html`<${TagPlan} tag=${plan}/>
-      ${d >= HEUTE && !erledigt && !plan.uebersprungen && startenAm ? html`<button class="btn btn-chalk btn-block" onClick=${() => { zu(); startenAm(d); }}>${d === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>` : null}`
+      ${d >= HEUTE && !erledigt && !plan.uebersprungen && startenAm ? html`<button class="btn btn-go btn-block" onClick=${() => { zu(); startenAm(d); }}>${d === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>` : null}`
     : html`<p class="muted" style="margin:0">An diesem Tag war kein Training.</p>`}
   <//>`;
 }

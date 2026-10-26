@@ -38,13 +38,14 @@ export function einheitenVon(key) {
 // #################################################################
 export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, setEinst = null, reiterStart = 'verlauf', bloecke = [] }) {
   const [reiter, setReiter] = useState(reiterStart);
-  const [zeitraum, setZeitraum] = useState(183);
+  const [zeitraum, setZeitraum] = useState(0);              // Standard: Alles
   const [art, setArt] = useState('e1rm');                   // 'e1rm' | 'volumen'
   const [mehr, setMehr] = useState(15);
   const [sheet, setSheet] = useState(null);                  // 'anpassen' | 'aendern' | 'zusammen' | 'ziel'
   const [details, setDetails] = useState(null);
   const [mitVarianten, setMitVarianten] = useState(false);
-  const [nurSpitzen, setNurSpitzen] = useState(false);
+  const [nurSpitzen, setNurSpitzen] = useState(true);       // Standard: Bestwert je Block
+  const [gewaehlt, setGewaehlt] = useState(null);           // im Chart angetippter Tag
   const [ziel, setZiel] = useState(null);                    // Zusammenführen: gewählte Zielübung
   const [zielKg, setZielKg] = useState(null);                // Ziel-1RM im Sheet
   const [laeuft, setLaeuft] = useState(false);
@@ -96,10 +97,23 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
     <td class="k">${x.kg != null && (x.kg > 0 || !koerperUebung(key)) ? `${gw(x.kg)} ${einheit()}` : koerperUebung(key) ? 'Körpergewicht' : '–'} × ${x.wdh ?? '–'}</td>
     ${mitRpe ? html`<td class="muted">${x.rpe != null ? `@${fmt(x.rpe)}` : ''}</td>` : null}
     <td>${x.e1rm != null ? gw(x.e1rm, 0) : '–'}</td></tr>`;
+  const einheitKarte = (x, markiert = false) => {
+    const beste = x.saetze.reduce((m, y, j) => (y.e1rm != null && (m < 0 || y.e1rm > x.saetze[m].e1rm) ? j : m), -1);
+    const mitRpe = [...x.saetze, ...x.aufwaermen].some((y) => y.rpe != null);
+    return html`<section key=${x.datum} class=${`card pad einheit ${markiert ? 'markiert' : ''}`}>
+      <div class="row between"><b>${datumMitJahr(x.datum)}</b>${x.best != null ? html`<span class="muted" style="font-size:12.5px">e1RM <b style="color:var(--ink)">${gw(x.best, 1)}</b></span>` : null}</div>
+      <table class="saetze"><thead><tr><th>Satz</th><th>Gewicht × Wdh</th>${mitRpe ? html`<th>RPE</th>` : null}<th>e1RM</th></tr></thead>
+        <tbody>${x.aufwaermen.map((y, j) => satzZeile(y, 'W', false, mitRpe, `w${j}`))}${x.saetze.map((y, j) => satzZeile(y, j + 1, j === beste, mitRpe, `s${j}`))}</tbody></table>
+      ${x.notiz ? html`<div class="cue notiz">${x.notiz}</div>` : null}
+    </section>`;
+  };
+  // Unter dem Chart: der angetippte Tag zuerst, dann die Einheiten im Zeitraum (neueste zuerst)
+  const imZeitraum = einheiten.filter((x) => x.datum >= ab);
+  const unterChart = gewaehlt ? [imZeitraum.find((x) => x.datum === gewaehlt), ...imZeitraum.filter((x) => x.datum !== gewaehlt)].filter(Boolean) : imZeitraum;
   return html`<div class="screen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label=${zurueckText}>${I.zurueck}</button>
-      <div style="flex:1;min-width:0"><div class="eyebrow">${FAMILIE[e?.f] ?? 'Übung'}${DEMO ? ' · Beispieldaten' : ''}</div><h1 class="h1">${nameVon(schluessel)}</h1></div>
+      <div style="flex:1;min-width:0"><div class="eyebrow brotkrume"><span>${(zurueckText ?? '').replace(/^Zurück (zum|zur|zu den|zu) /, '') || 'Verlauf'}</span> › ${FAMILIE[e?.f] ?? 'Übung'}${DEMO ? ' · Beispieldaten' : ''}</div><h1 class="h1">${nameVon(schluessel)}</h1></div>
       <${UebungsBild} schluessel=${schluessel} groesse=${56}/>
       ${DIENSTE.speichereAnpassung ? html`<button class=${`iconbtn ${a.favorit ? 'fav' : ''}`} onClick=${favorit} aria-pressed=${String(!!a.favorit)}
         aria-label=${a.favorit ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten'}>${a.favorit ? '★' : '☆'}</button>` : null}
@@ -113,16 +127,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
 
     ${reiter === 'verlauf' ? html`
       ${!einheiten.length ? html`<section class="card pad"><p class="muted" style="margin:0">Für diese Übung gibt es noch keine Einheiten.</p></section>` : null}
-      ${einheiten.slice(0, mehr).map((x) => {
-        const beste = x.saetze.reduce((m, y, j) => (y.e1rm != null && (m < 0 || y.e1rm > x.saetze[m].e1rm) ? j : m), -1);
-        const mitRpe = [...x.saetze, ...x.aufwaermen].some((y) => y.rpe != null);
-        return html`<section key=${x.datum} class="card pad einheit">
-          <div class="row between"><b>${datumMitJahr(x.datum)}</b>${x.best != null ? html`<span class="muted" style="font-size:12.5px">e1RM <b style="color:var(--ink)">${gw(x.best, 1)}</b></span>` : null}</div>
-          <table class="saetze"><thead><tr><th>Satz</th><th>Gewicht × Wdh</th>${mitRpe ? html`<th>RPE</th>` : null}<th>e1RM</th></tr></thead>
-            <tbody>${x.aufwaermen.map((y, j) => satzZeile(y, 'W', false, mitRpe, `w${j}`))}${x.saetze.map((y, j) => satzZeile(y, j + 1, j === beste, mitRpe, `s${j}`))}</tbody></table>
-          ${x.notiz ? html`<div class="cue notiz">${x.notiz}</div>` : null}
-        </section>`;
-      })}
+      ${einheiten.slice(0, mehr).map((x) => einheitKarte(x))}
       ${einheiten.length > mehr ? html`<button class="btn btn-soft btn-sm" onClick=${() => setMehr(mehr + 20)}>Ältere Einheiten (${einheiten.length - mehr})</button>` : null}`
     : reiter === 'chart' ? html`
       <section class="card pad stack">
@@ -138,7 +143,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
         ${punkte.length ? html`<span class="muted" style="font-size:12.5px">${datumKurz(punkte[0][0])}${punkte[0][0].slice(0, 4)} – ${datumKurz(punkte.at(-1)[0])}${punkte.at(-1)[0].slice(0, 4)} · ${punkte.length} ${nurSpitzen ? 'Blöcke (Bestwert je Block, ohne Block je 6 Wochen)' : 'Einheiten'}</span>` : null}
         ${punkte.length > 1 ? html`<${LinienChart} ohneRahmen=${true} titel=${art === 'e1rm' ? 'Geschätztes 1RM' : 'Volumen'} x=${punkte.map((q) => q[0])} zeitlich=${true} punkte=${true}
           serien=${[{ id: 'w', name: art === 'e1rm' ? 'e1RM' : 'Volumen', farbe, werte: punkte.map((q) => inAnzeige(q[1])) }]} hoehe=${230}
-          einheit=${einheit()} stellen=${art === 'e1rm' ? 1 : 0} tipKopf=${datumMitJahr}
+          einheit=${einheit()} stellen=${art === 'e1rm' ? 1 : 0} tipKopf=${datumMitJahr} beiTipp=${(k) => setGewaehlt(punkte[k]?.[0] ?? null)}
           referenz=${art === 'e1rm' && zielWert ? { wert: inAnzeige(zielWert), text: `Ziel ${gw(zielWert)}` } : null}/>`
           : html`<p class="muted" style="margin:0">${punkte.length ? 'Nur eine Einheit im Zeitraum – für einen Verlauf einen längeren Zeitraum wählen.' : 'Im Zeitraum keine Einheit mit Gewicht.'}</p>`}
       </section>
@@ -152,7 +157,11 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
           : prognose.grund === 'zuWenig' ? 'Zu wenige Wochen mit dieser Übung für eine Prognose.'
           : html`Voraussichtlich <b>${datumMitJahr(prognose.datum)}</b> (in ${prognose.wochen} Wochen, +${fmt(prognose.proWoche, 2)} ${einheit()} je Woche).`}</p></section>` : null}
       ${p?.plateau ? html`<section class="hint">${I.warn}<span class="t">Seit ${p.wochenOhneRekord} Trainingswochen kein neues e1RM</span><span></span>
-        <p>Bestwert im letzten halben Jahr ${gwE(p.best, 1)}. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}`
+        <p>Bestwert im letzten halben Jahr ${gwE(p.best, 1)}. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}
+      ${unterChart.length ? html`<div class="row between" style="margin-top:4px"><span class="viz-t">Verlauf</span>${gewaehlt ? html`<button class="chip" onClick=${() => setGewaehlt(null)}>${datumKurz(gewaehlt)} ✕</button>`
+        : html`<span class="muted" style="font-size:12.5px">Punkt antippen zeigt den Tag</span>`}</div>` : null}
+      ${unterChart.slice(0, mehr).map((x) => einheitKarte(x, x.datum === gewaehlt))}
+      ${unterChart.length > mehr ? html`<button class="btn btn-soft btn-sm" onClick=${() => setMehr(mehr + 20)}>Ältere Einheiten (${unterChart.length - mehr})</button>` : null}`
     : reiter === 'rekorde' ? html`
       ${rek.wdh.some(Boolean) ? html`<section class="card pad">
         <div class="row between" style="margin-bottom:8px"><span class="viz-t">Rekordtafel</span>
@@ -298,7 +307,7 @@ export function UebungFormular({ modus = 'neu', eintrag = null, start = '', zu, 
       <div class="row wrap" style="gap:6px">${Object.entries(MUSKEL_DE).map(([m, t]) => html`<button key=${m} class="chip" aria-pressed=${String(u.m.includes(m))} onClick=${() => umschalten('m', m)}>${t}</button>`)}</div></div>
     <details><summary class="link" style="cursor:pointer">Nebenmuskeln${u.m2.length ? ` (${u.m2.length})` : ''}</summary>
       <div class="row wrap" style="gap:6px;margin-top:8px">${Object.entries(MUSKEL_DE).map(([m, t]) => html`<button key=${m} class="chip" aria-pressed=${String(u.m2.includes(m))} onClick=${() => umschalten('m2', m)}>${t}</button>`)}</div></details>
-    ${aehnlich ? html`<section class="hint" aria-live="polite">${I.warn}<span class="t">Ähnliche Übungen gibt es schon</span><span></span>
+    ${aehnlich ? html`<section class="hint immer" aria-live="polite">${I.warn}<span class="t">Ähnliche Übungen gibt es schon</span><span></span>
       <div class="stack" style="gap:6px">${aehnlich.map((t) => html`<div key=${t.key} class="row between" style="gap:8px">
         <span style="min-width:0"><b>${t.name_de}</b><br/><span class="muted" style="font-size:12.5px">${t.name_en}${t.matched && t.matched !== t.name_de && t.matched !== t.name_en ? ` · auch „${t.matched}“` : ''}</span></span>
         <button class="btn btn-soft btn-sm" onClick=${() => fertig({ k: t.key })}>Diese nehmen</button></div>`)}</div>

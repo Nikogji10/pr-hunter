@@ -41,8 +41,7 @@ export function GewichtKarte({ einst, setEinst, kompakt = false }) {
       <button class="rund" onClick=${() => tippe(-0.1)} aria-label=${`0,1 ${einheit()} weniger`}>−</button>
       <b class="zahl tab-num" aria-live="polite" title=${status}>${wert != null ? fmt(wert, 1) : '–'}<small> ${einheit()}</small></b>
       <button class="rund" onClick=${() => tippe(0.1)} aria-label=${`0,1 ${einheit()} mehr`}>+</button>
-      ${zielSheet}
-    </section>`;
+    </section>${zielSheet}`;      // Fenster außerhalb der Karte: deren backdrop-filter würde es sonst einsperren
   }
   return html`<section class="card pad gewicht">
     <div class="row between"><span class="viz-t">Körpergewicht</span>
@@ -58,11 +57,5 @@ export function GewichtKarte({ einst, setEinst, kompakt = false }) {
     ${abstand != null ? html`<div class="gewicht-ziel"><span>${abstand === 0 ? 'Ziel erreicht' : abstand > 0 ? `noch ${fmt(abstand, 1)} ${einheit()} runter` : `noch ${fmt(-abstand, 1)} ${einheit()} rauf`}</span>
       ${verlauf.length > 2 ? html`<span class="muted">${verlauf.length} Werte · 8 Wochen</span>` : null}</div>` : null}
     ${verlauf.length > 2 ? html`<${Sparkline} werte=${verlauf} farbe="var(--acc)"/>` : null}
-    ${zielOffen ? html`<${Sheet} zu=${() => setZielOffen(false)} label="Gewichtsziel">
-      <h2 class="h2">Gewichtsziel</h2>
-      <${ZahlFeld} id="g-ziel" label=${`Ziel (${einheit()})`} kg=${true} wert=${ziel} setze=${setZiel} platzhalter="–"/>
-      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => { setEinst({ ...einst, gewichtZiel: null }); setZielOffen(false); }}>Kein Ziel</button>
-        <button class="btn btn-chalk" style="flex:1.4" disabled=${!(ziel >= 30 && ziel <= 250)} onClick=${() => { setEinst({ ...einst, gewichtZiel: runde1(ziel) }); setZielOffen(false); }}>Speichern</button></div>
-    <//>` : null}
-  </section>`;
+  </section>${zielSheet}`;
 }

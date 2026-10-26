@@ -83,7 +83,7 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
     aendere((n) => { n.weeks[wIndex].days.push({ offset: o, items: [], notes: [] }); });
   };
   return html`<div class="screen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${() => (geaendert ? setSheet({ art: 'verwerfen' }) : zurueck())} aria-label="Zurück">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">Bearbeiten${geaendert ? ' · nicht gespeichert' : ''}</div><h1 class="h1" style="font-size:24px">${INFO[datei].kurz}</h1></div>
     </header>

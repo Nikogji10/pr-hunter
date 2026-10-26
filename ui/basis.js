@@ -51,6 +51,10 @@ export const tonnage = (kg) => (kg == null ? '–' : ANZEIGE.einheit === 'lb' ? 
 /** Gewicht mit Einheit („172,5 kg“). */
 export const gwE = (kg, stellen = 2) => (kg == null ? '–' : `${gw(kg, stellen)} ${ANZEIGE.einheit}`);
 export const mmss = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
+/** Trainingsuhr: unter einer Stunde m:ss, danach h:mm:ss (nicht „61:00“). */
+export const uhr = (s) => (s < 3600 ? mmss(s) : `${Math.floor(s / 3600)}:${mmss(s % 3600).padStart(5, '0')}`);
+/** Dauer in Minuten als Text: „45 min“, ab einer Stunde „1 h 05 min“. */
+export const minutenText = (m) => (m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')} min`);
 const WT_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 const MON_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const WT_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

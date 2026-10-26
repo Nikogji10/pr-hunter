@@ -61,6 +61,7 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+html { touch-action: pan-x pan-y; }            /* kein Zwei-Finger-Zoom (Android); iOS: gesturestart in app.js */
 html { zoom: var(--zoom, 1); }
 body { background: var(--grund), var(--bg); background-attachment: fixed; color: var(--ink); font: 400 14.5px/1.45 var(--f); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   /* installierte App: kein Markieren von Text, kein Kontextmenü bei langem Drücken – außer in Eingabefeldern */
@@ -163,6 +164,8 @@ button.wd:active { transform: scale(.96); }
 .ex { overflow: hidden; }
 .ex-head { padding: 14px 14px 6px; display: flex; gap: 12px; align-items: flex-start; }
 .ex-title { font: 800 18.5px/1.08 var(--f); font-stretch: 92%; margin: 0; text-wrap: balance; }
+.ex-title.titel-knopf { display: block; padding: 0; text-align: left; color: inherit; background: none; border: 0; width: 100%; }
+.ex-meta .best-1rm { color: var(--acc-text); font-weight: 700; white-space: nowrap; }
 .ex-meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .ex-meta b { color: var(--ink); font-weight: 700; }
 .ex-akt { display: flex; gap: 6px; margin-left: auto; }
@@ -230,6 +233,11 @@ button.wd:active { transform: scale(.96); }
 .timer.over { background: var(--gold); color: #1A1300; }
 .ring { width: 40px; height: 40px; }
 .live { background: var(--karte); border: 1px solid var(--kante); border-radius: 18px; padding: 10px 12px; display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center; box-shadow: var(--shadow); text-align: left; width: 100%; }
+/* Laufendes Training hebt sich ab: deckende Akzentfläche (unabhängig von der Deckkraft), Akzentrand, Leuchten */
+.live { background: linear-gradient(100deg, color-mix(in srgb, var(--acc) 34%, var(--flaeche-2)), color-mix(in srgb, var(--acc) 14%, var(--flaeche-2)));
+  border: 1.5px solid var(--acc); box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 25%, transparent), 0 8px 26px -8px var(--acc-glow), var(--shadow); }
+.live b { color: var(--acc-text); }
+.live span { color: var(--ink-2); }
 .live .puls { width: 10px; height: 10px; border-radius: 50%; background: var(--p25); box-shadow: 0 0 0 0 color-mix(in srgb, var(--p25) 60%, transparent); animation: puls 1.6s infinite; }
 .live b { display: block; font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: .1em; }
 .live span { font-size: 13px; color: var(--muted); }
@@ -306,6 +314,8 @@ textarea { width: 100%; min-height: 72px; border-radius: var(--r-md); border: 1p
 
 /* Statistik und Diagramme */
 .filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter.einreihig { flex-wrap: nowrap; gap: 4px; }
+.filter.einreihig .chip { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 4px; font-size: 12px; }
 .total { padding: 16px 15px; display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: end; background: radial-gradient(90% 80% at 0% 0%, var(--acc-soft), transparent 70%), var(--karte); }
 .total .wert { font: 900 56px/0.85 var(--f); font-stretch: 70%; }
 .total .wert small { font-size: 24px; color: var(--muted); font-weight: 700; font-stretch: 100%; margin-left: 4px; }
@@ -676,3 +686,92 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 .heute-plan .plan-item { padding: 6px 0; }
 .heute-knoepfe { display: flex; gap: 6px; }
 .heute-knoepfe .btn { flex: 1; padding-inline: 6px; white-space: nowrap; }
+
+/* Startbild: Logo mit Hantel nur kurz beim Öffnen, blendet aus */
+.startbild { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 18px; background: var(--flaeche-2);
+  animation: startbild-weg .45s ease-in 1.05s forwards; pointer-events: none; }
+.startbild .logo { font-size: 30px; }
+.startbild .hantel { width: min(78vw, 340px); }
+@keyframes startbild-weg { to { transform: translateY(-12px) scale(.98); visibility: hidden; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .startbild { animation-duration: .01s; } }
+
+/* Kleine Hantel mittig in der Kopfleiste (Blockstand), führt zum Block */
+.topbar.duenn { display: grid; grid-template-columns: 1fr auto 1fr; }
+.topbar.duenn > .row { justify-self: end; }
+.kopf-hantel { width: 96px; padding: 0; background: none; border: 0; }
+.kopf-hantel .hantel svg { margin: 0; max-height: 34px; }
+.kopf-hantel .hantel text { display: none; }
+
+/* Trainingskarte: Blockname mit Plan und Block */
+.block-zeile { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.block-zeile > div:first-child { line-height: 1.3; }
+.plan-tag { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; align-items: center; width: 100%; padding: 8px 2px; border-top: 1px solid var(--line); text-align: left; color: var(--ink); background: none; }
+.plan-tag:first-child { border-top: 0; }
+.plan-tag.heute { color: var(--acc-text); }
+.plan-tag .pt-datum { font-size: 13px; white-space: nowrap; } .plan-tag .pt-datum b { font-weight: 800; }
+.plan-tag .pt-lifts { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.plan-tag .pt-lifts i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.plan-tag .pt-lifts span { margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-tag .pt-stand { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+
+/* Hauptaktionen grün (Training starten, fortsetzen, speichern) */
+.btn-go { background: var(--knurl), linear-gradient(180deg, #4ED98A 0%, var(--ok) 48%, #157A44 100%); color: #06180D; border-color: #157A44;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .35) inset, 0 -2px 0 rgba(0, 0, 0, .22) inset, 0 10px 24px -8px rgba(47, 191, 113, .55); }
+.btn-go:disabled { opacity: .45; }
+
+/* Druckgefühl: alles Tippbare gibt spürbar nach (iOS braucht dafür einen touchstart-Listener, siehe app.js) */
+.btn, .chip, .cell, .check, .mini, .link, .plan-tag, .plan-item, .einst-punkt, .titel-knopf, .kopf-hantel, .live { transition: transform .1s ease, filter .12s ease, box-shadow .2s ease; }
+.btn:not(:disabled):active { transform: scale(.955); filter: brightness(.9); }
+.chip:not(:disabled):active, .mini:active, .cell:active, .check:active { transform: scale(.93); filter: brightness(1.15); }
+.link:active, .titel-knopf:active, .plan-tag:active, .kopf-hantel:active, .live:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .btn:active, .chip:active, .mini:active, .cell:active, .check:active { transform: none; } }
+
+/* Rekord: Konfetti und Liste am Trainingsende */
+.konfetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.konfetti i { position: absolute; top: -12px; left: var(--x); width: 8px; height: 14px; border-radius: 2px; background: var(--f);
+  transform: rotate(var(--r)); animation: konfetti 2.6s cubic-bezier(.2, .6, .4, 1) var(--d) forwards; }
+@keyframes konfetti { to { transform: translate3d(calc((var(--r) - 180deg) / 6deg * 1px), 105vh, 0) rotate(calc(var(--r) * 3)); } }
+@media (prefers-reduced-motion: reduce) { .konfetti { display: none; } }
+.pr-ende { background: var(--gold-soft); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pr-ende ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pr-ende li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; font-size: 13px; align-items: baseline; }
+.pr-ende li b { color: var(--gold); }
+
+/* Statistik farbig statt grau: Intensitätszonen kühl → heiß, Kalender und Ranglisten in der Akzentfarbe, Spur sichtbar */
+:root { --zone-1: #4C9DF0; --zone-2: #2FBF71; --zone-3: #F2C14E; --zone-4: #E5484D;
+  --heat-0: color-mix(in srgb, var(--ink) 7%, transparent); --heat-1: color-mix(in srgb, var(--acc) 35%, var(--flaeche-1));
+  --heat-2: color-mix(in srgb, var(--acc) 60%, var(--flaeche-1)); --heat-3: color-mix(in srgb, var(--acc) 85%, var(--flaeche-1)); --heat-4: var(--acc-hi, var(--acc)); }
+.zonen { gap: 3px; height: 18px; }
+.rl-spur { background: color-mix(in srgb, var(--ink) 7%, transparent); border-radius: 4px; overflow: hidden; }
+.rl-spur i { background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 55%, transparent), var(--acc)); border-radius: 0 4px 4px 0; }
+.rangliste { gap: 6px; }
+.rl-zeile { padding: 3px 0; border-bottom: 1px solid var(--line); }
+.rl-zeile:last-child { border-bottom: 0; }
+
+/* Unterseiten (mit Zurück-Knopf) sehen anders aus als Hauptseiten: getönte Leiste, Akzent-Zurück, Brotkrume */
+.topbar.unter { background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 16%, transparent), transparent 70%), color-mix(in srgb, var(--flaeche-2) var(--deck), transparent);
+  border-color: color-mix(in srgb, var(--acc) 30%, var(--kante)); align-items: center; }
+.topbar.unter > .iconbtn:first-child { color: var(--acc-text); border-color: color-mix(in srgb, var(--acc) 50%, transparent); box-shadow: 0 0 14px -6px var(--acc-glow); }
+.eyebrow.brotkrume span { color: var(--acc-text); }
+
+/* Hinweise nur bei Bedarf: eingeklappt bis zum Tippen (Rückfragen mit role und .immer bleiben offen) */
+.hint:not([role]):not(.immer) { cursor: pointer; }
+.hint:not([role]):not(.immer):not(.offen) p, .hint:not([role]):not(.immer):not(.offen) ul { display: none; }
+.hint:not([role]):not(.immer) .t::after { content: "  ›"; color: var(--muted); }
+.hint.offen:not([role]):not(.immer) .t::after { content: "  ⌄"; }
+
+/* Übungs-Chart: angetippter Tag in der Liste darunter hervorgehoben */
+.einheit.markiert { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc), 0 0 22px -8px var(--acc-glow); }
+
+/* Training: Übung wischen (links entfernen, rechts einklappen) und eingeklappte Übung */
+.card.ex { transition: transform .18s ease; touch-action: pan-y; }
+.card.ex[data-wisch] { transition: none; }
+.card.ex[data-wisch="links"] { box-shadow: inset -4px 0 0 var(--acc), var(--shadow); }
+.card.ex[data-wisch="rechts"] { box-shadow: inset 4px 0 0 var(--ok), var(--shadow); }
+.card.ex.eingeklappt { padding: 0; }
+.ex-zu { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 10px 14px; text-align: left; color: var(--ink); background: none; }
+.ex-zu b { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-zu .ok { color: var(--ok); font-weight: 800; font-size: 13px; } .ex-zu .muted { font-size: 13px; }
+
+/* Unterseiten: Titel nur an Wortgrenzen/Bindestrich umbrechen, kleiner (lange Übungsnamen) */
+.topbar.unter .h1 { overflow-wrap: normal; word-break: normal; hyphens: manual; font-size: clamp(17px, 5vw, 24px); font-stretch: 110%; }

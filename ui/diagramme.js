@@ -54,7 +54,7 @@ function monatsText(d, vorher, jahreUebergreifend) {
  * zeitlich: Abstände nach Datum statt gleichmäßig (für einzelne Einheiten); punkte: jeden Wert als Punkt zeigen.
  */
 export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg', hoehe = 220, referenz = null, stellen = 1, zeitlich = false, punkte = false,
-  tipKopf = (d) => `Woche ab ${datumKurz(d)}`, ohneRahmen = false }) {
+  tipKopf = (d) => `Woche ab ${datumKurz(d)}`, ohneRahmen = false, beiTipp = null }) {
   const [i, setI] = useState(null);
   const ref = useRef(null);
   const serien = alleSerien.filter((s) => letzterIndex(s.werte) >= 0);
@@ -89,6 +89,7 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
     let best = 0;
     for (let k = 1; k < x.length; k++) if (Math.abs(px(k) - xs) < Math.abs(px(best) - xs)) best = k;
     setI(best);
+    if (e.type === 'pointerdown') beiTipp?.(best);           // Tippen auf einen Punkt: Aufrufer zeigt diesen Tag
   };
   const tabelle = html`<table class="rec"><thead><tr><th>Woche</th>${serien.map((s) => html`<th key=${s.id}>${s.name}</th>`)}</tr></thead>
     <tbody>${[...x].reverse().map((d, k) => html`<tr key=${d}><td>${datumKurz(d)}</td>${serien.map((s) => html`<td key=${s.id}>${fmt(s.werte[x.length - 1 - k])}</td>`)}</tr>`)}</tbody></table>`;
@@ -181,7 +182,7 @@ export function Heatmap({ titel, unter, von, wochenAnzahl, tage, markiere }) {
     <div class="heat-scroll" ref=${scroll}><svg viewBox=${`0 0 ${W} ${H}`} style=${`width:${W}px;max-width:${wochenAnzahl > 26 ? 'none' : '100%'}`} role="img" aria-label=${titel}>
       ${['Mo', '', 'Mi', '', 'Fr', '', 'So'].map((t, d) => t ? html`<text key=${d} class="ax" x="0" y=${d * (Z + G) + 10}>${t}</text>` : null)}
       ${zellen.map((z) => html`<rect key=${z.iso} x=${L + z.w * (Z + G)} y=${z.d * (Z + G)} width=${Z} height=${Z} rx="3"
-        class=${markiere?.(z.iso) ? 'heat-urlaub' : ''} style=${`fill:var(--seq-${stufe(z.t?.tonnage)})`}
+        class=${markiere?.(z.iso) ? 'heat-urlaub' : ''} style=${`fill:var(--heat-${stufe(z.t?.tonnage)})`}
         onPointerEnter=${() => setTip(z)} onPointerDown=${() => setTip(z)}/>`)}
       ${zellen.filter((z) => z.d === 0 && z.iso.slice(8, 10) <= '07').map((z) => html`<text key=${'m' + z.iso} class="ax" x=${L + z.w * (Z + G)} y=${H - 2}>${MONATE[Number(z.iso.slice(5, 7)) - 1]}</text>`)}
     </svg></div>
@@ -222,7 +223,7 @@ export function ZonenBalken({ titel, unter, zonen }) {
   const tabelle = html`<table class="rec"><thead><tr><th>Zone</th><th>Sätze</th><th>Anteil</th></tr></thead>
     <tbody>${zonen.map((z) => html`<tr key=${z.name}><td>${z.name}</td><td>${z.wert}</td><td>${fmt((z.wert / summe) * 100, 0)} %</td></tr>`)}</tbody></table>`;
   return html`<${Rahmen} titel=${titel} unter=${unter} tabelle=${tabelle} kinder=${html`<div>
-    <div class="zonen">${zonen.map((z, k) => html`<div key=${z.name} title=${`${z.name}: ${z.wert} Sätze`} style=${`flex:${z.wert};background:var(--seq-${k + 1})`}></div>`)}</div>
-    <div class="zonen-l">${zonen.map((z, k) => html`<div key=${z.name}><i style=${`background:var(--seq-${k + 1})`}></i><b>${fmt((z.wert / summe) * 100, 0)} %</b><span>${z.name}</span></div>`)}</div>
+    <div class="zonen">${zonen.map((z, k) => html`<div key=${z.name} title=${`${z.name}: ${z.wert} Sätze`} style=${`flex:${z.wert};background:var(--zone-${k + 1})`}></div>`)}</div>
+    <div class="zonen-l">${zonen.map((z, k) => html`<div key=${z.name}><i style=${`background:var(--zone-${k + 1})`}></i><b>${fmt((z.wert / summe) * 100, 0)} %</b><span>${z.name}</span></div>`)}</div>
   </div>`}/>`;
 }

@@ -42,12 +42,14 @@ export function koerperAm(datum, messwerte) {
 }
 
 const KOERPER = new Set(['bodyweight_plus', 'bodyweight_minus']);
-/** Satz für die Auswertung: last = Gesamtlast (bei Körpergewichtsübungen Körpergewicht ± Zusatz). */
+/** Satz für die Auswertung: last = Gesamtlast (bei Körpergewichtsübungen Körpergewicht ± Zusatz).
+ *  e1RM für Bestwerte, Rekorde und Verlauf bewusst ohne RPE (nur Gewicht × Wdh, Epley wie Jefit), damit eine
+ *  großzügige RPE-Angabe keinen Rekord erzeugt, den es nie gab (110 × 10 @ RPE 7 ergab sonst 156). */
 function satzWerte(s, art, koerper, formel = 'rpe') {
   const kg = s.kg ?? null, wdh = s.wdh ?? null, rpe = s.rpe ?? null;
   let last = kg;
   if (KOERPER.has(art)) last = koerper > 0 ? (art === 'bodyweight_plus' ? koerper + (kg ?? 0) : koerper - (kg ?? 0)) : null;
-  return { kg, wdh, rpe, typ: s.typ ?? 'working', last, e1rm: e1rm(last, wdh, rpe, formel), notiz: s.notiz ?? null, extra: s.extra ?? null };
+  return { kg, wdh, rpe, typ: s.typ ?? 'working', last, e1rm: e1rm(last, wdh, null, formel), notiz: s.notiz ?? null, extra: s.extra ?? null };
 }
 
 /**

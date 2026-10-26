@@ -13,7 +13,7 @@ import { koerperAm, montagVon, tageZwischen } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
-const BEREICHE = [['4 Wochen', 4], ['3 Monate', 13], ['6 Monate', 26], ['1 Jahr', 52], ['Alles', 0]];
+const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
 const FORM_WOCHEN = 12;
 
 
@@ -65,7 +65,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const zeitSaeulen = [];
   for (let i = 0; i < wd.length; i += gruppe) {
     const teil = wd.slice(i, i + gruppe);
-    zeitSaeulen.push({ label: teil[0].woche, teile: { min: teil.reduce((a, w) => a + w.trainings.reduce((b, t) => b + (t.dauer ?? 0), 0), 0) } });
+    // Ø Minuten je Trainingstag (nur Einheiten mit Dauer), nicht die Wochensumme
+    const mit = teil.flatMap((w) => w.trainings).filter((t) => t.dauer > 0);
+    zeitSaeulen.push({ label: teil[0].woche, teile: { min: mit.length ? Math.round(mit.reduce((a, t) => a + t.dauer, 0) / mit.length) : 0 } });
   }
   const zeitGesamt = mitDauer.reduce((a, t) => a + t.dauer, 0);
   // Frequenz und Kalender
@@ -121,7 +123,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
   if (!imBereich.length) return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}</header>
-    <div class="filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>
+    <div class="filter einreihig" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>
     <section class="card pad stack"><h2 class="h2">Noch keine Trainings im Zeitraum</h2>
       <p class="muted" style="margin:0">Sobald du Sätze abhakst, erscheinen hier e1RM-Verlauf, Kraftprofil, Belastung, Volumen und Rekorde.${bereich < 52 ? ' Oder einen längeren Zeitraum wählen.' : ''}</p></section>
   </div>`;
@@ -129,7 +131,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
       <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav></header>
-    <div class="filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>
+    ${reiter === 'profil' ? null : html`<div class="filter einreihig" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}
 
     <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
     ${reiter === 'kraft' ? html`
@@ -214,7 +216,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="kachel"><span class="l">Ø je Einheit</span><b>${fmt(zeitGesamt / mitDauer.length, 0)}</b><span class="muted" style="font-size:12px">Minuten</span></div>
       <div class="kachel"><span class="l">Längste</span><b>${fmt(Math.max(...mitDauer.map((t) => t.dauer)), 0)}</b><span class="muted" style="font-size:12px">Minuten</span></div>
     </section>
-    <${StapelSaeulen} titel="Trainingszeit" unter=${`Minuten je ${gruppe > 1 ? `${gruppe} Wochen` : 'Woche'} · ${mitDauer.length} Einheiten mit Dauer`} daten=${zeitSaeulen}
+    <${StapelSaeulen} titel="Trainingszeit" unter=${`Ø Minuten je Trainingstag, gruppiert je ${gruppe > 1 ? `${gruppe} Wochen` : 'Woche'} · ${mitDauer.length} Einheiten mit Dauer`} daten=${zeitSaeulen}
       serien=${[{ id: 'min', name: 'Minuten', farbe: 'var(--acc)' }]} einheit="min"/>` : null}
     <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
       markiere=${imUrlaub}/>`
@@ -228,6 +230,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 /** Körpergewicht im Zeitraum: Kacheln (aktuell, Veränderung, Trend je Woche, Spanne) und Verlauf mit Ziellinie. */
 function KoerperStatistik({ x, werte, von, ziel }) {
   const g = gewichtImZeitraum(KOERPERVERLAUF, von);
+  const [exakt, setExakt] = useState(false);              // jede Messung statt Wochendurchschnitt
+  const mess = KOERPERVERLAUF.filter((m) => m.datum >= von);
   const vz = (d, st = 1) => (d == null ? '–' : `${d > 0 ? '+' : d < 0 ? '−' : '±'}${gw(Math.abs(d), st)}`);
   return html`<section class="stack" style="gap:8px">
     ${g ? html`<div class="kacheln vier">
@@ -236,8 +240,10 @@ function KoerperStatistik({ x, werte, von, ziel }) {
       <div class="kachel"><span class="l">Trend</span><b>${vz(g.proWoche, 2)}</b><span class="muted" style="font-size:12px">${einheit()} je Woche</span></div>
       <div class="kachel"><span class="l">Spanne</span><b>${gw(g.max - g.min, 1)}</b><span class="muted" style="font-size:12px">${gw(g.min, 1)}–${gw(g.max, 1)}</span></div>
     </div>` : null}
-    <${LinienChart} titel="Körpergewicht" unter=${`Durchschnitt je Woche · ${g?.anzahl ?? 0} Messungen im Zeitraum`} x=${x}
-      serien=${[{ id: 'kg', name: 'Körpergewicht', farbe: 'var(--acc)', werte: werte.map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}
+    <div class="filter einreihig" role="group" aria-label="Darstellung"><button class="chip" aria-pressed=${String(!exakt)} onClick=${() => setExakt(false)}>Wochendurchschnitt</button>
+      <button class="chip" aria-pressed=${String(exakt)} onClick=${() => setExakt(true)}>Jede Messung</button></div>
+    <${LinienChart} titel="Körpergewicht" unter=${exakt ? `${mess.length} Messungen im Zeitraum` : `Durchschnitt je Woche · ${g?.anzahl ?? 0} Messungen im Zeitraum`} x=${exakt ? mess.map((m) => m.datum) : x}
+      serien=${[{ id: 'kg', name: 'Körpergewicht', farbe: 'var(--acc)', werte: (exakt ? mess.map((m) => m.kg) : werte).map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}
       referenz=${ziel ? { wert: inAnzeige(ziel), text: `Ziel ${gw(ziel, 1)}` } : null}/>
   </section>`;
 }

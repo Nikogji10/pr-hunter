@@ -148,7 +148,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
     toast((await kopiere(json())) ? { titel: 'Kopiert', text: 'Programm als JSON in der Zwischenablage.' } : { titel: 'Kopieren gesperrt', text: 'Bitte „Als JSON kopieren“ nutzen.' });
   };
   return html`<div class="screen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label="Zurück zu den Programmen">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">${aktiv && !vorgabe ? 'Aktiver Block' : eigen ? 'Eigenes Programm' : 'Vorlage'}</div><h1 class="h1" style="font-size:26px">${INFO[datei].kurz}</h1></div>
     </header>
@@ -238,7 +238,7 @@ function Import({ zurueck, speichern }) {
   let tage = [];
   try { tage = p ? blockTage(p, { start: HEUTE, werte: { ...BEISPIEL_MAXE } }) : []; } catch { tage = []; }
   return html`<div class="screen">
-    <header class="topbar">
+    <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label="Zurück zu den Programmen">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">Neues Programm</div><h1 class="h1" style="font-size:26px">Importieren</h1></div>
     </header>
