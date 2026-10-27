@@ -170,8 +170,8 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       ${alt ? html`<div class="stack" style="gap:8px"><span class="eyebrow">Woche ${alt.alternative_to}</span>
         <div class="seg" role="group" aria-label="Variante Woche 6"><button aria-pressed=${String(!alternativ)} onClick=${() => setAlternativ(false)}>Deload</button>
           <button aria-pressed=${String(alternativ)} onClick=${() => setAlternativ(true)}>Taper + Testtag</button></div></div>` : null}
-      ${prog.params ? html`<span class="muted" style="font-size:13px">Trainingsmax ${fmt(prog.params.TM_BULK * 100)} % (Cut ${fmt(prog.params.TM_CUT * 100)} %), zuerst gerundet ·
-        Pause-Kniebeuge × ${fmt(prog.params.VF)} · Test ${fmt(prog.params.TEST * 100, 1)} % vom echten 1RM · ändern unter „Bearbeiten“ bzw. „Kopie bearbeiten“</span>` : null}
+      ${prog.params ? html`<span class="muted" style="font-size:13px">${`Trainingsmax ${fmt(prog.params.TM_BULK * 100)} % (Cut ${fmt(prog.params.TM_CUT * 100)} %), zuerst gerundet`}
+        · ${`Pause-Kniebeuge × ${fmt(prog.params.VF)}`} · ${`Test ${fmt(prog.params.TEST * 100, 1)} % vom echten 1RM`} · <span>ändern unter „Bearbeiten“ bzw. „Kopie bearbeiten“</span></span>` : null}
       ${regel?.source || regel?.formula ? html`<details><summary class="link" style="cursor:pointer">Wie das neue Max nach dem Test berechnet wird</summary>
         <p class="muted" style="margin:6px 0 0;font-size:13px">${regel.method === 'rpe10_table'
           ? 'Projiziert = Testgewicht ÷ %1RM aus der RPE-10-Tabelle (96/92/89/86/84/81 % für 2–7 Wdh), auf die Steigerung gerundet. Unter 2 Wdh bleibt das alte Max; sonst altes Max + (projiziert − alt) × Vertrauen (1,0 bei sauberen, 0,5 bei unsauberen Wdh). Keine Obergrenze.'

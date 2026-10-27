@@ -91,7 +91,8 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
     await DIENSTE.speichereAnpassung(schluessel, { ...a, favorit: !a.favorit });
     neuZeichnen((z) => z + 1);
   };
-  const muskeln = (liste) => liste?.length ? liste.map((m) => MUSKEL_DE[m] ?? m).join(', ') : '–';
+  // je Muskel ein eigener Textknoten, damit die englische Oberfläche jeden Namen übersetzt
+  const muskeln = (liste) => liste?.length ? liste.map((m, i) => html`<span key=${m}>${i ? ', ' : ''}<span>${MUSKEL_DE[m] ?? m}</span></span>`) : '–';
   const satzZeile = (x, nr, beste, mitRpe, k) => html`<tr key=${k} class=${beste ? 'beste' : ''}>
     <td class=${`satz-nr ${nr === 'W' ? 'w' : ''}`}>${nr}</td>
     <td class="k">${x.kg != null && (x.kg > 0 || !koerperUebung(key)) ? `${gw(x.kg)} ${einheit()}` : koerperUebung(key) ? 'Körpergewicht' : '–'} × ${x.wdh ?? '–'}</td>
@@ -138,7 +139,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
           <button class="chip" aria-pressed=${String(nurSpitzen)} onClick=${() => setNurSpitzen(!nurSpitzen)}
             title="Je Block nur die beste Einheit – leichte Wochen verfälschen den Verlauf nicht">${nurSpitzen ? '✓ ' : ''}Bestwert je Block</button>
           ${varianten.length ? html`<button class="chip" aria-pressed=${String(mitVarianten)} onClick=${() => setMitVarianten(!mitVarianten)}
-            title=${varianten.map((k) => nameVon(k)).join(', ')}>${mitVarianten ? '✓ ' : ''}mit ${varianten.length} ${varianten.length === 1 ? 'Variante' : 'Varianten'}</button>` : null}
+            title=${varianten.map((k) => nameVon(k)).join(', ')}>${`${mitVarianten ? '✓ ' : ''}mit ${varianten.length} ${varianten.length === 1 ? 'Variante' : 'Varianten'}`}</button>` : null}
         </div>
         ${punkte.length ? html`<span class="muted" style="font-size:12.5px">${datumKurz(punkte[0][0])}${punkte[0][0].slice(0, 4)} – ${datumKurz(punkte.at(-1)[0])}${punkte.at(-1)[0].slice(0, 4)} · ${punkte.length} ${nurSpitzen ? 'Blöcke (Bestwert je Block, ohne Block je 6 Wochen)' : 'Einheiten'}</span>` : null}
         ${punkte.length > 1 ? html`<${LinienChart} ohneRahmen=${true} titel=${art === 'e1rm' ? 'Geschätztes 1RM' : 'Volumen'} x=${punkte.map((q) => q[0])} zeitlich=${true} punkte=${true}

@@ -1,15 +1,16 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, I, datumKurz, uebung, MUSKEL_DE, speicher } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
-import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum } from '../js/auswertung.js';
+import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
+  erholung, muskelGewichte, ERHOLUNG, rekordChronik } from '../js/auswertung.js';
 import { SYMMETRIC_RECHNER } from '../js/verweise.js';
 import { LinienChart, StapelSaeulen, Heatmap, Sparkline, ZonenBalken, Rangliste } from './diagramme.js';
-import { KoerperKarte } from './koerper.js';
+import { KoerperKarte, ErholungKarte } from './koerper.js';
 import { Zielprognose, Vergleich } from './vergleich.js';
-import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub } from './stand.js';
-import { koerperAm, montagVon, tageZwischen } from '../js/daten.js';
+import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT } from './stand.js';
+import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
@@ -50,7 +51,19 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const summe = (o) => (LIFTS.every((l) => o[l] != null) ? LIFTS.reduce((a, l) => a + o[l], 0) : null);
   const total = summe(aktuell), totalVorher = total != null ? summe(vorher) : null;
   const pfeil = (d) => (d >= 0 ? `▲ ${gw(d, 1)}` : `▼ ${gw(-d, 1)}`);
-  const profil = kraftprofil(aktuell, kg);
+  // Kraftprofil: dazu alle Übungen mit Näherungswert, die in den letzten 26 Wochen trainiert wurden (aktuelle Form)
+  const seit = plusTage(HEUTE, -26 * 7);
+  const weitere = Object.keys(ANTEIL_GESCHAETZT).filter((k) => E1RM_AKTUELL[k] > 0 && (ZULETZT[k] ?? '') >= seit)
+    .map((k) => ({ key: k, e1rm: E1RM_AKTUELL[k], name: nameVon(k) }));
+  const profil = kraftprofil(aktuell, kg, weitere);
+  // Muskel-Erholung aus den Trainings der letzten 72 Stunden (Ende des Trainings, sonst Beginn, sonst 18 Uhr)
+  const jetztMs = Date.now();
+  const erholEintraege = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4)).flatMap((t) => {
+    const zeit = new Date(t.ende ?? t.start ?? `${t.datum}T18:00:00`).getTime();
+    return (t.uebungen ?? []).map((u) => ({ zeit, muskeln: muskelGewichte(kanon(u.key), uebung(kanon(u.key)) ?? uebung(u.key)),
+      saetze: (u.saetze ?? []).filter((s) => s.fertig !== false) }));
+  });
+  const erholt = erholung(erholEintraege, jetztMs);
   const wd = wochenDaten(x);
   const letzte = wd.at(-1);
   // Volumen: bis 26 Wochen je Woche, bei einem Jahr je 4 Wochen zusammengefasst
@@ -70,6 +83,17 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     zeitSaeulen.push({ label: teil[0].woche, teile: { min: mit.length ? Math.round(mit.reduce((a, t) => a + t.dauer, 0) / mit.length) : 0 } });
   }
   const zeitGesamt = mitDauer.reduce((a, t) => a + t.dauer, 0);
+  // Rekorde aller Übungen (e1RM ohne RPE): Chronik über den ganzen Verlauf, gezählt im Zeitraum, gruppiert wie das Volumen
+  const chronik = rekordChronik(Object.keys(trainingsTage).sort().map((d) => trainingAm(d)).filter(Boolean));
+  const prImZeitraum = chronik.filter((r) => r.datum >= (x[0] ?? HEUTE));
+  const prSaeulen = [];
+  for (let i = 0; i < x.length; i += gruppe) {
+    const a = x[i], b = x[i + gruppe] ?? plusTage(HEUTE, 1);
+    prSaeulen.push({ label: a, teile: { pr: prImZeitraum.filter((r) => r.datum >= a && r.datum < b).length } });
+  }
+  const prJeUebung = Object.entries(prImZeitraum.reduce((m, r) => ({ ...m, [r.key]: (m[r.key] ?? 0) + 1 }), {}))
+    .map(([key, n]) => ({ name: nameVon(key), wert: n })).sort((a, b) => b.wert - a.wert).slice(0, 6);
+  const letzterPr = chronik.at(-1);
   // Frequenz und Kalender
   const montag = plusTage(HEUTE, -((new Date(`${HEUTE}T00:00:00Z`).getUTCDay() + 6) % 7));
   const von = plusTage(montag, -7 * n);
@@ -135,7 +159,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
     <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
     ${reiter === 'kraft' ? html`
-    <section class="card total">
+    <section class="card total wichtig">
       <div><div class="eyebrow">Total · bestes e1RM der letzten ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>
         ${totalVorher != null ? html`<div class=${`delta ${total >= totalVorher ? 'auf' : 'ab'}`}>${pfeil(total - totalVorher)} ${einheit()} seit ${datumKurz(x[0])}${x[0].slice(0, 4)}</div>`
           : html`<div class="muted" style="font-size:13px">${total == null ? 'Braucht je einen Satz in Kniebeuge, Bankdrücken und Kreuzheben.' : 'Im Zeitraum nicht alle drei Lifts trainiert.'}</div>`}</div>
@@ -158,10 +182,18 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       ${!PR_FEED.length ? html`<p class="muted" style="margin:0;font-size:14px">Noch keine Rekorde in Kniebeuge, Bankdrücken oder Kreuzheben.</p>` : null}
       ${PR_FEED.map((p) => html`<div key=${p.datum + p.lift} class="row">
         <span class="medaille">PR</span>
-        <div style="flex:1;min-width:0"><b>${LIFT[p.lift].name} · ${p.text}</b><div class="muted" style="font-size:12.5px">${datumKurz(p.datum)}</div></div>
-        <b class="zahl" style="font-size:22px">${fmt(p.e1rm, 1)}</b></div>`)}
+        <div style="flex:1;min-width:0"><b>${LIFT[p.lift].name} · ${p.satz ? `${gwE(p.satz.kg)} × ${p.satz.wdh}` : p.text}</b><div class="muted" style="font-size:12.5px">${datumKurz(p.datum)}</div></div>
+        <b class="zahl" style="font-size:22px">${gw(p.e1rm, 1)}</b></div>`)}
     </section>
 
+    <section class="kacheln">
+      <div class="kachel"><span class="l">Rekorde</span><b>${prImZeitraum.length}</b><span class="muted" style="font-size:12px">im Zeitraum, alle Übungen</span></div>
+      <div class="kachel"><span class="l">Ø je Monat</span><b>${fmt(prImZeitraum.length / Math.max(1, n / 4.35), 1)}</b><span class="muted" style="font-size:12px">Rekorde</span></div>
+      <div class="kachel"><span class="l">Letzter</span><b>${letzterPr ? tageZwischen(letzterPr.datum, HEUTE) : '–'}</b><span class="muted" style="font-size:12px">${letzterPr ? `Tage her · ${nameVon(letzterPr.key)}` : 'noch keiner'}</span></div>
+    </section>
+    ${prImZeitraum.length ? html`<${StapelSaeulen} titel="Rekorde" unter=${`Neue Bestwerte (e1RM) über alle Übungen ${gruppe > 1 ? 'je 4 Wochen' : 'je Woche'}`} daten=${prSaeulen}
+      serien=${[{ id: 'pr', name: 'Rekorde', farbe: 'var(--gold)' }]} einheit=""/>
+    <${Rangliste} titel="Meiste Rekorde" unter="Übungen mit den meisten neuen Bestwerten im Zeitraum" zeilen=${prJeUebung}/>` : null}
     <section class="card pad">
       <div class="row between" style="margin-bottom:8px"><span class="viz-t">Rekordtafel</span></div>
       <div class="filter" style="margin-bottom:6px">${LIFTS.map((l) => html`<button key=${l} class="chip" aria-pressed=${String(rekLift === l)} onClick=${() => setRekLift(l)}>
@@ -172,17 +204,29 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     </section>`
     : reiter === 'profil' ? html`
     <section class="card pad stack">
+      <div><span class="viz-t">Erholung</span>
+        <div class="viz-u">${`Aus den Trainings der letzten ${ERHOLUNG.stunden} Stunden: Sätze × Anstrengung je Muskel, klingt über ${ERHOLUNG.stunden} h ab`}</div></div>
+      <${ErholungKarte} zustand=${erholt}/>
+      <p class="muted" style="margin:0;font-size:12.5px">Eigene Näherung wie „Muscle Recovery“ in Jefit: Hauptmuskel zählt voll, mitarbeitende Muskeln halb, Sätze ab RPE 8 mehr als leichte. Gefühl geht vor.</p>
+    </section>
+    <section class="card pad stack">
       <div class="row between" style="align-items:flex-start"><div><span class="viz-t">Kraftprofil</span>
-        <div class="viz-u">Nach der veröffentlichten Methode von Symmetric Strength · ${gwE(kg)} Körpergewicht</div></div>
+        <div class="viz-u"><span>Nach der veröffentlichten Methode von Symmetric Strength</span> · ${`${gwE(kg)} Körpergewicht`}</div></div>
         <div class="dots-wert"><div class="eyebrow">Gesamt</div><b>${fmt(profil.gesamt, 1)}</b></div></div>
-      <${KoerperKarte} muskeln=${profil.muskeln}/>
+      <${KoerperKarte} muskeln=${profil.muskeln} quellen=${profil.quellen}/>
       <div class="stack" style="gap:10px">${LIFTS.map((l) => profil.lifts[l] && html`<div key=${l} class="stufe-zeile">
         <span class="row" style="gap:6px"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i><b>${LIFT[l].name}</b></span>
         <span class="stufe-spur"><i style=${`width:${Math.min(100, (profil.lifts[l].wert / 125) * 100)}%`}></i></span>
         <span class="stufe-text"><b>${fmt(profil.lifts[l].wert, 1)}</b> ${profil.lifts[l].stufe}</span>
         <span class="muted stufe-naechste">${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span>
       </div>`)}</div>
-      <p class="muted" style="margin:0;font-size:12.5px">Schulterdrücken, Klimmzug und Rudern bewertet Symmetric Strength mit unveröffentlichten Werten. Die vollständige Analyse gibt es dort.</p>
+      ${profil.uebungen.length ? html`<div class="stack unterteil" style="gap:10px"><span class="eyebrow">Weitere Übungen · Näherung</span>
+        ${profil.uebungen.slice(0, 10).map((u) => html`<div key=${u.key} class="stufe-zeile">
+          <span class="rl-name">${u.name}</span>
+          <span class="stufe-spur geschaetzt"><i style=${`width:${Math.min(100, Math.max(0, (u.wert / 125) * 100))}%`}></i></span>
+          <span class="stufe-text"><b>${fmt(u.wert, 1)}</b> ${u.stufe}</span>
+          <span class="muted stufe-naechste">e1RM ${gwE(u.e1rm, 1)}</span></div>`)}</div>` : null}
+      <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet und zählt halb so viel. Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>

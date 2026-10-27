@@ -3,8 +3,9 @@
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
 import { UebungsBild } from './basis.js';
-import { e1rm, lastFuer, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
+import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
+import { programmText } from './programmtexte.js';
 import { BEST_E1RM, E1RM_AKTUELL, LETZTES } from './stand.js';
 
 const e1rmFuer = (key) => E1RM_AKTUELL[key] ?? BEST_E1RM[key] ?? null;   // aktuelle Form, sonst Bestwert
@@ -14,7 +15,7 @@ const wdhText = (w) => !w ? '1' : w.amrap ? (w.ziel ? `max (Ziel ${w.ziel})` : '
 function vorschlag(key, wdh, rpe, koerperKg) {
   const basis = e1rmFuer(key);
   if (!basis || !rpe) return null;
-  return koerperUebung(key) ? zusatzFuer(basis, wdh, rpe, koerperKg) : lastFuer(basis, wdh, rpe, incVon(key));
+  return koerperUebung(key) ? zusatzFuer(basis, wdh, rpe, koerperKg) : lastFuerWeit(basis, wdh, rpe, incVon(key));
 }
 
 /** e1RM eines Satzes; bei Körpergewichtsübungen über die Gesamtlast. Für Rekorde ohne RPE (wie die Auswertung),
@@ -23,7 +24,7 @@ export function satzE1rm(key, s, koerperKg, mitRpe = false) {
   if (!(s.wdh > 0)) return null;
   if (s.typ === 'warmup') return null;                   // Aufwärmsätze zählen nicht fürs e1RM
   const rpe = mitRpe ? s.rpe : null;
-  return koerperUebung(key) ? e1rmKoerper(s.kg ?? 0, s.wdh, rpe, koerperKg, formel())?.gesamt ?? null : e1rm(s.kg, s.wdh, rpe, formel());
+  return koerperUebung(key) ? e1rmKoerper(s.kg ?? 0, s.wdh, rpe, koerperKg, formel())?.gesamt ?? null : (mitRpe ? e1rmWeit : e1rm)(s.kg, s.wdh, rpe, formel());
 }
 
 /** Trainingstag aus planeBlock in Karten mit Sätzen; gleiche Übung hintereinander = eine Karte (Top-Satz + Back-offs). */
@@ -80,6 +81,8 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     return null;
   })();
   const dauer = (Date.now() - t.start) / 1000;
+  // Fokus: die Übung mit dem nächsten offenen Satz; die übrigen treten zurück, solange sie aufgeklappt ist
+  const fokus = !t.bearbeiten && aktuell && !t.karten[aktuell[0]].zu ? aktuell[0] : null;
   const kg = einst.koerpergewicht;
   const aendere = (f) => setT((alt) => { const karten = structuredClone(alt.karten); f(karten); return { ...alt, karten }; });
   const satz = (ki, gi, si, f) => aendere((ks) => f(ks[ki].gruppen[gi].saetze[si], ks[ki].gruppen[gi], ks[ki]));
@@ -93,7 +96,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     const pr = wert != null && (s.kg > 0 || koerperUebung(k.key)) && wert > bisher;
     satz(ki, gi, si, (x) => { x.erledigt = true; x.e1rm = wert; x.pr = pr; x.zeit = new Date().toISOString(); });
     if (pr) lichter({ gold: true, titel: 'Neuer Rekord', text: `${nameVon(k.key)} · e1RM ${gwE(wert, 1)}` });
-    else if (['top', 'test'].includes(g.rolle) && s.wdh > 0) lichter({ gold: false, titel: 'Good Lift', text: `${gwE(s.kg)} × ${s.wdh}` });
+    else if (['top', 'test'].includes(g.rolle) && s.wdh > 0) lichter({ gold: false, titel: 'Gültiger Versuch', text: `${gwE(s.kg)} × ${s.wdh}` });
     // Supersatz: ohne Pause zur nächsten Übung der Gruppe; die Pause läuft erst nach der letzten Übung der Runde
     if (k.supersatz) {
       const gruppe = t.karten.map((kk, i) => [kk, i]).filter(([kk]) => kk.supersatz === k.supersatz);
@@ -102,8 +105,16 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     }
     const naechster = g.saetze[si + 1] ?? k.gruppen[gi + 1]?.saetze[0] ?? t.karten[ki + 1]?.gruppen[0]?.saetze[0];
     const pause = pauseVon(k.key, g.rolle, einst.pausen);
-    setTimer({ ende: Date.now() + pause * 1000, dauer: pause, fertig: false,
+    setTimer({ ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false,
       naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft' });
+    // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen
+    if (k.gruppen.every((gg, gj) => gg.saetze.every((x, sj) => x.erledigt || (gj === gi && sj === si)))) {
+      aendere((ks) => {
+        ks[ki].zu = true;
+        const n = ks.findIndex((kk, j) => j > ki && kk.key && kk.gruppen.some((gg) => gg.saetze.some((x) => !x.erledigt)));
+        if (n >= 0) ks[n].zu = false;
+      });
+    }
   };
 
   const gesamt = alleSaetze(t);
@@ -124,13 +135,14 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
         })}</div>
     </header>
 
-    ${t.karten.map((k, ki) => k.slot ? html`<section class="card ex" key=${k.id}>
+    ${t.karten.map((k, ki) => k.slot ? html`<section class=${`card ex ${fokus != null ? 'gedimmt' : ''}`} key=${k.id}>
         <div class="ex-head"><div class="badge" style="background:var(--raised);color:var(--muted)">+</div>
           <div style="min-width:0"><p class="ex-title">${k.slot.label}</p>
             <div class="ex-meta">${k.gruppen[0].saetze.length} × ${k.gruppen[0].wdhText}${k.gruppen[0].rpe ? ` · ${rpeText(k.gruppen[0].rpe)}` : ''} · Übung wählen</div></div></div>
         <div class="slot"><${UebungSuche} id=${`slot-${ki}`} familien=${k.slot.families?.length ? k.slot.families : null} onWahl=${(key) => aendere((ks) => setzeUebung(ks[ki], key, kg))}/></div>
       </section>`
-      : html`<${Karte} key=${k.id} k=${k} ki=${ki} karten=${t.karten} abhaken=${abhaken} aendere=${aendere} setSheet=${setSheet} einst=${einst} zuVerlauf=${zuVerlauf} bearbeiten=${!!t.bearbeiten} aktuell=${aktuell}/>`)}
+      : html`<${Karte} key=${k.id} k=${k} ki=${ki} karten=${t.karten} abhaken=${abhaken} aendere=${aendere} setSheet=${setSheet} einst=${einst} zuVerlauf=${zuVerlauf} bearbeiten=${!!t.bearbeiten} aktuell=${aktuell}
+          gedimmt=${fokus != null && fokus !== ki}/>`)}
 
     <section class="card pad stack">
       <span class="viz-t">${t.karten.length ? 'Weitere Übung' : 'Erste Übung wählen'}</span>
@@ -159,31 +171,48 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
   </div>`;
 }
 
-/** Wischen auf einer Übung: nach links = entfernen (mit Rückfrage), nach rechts = ein-/ausklappen. Senkrecht scrollt normal. */
+/** Wischen auf einer Übung: nach links = entfernen (mit Rückfrage), nach rechts = ein-/ausklappen. Senkrecht scrollt normal.
+ *  Die Karte folgt dem Finger 1:1 (hinter der Schwelle mit Widerstand); beim Loslassen gleitet sie zurück bzw. hinaus. */
+const SCHWELLE = 90;
 function useWischen(links, rechts) {
   const z = useRef(null), el = useRef(null);
   const start = (e) => { const p = e.touches[0]; z.current = { x: p.clientX, y: p.clientY, dx: 0, an: false, aus: false }; };
   const zug = (e) => {
     const s = z.current; if (!s || s.aus) return;
     const p = e.touches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
-    if (!s.an) { if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return; if (Math.abs(dx) < 2 * Math.abs(dy) || e.target.closest?.('.slot, input')) { s.aus = true; return; } s.an = true; }
-    s.dx = dx; el.current.style.transform = `translateX(${dx * 0.6}px)`; el.current.dataset.wisch = dx < 0 ? 'links' : 'rechts';
+    if (!s.an) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; if (Math.abs(dx) < 1.5 * Math.abs(dy) || e.target.closest?.('.slot, input')) { s.aus = true; return; } s.an = true; s.x = p.clientX; }
+    s.dx = p.clientX - s.x;
+    const weg = Math.abs(s.dx) <= SCHWELLE ? s.dx : Math.sign(s.dx) * (SCHWELLE + (Math.abs(s.dx) - SCHWELLE) * 0.35);
+    const k = el.current;
+    k.style.transition = 'none';
+    k.style.transform = `translateX(${weg}px)`;
+    k.dataset.wisch = s.dx < 0 ? 'links' : 'rechts';
+    k.dataset.scharf = String(Math.abs(s.dx) > SCHWELLE);
   };
   const ende = () => {
     const s = z.current; z.current = null;
-    if (!el.current) return;
-    el.current.style.transform = ''; delete el.current.dataset.wisch;
-    if (!s?.an) return;
-    if (s.dx < -90) links(); else if (s.dx > 90) rechts();
+    const k = el.current;
+    if (!k || !s?.an) return;
+    delete k.dataset.wisch; delete k.dataset.scharf;
+    const ausloesen = Math.abs(s.dx) > SCHWELLE;
+    if (ausloesen && s.dx > 0) {
+      // Einklappen: kurz weiter nach rechts gleiten, dann umschalten und zurückfedern
+      k.style.transition = 'transform .14s ease-out'; k.style.transform = `translateX(${SCHWELLE * 1.4}px)`;
+      setTimeout(() => { k.style.transition = 'transform .28s cubic-bezier(.2, .9, .3, 1.2)'; k.style.transform = ''; rechts(); }, 140);
+      return;
+    }
+    k.style.transition = 'transform .3s cubic-bezier(.2, .9, .3, 1.15)';
+    k.style.transform = '';
+    if (ausloesen) links();
   };
   return { ref: el, onTouchStart: start, onTouchMove: zug, onTouchEnd: ende, onTouchCancel: ende };
 }
 
-function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null }) {
+function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
   const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere((ks) => { ks[ki].zu = !ks[ki].zu; }));
   if (k.zu) {
     const alle = k.gruppen.flatMap((g) => g.saetze), fertig = alle.filter((s) => s.erledigt).length;
-    return html`<section class="card ex eingeklappt" ...${wisch}>
+    return html`<section class=${`card ex eingeklappt ${gedimmt ? 'gedimmt' : ''}`} ...${wisch}>
       <button class="ex-zu" onClick=${() => aendere((ks) => { ks[ki].zu = false; })} aria-label=${`${nameVon(k.key)} aufklappen`}>
         <${UebungsBild} schluessel=${k.key} groesse=${32}/><b>${nameVon(k.key)}</b>
         <span class=${fertig === alle.length ? 'ok' : 'muted'}>${fertig}/${alle.length} ${fertig === alle.length ? '✓' : 'Sätze'}</span></button>
@@ -192,16 +221,23 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
   const lift = liftVon(k.key), letzte = LETZTES[k.key], g0 = k.gruppen[0], koerper = koerperUebung(k.key), a = anpassung(k.key);
   const aufw = !bearbeiten && stangeVon(k.key) && g0.saetze[0].kg > 40 ? aufwaermen(g0.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() }) : [];
   const naechste = karten[ki + 1];
+  // Errechnetes 1RM heute: bester abgehakter Satz, sonst der aktuelle Satz dieser Übung (live beim Ändern)
+  const heute1rm = (() => {
+    const kand = k.gruppen.flatMap((g, gi) => g.saetze.map((s, si) => ({ s, jetzt: aktuell && aktuell[0] === ki && aktuell[1] === gi && aktuell[2] === si })))
+      .filter(({ s, jetzt }) => (s.erledigt || jetzt) && s.wdh > 0 && (s.kg > 0 || koerper) && s.typ !== 'warmup');
+    const werte = kand.map(({ s }) => satzE1rm(k.key, s, einst.koerpergewicht, true)).filter((v) => v != null);
+    return werte.length ? Math.max(...werte) : null;
+  })();
   const supersatz = (an) => aendere((ks) => {
     if (an) { const gruppe = ks[ki].supersatz ?? ks[ki + 1]?.supersatz ?? Math.max(0, ...ks.map((x) => x.supersatz ?? 0)) + 1; ks[ki].supersatz = gruppe; ks[ki + 1].supersatz = gruppe; }
     else { const gruppe = ks[ki].supersatz; for (const x of ks) if (x.supersatz === gruppe) x.supersatz = undefined; }
   });
-  return html`<section class=${`card ex ${k.supersatz ? 'supersatz' : ''}`} ...${wisch}>
+  return html`<section class=${`card ex ${k.supersatz ? 'supersatz' : ''} ${gedimmt ? 'gedimmt' : ''}`} ...${wisch}>
     ${k.supersatz ? html`<div class="ss-marke">Supersatz ${String.fromCharCode(64 + k.supersatz)}</div>` : null}
     <div class="ex-head">
       <button class="bild-knopf" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung" style=${lift === 'andere' ? '' : `--c:${LIFT[lift].farbe}`}><${UebungsBild} schluessel=${k.key} groesse=${48}/></button>
       <div style="min-width:0;flex:1"><button class="ex-title titel-knopf" onClick=${() => zuVerlauf(k.key)}>${nameVon(k.key)}</button>
-        <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}${BEST_E1RM[k.key] ? html` · <span class="best-1rm">1RM ${gwE(BEST_E1RM[k.key], 1)}</span>` : ''}</div>
+        <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[2] ? `${gw(letzte[2].kg ?? 0)} × ${letzte[2].wdh}${letzte[2].rpe != null ? ` @ ${fmt(letzte[2].rpe)}` : ''}` : letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}${BEST_E1RM[k.key] ? html` · <span class="best-1rm">1RM ${gwE(BEST_E1RM[k.key], 1)}</span>` : ''}${heute1rm ? html` · <span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : ''}</div>
         ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">
@@ -211,7 +247,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     </div>
     ${k.gruppen.map((g, gi) => html`<div key=${gi}>
       <div class="group-h">
-        <span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (g.saetzeText ?? 'Arbeitssätze')}</span>
+        <span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (programmText(g.saetzeText) ?? 'Arbeitssätze')}</span>
         <span class="target">${g.wdhText ? `${g.saetze.length} × ${g.wdhText}` : `${g.saetze.length} ${g.saetze.length === 1 ? 'Satz' : 'Sätze'}`}${g.rpe ? ` · ${rpeText(g.rpe)}` : ''}${g.vorschlag ? ' · kg aus e1RM' : ''}${g.gekuerzt ? ' · Cut −1' : ''}</span>
       </div>
       ${g.kgBis && g.saetze.some((s) => !s.erledigt) ? html`<div class="spanne">
@@ -240,10 +276,16 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
           ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}</div>` : null}
       </div>`;
       })}
-      ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${g.notiz}</p>` : null}
+      ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}
     </div>`)}
     <div class="ex-foot">
-      <button class="link" onClick=${() => aendere((ks) => { const g = ks[ki].gruppen.at(-1); const s = g.saetze.at(-1); g.saetze.push({ ...s, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined }); })}>+ Satz</button>
+      <span class="satz-pm" role="group" aria-label="Sätze">
+        <button class="mini" disabled=${!k.gruppen.at(-1).saetze.some((s) => !s.erledigt) || k.gruppen.flatMap((g) => g.saetze).length < 2} aria-label="Satz entfernen"
+          onClick=${() => aendere((ks) => { const g = ks[ki].gruppen.at(-1); const i = g.saetze.findLastIndex((s) => !s.erledigt); if (i >= 0) g.saetze.splice(i, 1); })}>−</button>
+        <span>Satz</span>
+        <button class="mini" aria-label="Satz hinzufügen"
+          onClick=${() => aendere((ks) => { const g = ks[ki].gruppen.at(-1); const s = g.saetze.at(-1); g.saetze.push({ ...s, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined }); })}>+</button>
+      </span>
       <button class="link" onClick=${() => setSheet({ art: 'unotiz', ki })}>${k.notiz ? 'Notiz ändern' : 'Notiz'}</button>
       ${k.supersatz ? html`<button class="link" onClick=${() => supersatz(false)}>Supersatz lösen</button>`
         : naechste && !naechste.slot ? html`<button class="link" onClick=${() => supersatz(true)}>Supersatz mit nächster</button>` : null}
@@ -270,8 +312,8 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
     <div class="stepper">${[-2 * inc, -inc, inc, 2 * inc].map((d) => html`<button key=${d} onClick=${() => setKg(koerper ? +(kg + d).toFixed(4) : Math.max(0, +(kg + d).toFixed(4)))}>${d > 0 ? '+' : '−'}${gw(Math.abs(d))}</button>`)}</div>
     ${koerper ? html`<p class="muted" style="margin:0;font-size:13.5px">Gesamtlast ${koerperKg ? gwE(koerperKg + kg) : '–'} (Körpergewicht ${koerperKg ? gwE(koerperKg) : 'fehlt – in den Einstellungen eintragen'}). Negativ = Unterstützung.</p>` : null}
     ${stangeVon(k.key) ? html`<div class="stack" style="gap:8px"><${Hantel} kg=${kg}/><div class="row between"><span class="eyebrow">Pro Seite</span><${Scheiben} kg=${kg}/></div></div>` : null}
-    ${best && !koerper && lastFuer(best, s.wdh, zielRpe) ? html`<p class="muted" style="margin:0;font-size:13.5px">Bestes e1RM ${gwE(best, 1)}. Das entspricht etwa <b style="color:var(--ink)">${gwE(lastFuer(best, s.wdh, zielRpe, inc))} × ${s.wdh} @ RPE ${fmt(zielRpe)}</b>, darüber wird es ein Rekord.</p>` : null}
-    ${!koerper && kg > 0 && s.wdh > 0 ? html`<p class="muted" style="margin:0;font-size:13.5px">Mit ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: errechnetes 1RM etwa <b style="color:var(--ink)">${gwE(e1rm(kg, s.wdh, s.rpe, formel()), 1)}</b>.</p>` : null}
+    ${best && !koerper && lastFuerWeit(best, s.wdh, zielRpe) ? html`<p class="muted" style="margin:0;font-size:13.5px">Bestes e1RM ${gwE(best, 1)}. Das entspricht etwa <b style="color:var(--ink)">${gwE(lastFuerWeit(best, s.wdh, zielRpe, inc))} × ${s.wdh} @ RPE ${fmt(zielRpe)}</b>, darüber wird es ein Rekord.</p>` : null}
+    ${!koerper && kg > 0 && s.wdh > 0 ? html`<p class="muted" style="margin:0;font-size:13.5px">Mit ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: errechnetes 1RM etwa <b style="color:var(--ink)">${gwE(e1rmWeit(kg, s.wdh, s.rpe, formel()), 1)}</b>.</p>` : null}
     ${g.saetze.length > z.si + 1 ? html`<label class="schalter" for="kg-alle"><span>Auch für die folgenden Sätze</span>
       <input type="checkbox" id="kg-alle" checked=${alle} onChange=${(e) => setAlle(e.currentTarget.checked)}/></label>` : null}
     <button class="btn btn-chalk btn-block" onClick=${ok}>Übernehmen</button>
@@ -347,7 +389,7 @@ function SatzSheet({ t, s: z, zu, satz, aendere, koerperKg }) {
   return html`<${Sheet} zu=${zu} label="Satzdetails">
     <div class="row between"><div><div class="eyebrow">Satz ${z.si + 1} · ${gw(s.kg)} ${einheit()} × ${s.wdh}</div><h2 class="h2">Wie schwer war's?</h2></div>${g.rpe ? html`<span class="tag">Ziel ${rpeText(g.rpe)}</span>` : null}</div>
     <div class="rpe-grid">
-      ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((r) => html`<button key=${r} aria-pressed=${String(rpe === r)} onClick=${() => setRpe(r)}>
+      ${[4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((r) => html`<button key=${r} aria-pressed=${String(rpe === r)} onClick=${() => setRpe(r)}>
         <b>${fmt(r)}</b><span>${r === 10 ? 'Limit' : `noch ${fmt(10 - r)}`}</span></button>`)}
       <button aria-pressed=${String(rpe == null)} onClick=${() => setRpe(null)}><b>–</b><span>ohne</span></button>
     </div>
@@ -385,13 +427,19 @@ function UebungNotizSheet({ t, ki, zu, aendere }) {
 function EndeSheet({ t, zu, beenden }) {
   const [gefuehl, setGefuehl] = useState(t.sessionRpe ?? null);       // beim Bearbeiten: bisherige Angaben vorbelegt
   const [notiz, setNotiz] = useState(t.notiz ?? '');
+  const [loeschFrage, setLoeschFrage] = useState(false);
   const saetze = alleSaetze(t).filter((s) => s.erledigt);
   const tonnage = saetze.reduce((a, s) => a + (s.kg || 0) * (s.wdh || 0), 0);
   const prListe = t.karten.flatMap((k) => k.gruppen.flatMap((g) => g.saetze.filter((s) => s.erledigt && s.pr).map((s) => ({ k, s }))));
   const prs = prListe.length;
   const ende = t.bearbeiten && t.ende ? Date.parse(t.ende) : Date.now();
   return html`<${Sheet} zu=${zu} label=${t.bearbeiten ? 'Änderungen speichern' : 'Training beenden'}>
-    <div><div class="eyebrow">${t.titel}</div><h2 class="h2">${t.bearbeiten ? 'Änderungen speichern' : 'Training beenden'}</h2></div>
+    <div class="row between" style="align-items:flex-start"><div><div class="eyebrow">${t.titel}</div><h2 class="h2">${t.bearbeiten ? 'Änderungen speichern' : 'Training beenden'}</h2></div>
+      <button class="iconbtn loeschen-knopf" onClick=${() => setLoeschFrage(true)} aria-label=${t.bearbeiten ? 'Änderungen verwerfen' : 'Training löschen'}>${I.papierkorb}</button></div>
+    ${loeschFrage ? html`<div class="hint" role="alertdialog" aria-label="Löschen bestätigen">${I.warn}<span class="t">${t.bearbeiten ? 'Änderungen verwerfen?' : 'Training löschen?'}</span><span></span>
+      <p>${t.bearbeiten ? 'Das gespeicherte Training bleibt, wie es war.' : saetze.length === 1 ? '1 abgehakter Satz geht verloren, nichts wird gespeichert.' : `${saetze.length} abgehakte Sätze gehen verloren, nichts wird gespeichert.`}</p><span></span>
+      <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setLoeschFrage(false)}>Abbrechen</button>
+        <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => beenden({ verwerfen: true })}>${t.bearbeiten ? 'Verwerfen' : 'Löschen'}</button></div></div>` : null}
     <div class="kv">
       <div><span class="eyebrow">Dauer</span><b>${Math.max(1, Math.round((ende - t.start) / 60000))} min</b></div>
       <div><span class="eyebrow">Sätze</span><b>${saetze.length}</b></div>

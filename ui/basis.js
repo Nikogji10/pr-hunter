@@ -11,7 +11,7 @@ export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.
 // Anzeige: Sprache, Einheit, Stange/Scheiben und persönliche Übungsanpassungen (von app.js gesetzt).
 // Intern ist alles kg; nur Anzeige und Eingabe rechnen in die gewählte Einheit um.
 // #################################################################
-const ANZEIGE = { sprache: 'de', einheit: 'kg', stange: 20, scheiben: STANDARD_SCHEIBEN, anpassung: {}, inc: 2.5, formel: 'rpe' };
+const ANZEIGE = { sprache: 'de', einheit: 'kg', stange: 20, scheiben: STANDARD_SCHEIBEN, anpassung: {}, inc: 2.5, formel: 'rpe', ton: 'piep' };
 export function setzeAnzeige(neu = {}) { for (const [k, v] of Object.entries(neu)) if (v != null) ANZEIGE[k] = v; }
 /** Steigerung für Programmgewichte in kg (aus den Einstellungen; in lb 5 lb usw.). */
 export const incStandard = () => ANZEIGE.inc;
@@ -125,19 +125,34 @@ export const speicher = {
   schreib(k, v) { try { localStorage.setItem(k, v); } catch { /* ohne Speicher geht es auch */ } },
 };
 
+// #################################################################
+// Ton am Pausenende: in der App erzeugt (Web Audio, keine Tondateien). Wählbar in Einstellungen → Training.
+// Jeder Ton: Liste von [Start s, Frequenz Hz, Dauer s, Lautstärke, Wellenform]; „aus“ = nur Vibration.
+// #################################################################
+export const TOENE = {
+  piep: { name: 'Piep', noten: [[0, 784, 0.18, 0.25, 'sine'], [0.22, 784, 0.18, 0.25, 'sine'], [0.44, 1046, 0.18, 0.25, 'sine']] },
+  glocke: { name: 'Glocke', noten: [[0, 1318, 1.1, 0.22, 'sine'], [0, 3638, 0.5, 0.05, 'sine'], [0.45, 1318, 1.1, 0.18, 'sine'], [0.45, 3638, 0.5, 0.04, 'sine']] },
+  gong: { name: 'Gong', noten: [[0, 196, 1.8, 0.32, 'sine'], [0, 392, 1.4, 0.12, 'sine'], [0, 523, 0.9, 0.06, 'triangle']] },
+  hupe: { name: 'Hupe', noten: [[0, 440, 0.32, 0.14, 'square'], [0.4, 440, 0.32, 0.14, 'square']] },
+  aufstieg: { name: 'Aufstieg', noten: [[0, 523, 0.14, 0.22, 'triangle'], [0.12, 659, 0.14, 0.22, 'triangle'], [0.24, 784, 0.14, 0.22, 'triangle'], [0.36, 1046, 0.3, 0.24, 'triangle']] },
+  aus: { name: 'Nur Vibration', noten: [] },
+};
 let audio;
-export function tonFreigeben() { try { audio ??= new AudioContext(); } catch { /* kein Ton im Rahmen */ } }
-export function piep() {
+export function tonFreigeben() { try { audio ??= new AudioContext(); audio.state === 'suspended' && audio.resume(); } catch { /* kein Ton im Rahmen */ } }
+/** Ton spielen (Standard: der gewählte), dazu Vibration. */
+export function piep(art = ANZEIGE.ton) {
   try {
     tonFreigeben();
-    for (const t of [0, 0.22, 0.44]) {
+    for (const [t, f, dauer, laut, welle] of (TOENE[art] ?? TOENE.piep).noten) {
       const o = audio.createOscillator(), g = audio.createGain(), s = audio.currentTime + t;
-      o.frequency.value = t < 0.4 ? 784 : 1046; g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.25, s + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.18); o.connect(g).connect(audio.destination); o.start(s); o.stop(s + 0.2);
+      o.type = welle; o.frequency.value = f; g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(laut, s + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + dauer); o.connect(g).connect(audio.destination); o.start(s); o.stop(s + dauer + 0.02);
     }
   } catch { /* kein Ton im Rahmen */ }
   try { navigator.vibrate?.([180, 80, 180]); } catch { /* iPhone kann es nicht */ }
 }
+/** Text in der App-Sprache für Stellen, die der Übersetzer nicht erreicht (Benachrichtigungen). */
+export const deEn = (de, enText) => (ANZEIGE.sprache === 'en' ? enText : de);
 export function useTakt(aktiv, ms = 250) {
   const [, setN] = useState(0);
   useEffect(() => { if (!aktiv) return; const id = setInterval(() => setN((n) => n + 1), ms); return () => clearInterval(id); }, [aktiv, ms]);
@@ -145,6 +160,7 @@ export function useTakt(aktiv, ms = 250) {
 
 const svg = (pfad) => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${pfad}</svg>`;
 export const I = {
+  papierkorb: svg(html`<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>`),
   heute: svg(html`<path d="M2.5 12h3M18.5 12h3M5.5 7.5v9M18.5 7.5v9M8.5 5v14M15.5 5v14M8.5 12h7"/>`),
   programme: svg(html`<rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/>`),
   verlauf: svg(html`<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>`),
@@ -166,6 +182,7 @@ export const I = {
   kopieren: svg(html`<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>`),
   import: svg(html`<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>`),
   weiter: svg(html`<path d="M9 6l6 6-6 6"/>`),
+  feed: svg(html`<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c2.4.2 4 1.7 4.5 4.5"/>`),
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
@@ -177,8 +194,10 @@ export function PausenTimer({ timer, setTimer, kopf = false }) {
   return html`<div class=${`timer ${rest <= 0 ? 'over' : ''} ${kopf ? 'im-kopf' : ''}`} role="timer" aria-live="off">
     <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor;opacity:.2" stroke-width="4"/>
       <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/></svg>
-    <div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div><div class="s">${rest > 0 ? `Pause · nächster: ${timer.naechster}` : 'Pause vorbei'}</div></div>
-    <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000 })} aria-label="30 Sekunden weniger">−30</button>
+    <div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
+      <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
+        : `Pause · nächster: ${timer.naechster}`}</div></div>
+    <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
     <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
     <button onClick=${() => setTimer(null)} aria-label="Pause beenden" style="min-width:40px">${I.zu}</button>
   </div>`;

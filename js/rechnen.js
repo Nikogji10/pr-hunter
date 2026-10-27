@@ -55,6 +55,21 @@ export function lastFuer(e1rmKg, wdh, rpe, inc = 2.5) {
   return e1rmKg == null || pct == null ? null : mround(e1rmKg * pct, inc);
 }
 
+/** Wie lastFuer, aber auch außerhalb der RTS-Tabelle (leichte Sätze, z. B. 10 @ RPE 5): dort Epley mit Wdh bis
+ *  Versagen. Nur für Vorschläge im Training; public.load_for (DB) bleibt bei lastFuer. */
+export function lastFuerWeit(e1rmKg, wdh, rpe, inc = 2.5) {
+  if (e1rmKg == null || wdh == null || wdh < 1) return null;
+  const x = wdh + 10 - (rpe ?? 10);
+  if (x < 1) return null;
+  return mround(e1rmKg * (rtsPct(wdh, rpe) ?? 30 / (30 + x)), inc);
+}
+
+/** Wie e1rm mit RPE, außerhalb der RTS-Tabelle Epley mit Wdh bis Versagen (Anzeige am Satz). */
+export function e1rmWeit(kg, wdh, rpe = null, formel = 'rpe') {
+  if (formel !== 'rpe' || kg == null || wdh == null || wdh < 1 || kg <= 0 || rtsPct(wdh, rpe) != null || rpe == null) return e1rm(kg, wdh, rpe, formel);
+  return runde((kg * (30 + wdh + 10 - rpe)) / 30, 1);
+}
+
 /**
  * Körpergewicht plus Zusatz (Klimmzug, Dips): das e1RM gilt für die Gesamtlast. Mit dem Zusatzgewicht allein
  * zu rechnen unterschätzt das Max stark (85 kg + 20 kg × 8 @ 8: gesamt 142,1 statt 27,1 für den Zusatz).

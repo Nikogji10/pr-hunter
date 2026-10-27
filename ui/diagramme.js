@@ -1,16 +1,19 @@
 // PR Hunter · Diagramme (SVG, Hover/Touch-Tooltip, Tabellenansicht). Farben kommen aus CSS-Variablen:
 // --lift-squat/-bench/-dead (geprüfte Palette), --andere (zurückgenommen), --grid, --axis, --seq-0…4.
 import { html, useState, useRef, useEffect } from '../vendor/htm-preact.js';
-import { einheit, inAnzeige } from './basis.js';
+import { einheit, inAnzeige, sprache } from './basis.js';
 
-export const fmt = (n, stellen = 1) => n == null ? '–' : n.toLocaleString('de-DE', { maximumFractionDigits: stellen });
+export const fmt = (n, stellen = 1) => n == null ? '–' : n.toLocaleString(sprache() === 'en' ? 'en-GB' : 'de-DE', { maximumFractionDigits: stellen });
 export const kurzKg = (n) => {
   if (einheit() === 'lb') { const v = inAnzeige(n); return v >= 1000 ? `${fmt(v / 1000, 1)}k lb` : `${fmt(v, 0)} lb`; }
   return n >= 10000 ? `${fmt(n / 1000, 0)} t` : n >= 1000 ? `${fmt(n / 1000, 1)} t` : `${fmt(n, 0)} kg`;
 };
 const achseKg = (t) => (!t ? '0' : einheit() === 'lb' ? `${fmt(inAnzeige(t) / 1000, 0)}k` : `${fmt(t / 1000, 0)} t`);
-const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-export const datumKurz = (iso) => `${Number(iso.slice(8, 10))}. ${MONATE[Number(iso.slice(5, 7)) - 1]}`;
+const MONATE_DE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const MONATE_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONATE = new Proxy([], { get: (_, i) => (sprache() === 'en' ? MONATE_EN : MONATE_DE)[i] });
+export const datumKurz = (iso) => (sprache() === 'en' ? `${Number(iso.slice(8, 10))} ${MONATE[Number(iso.slice(5, 7)) - 1]}`
+  : `${Number(iso.slice(8, 10))}. ${MONATE[Number(iso.slice(5, 7)) - 1]}`);
 
 function schritte(min, max, anzahl = 4) {
   if (!Number.isFinite(min) || !Number.isFinite(max)) [min, max] = [0, 1];
@@ -123,8 +126,9 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
 /** Gestapelte Säulen (Teile eines Ganzen je Woche), 2 px Lücke, abgerundetes Ende nur oben. */
 export function StapelSaeulen({ titel, unter, daten, serien, einheit = null }) {
   const [i, setI] = useState(null);
-  const wert = (v) => einheit ? `${fmt(v, 0)} ${einheit}` : kurzKg(v);
-  const tick = (t) => einheit ? fmt(t, 0) : achseKg(t);
+  // einheit null = kg (kurz in t), '' = reine Anzahl
+  const wert = (v) => einheit != null ? `${fmt(v, 0)}${einheit ? ` ${einheit}` : ''}` : kurzKg(v);
+  const tick = (t) => einheit != null ? fmt(t, 0) : achseKg(t);
   const W = 340, H = 200, L = 34, R = 6, T = 10, U = 24;
   const summen = daten.map((d) => serien.reduce((a, s) => a + d.teile[s.id], 0));
   const ticks = schritte(0, Math.max(...summen), 4);

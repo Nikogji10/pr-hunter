@@ -16,8 +16,31 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="css/schriften.css">
 <link rel="stylesheet" href="css/app.css">
+<script>
+  // Design, Farbwelt und Schrift vom letzten Mal sofort setzen, damit Startbild und erste Ansicht schon richtig aussehen
+  try {
+    var el = document.documentElement, t = localStorage.getItem('prh-thema'), s = localStorage.getItem('prh-stil'), f = localStorage.getItem('prh-schrift');
+    if (t === 'light' || t === 'dark') el.dataset.theme = t;
+    if (s && s !== 'eisen') el.dataset.stil = s;
+    if (f && f !== 'archivo') el.dataset.schrift = f;
+  } catch (e) { /* ohne Speicher: Standard */ }
+</script>
 </head>
 <body>
+<!-- Startbild: steht sofort da (vor dem App-Code), nur beim echten Öffnen; app.js blendet es aus, sobald die App bereit ist -->
+<div id="startbild" aria-hidden="true">
+  <svg class="sb-hantel" viewBox="0 0 340 90">
+    <rect class="sb-stange" x="4" y="41" width="332" height="8" rx="4"/>
+    <rect class="sb-kragen" x="98" y="30" width="7" height="30" rx="1.5"/><rect class="sb-kragen" x="235" y="30" width="7" height="30" rx="1.5"/>
+    <g class="sb-l"><rect x="84" y="6" width="13" height="78" rx="2.5" fill="#D7263D"/><rect x="69" y="6" width="13" height="78" rx="2.5" fill="#1F5FD1"/><rect x="56" y="14" width="11" height="62" rx="2.5" fill="#F2C230"/></g>
+    <g class="sb-r"><rect x="243" y="6" width="13" height="78" rx="2.5" fill="#D7263D"/><rect x="258" y="6" width="13" height="78" rx="2.5" fill="#1F5FD1"/><rect x="273" y="14" width="11" height="62" rx="2.5" fill="#F2C230"/></g>
+  </svg>
+  <div class="sb-logo"><b>PR</b> Hunter</div>
+</div>
+<script>
+  // Beim Neuladen (gleiche Sitzung) kein Startbild; beim Öffnen der App einmal
+  try { if (sessionStorage.getItem('prh-gestartet')) document.getElementById('startbild').remove(); else sessionStorage.setItem('prh-gestartet', '1'); } catch (e) { /* ohne Speicher: zeigen */ }
+</script>
 <div id="app"></div>
 <noscript>PR Hunter braucht JavaScript.</noscript>
 <script src="vendor/supabase.js"></script>

@@ -13,10 +13,12 @@ import { UebungsSeite, UebungFormular } from './ui/uebung.js';
 import { Einstellungen } from './ui/einstellungen.js';
 import { Statistik } from './ui/statistik.js';
 import { Rechner } from './ui/rechner.js';
+import { Feed } from './ui/feed.js';
 import { BereitschaftSheet } from './ui/bereitschaft.js';
 import { GewichtKarte } from './ui/gewicht.js';
 import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung } from './ui/hintergrund.js';
 import { setzeSprache } from './ui/sprache.js';
+import * as mitteilung from './ui/mitteilung.js';
 import { KG_PRO_LB } from './js/rechnen.js';
 import { erstelleStand, plusTage, tageZwischen } from './js/daten.js';
 import { sollIst, neueMaxe, tageMitOptionen } from './js/block.js';
@@ -29,7 +31,7 @@ import * as konto from './js/konto.js';
 const DEMO = new URLSearchParams(location.search).has('demo');
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
 const { STANDARD_EINSTELLUNGEN } = konto;
-const TABS = [['heute', 'Heute'], ['programme', 'Programme'], ['verlauf', 'Verlauf'], ['statistik', 'Statistik'], ['rechner', 'Rechner']];
+const TABS = [['heute', 'Heute'], ['programme', 'Programme'], ['verlauf', 'Verlauf'], ['feed', 'Feed'], ['statistik', 'Statistik'], ['rechner', 'Rechner']];
 const PAUSE_HINWEIS_TAGE = 10;          // ab so vielen Tagen ohne Training: vorsichtig einsteigen (Verletzungen nach Urlaub)
 const ABGLEICH_ALLE_MS = 5 * 60 * 1000;
 const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))];
@@ -38,7 +40,7 @@ const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).fi
 // Navigation über die Browser-Historie: jede Ansicht ist ein Eintrag mit Adresse (#statistik, #uebung/<key>).
 // Zurück bleibt in der App (auf der ersten Ansicht passiert nichts), Neuladen öffnet dieselbe Ansicht an derselben Stelle.
 // #################################################################
-const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung']);
+const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung']);
 function ausAdresse() {
   const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
   return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
@@ -49,7 +51,11 @@ if (DEMO) setzeStand(beispielStand());
 
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
-const deckkraft = (d) => document.documentElement.style.setProperty('--deckkraft', String(d >= 0 && d <= 1 ? d : 0.88));
+const deckkraft = (d) => {
+  const wert = d >= 0 && d <= 1 ? d : 0.88;
+  document.documentElement.style.setProperty('--deckkraft', String(wert));
+  document.documentElement.classList.toggle('durchsichtig', wert === 0);     // 0 %: Kacheln ganz ohne Fläche, Unschärfe und Schatten
+};
 // iOS ignoriert user-scalable=no: Zwei-Finger-Zoom hier abfangen
 for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
 document.addEventListener('touchstart', () => {}, { passive: true });   // iOS zeigt :active sonst nicht (Druckgefühl)
@@ -64,6 +70,10 @@ function thema(wert) {
   const el = document.documentElement;
   if (wert === 'light' || wert === 'dark') el.dataset.theme = wert; else delete el.dataset.theme;
 }
+/** Farbwelt (Eisen = Standard, ohne Attribut) und Schriftart (Archivo = Standard); index.html setzt beides schon vor dem Laden. */
+const STILE = new Set(['kobalt', 'glut', 'volt', 'amethyst', 'graphit']), SCHRIFTEN = new Set(['saira', 'encode', 'system']);
+function stilSetzen(wert) { const el = document.documentElement; if (STILE.has(wert)) el.dataset.stil = wert; else delete el.dataset.stil; }
+function schriftSetzen(wert) { const el = document.documentElement; if (SCHRIFTEN.has(wert)) el.dataset.schrift = wert; else delete el.dataset.schrift; }
 
 // #################################################################
 // Anmeldung per Code aus der E-Mail
@@ -200,10 +210,10 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
       <span></span><div class="row wrap" style="margin-top:6px"><button class="chip" aria-pressed=${String(leichter)} onClick=${() => setLeichter(!leichter)}>${leichter ? '✓ Heute 5 % leichter' : 'Heute 5 % leichter'}</button></div>
     </section>` : null}
 
-    ${tag ? html`<section class="card pad stack heute-plan">
+    ${tag ? html`<section class="card pad stack heute-plan wichtig">
       <div class="row between" style="align-items:flex-start"><span class="eyebrow">${tag.datum === HEUTE ? 'Heute' : 'Nächstes Training'} · ${datumLang(tag.datum)}</span><span class="muted" style="font-size:13px;white-space:nowrap">ca. ${minuten} min</span></div>
       <div class="block-zeile">
-        <div style="min-width:0"><b>${INFO[block.datei].kurz}</b><span class="muted"> · Woche ${akt}/${wochen.length}${wochenTitel ? ` · ${wochenTitel}` : ''}${einst.cut ? ' · Cut' : ''}</span></div>
+        <div style="min-width:0"><b>${INFO[block.datei].kurz}</b><span class="muted"> · ${`Woche ${akt}/${wochen.length}`}${wochenTitel ? html` · <span>${wochenTitel}</span>` : ''}${einst.cut ? ' · Cut' : ''}</span></div>
         <div class="row" style="gap:6px;flex:none"><button class="chip" aria-expanded=${String(planOffen)} onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan zu' : 'Plan'}</button>
           <button class="chip" onClick=${zuProgrammen}>Block ›</button></div>
       </div>
@@ -293,7 +303,6 @@ function App() {
   const zuletzt = useRef(0);
   const jetzt = useRef({ ansicht: 'heute', key: null });          // aktuelle Ansicht für den popstate-Handler
   const scrollPos = useRef({});                                    // Scrollposition je Ansicht (zurück ins Training = gleiche Stelle)
-  const [startbild, setStartbild] = useState(true);               // Logo mit Hantel nur kurz beim Öffnen
   const katalogStatisch = useRef([]);
   const eigeneUebungen = useRef([]);
   const zusammen = useRef({});                                   // zusammengeführte Übungen { alt: neu }
@@ -311,6 +320,7 @@ function App() {
   // #################################################################
   useEffect(() => {
     thema(speicher.lies('prh-thema'));                     // sofort, bevor das Profil geladen ist
+    stilSetzen(speicher.lies('prh-stil')); schriftSetzen(speicher.lies('prh-schrift'));
     schrift(Number(speicher.lies('prh-zoom')) || 1);
     const gemerkteDeckkraft = speicher.lies('prh-deckkraft');
     deckkraft(gemerkteDeckkraft != null && gemerkteDeckkraft !== '' ? Number(gemerkteDeckkraft) : 0.88);
@@ -457,7 +467,14 @@ function App() {
     addEventListener('pagehide', merken);
     return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); };
   }, []);
-  useEffect(() => { if (phase === 'bereit' && startbild) { const id = setTimeout(() => setStartbild(false), 1500); return () => clearTimeout(id); } }, [phase]);
+  // Startbild aus index.html ausblenden, sobald die App steht (mindestens 1,2 s nach dem Öffnen, damit die Animation durchläuft)
+  useEffect(() => {
+    if (phase === 'laden') return;
+    const sb = document.getElementById('startbild');
+    if (!sb) return;
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 500); }, Math.max(0, 1200 - performance.now()));
+    return () => clearTimeout(id);
+  }, [phase]);
   useEffect(() => {
     if (phase !== 'bereit') return;
     try {
@@ -477,10 +494,33 @@ function App() {
   useEffect(() => { if (geladen && einst.hintergrundDunkel != null) setzeAbdunklung(einst.hintergrundDunkel); }, [einst.hintergrundDunkel, geladen]);
   useEffect(() => { if (!geladen) return; deckkraft(einst.deckkraft ?? 0.88); speicher.schreib('prh-deckkraft', String(einst.deckkraft ?? 0.88)); }, [einst.deckkraft, geladen]);
   useEffect(() => { if (!geladen) return; setzeSprache(einst.sprache); speicher.schreib('prh-sprache', einst.sprache ?? 'de'); }, [einst.sprache, geladen]);
+  useEffect(() => { if (!geladen) return; stilSetzen(einst.stil); speicher.schreib('prh-stil', einst.stil ?? 'eisen'); }, [einst.stil, geladen]);
+  useEffect(() => { if (!geladen) return; schriftSetzen(einst.schrift); speicher.schreib('prh-schrift', einst.schrift ?? 'archivo'); }, [einst.schrift, geladen]);
+  // Benachrichtigungen: geht die App in den Hintergrund, während ein Training läuft, steht es in der Leiste des Handys
+  // (mit Endzeit der Pause); am Pausenende kommt eine laute Meldung. Zurück in der App verschwinden beide.
+  useEffect(() => {
+    if (DEMO || !einst.mitteilungen || !mitteilung.erlaubt()) return;
+    let id = null;
+    const pruefe = () => {
+      clearTimeout(id);
+      if (document.visibilityState === 'visible') { mitteilung.schliesse(mitteilung.TAG_TRAINING, mitteilung.TAG_PAUSE); return; }
+      if (!training || training.bearbeiten) return;
+      const s = alleSaetze(training), { titel, text } = mitteilung.trainingsText(training, { fertig: s.filter((x) => x.erledigt).length, gesamt: s.length, timer });
+      mitteilung.zeige(mitteilung.TAG_TRAINING, titel, text, { zeit: training.start });
+      if (timer && !timer.fertig && timer.ende > Date.now()) {
+        id = setTimeout(() => { const p = mitteilung.pauseEndeText(timer); mitteilung.zeige(mitteilung.TAG_PAUSE, p.titel, p.text, { laut: true }); }, timer.ende - Date.now());
+      }
+    };
+    document.addEventListener('visibilitychange', pruefe);
+    pruefe();
+    return () => { clearTimeout(id); document.removeEventListener('visibilitychange', pruefe); };
+  }, [training, timer, einst.mitteilungen]);
+  // Training beendet: Benachrichtigungen weg
+  useEffect(() => { if (!training) mitteilung.schliesse(mitteilung.TAG_TRAINING, mitteilung.TAG_PAUSE); }, [!training]);
   useEffect(() => {
     if (!lichter) return;
     if (lichter.gold) try { navigator.vibrate?.([70, 50, 70, 50, 160]); } catch { /* ohne Vibration */ }
-    const id = setTimeout(() => setLichter(null), lichter.gold ? 3200 : 1900); return () => clearTimeout(id);
+    const id = setTimeout(() => setLichter(null), lichter.gold ? 3800 : 1900); return () => clearTimeout(id);
   }, [lichter]);
 
   // Auswertungsstand für alle Ansichten (Live-Bindings in ui/stand.js)
@@ -499,7 +539,7 @@ function App() {
   const stand = useMemo(() => (DEMO || phase !== 'bereit' ? null
     : erstelleStand(trainings, { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' })), [trainings, messwerte, heute, phase, einst.formel]);
   if (stand) setzeStand(stand);
-  setzeAnzeige({ sprache: einst.sprache, einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel,
+  setzeAnzeige({ sprache: einst.sprache, einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton,
     inc: einst.einheit === 'lb' ? (einst.inc ?? 5) * KG_PRO_LB : einst.inc ?? 2.5 });
 
   // Dienste für die Ansichten (Übungen anpassen, anlegen, ändern, Details laden); in der Demo bleiben sie leer
@@ -540,6 +580,7 @@ function App() {
       aehnliche: (name) => konto.aehnlicheUebungen(supabase(), name),
       neueUebungStarten: (text, beiWahl) => setNeueUebung({ text, beiWahl }),
       ladeVergleich: () => konto.ladeVergleich(supabase()),
+      ladeFeed: () => konto.ladeFeed(supabase(), 30),
       zusammenfuehren: async (von, nach) => {
         if (!navigator.onLine) throw new Error('Zum Zusammenführen braucht das Handy Netz.');
         const n = await konto.zusammenfuehren(supabase(), von, nach);
@@ -602,7 +643,8 @@ function App() {
     const nr = wochenListe(tage).indexOf(tag.woche) + 1;
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: tag.datum, titel: `Woche ${nr} · ${datumLang(tag.datum).split(',')[0]}`,
       runId: aktiverBlock?.id ?? null, woche: tag.woche, tagOffset: tag.offset, bereitschaft,
-      karten: baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht }) });
+      // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
+      karten: baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
     gehe('training');
   };
   const starteFrei = (bereitschaft = null) => {
@@ -613,15 +655,15 @@ function App() {
   const starten = (tag) => { if (training) gehe('training'); else if (mitCheck) setBereit({ tag }); else startePlan(tag); };
   const freiStarten = () => { if (mitCheck) setBereit({ frei: true }); else starteFrei(); };
   const startenAm = (d) => { const t = tage.find((x) => x.datum === d); if (t) starten(t); };
-  const beenden = async ({ sessionRpe = null, notiz = null } = {}) => {
+  const beenden = async ({ sessionRpe = null, notiz = null, verwerfen = false } = {}) => {
     const t = training;
     const fertig = alleSaetze(t).filter((s) => s.erledigt).length;
     setTraining(null); setTimer(null);
     try { sperre.current?.release(); } catch { /* egal */ }
     gehe(t.bearbeiten ? 'verlauf' : 'heute');
-    if (!fertig) {
+    if (!fertig || verwerfen) {
       setToast(t.bearbeiten ? { titel: 'Bearbeitung verworfen', text: 'Das gespeicherte Training bleibt unverändert.' }
-        : { titel: 'Training verworfen', text: 'Kein Satz abgehakt, nichts gespeichert.' });
+        : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
@@ -738,10 +780,8 @@ function App() {
   const leiste = training && ansicht !== 'training';
   const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
   const aktiverTab = ansicht === 'training' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
-  const sb = aktiverBlock ? blockStand(tage, erledigt) : { wochen: [1, 2, 3, 4, 5, 6], akt: 7 };
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
-    ${startbild ? html`<div class="startbild" aria-hidden="true"><span class="logo"><b>PR</b> Hunter</span><${BlockHantel} wochen=${sb.wochen} aktuell=${sb.akt}/></div>` : null}
     ${imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
         minimieren=${() => gehe('heute')} beenden=${beenden} zuVerlauf=${(key) => zuUebung(key, 'training')}/>`
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
@@ -753,6 +793,7 @@ function App() {
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
+      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
       : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi} vorlage=${(() => {
           const s = training?.karten.flatMap((k) => (k.key && !koerperUebung(k.key) ? k.gruppen.flatMap((g) => g.saetze) : [])).find((x) => !x.erledigt && x.kg > 0);
@@ -772,7 +813,8 @@ function App() {
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onClick=${() => gehe(k)}>
       ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
-      ${lichter.gold ? html`<div class="konfetti" aria-hidden="true">${Array.from({ length: 28 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 7) * 0.09}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff'][i % 5]}`}></i>`)}</div>` : null}</div>` : null}
+      ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
+        <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}
     ${toast ? html`<div class="toast" role="status"><div><b>${toast.titel}</b><span class="muted" style="font-size:14px">${toast.text}</span></div></div>` : null}
     ${bereit ? html`<${BereitschaftSheet} mitLeichter=${!bereit.frei} leichter=${!!bereit.tag && bereit.tag.datum === HEUTE && leichter} zu=${() => setBereit(null)}
       los=${(r, l) => { const b = bereit; setBereit(null); if (b.frei) starteFrei(r); else startePlan(b.tag, r, l); }}/>` : null}

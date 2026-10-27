@@ -1,7 +1,7 @@
 // PR Hunter · Block-Generator (Funktionskatalog „Block-Generator“): Eingaben, Prüfung gegen die Pana-Grenzen,
 // Wochenübersicht in kg und Speichern als eigenes Programm. Die Rechnung steckt in js/generator.js.
-import { html, useState, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld } from './basis.js';
-import { generiere, wochenBis, STANDARD_VARIANTEN } from '../js/generator.js';
+import { html, useState, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz } from './basis.js';
+import { generiere, wochenBis, STANDARD_VARIANTEN, haeufigkeiten } from '../js/generator.js';
 import { HEUTE, plusTage } from './stand.js';
 import { montagVon } from '../js/daten.js';
 import { MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
@@ -15,7 +15,23 @@ const varianten = (lift) => katalogListe().filter((e) => (e.b === BASIS[lift][0]
 function startFormular(einst, vorgabe) {
   const montag = montagVon(HEUTE);
   return { name: '', start: montag === HEUTE ? HEUTE : plusTage(montag, 7), dauer: 'wochen', wochen: 5, ende: '', abschluss: 'test', urlaubDanach: false,
-    bank: null, einheiten: 2, tm: einst.cut ? 0.92 : 0.95, varianten: { ...STANDARD_VARIANTEN }, wiedereinstieg: false, ...(vorgabe ?? {}) };
+    bank: null, proWoche: { squat: 2, dead: 2, bench: 2 }, zubehoer: true, tm: einst.cut ? 0.92 : 0.95, varianten: { ...STANDARD_VARIANTEN }, wiedereinstieg: false,
+    ...(vorgabe ?? {}), ...(vorgabe && !vorgabe.proWoche ? { proWoche: haeufigkeiten(vorgabe) } : {}) };
+}
+
+/** Inhalt eines Tages in Worten: „Kniebeuge schwer · Kreuzheben Variante · Zubehör“. */
+function tagInhalt(items) {
+  const teile = [];
+  for (const i of items) {
+    if (!i.exercise_key || ['bent_over_barbell_row', 'standing_military_press', 'weighted_pull_ups'].includes(i.exercise_key)) { if (!teile.includes('Zubehör')) teile.push('Zubehör'); continue; }
+    const lift = LIFT[liftVon(i.exercise_key)]?.name ?? nameVon(i.exercise_key);
+    const note = i.groups[0]?.note ?? '';
+    if (note === 'Technik-Single' || i.role === 'backoff') continue;
+    const art = i.role === 'top' ? 'schwer' : i.role === 'test' ? 'Test' : /Leicht/.test(note) ? 'leicht' : /Volumen/.test(note) ? 'Volumen'
+      : /^competition_(squat|bench_press|deadlift)$/.test(i.exercise_key) ? '' : 'Variante';
+    teile.push(art ? `${lift} ${art}` : lift);
+  }
+  return teile.filter((t, k) => teile.indexOf(t) === k).join(' · ');
 }
 
 /** Kurzform einer Planzeile für die Übersicht: „1×3 · 167,5“. */
@@ -80,11 +96,17 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
       <div class="seg" role="group" aria-label="Bankdrücken">${[['keine', 'Ohne'], ['top', 'Top-Satz/Back-off'], ['candito', 'Candito Adv. Bench']].map(([v, t]) => html`<button key=${v}
         aria-pressed=${String(bankWirklich === v)} disabled=${v === 'candito' && !bankGeht} onClick=${() => setze('bank', v)}>${t}</button>`)}</div>
       ${!bankGeht ? html`<span class="muted" style="font-size:12.5px">Candito Advanced Bench passt nur bei genau 6 Wochen.</span>` : null}
-      <span class="eyebrow">Einheiten je Lift und Woche</span>
-      ${seg('einheiten', [[1, '1'], [2, '2'], [3, '3']], 'Einheiten je Lift')}
+      <span class="eyebrow">Wie oft pro Woche</span>
+      ${[['squat', 'Kniebeuge', [1, 2, 3]], ['dead', 'Kreuzheben', [1, 2, 3]], ...(bankWirklich === 'top' ? [['bench', 'Bankdrücken', [2, 3, 4]]] : [])].map(([lift, name, werte]) => html`
+        <div class="pro-woche" key=${lift}><span>${name}</span><div class="seg" role="group" aria-label=${`${name} pro Woche`}>${werte.map((n) => html`<button key=${n}
+          aria-pressed=${String(f.proWoche[lift] === n)} disabled=${lift === 'bench' && n === 4 && Math.max(f.proWoche.squat, f.proWoche.dead) === 1}
+          onClick=${() => setze('proWoche', { ...f.proWoche, [lift]: n })}>${`${n}×`}</button>`)}</div></div>`)}
+      <span class="muted" style="font-size:12.5px">Bei 3× Kniebeuge oder Kreuzheben: schwer, Variante, leicht. Unterkörpertage mindestens 3 Tage auseinander (vor leichten 2), schwere Kniebeuge und schweres Kreuzheben an verschiedenen Tagen. Bank ab 3× zusätzlich leicht an Unterkörpertagen.</span>
+      <label class="schalter" for="g-zubehoer"><span><b>Zubehör</b><br/><span class="muted" style="font-size:12.5px">Oberkörpertag mit Rudern, Schulterdrücken, Klimmzug mit Gewicht und 2 Isolationen; Unterkörpertage mit 2 Bein-Isolationen.</span></span>
+        <input type="checkbox" id="g-zubehoer" checked=${f.zubehoer !== false} onChange=${(e) => setze('zubehoer', e.currentTarget.checked)}/></label>
       <span class="eyebrow">Trainingsmax</span>
       ${seg('tm', [[0.95, '95 % (Aufbau)'], [0.92, '92 % (Cut)'], [1, '100 %']], 'Trainingsmax')}
-      ${f.einheiten >= 2 ? html`<div class="filter-zeile">${auswahl('squat')}${auswahl('dead')}</div>` : null}
+      ${f.proWoche.squat >= 2 || f.proWoche.dead >= 2 ? html`<div class="filter-zeile">${f.proWoche.squat >= 2 ? auswahl('squat') : html`<span></span>`}${f.proWoche.dead >= 2 ? auswahl('dead') : null}</div>` : null}
     </section>
     <section class="card pad stack">
       <span class="viz-t">Maxe (echtes 1RM)</span>
@@ -98,6 +120,9 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     ${erg?.pruefung.hinweise.length ? html`<section class="card pad stack" style="gap:6px">${erg.pruefung.hinweise.map((x) => html`<span key=${x} class="muted" style="font-size:13.5px">${x}</span>`)}</section>` : null}
     ${p && vollstaendig ? html`<section class="card pad stack">
       <div class="row between"><span class="viz-t">Vorschau</span><span class="muted" style="font-size:13px">${wl.length} Wochen · ${tage.length} Einheiten · bis ${datumKurz(tage.at(-1).datum)}</span></div>
+      ${(() => { const w = p.weeks.find((x) => !['test', 'deload'].includes(x.typ) && x.week > 1) ?? p.weeks[0];
+        return html`<div class="wochenplan"><span class="eyebrow">${`Typische Woche (Woche ${w.week})`}</span>
+          ${w.days.map((d) => html`<div key=${d.offset} class="wp-zeile"><b>${wtKurz(plusTage(f.start, d.offset))}</b><span>${tagInhalt(d.items)}</span></div>`)}</div>`; })()}
       <div style="overflow-x:auto"><table class="rec gen-tab"><thead><tr><th>W</th><th>Typ</th><th>KB Top</th><th>KB Back-off</th><th>KH Top</th><th>KH Back-off</th></tr></thead>
         <tbody>${p.weeks.map((w) => {
           const wt = tage.filter((t) => t.woche === w.week);

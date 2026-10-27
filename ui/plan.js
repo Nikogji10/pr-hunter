@@ -2,6 +2,7 @@
 // Beschreibungen der Vorlagen, Startmaxe, Plantage eines Blocks, Wochentitel, Darstellung eines Plantags.
 import { html, nameVon, liftVon, LIFT, datumKurz, rpeText, incStandard, gw, einheit } from './basis.js';
 import { planeBlock } from '../js/programm.js';
+import { programmText } from './programmtexte.js';
 import { mround } from '../js/rechnen.js';
 import { DEMO, E1RM_AKTUELL } from './stand.js';
 import { HAUPT } from '../js/daten.js';
@@ -53,7 +54,7 @@ export function blockTage(prog, { start, werte, cut = false, alternativ = false,
 export const wochenListe = (tage) => [...new Set(tage.map((t) => t.woche))];
 
 function zeile(u, g) {
-  const s = g.saetze?.text ?? (g.saetze?.min === g.saetze?.max ? g.saetze?.min : `${g.saetze?.min}–${g.saetze?.max}`);
+  const s = programmText(g.saetze?.text) ?? (g.saetze?.min === g.saetze?.max ? g.saetze?.min : `${g.saetze?.min}–${g.saetze?.max}`);
   const w = g.wdh?.amrap ? 'max' : g.wdh?.text ?? (g.wdh?.plus ? `${g.wdh.min}+` : g.wdh?.min === g.wdh?.max ? g.wdh?.min : `${g.wdh?.min}–${g.wdh?.max}`);
   const last = g.kg != null ? `${gw(g.kg)}${g.kgBis ? `–${gw(g.kgBis)}` : ''} ${einheit()}` : rpeText(g.rpe) ?? 'frei';
   return [`${s} × ${w ?? '–'}`, last];

@@ -15,7 +15,7 @@
   --p25: #D7263D; --p20: #1F5FD1; --p15: #F2C230; --p10: #2E9A4F; --p5: #F4F4F4; --p2: #1A1A1A; --p1: #C0C5CC;
   --shadow: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 -1px 0 rgba(0, 0, 0, .45) inset, 0 16px 32px -14px rgba(0, 0, 0, .85), 0 2px 6px rgba(0, 0, 0, .45);
   --shadow-tief: 0 2px 0 rgba(0, 0, 0, .6) inset, 0 1px 0 rgba(255, 255, 255, .03);
-  --grund: radial-gradient(120% 60% at 50% -12%, rgba(224, 24, 45, .2), transparent 60%), radial-gradient(80% 40% at 100% 110%, rgba(224, 24, 45, .08), transparent 70%);
+  --grund: radial-gradient(120% 60% at 50% -12%, color-mix(in srgb, var(--acc) 20%, transparent), transparent 60%), radial-gradient(80% 40% at 100% 110%, color-mix(in srgb, var(--acc) 8%, transparent), transparent 70%);
   --knurl: repeating-linear-gradient(45deg, rgba(0, 0, 0, .12) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, .12) 0 1px, transparent 1px 4px);
   --f: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-logo: "Big Shoulders Stencil Display", "Archivo", "Arial Narrow", sans-serif;
@@ -34,7 +34,7 @@
     --seq-0: #EEF0F2; --seq-1: #C9CDD3; --seq-2: #8F959D; --seq-3: #4E545C; --seq-4: #0E1013;
     --shadow: 0 1px 0 #FFFFFF inset, 0 -1px 0 rgba(14, 16, 19, .05) inset, 0 14px 28px -14px rgba(40, 8, 12, .3), 0 2px 5px rgba(14, 16, 19, .08);
     --shadow-tief: 0 2px 3px rgba(14, 16, 19, .1) inset, 0 1px 0 #FFFFFF;
-    --grund: radial-gradient(120% 60% at 50% -12%, rgba(194, 16, 31, .1), transparent 60%);
+    --grund: radial-gradient(120% 60% at 50% -12%, color-mix(in srgb, var(--acc) 10%, transparent), transparent 60%);
     --knurl: repeating-linear-gradient(45deg, rgba(255, 255, 255, .14) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, .14) 0 1px, transparent 1px 4px);
     color-scheme: light;
   }
@@ -50,7 +50,7 @@
   --seq-0: #EEF0F2; --seq-1: #C9CDD3; --seq-2: #8F959D; --seq-3: #4E545C; --seq-4: #0E1013;
   --shadow: 0 1px 0 #FFFFFF inset, 0 -1px 0 rgba(14, 16, 19, .05) inset, 0 14px 28px -14px rgba(40, 8, 12, .3), 0 2px 5px rgba(14, 16, 19, .08);
   --shadow-tief: 0 2px 3px rgba(14, 16, 19, .1) inset, 0 1px 0 #FFFFFF;
-  --grund: radial-gradient(120% 60% at 50% -12%, rgba(194, 16, 31, .1), transparent 60%);
+  --grund: radial-gradient(120% 60% at 50% -12%, color-mix(in srgb, var(--acc) 10%, transparent), transparent 60%);
   --knurl: repeating-linear-gradient(45deg, rgba(255, 255, 255, .14) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, .14) 0 1px, transparent 1px 4px);
   color-scheme: light;
 }
@@ -263,8 +263,8 @@ button.wd:active { transform: scale(.96); }
 .big small { font-size: 24px; color: var(--muted); margin-left: 4px; font-stretch: 100%; font-weight: 700; }
 .stepper { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .stepper button { height: 58px; border-radius: 15px; background: var(--raised); font: 800 22px/1 var(--f); font-stretch: 75%; }
-.rpe-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.rpe-grid button { height: 60px; border-radius: 15px; background: var(--raised); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.rpe-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.rpe-grid button { height: 52px; border-radius: 15px; background: var(--raised); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
 .rpe-grid button b { font: 800 24px/1 var(--f); font-stretch: 70%; }
 .rpe-grid button span { font-size: 10.5px; color: var(--muted); font-weight: 600; }
 .rpe-grid button[aria-pressed="true"] { background: linear-gradient(180deg, var(--acc-hi), var(--acc)); color: var(--on-acc); box-shadow: 0 8px 18px -8px var(--acc-glow); }
@@ -687,13 +687,23 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 .heute-knoepfe { display: flex; gap: 6px; }
 .heute-knoepfe .btn { flex: 1; padding-inline: 6px; white-space: nowrap; }
 
-/* Startbild: Logo mit Hantel nur kurz beim Öffnen, blendet aus */
-.startbild { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 18px; background: var(--flaeche-2);
-  animation: startbild-weg .45s ease-in 1.05s forwards; pointer-events: none; }
-.startbild .logo { font-size: 30px; }
-.startbild .hantel { width: min(78vw, 340px); }
-@keyframes startbild-weg { to { transform: translateY(-12px) scale(.98); visibility: hidden; opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .startbild { animation-duration: .01s; } }
+/* Startbild (index.html): sofort sichtbar, Scheiben fliegen auf die Stange, Logo leuchtet auf, dann Übergang in die App */
+#startbild { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 22px;
+  background: radial-gradient(60% 45% at 50% 45%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 70%), var(--flaeche-2, #101116);
+  transition: opacity .45s ease, transform .45s ease; }
+#startbild.weg { opacity: 0; transform: scale(1.06); pointer-events: none; }
+#startbild .sb-hantel { width: min(80vw, 340px); overflow: visible; }
+#startbild .sb-stange { fill: #9AA1AB; }
+#startbild .sb-kragen { fill: #C9CED6; }
+#startbild .sb-l { animation: sb-links .55s cubic-bezier(.2, 1.4, .4, 1) .1s both; }
+#startbild .sb-r { animation: sb-rechts .55s cubic-bezier(.2, 1.4, .4, 1) .1s both; }
+#startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
+  animation: sb-logo .5s ease .55s both; }
+#startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
+@keyframes sb-links { from { transform: translateX(-140px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sb-rechts { from { transform: translateX(140px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sb-logo { 0% { opacity: 0; letter-spacing: .5em; filter: blur(6px); } 70% { filter: blur(0); } 100% { opacity: 1; letter-spacing: .08em; } }
+@media (prefers-reduced-motion: reduce) { #startbild * { animation: none !important; } }
 
 /* Kleine Hantel mittig in der Kopfleiste (Blockstand), führt zum Block */
 .topbar.duenn { display: grid; grid-template-columns: 1fr auto 1fr; }
@@ -775,3 +785,141 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 
 /* Unterseiten: Titel nur an Wortgrenzen/Bindestrich umbrechen, kleiner (lange Übungsnamen) */
 .topbar.unter .h1 { overflow-wrap: normal; word-break: normal; hyphens: manual; font-size: clamp(17px, 5vw, 24px); font-stretch: 110%; }
+
+/* Training beenden: Papierkorb oben rechts (löscht nach Rückfrage, auch mit abgehakten Sätzen) */
+.loeschen-knopf { color: var(--acc-text); border-color: color-mix(in srgb, var(--acc) 40%, transparent); flex: none; }
+
+/* Kopfleiste beginnt am oberen Displayrand: Hintergrund läuft unter die Statusleiste, Inhalt rückt darunter ein */
+.screen { padding-top: 0; }
+.topbar { top: 0; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+.topbar.duenn { padding-top: calc(6px + env(safe-area-inset-top, 0px)); }
+body::before { z-index: 15; }   /* Streifen unter der Statusleiste nur noch dort, wo keine Kopfleiste ist */
+
+/* Training: errechnetes 1RM von heute neben dem Bestwert */
+.ex-meta .heute-1rm { color: var(--ink); font-weight: 700; white-space: nowrap; }
+
+/* #################################################################
+   Designs (Einstellungen → Anzeige): Eisen ist der Standard, dazu fünf Farbwelten, wie sie verbreitete Trainings-Apps
+   nutzen. Jedes Design setzt Akzent und Flächentönung für Dunkel und Hell; Lift-, Scheiben- und Rekordfarben bleiben.
+   ################################################################# */
+:root[data-stil="kobalt"] { --acc: #2F7BF5; --acc-hi: #5A98FF; --acc-tief: #1546A8; --acc-text: #6AA6FF; --acc-soft: rgba(47, 123, 245, .16); --acc-glow: rgba(47, 123, 245, .5);
+  --bg: #06080D; --surface: #111722; --raised: #1B2330; --sunken: #0A0E15; --line: #243042; --flaeche-1: #18202C; --flaeche-2: #0E131B; }
+:root[data-stil="glut"] { --acc: #FF6A13; --acc-hi: #FF8A3D; --acc-tief: #B33F00; --acc-text: #FF9152; --acc-soft: rgba(255, 106, 19, .15); --acc-glow: rgba(255, 106, 19, .5);
+  --bg: #0A0807; --surface: #17120F; --raised: #241C17; --sunken: #0E0B09; --line: #33281F; --flaeche-1: #221A15; --flaeche-2: #130F0C; }
+:root[data-stil="volt"] { --acc: #C6F135; --acc-hi: #DBFF6B; --acc-tief: #7E9A12; --acc-text: #D4FA5C; --acc-soft: rgba(198, 241, 53, .13); --acc-glow: rgba(198, 241, 53, .4); --on-acc: #0B0D05;
+  --bg: #050605; --surface: #111310; --raised: #1C1F1A; --sunken: #090A08; --line: #262A23; --flaeche-1: #181B16; --flaeche-2: #0D0F0C; }
+:root[data-stil="amethyst"] { --acc: #8B5CF6; --acc-hi: #A78BFA; --acc-tief: #5B21B6; --acc-text: #B69CFF; --acc-soft: rgba(139, 92, 246, .16); --acc-glow: rgba(139, 92, 246, .5);
+  --bg: #08070D; --surface: #14121E; --raised: #1F1C2C; --sunken: #0C0B13; --line: #2B2740; --flaeche-1: #1D1A2A; --flaeche-2: #110F1A; }
+:root[data-stil="graphit"] { --acc: #E6E6E6; --acc-hi: #FFFFFF; --acc-tief: #8F8F8F; --acc-text: #FFFFFF; --acc-soft: rgba(255, 255, 255, .1); --acc-glow: rgba(255, 255, 255, .22); --on-acc: #0B0C0E;
+  --bg: #000000; --surface: #111111; --raised: #1C1C1C; --sunken: #080808; --line: #2A2A2A; --flaeche-1: #1A1A1A; --flaeche-2: #0D0D0D; }
+@media (prefers-color-scheme: light) {
+  :root[data-stil="kobalt"]:not([data-theme="dark"]) { --acc: #1F63D6; --acc-hi: #3B7FEF; --acc-tief: #0F3F96; --acc-text: #1A56BD; --acc-soft: rgba(31, 99, 214, .1); --acc-glow: rgba(31, 99, 214, .3);
+    --bg: #E3E7EE; --surface: #FFFFFF; --raised: #ECEFF4; --sunken: #DEE3EB; --line: #CED5E0; --flaeche-1: #FFFFFF; --flaeche-2: #EFF2F7; }
+  :root[data-stil="glut"]:not([data-theme="dark"]) { --acc: #E8590C; --acc-hi: #FA7A2E; --acc-tief: #9C3A04; --acc-text: #C24A06; --acc-soft: rgba(232, 89, 12, .1); --acc-glow: rgba(232, 89, 12, .3);
+    --bg: #EDE7E3; --surface: #FFFFFF; --raised: #F4EFEC; --sunken: #E8E1DC; --line: #DDD3CC; --flaeche-1: #FFFFFF; --flaeche-2: #F6F1EE; }
+  :root[data-stil="volt"]:not([data-theme="dark"]) { --acc: #A6CE1F; --acc-hi: #BEE33F; --acc-tief: #6B8A0A; --acc-text: #4D6B00; --acc-soft: rgba(120, 160, 10, .12); --acc-glow: rgba(140, 180, 20, .35); --on-acc: #10140A;
+    --bg: #E6E9E2; --surface: #FFFFFF; --raised: #EEF0EA; --sunken: #E0E4DB; --line: #D2D7CB; --flaeche-1: #FFFFFF; --flaeche-2: #F1F3EE; }
+  :root[data-stil="amethyst"]:not([data-theme="dark"]) { --acc: #7C3AED; --acc-hi: #9461F5; --acc-tief: #4C1D95; --acc-text: #6D28D9; --acc-soft: rgba(124, 58, 237, .1); --acc-glow: rgba(124, 58, 237, .3);
+    --bg: #E8E5EF; --surface: #FFFFFF; --raised: #EFEDF5; --sunken: #E2DEEB; --line: #D5D0E2; --flaeche-1: #FFFFFF; --flaeche-2: #F3F1F8; }
+  :root[data-stil="graphit"]:not([data-theme="dark"]) { --acc: #16181C; --acc-hi: #3A3D44; --acc-tief: #000000; --acc-text: #111214; --acc-soft: rgba(0, 0, 0, .07); --acc-glow: rgba(0, 0, 0, .22); --on-acc: #FFFFFF;
+    --bg: #E9E9E9; --surface: #FFFFFF; --raised: #F0F0F0; --sunken: #E2E2E2; --line: #D4D4D4; --flaeche-1: #FFFFFF; --flaeche-2: #F4F4F4; }
+}
+:root[data-stil="kobalt"][data-theme="light"] { --acc: #1F63D6; --acc-hi: #3B7FEF; --acc-tief: #0F3F96; --acc-text: #1A56BD; --acc-soft: rgba(31, 99, 214, .1); --acc-glow: rgba(31, 99, 214, .3);
+  --bg: #E3E7EE; --surface: #FFFFFF; --raised: #ECEFF4; --sunken: #DEE3EB; --line: #CED5E0; --flaeche-1: #FFFFFF; --flaeche-2: #EFF2F7; }
+:root[data-stil="glut"][data-theme="light"] { --acc: #E8590C; --acc-hi: #FA7A2E; --acc-tief: #9C3A04; --acc-text: #C24A06; --acc-soft: rgba(232, 89, 12, .1); --acc-glow: rgba(232, 89, 12, .3);
+  --bg: #EDE7E3; --surface: #FFFFFF; --raised: #F4EFEC; --sunken: #E8E1DC; --line: #DDD3CC; --flaeche-1: #FFFFFF; --flaeche-2: #F6F1EE; }
+:root[data-stil="volt"][data-theme="light"] { --acc: #A6CE1F; --acc-hi: #BEE33F; --acc-tief: #6B8A0A; --acc-text: #4D6B00; --acc-soft: rgba(120, 160, 10, .12); --acc-glow: rgba(140, 180, 20, .35); --on-acc: #10140A;
+  --bg: #E6E9E2; --surface: #FFFFFF; --raised: #EEF0EA; --sunken: #E0E4DB; --line: #D2D7CB; --flaeche-1: #FFFFFF; --flaeche-2: #F1F3EE; }
+:root[data-stil="amethyst"][data-theme="light"] { --acc: #7C3AED; --acc-hi: #9461F5; --acc-tief: #4C1D95; --acc-text: #6D28D9; --acc-soft: rgba(124, 58, 237, .1); --acc-glow: rgba(124, 58, 237, .3);
+  --bg: #E8E5EF; --surface: #FFFFFF; --raised: #EFEDF5; --sunken: #E2DEEB; --line: #D5D0E2; --flaeche-1: #FFFFFF; --flaeche-2: #F3F1F8; }
+:root[data-stil="graphit"][data-theme="light"] { --acc: #16181C; --acc-hi: #3A3D44; --acc-tief: #000000; --acc-text: #111214; --acc-soft: rgba(0, 0, 0, .07); --acc-glow: rgba(0, 0, 0, .22); --on-acc: #FFFFFF;
+  --bg: #E9E9E9; --surface: #FFFFFF; --raised: #F0F0F0; --sunken: #E2E2E2; --line: #D4D4D4; --flaeche-1: #FFFFFF; --flaeche-2: #F4F4F4; }
+/* Vorschau der Designs in den Einstellungen */
+.stil-wahl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stil-wahl button { border-radius: 13px; padding: 9px 8px 8px; background: var(--sunken); border: 1px solid var(--kante); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; min-width: 0; }
+.stil-wahl button[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc), 0 0 16px -6px var(--acc-glow); }
+.stil-wahl .muster { display: flex; gap: 3px; width: 100%; }
+.stil-wahl .muster i { height: 18px; flex: 1; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(128, 128, 128, .25); }
+.stil-wahl b { font-size: 12.5px; }
+.stil-wahl small { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+
+/* Schriftart (Einstellungen → Anzeige); das Logo bleibt in der Schablonenschrift */
+:root[data-schrift="saira"] { --f: "Saira", system-ui, -apple-system, "Segoe UI", sans-serif; }
+:root[data-schrift="encode"] { --f: "Encode Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+:root[data-schrift="system"] { --f: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.schrift-wahl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.schrift-wahl button { border-radius: 13px; padding: 10px 12px; background: var(--sunken); border: 1px solid var(--kante); text-align: left; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.schrift-wahl button[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); }
+.schrift-wahl b { font-size: 20px; font-weight: 800; font-stretch: 75%; line-height: 1.1; }
+.schrift-wahl small { font-size: 11px; color: var(--muted); }
+
+/* Training (Runde 6): Fokus auf die laufende Übung, Wischen folgt dem Finger, Sätze ±, erledigte Sätze kräftiger */
+.card.ex { transition: transform .3s cubic-bezier(.2, .9, .3, 1.15), opacity .25s ease, filter .25s ease; }
+.card.ex.gedimmt { opacity: .5; filter: saturate(.6); }
+.card.ex[data-wisch] { opacity: 1; filter: none; }
+.card.ex[data-scharf="true"][data-wisch="links"] { box-shadow: inset -6px 0 0 var(--acc), 0 0 22px -6px var(--acc-glow), var(--shadow); }
+.card.ex[data-scharf="true"][data-wisch="rechts"] { box-shadow: inset 6px 0 0 var(--ok), 0 0 22px -6px color-mix(in srgb, var(--ok) 60%, transparent), var(--shadow); }
+.satz-pm { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.satz-pm .mini { width: 34px; height: 34px; font: 800 20px/1 var(--f); color: var(--ink); }
+.satz-pm .mini:disabled { opacity: .35; }
+.ex-foot { align-items: center; }
+.set.done { background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 24%, transparent), color-mix(in srgb, var(--ok) 6%, transparent) 90%); box-shadow: inset 3px 0 0 var(--ok); }
+.lichter b { text-align: center; font-size: clamp(22px, 8vw, 30px); padding: 0 16px; max-width: 100vw; }
+.lichter.gold b { font-size: clamp(28px, 10vw, 40px); }
+
+/* Block-Generator: Häufigkeit je Lift, typische Woche */
+.pro-woche { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; font-size: 13.5px; font-weight: 700; }
+.wochenplan { display: flex; flex-direction: column; gap: 4px; background: var(--sunken); border-radius: var(--r-md); padding: 10px 12px; }
+.wp-zeile { display: grid; grid-template-columns: 30px 1fr; gap: 8px; font-size: 13px; padding: 3px 0; border-top: 1px solid var(--line); }
+.wp-zeile:nth-child(2) { border-top: 0; }
+.wp-zeile b { color: var(--acc-text); }
+
+/* Sechs Tabs (mit Feed): etwas enger */
+.tabs nav { grid-template-columns: repeat(6, 1fr); }
+.tabs button { font-size: 9.5px; letter-spacing: .02em; }
+/* Feed */
+.feed-kopf { display: flex; align-items: center; gap: 12px; }
+.feed-pr { display: inline-flex; align-items: center; gap: 6px; }
+.feed-pr b { font: 900 22px/1 var(--f); font-stretch: 70%; color: var(--gold); }
+.feed-zahlen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.feed-zahlen div { background: var(--raised); border-radius: var(--r-md); padding: 8px 9px; min-width: 0; }
+.feed-zahlen b { display: block; font: 800 18px/1.1 var(--f); font-stretch: 72%; margin-top: 2px; white-space: nowrap; }
+.feed-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.feed-liste li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 34px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.feed-liste li:first-child { border-top: 0; }
+.feed-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-eintrag.mit-pr { box-shadow: inset 3px 0 0 var(--gold), var(--shadow); }
+
+/* Deckkraft 0 %: Kacheln ganz durchsichtig – keine Fläche, keine Unschärfe, kein Schatten, nur eine feine Kante.
+   Kopf, Tab-Leiste und „Training läuft“ liegen über dem Inhalt und behalten ihre Unschärfe, sonst wären sie unlesbar. */
+html.durchsichtig .card, html.durchsichtig .viz, html.durchsichtig .kachel, html.durchsichtig .max, html.durchsichtig .hint, html.durchsichtig .einst-punkt {
+  background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; }
+html.durchsichtig .topbar, html.durchsichtig .tabs { background: color-mix(in srgb, var(--flaeche-2) 55%, transparent); }
+html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--flaeche-2)) !important; }
+
+/* Rekord (Runde 6): Blitz, drehende Goldstrahlen, Titel schlägt ein, mehr Konfetti */
+.lichter.gold { background: radial-gradient(circle at 50% 42%, rgba(60, 40, 0, .55), rgba(0, 0, 0, .55) 65%); }
+.lichter .blitz { position: fixed; inset: 0; background: radial-gradient(circle at 50% 42%, #fff8d8, rgba(255, 210, 90, .6) 30%, transparent 70%); animation: blitz .7s ease-out forwards; }
+.lichter .strahlen { position: fixed; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; opacity: 0;
+  background: repeating-conic-gradient(rgba(255, 205, 80, .22) 0 8deg, transparent 8deg 22deg); animation: strahlen 3.6s linear forwards;
+  -webkit-mask: radial-gradient(circle, #000 0, #000 18%, transparent 55%); mask: radial-gradient(circle, #000 0, #000 18%, transparent 55%); }
+.lichter.gold > div:first-child { position: relative; z-index: 1; }
+.lichter.gold b { font-size: 40px; background: linear-gradient(180deg, #FFF6C9, #FFD45C 45%, #C98A00); -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none; filter: drop-shadow(0 0 18px rgba(255, 196, 64, .8)); animation: einschlag .55s cubic-bezier(.2, 1.6, .4, 1) .35s both; }
+.lichter.gold .lampen i { animation-name: lampe-gold; }
+@keyframes blitz { 0% { opacity: .95; } 100% { opacity: 0; } }
+@keyframes strahlen { 0% { opacity: 0; transform: rotate(0deg) scale(.6); } 15% { opacity: 1; } 80% { opacity: .9; } 100% { opacity: 0; transform: rotate(70deg) scale(1.05); } }
+@keyframes einschlag { 0% { opacity: 0; transform: scale(2.6) rotate(-6deg); } 60% { opacity: 1; transform: scale(.92) rotate(1deg); } 80% { transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+@keyframes lampe-gold { 0% { opacity: 0; transform: scale(.3); } 70% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .lichter .strahlen, .lichter .blitz { display: none; } }
+
+/* Kraftprofil: Herkunft eines Muskels, geschätzte Übungen gestreift; Erholung als Ampel */
+:root { --ampel-rot: #E5484D; --ampel-gelb: #F2C14E; }
+.muskel-herkunft { grid-column: 2 / -1; font-size: 12px; text-align: left !important; }
+.stufe-spur.geschaetzt i { background: repeating-linear-gradient(135deg, var(--seq-3) 0 5px, color-mix(in srgb, var(--seq-3) 55%, transparent) 5px 9px); }
+.stufe-zeile .rl-name { font-size: 13px; }
+
+/* Wichtige Karten heben sich ab (Training auf Heute, Total in der Statistik): Akzentkante links, Leuchten, getönte Ecke */
+.card.wichtig { border-color: color-mix(in srgb, var(--acc) 45%, var(--kante));
+  box-shadow: inset 3px 0 0 var(--acc), 0 0 0 1px color-mix(in srgb, var(--acc) 18%, transparent), 0 14px 34px -16px var(--acc-glow), var(--shadow);
+  background: radial-gradient(110% 70% at 0% 0%, var(--acc-soft), transparent 65%), var(--karte); }

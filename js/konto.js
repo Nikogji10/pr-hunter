@@ -17,14 +17,19 @@ export const STANDARD_EINSTELLUNGEN = {
   formel: 'rpe', thema: 'system', name: null, admin: false, vergleich: false,
   // profiles.app_settings (Update 11): auf allen Geräten gleich; ohne 11 bleiben sie auf dem Gerät
   bereitschaft: true, zoom: 1, ziele: {}, gewichtZiel: null, avatar: null, hintergrundDunkel: 0.55, deckkraft: 0.88,
+  stil: 'eisen', schrift: 'archivo', ton: 'piep',
+  // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
+  mitteilungen: false,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft'];
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
     name: p.display_name ?? alt.name ?? null, admin: p.role === 'admin', sprache: p.language ?? 'de', einheit: p.unit ?? 'kg',
     inc: num(p.load_increment) ?? 2.5, stange: num(p.bar_weight_kg) ?? 20, scheiben: (p.plates_kg ?? STANDARD_SCHEIBEN).map(Number),
     formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats,
+    // Feed (Update 15): Spalte da → Wert übernehmen und beim Speichern mitschicken
+    ...('share_feed' in p ? { feedTeilen: p.share_feed !== false, feedSpalte: true } : {}),
     // app_settings: Spalte vorhanden → Werte von dort (und beim Speichern mitschicken), sonst die lokalen behalten
     ...('app_settings' in p ? { ...Object.fromEntries(APP_SETTINGS.filter((k) => k in (p.app_settings ?? {})).map((k) => [k, p.app_settings[k]])), appSettings: true } : {}),
     ...('avatar' in p ? { avatar: p.avatar ?? null } : {}) };
@@ -36,6 +41,7 @@ export const profilAusEinst = (e) => ({
   rest_defaults_s: e.pausen, cut_mode: !!e.cut, language: e.sprache ?? 'de', unit: e.einheit ?? 'kg', load_increment: e.inc ?? 2.5,
   bar_weight_kg: e.stange ?? 20, plates_kg: e.scheiben ?? STANDARD_SCHEIBEN, e1rm_formula: e.formel ?? 'rpe', theme: e.thema ?? 'system',
   ...(e.name ? { display_name: e.name } : {}), ...(e.vergleichGeaendert ? { share_stats: !!e.vergleich } : {}),
+  ...(e.feedSpalte ? { share_feed: e.feedTeilen !== false } : {}),
   // Update 11 bringt app_settings und avatar gemeinsam
   ...(e.appSettings ? { app_settings: Object.fromEntries(APP_SETTINGS.map((k) => [k, e[k] ?? STANDARD_EINSTELLUNGEN[k]])), avatar: e.avatar ?? null } : {}),
 });
@@ -219,6 +225,18 @@ export async function ladeVergleich(sb) {
   const r = await sb.rpc('compare_stats');
   if (r.error) { if (/compare_stats|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
   return vergleichAusZeilen(r.data);
+}
+/** Feed-Zeilen (db/15_feed.sql) → Einträge für die App: Zahlen als Zahl, Übungen mit bestem Satz. */
+export const feedAusZeilen = (zeilen) => zeilen.map((z) => ({
+  id: z.workout_id, nutzer: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, datum: z.datum, ich: !!z.ich,
+  minuten: z.minuten ?? null, uebungen: z.uebungen ?? 0, saetze: z.saetze ?? 0, volumen: Number(z.volumen_kg ?? 0), prs: z.prs ?? 0,
+  liste: (z.beste ?? []).map((b) => ({ key: b.key, de: b.de, en: b.en, saetze: b.saetze, prs: b.prs, kg: b.kg == null ? null : Number(b.kg), wdh: b.wdh ?? null })),
+}));
+/** Feed der letzten tage Tage; null, solange Update 15 fehlt. */
+export async function ladeFeed(sb, tage = 30) {
+  const r = await sb.rpc('feed', { p_tage: tage });
+  if (r.error) { if (/feed|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
+  return feedAusZeilen(r.data ?? []);
 }
 /** Konto mit allen eigenen Daten löschen (Update 08). Selbst angelegte Übungen bleiben im gemeinsamen Katalog. */
 export const kontoLoeschen = async (sb) => pruefe(await sb.rpc('delete_my_account'));

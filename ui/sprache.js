@@ -49,14 +49,16 @@ function attribut(el, name) {
   const en = uebersetze(v);
   if (en != null && en !== v) { alle[name] = { de: v, en }; attribute.set(el, alle); el.setAttribute(name, en); }
 }
-const auslassen = (el) => el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'TEXTAREA' || el.getAttribute('translate') === 'no';
+const auslassen = (el) => el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.getAttribute('translate') === 'no';
+// Textfelder: Platzhalter übersetzen, den Inhalt (Nutzertext) nie
+const imTextfeld = (n) => n.nodeType === 3 && n.parentNode?.tagName === 'TEXTAREA';
 
 /** Teilbaum durchgehen: übersetzen (aktiv) oder Originale zurückschreiben. */
 function durchgehen(wurzel, zurueck = false) {
   const w = document.createTreeWalker(wurzel, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => (n.nodeType === 1 && auslassen(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    acceptNode: (n) => ((n.nodeType === 1 && auslassen(n)) || imTextfeld(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
   });
-  for (let n = wurzel.nodeType === 1 && auslassen(wurzel) ? null : w.currentNode; n; n = w.nextNode()) {
+  for (let n = (wurzel.nodeType === 1 && auslassen(wurzel)) || imTextfeld(wurzel) ? null : w.currentNode; n; n = w.nextNode()) {
     if (n.nodeType === 3) {
       if (!zurueck) text(n);
       else { const alt = texte.get(n); if (alt && n.data === alt.en) n.data = alt.de; texte.delete(n); }
@@ -73,7 +75,7 @@ function durchgehen(wurzel, zurueck = false) {
 const beobachten = () => new MutationObserver((liste) => {
   if (!aktiv) return;
   for (const m of liste) {
-    if (m.type === 'characterData') text(m.target);
+    if (m.type === 'characterData') { if (!imTextfeld(m.target)) text(m.target); }
     else if (m.type === 'attributes') attribut(m.target, m.attributeName);
     else for (const n of m.addedNodes) if (n.isConnected) durchgehen(n);
   }

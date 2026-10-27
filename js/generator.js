@@ -29,8 +29,40 @@ const TEST = { titel: 'Test', test: [1, '1-2', 97.5, 'RPE 9-10'], var: [2, 3, 62
   notiz: 'Test, max. 2 Wdh. Nach 1 Wdh stoppen, wenn sie langsam war.' };
 const DELOAD = { titel: 'Deload', s1: [3, 3, 60, 'RPE 5-6'], d1: [2, 3, 55, 'RPE 5'], s2: [2, 3, 55, 'RPE 5'], d2: [2, 3, 60, 'RPE 5-6'] };
 const TECHNIK = [3, 3, 65, 'RPE 5-6'];
+const KH_LEICHT = [3, 2, 65, 'RPE 5-6'];
 
 export const STANDARD_VARIANTEN = { squat: 'competition_squat_pause', dead: 'conventional_deadlift_deficit_paused' };
+
+// #################################################################
+// Wochenaufbau (Nikos Regeln, Wunsch 40): Unterkörpertage nach der Häufigkeit von Kniebeuge/Kreuzheben, Abstand
+// mindestens 3 Tage (vor einer leichten Einheit 2), schwere Kniebeuge und schweres Kreuzheben an verschiedenen Tagen,
+// kein Kreuzheben an Fr + Sa hintereinander. Bankdrücken 2–4×: höchstens zwei eigene Oberkörpertage, weitere
+// Bankeinheiten leichter an Unterkörpertagen (Variante höchstens RPE 8,5).
+// Offsets ab Wochenbeginn (0 = erster Trainingstag, meist Montag).
+// #################################################################
+export const UNTEN_TAGE = { 1: [0], 2: [0, 4], 3: [0, 3, 5] };
+export const OBEN_TAGE = { 1: [2, 4], 2: [2, 5], 3: [1, 4] };
+// Bankeinheiten in der Reihenfolge ihrer Vergabe: schwer (Top/Back-off), Volumen, enge Bank, leichte Technik
+const BANK_VOLUMEN = (t, plus) => [3, 5, t.backoff[2] + 4 + plus, 'RPE 7-8'];
+const BANK_ENG = (plus) => [3, 6, 68 + plus, 'RPE 7-8.5'];
+const BANK_LEICHT = [3, 3, 70, 'RPE 6-7'];
+// Zubehör wie im Candito/Pana-Oberkörpertag; Gewichte schlägt die App aus dem e1RM vor
+const OBEN_ZUBEHOER = [
+  { exercise_key: 'bent_over_barbell_row', groups: [{ sets: '3', reps: '8', load: null, rpe: 'RPE 7-8' }] },
+  { exercise_key: 'standing_military_press', groups: [{ sets: '3', reps: '6-8', load: null, rpe: 'RPE 7-8' }] },
+  { exercise_key: 'weighted_pull_ups', groups: [{ sets: '3', reps: '6-8', load: null, rpe: 'RPE 7-8' }] },
+  ...[1, 2].map((n) => ({ exercise: `Isolation ${n}`, slot: { label: `Zusatz Oberkörper ${n}`, families: ['triceps', 'curl', 'shoulder_iso', 'fly'] },
+    groups: [{ sets: '3', reps: '10-15', load: null, rpe: 'RPE 8' }] })),
+];
+const BEIN_ZUBEHOER = [1, 2].map((n) => ({ exercise: `Beine ${n}`, slot: { label: `Zusatz Beine ${n}`, families: ['leg_iso'] },
+  groups: [{ sets: '3', reps: '10-15', load: null, rpe: 'RPE 8' }] }));
+
+/** Häufigkeiten aus der Eingabe (älteres Feld „einheiten“ gilt für Kniebeuge und Kreuzheben). */
+export function haeufigkeiten(e) {
+  const alt = Math.min(3, Math.max(1, e.einheiten ?? 2));
+  const lim = (v, lo, hi, std) => Math.min(hi, Math.max(lo, v ?? std));
+  return { squat: lim(e.proWoche?.squat, 1, 3, alt), dead: lim(e.proWoche?.dead, 1, 3, alt), bench: lim(e.proWoche?.bench, 2, 4, 2) };
+}
 
 /** Wochenfolge der Aufbauwochen (vor dem Abschluss). Kurz: erst fällt der Einstieg weg, dann die Peak-Vorbereitung. */
 export function wochenFolge(anzahl, { abschluss = 'test', wiedereinstieg = false } = {}) {
@@ -69,9 +101,11 @@ const gruppe = ([sets, reps, , rpe], load, note = null) => ({ sets: String(sets)
 export function generiere(e) {
   const abschluss = e.urlaubDanach && e.abschluss === 'deload' ? 'keiner' : e.abschluss ?? 'test';
   const folge = wochenFolge(e.wochen, { abschluss, wiedereinstieg: !!e.wiedereinstieg });
-  const tm = e.tm ?? 0.95, einheiten = Math.min(3, Math.max(1, e.einheiten ?? 2));
+  const tm = e.tm ?? 0.95, f = haeufigkeiten(e), zubehoer = e.zubehoer !== false;
   const varianten = { ...STANDARD_VARIANTEN, ...(e.varianten ?? {}) };
   const bank = e.bank ?? (e.mitBank ? 'top' : 'keine');
+  const L = Math.max(f.squat, f.dead), unten = UNTEN_TAGE[L];
+  if (L === 1) f.bench = Math.min(f.bench, 3);            // ein Unterkörpertag trägt höchstens eine zusätzliche Bankeinheit
   const hinweise = [];
   if (e.urlaubDanach && e.abschluss === 'deload') hinweise.push('Danach folgt Urlaub: kein Deload davor, die Pause übernimmt das.');
   const candito = bank === 'candito' ? canditoWochen(e.bankVorlage, e.wochen) : null;
@@ -98,14 +132,28 @@ export function generiere(e) {
       const haupt = (key, v, top, backoff) => [
         { exercise_key: key, role: 'top', groups: [gruppe(mit(top), last(v, tm, mit(top)[2]))] },
         { exercise_key: key, role: 'backoff', groups: [gruppe(mit(backoff), last(v, tm, mit(backoff)[2]))] }];
-      tag(o, haupt('competition_squat', 'S', t.top, t.backoff));
-      if (einheiten >= 2) tag(o, [{ exercise_key: varianten.dead, role: 'secondary', groups: [gruppe(t.dVar, last('D', tm, t.dVar[2]))] }]);
-      if (mitBank) tag(o + 2, haupt('competition_bench_press', 'B', t.top, t.backoff));
-      if (einheiten >= 3) tag(o + 2, [{ exercise_key: 'competition_squat', role: 'secondary', groups: [gruppe(TECHNIK, last('S', tm, TECHNIK[2]), 'Technik')] }]);
-      if (einheiten >= 2) tag(o + 4, [{ exercise_key: 'competition_squat', role: 'secondary', groups: [gruppe(t.sSingle, last('S', tm, t.sSingle[2]), 'Technik-Single')] },
-        { exercise_key: varianten.squat, role: 'secondary', groups: [gruppe(t.sVar, last('S', tm, t.sVar[2]))] }]);
-      tag(o + 4, haupt('competition_deadlift', 'D', t.dTop, t.dBackoff));
-      if (einheiten >= 3) tag(o + 5, [{ exercise_key: 'competition_deadlift', role: 'secondary', groups: [gruppe([3, 2, 65, 'RPE 5-6'], last('D', tm, 65), 'Technik')] }]);
+      const zweit = (key, v, a, note = null) => ({ exercise_key: key, role: 'secondary', groups: [gruppe(a, last(v, tm, a[2]), note)] });
+      // Unterkörper: Tag 1 schwere Kniebeuge (+ Kreuzheben-Variante), letzter bzw. mittlerer Tag schweres Kreuzheben
+      // (+ Technik-Single und Kniebeuge-Variante), bei drei Tagen am Ende die leichten Einheiten
+      const kbTag = o + unten[0], khTag = o + unten[Math.min(1, L - 1)];
+      tag(kbTag, haupt('competition_squat', 'S', t.top, t.backoff));
+      if (f.dead >= 2) tag(kbTag, [zweit(varianten.dead, 'D', t.dVar)]);
+      if (f.squat >= 2) tag(khTag, [zweit('competition_squat', 'S', t.sSingle, 'Technik-Single'), zweit(varianten.squat, 'S', t.sVar)]);
+      tag(khTag, haupt('competition_deadlift', 'D', t.dTop, t.dBackoff));
+      if (L === 3) {
+        if (f.squat === 3) tag(o + unten[2], [zweit('competition_squat', 'S', TECHNIK, 'Leicht – Technik')]);
+        if (f.dead === 3) tag(o + unten[2], [zweit('competition_deadlift', 'D', KH_LEICHT, 'Leicht – Technik')]);
+      }
+      if (mitBank) {
+        // Bank: schwer und Volumen an den Oberkörpertagen, weitere Einheiten leichter an Unterkörpertagen
+        const einheitenBank = [haupt('competition_bench_press', 'B', t.top, t.backoff), [zweit('competition_bench_press', 'B', BANK_VOLUMEN(t, plus), 'Volumen')],
+          [zweit('close-grip_barbell_bench_press', 'B', BANK_ENG(plus), 'Variante, höchstens RPE 8,5')], [zweit('competition_bench_press', 'B', BANK_LEICHT, 'Leicht – Technik')]]
+          .slice(0, f.bench);
+        const oben = OBEN_TAGE[L].slice(0, Math.min(2, f.bench));
+        oben.forEach((d, j) => tag(o + d, [...einheitenBank[j], ...(zubehoer ? structuredClone(OBEN_ZUBEHOER) : [])]));
+        einheitenBank.slice(oben.length).forEach((b, j) => tag(o + unten[j % L], b));
+      }
+      if (zubehoer && !candito) for (const d of unten.slice(0, L)) if (days.some((x) => x.offset === o + d)) tag(o + d, structuredClone(BEIN_ZUBEHOER));
       if (t.notiz) days[0].notes = [t.notiz];
     }
     if (candito) for (const d of candito[i]) tag(o + d.offset, structuredClone(d.items));
@@ -119,7 +167,7 @@ export function generiere(e) {
     inputs: ['S', 'D', ...(mitBank ? ['B'] : candito ? ['B', 'G'] : [])], weeks,
     settings: { cut_mode: { reduce_sets: 1, min_sets: 1 } },
     rules: {
-      generator: { wochen: e.wochen, abschluss: e.abschluss ?? 'test', urlaubDanach: !!e.urlaubDanach, tm, einheiten, varianten, bank, wiedereinstieg: !!e.wiedereinstieg },
+      generator: { wochen: e.wochen, abschluss: e.abschluss ?? 'test', urlaubDanach: !!e.urlaubDanach, tm, proWoche: f, zubehoer, varianten, bank, wiedereinstieg: !!e.wiedereinstieg },
       // gleicher Test wie im Hybrid (1–2 Wdh @ 97,5 %), daher dieselbe Projektion
       projection: { method: 'divide', table: { 1: 1, 2: 0.96, 3: 0.92, 4: 0.89, 5: 0.86, 6: 0.84, 7: 0.81 }, round_to: 'inc', min_reps: 2,
         max_increase: { S: 0.02, D: 0.02 }, source: 'Wie im Hybrid: MROUND(Testgewicht ÷ %1RM; inc), unter 2 Wdh altes Max, Kniebeuge/Kreuzheben höchstens +2 %.' },

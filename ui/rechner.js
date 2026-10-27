@@ -8,14 +8,14 @@ import { HAUPT } from '../js/daten.js';
 
 // Werte im Rechner sind schon in der Anzeigeeinheit; das Zahlenfeld rechnet deshalb nicht um
 const Zahl = ({ id, label, wert, setze }) => html`<${ZahlFeld} id=${id} label=${label} wert=${wert} setze=${setze}/>`;
-const RECHNER = [['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['1rm', '1RM'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
+const RECHNER = [['1rm', '1RM'], ['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
   ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche']];
 const runde1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
 export function Rechner({ einst, vorlage = null }) {
   const E = einheit(), lb = E === 'lb', inc = einst.inc ?? (lb ? 5 : 2.5);
   const start = (kg) => runde1(inAnzeige(kg));
-  const [art, setArt] = useState(vorlage ? '1rm' : 'scheiben');
+  const [art, setArt] = useState('1rm');
   const [ziel, setZiel] = useState(() => start(182.5));
   // Läuft ein Training: Gewicht und Wdh des aktuellen Satzes; RPE 10 als Standard (Satz bis Versagen)
   const [b, setB] = useState(() => ({ kg: start(vorlage?.kg ?? 180), wdh: vorlage?.wdh ?? 3, rpe: 10 }));

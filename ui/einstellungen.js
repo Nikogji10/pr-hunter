@@ -1,8 +1,9 @@
 // PR Hunter · Einstellungen als Menü mit Unterseiten: Training, Körper, Geräte und Einheit, Anzeige, Konto und Daten.
 // Jede Unterseite ist ein eigener Historien-Eintrag (Zurück führt ins Menü).
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
-import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz } from './basis.js';
+import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep } from './basis.js';
 import { DEMO } from './stand.js';
+import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnisHolen } from './mitteilung.js';
 import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
 import { KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
@@ -27,6 +28,17 @@ function Seg({ werte, wert, setze, label }) {
 }
 
 export const SCHRIFT = [[0.9, 'Klein'], [1, 'Normal'], [1.1, 'Groß'], [1.2, 'Sehr groß']];
+// Farbwelten (css/app.css, data-stil): Vorschau mit festen Farben, damit jede so aussieht wie sie ist
+export const STIL_WAHL = [
+  ['eisen', 'Eisen', 'Dunkelrot, Standard', ['#07070A', '#1B1D24', '#E0182D']],
+  ['kobalt', 'Kobalt', 'Blau, klar und ruhig', ['#06080D', '#18202C', '#2F7BF5']],
+  ['glut', 'Glut', 'Orange, sportlich', ['#0A0807', '#221A15', '#FF6A13']],
+  ['volt', 'Volt', 'Neon auf Schwarz', ['#050605', '#181B16', '#C6F135']],
+  ['amethyst', 'Amethyst', 'Violett, modern', ['#08070D', '#1D1A2A', '#8B5CF6']],
+  ['graphit', 'Graphit', 'Schwarz-Weiß, schlicht', ['#000000', '#1A1A1A', '#E6E6E6']],
+];
+export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
+  ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
 export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen }) {
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
@@ -60,6 +72,16 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   const scheibe = (kg) => setEinst({ ...einst, scheiben: hat(kg) ? einst.scheiben.filter((s) => !gleich(s, kg)) : [...einst.scheiben, kg].sort((a, b) => b - a) });
   const steigerungen = lb ? [[2.5, '2,5 lb'], [5, '5 lb'], [10, '10 lb']] : [[1, '1 kg'], [1.25, '1,25 kg'], [2.5, '2,5 kg'], [5, '5 kg']];
   const [bereich, setBereich] = useState(null);           // null = Menü, sonst Kategorie
+  const [mitteilungFehler, setMitteilungFehler] = useState(null);
+  const mitteilungenSchalten = async (an) => {
+    setMitteilungFehler(null);
+    if (an && !(await erlaubnisHolen())) {
+      setMitteilungFehler('Benachrichtigungen sind für PR Hunter gesperrt. In den Einstellungen des Handys bei PR Hunter erlauben, dann hier einschalten.');
+      setEinst({ ...einst, mitteilungen: false });
+      return;
+    }
+    setEinst({ ...einst, mitteilungen: an });
+  };
   const oeffne = (id) => { history.pushState({ ...(history.state ?? {}), einstellung: id }, ''); setBereich(id); scrollTo({ top: 0 }); };
   useEffect(() => {
     const zurueckZumMenue = (e) => { if (!e.state?.einstellung) setBereich(null); };
@@ -67,10 +89,10 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     return () => removeEventListener('popstate', zurueckZumMenue);
   }, []);
   const bereiche = {
-    training: ['Training', 'Pausen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Cut ${einst.cut ? 'an' : 'aus'}`],
+    training: ['Training', 'Pausen, Ton, Benachrichtigungen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Ton ${(TOENE[einst.ton] ?? TOENE.piep).name} · Cut ${einst.cut ? 'an' : 'aus'}`],
     koerper: ['Körper', 'Gewicht heute und Ziel', I.statistik, `${einst.koerpergewicht ? `${fmt(inAnzeige(einst.koerpergewicht), 1)} ${einheit()}` : 'kein Gewicht'}${einst.gewichtZiel ? ` · Ziel ${fmt(inAnzeige(einst.gewichtZiel), 1)}` : ''}`],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
-    anzeige: ['Anzeige', 'Design, Sprache, Schriftgröße, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
+    anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
     ...(DEMO ? {} : { konto: ['Konto und Daten', 'Profilbild, Name, Vergleich, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
   };
   const titel = bereich ? bereiche[bereich][0] : 'Einstellungen';
@@ -99,6 +121,17 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <div class="row" style="gap:8px"><button class="mini" onClick=${() => aendere(art, -15)} aria-label=${`${text}: 15 Sekunden weniger`}>−15</button>
           <b class="zahl tab-num" style="font-size:22px;min-width:50px;text-align:center">${mmss(einst.pausen[art])}</b>
           <button class="mini" onClick=${() => aendere(art, 15)} aria-label=${`${text}: 15 Sekunden mehr`}>+15</button></div></div>`)}
+      <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Ton am Pausenende</span>
+        <div class="ton-wahl">${Object.entries(TOENE).map(([id, t]) => html`<button key=${id} class="chip" aria-pressed=${String((einst.ton ?? 'piep') === id)}
+          onClick=${() => { piep(id); setEinst({ ...einst, ton: id }); }}>${t.name}</button>`)}</div>
+        <span class="muted" style="font-size:12.5px">Tippen spielt den Ton zur Probe. Dazu vibriert das Handy (das iPhone kann es nicht).</span></div>
+      <label class="schalter" for="e-mitteilung"><span><b>Benachrichtigungen</b><br/>
+        <span class="muted" style="font-size:12.5px">Läuft ein Training und die App ist im Hintergrund: Trainingszeit, Sätze und bis wann die Pause läuft in der Leiste des Handys, am Pausenende eine Meldung mit Ton. Gilt nur für dieses Gerät.</span></span>
+        <input type="checkbox" id="e-mitteilung" disabled=${!mitteilungMoeglich() || DEMO} checked=${!!einst.mitteilungen && mitteilungErlaubt()}
+          onChange=${(e) => mitteilungenSchalten(e.currentTarget.checked)}/></label>
+      ${!mitteilungMoeglich() ? html`<span class="muted" style="font-size:12.5px">Dieser Browser kann keine Benachrichtigungen. Auf dem iPhone geht es ab iOS 16.4 und nur in der installierten App (Zum Home-Bildschirm).</span>`
+        : html`<span class="muted" style="font-size:12.5px">Grenzen einer Web-App: kein sekündlich laufender Timer in der Leiste, und im Hintergrund bremst das Handy die App. Android meldet das Pausenende meist pünktlich, das iPhone oft erst beim Öffnen.</span>`}
+      ${mitteilungFehler ? html`<p class="fehler">${mitteilungFehler}</p>` : null}
     </section>
     <section class="card pad stack">
       <label class="schalter" style="border-top:0;padding-top:0" for="e-cut"><span><b>Cut-Modus</b><br/>
@@ -151,8 +184,15 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
 `
     : bereich === 'anzeige' ? html`
     <section class="card pad stack">
-      <div class="stack" style="gap:6px"><span class="eyebrow">Design</span>
-        <${Seg} label="Design" werte=${[['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']]} wert=${einst.thema ?? 'system'} setze=${(v) => setEinst({ ...einst, thema: v })}/></div>
+      <div class="stack" style="gap:6px"><span class="eyebrow">Hell oder dunkel</span>
+        <${Seg} label="Hell oder dunkel" werte=${[['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']]} wert=${einst.thema ?? 'system'} setze=${(v) => setEinst({ ...einst, thema: v })}/></div>
+      <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Farbwelt</span>
+        <div class="stil-wahl" role="group" aria-label="Farbwelt">${STIL_WAHL.map(([id, name, was, farben]) => html`<button key=${id} aria-pressed=${String((einst.stil ?? 'eisen') === id)}
+          onClick=${() => setEinst({ ...einst, stil: id })}><span class="muster">${farben.map((f, i) => html`<i key=${i} style=${`background:${f}`}></i>`)}</span>
+          <b>${name}</b><small>${was}</small></button>`)}</div></div>
+      <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Schriftart</span>
+        <div class="schrift-wahl" role="group" aria-label="Schriftart">${SCHRIFT_WAHL.map(([id, name, was, familie]) => html`<button key=${id} aria-pressed=${String((einst.schrift ?? 'archivo') === id)}
+          onClick=${() => setEinst({ ...einst, schrift: id })} style=${`font-family:${familie}, system-ui, sans-serif`}><b>${fmt(inAnzeige(182.5), 1)} ${einheit()}</b><span>${name}</span><small>${was}</small></button>`)}</div></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Sprache</span>
         <${Seg} label="Sprache" werte=${[['de', 'Deutsch'], ['en', 'English']]} wert=${einst.sprache ?? 'de'} setze=${(v) => setEinst({ ...einst, sprache: v })}/></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Schriftgröße</span>
@@ -173,7 +213,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Flächen</span>
         <label class="regler-zeile" for="e-deck"><span>Deckkraft</span><b>${deck} %</b>
           <input id="e-deck" class="regler" type="range" min="0" max="100" step="2" value=${deck} style="grid-column:1 / -1"
-            onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String(v / 100)); }}
+            onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String(v / 100)); document.documentElement.classList.toggle('durchsichtig', v === 0); }}
             onChange=${(e) => setEinst({ ...einst, deckkraft: Number(e.currentTarget.value) / 100 })}/></label>
         <span class="muted" style="font-size:12.5px">Gilt für alle Karten, Fenster und Leisten gleich. 100 % = undurchsichtig.</span></div>
     </section>
@@ -196,10 +236,14 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <label class="schalter" for="e-vergleich"><span><b>Mit dem Kumpel vergleichen</b><br/>
           <span class="muted" style="font-size:12.5px">Zeigt deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht – nur, wenn ihr beide einschaltet. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
           <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
+        <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
+          <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'
+            : 'Braucht Datenbank-Update 15 (db/15_feed.sql).'}</span></span>
+          <input type="checkbox" id="e-feed" disabled=${!einst.feedSpalte} checked=${einst.feedTeilen !== false} onChange=${(e) => setEinst({ ...einst, feedTeilen: e.currentTarget.checked })}/></label>
       </section>
       <section class="card pad stack">
         <div class="row between"><span class="viz-t">Abgleich</span><${SyncPunkt} sync=${sync} offen=${offen}/></div>
-        ${sync.zuletzt ? html`<span class="muted" style="font-size:13px">Zuletzt ${new Date(sync.zuletzt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}</span>` : null}
+        ${sync.zuletzt ? html`<span class="muted" style="font-size:13px">Zuletzt ${new Date(sync.zuletzt).toLocaleString(einst.sprache === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'short', timeStyle: 'short' })}</span>` : null}
         ${sync.fehler ? html`<ul class="fehler" style="padding-left:18px">${sync.fehler.slice(0, 5).map((f, i) => html`<li key=${i}>${f.datum ? `${datumKurz(f.datum)}: ` : ''}${f.meldung}</li>`)}</ul>` : null}
         <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" disabled=${sync.laeuft} onClick=${abgleich}>Jetzt abgleichen</button>
           <button class="btn btn-soft btn-sm" style="flex:1" onClick=${exportieren}>Export als CSV</button></div>

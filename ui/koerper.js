@@ -1,7 +1,7 @@
 // PR Hunter · Muskeldiagramm für das Kraftprofil (vorne/hinten), im Stil von Symmetric Strength: anatomische Figur,
 // jeder Muskel in der Farbe seiner Stärkestufe (aus den beteiligten Lifts), Licht-Verlauf für Plastizität.
 // Eigene Zeichnung (keine Grafik von Symmetric Strength übernommen). Linke Körperhälfte wird gespiegelt.
-import { html, useState, fmt } from './basis.js';
+import { html, useState, fmt, LIFT } from './basis.js';
 import { stufe, STUFEN } from '../js/auswertung.js';
 
 export const MUSKEL_NAME = {
@@ -47,12 +47,13 @@ const GRUPPE = { schraeg: 'bauch' };
 const LINIEN_VORNE = ['M88 162 L100 162 M88 184 L100 184 M88 206 L100 206', 'M84 260 C82 280 82 300 84 318', 'M76 104 C84 112 92 118 100 120'];
 const LINIEN_HINTEN = ['M100 70 L100 224', 'M90 300 C88 310 86 320 84 326', 'M76 356 C76 370 76 380 78 388'];
 
-function Figur({ teile, linien, werte, aktiv, waehle, titel }) {
+/** farbe(gruppe) → Füllfarbe; ohne Angabe nach Stärkestufe aus werte. */
+function Figur({ teile, linien, werte, aktiv, waehle, titel, farbe = null }) {
   const seite = (spiegeln) => Object.entries(teile).flatMap(([m, pfade]) => pfade.map((d, i) => {
     const gruppe = GRUPPE[m] ?? m, w = werte[gruppe];
     const ist = aktiv === gruppe;
     return html`<g key=${`${m}${i}${spiegeln}`} class=${`muskel ${ist ? 'aktiv' : ''}`} onClick=${() => waehle(gruppe)}>
-      <path d=${d} style=${`fill:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}/>
+      <path d=${d} style=${`fill:${farbe ? farbe(gruppe) : w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}/>
       <path d=${d} style="fill:url(#muskelLicht)"/>
       <path d=${d} class="muskel-rand"/>
     </g>`;
@@ -72,15 +73,42 @@ function Figur({ teile, linien, werte, aktiv, waehle, titel }) {
   </svg><figcaption>${titel}</figcaption></figure>`;
 }
 
-export function KoerperKarte({ muskeln }) {
+// #################################################################
+// Muskel-Erholung als Ampel (Nikos Vorgabe): rot = stark ermüdet, gelb = teilweise erholt, grau = erholt
+// #################################################################
+const AMPEL = { rot: ['var(--ampel-rot)', 'stark ermüdet'], gelb: ['var(--ampel-gelb)', 'teilweise erholt'], grau: ['var(--muskel-leer)', 'erholt'] };
+const erholtIn = (h) => (h <= 0 ? 'gleich erholt' : h < 24 ? `erholt in ca. ${h} h` : `erholt in ca. ${fmt(Math.round(h / 12) / 2, 1)} Tagen`);
+
+export function ErholungKarte({ zustand }) {
+  const ermuedet = Object.entries(zustand).filter(([, z]) => z.stufe !== 'grau').sort((a, b) => b[1].last - a[1].last);
+  const [aktiv, setAktiv] = useState(() => ermuedet[0]?.[0] ?? 'quadrizeps');
+  const z = zustand[aktiv];
+  const farbe = (g) => AMPEL[zustand[g]?.stufe ?? 'grau'][0];
+  return html`<div class="koerper">
+    <div class="figuren"><${Figur} teile=${VORNE} linien=${LINIEN_VORNE} werte=${{}} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne" farbe=${farbe}/>
+      <${Figur} teile=${HINTEN} linien=${LINIEN_HINTEN} werte=${{}} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten" farbe=${farbe}/></div>
+    <div class="muskel-info"><i style=${`background:${farbe(aktiv)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
+      <span class="muted">${!z || z.stufe === 'grau' ? 'erholt' : `${AMPEL[z.stufe][1]} · ${erholtIn(z.stunden)}`}</span></div>
+    <div class="stufen-skala">${['rot', 'gelb', 'grau'].map((s) => html`<span key=${s} class="da"><i style=${`background:${AMPEL[s][0]}`}></i>${AMPEL[s][1]}
+      ${s !== 'grau' ? ` (${ermuedet.filter(([, x]) => x.stufe === s).length})` : ''}</span>`)}</div>
+  </div>`;
+}
+
+/** Muskeln eingefärbt nach Stärkestufe; Tippen zeigt Wert, Stufe und aus welchen Übungen er stammt (* = Näherung). */
+export function KoerperKarte({ muskeln, quellen = {} }) {
   const [aktiv, setAktiv] = useState('quadrizeps');
   const w = muskeln[aktiv];
   const vorkommend = STUFEN.map(([, name]) => name).reverse().filter((name) => Object.values(muskeln).some((x) => x != null && stufe(x).name === name));
+  // je Quelle ein eigener Textknoten, damit die Übersetzung Liftnamen erkennt
+  const q = quellen[aktiv] ?? [];
+  const herkunft = q.length ? q.map((x, i) => html`<span key=${i}>${i ? ', ' : ''}<span>${LIFT[x.name]?.name ?? x.name}</span>${x.geschaetzt ? '*' : ''}</span>`) : null;
+  const geschaetzt = q.some((x) => x.geschaetzt);
   return html`<div class="koerper">
     <div class="figuren"><${Figur} teile=${VORNE} linien=${LINIEN_VORNE} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne"/>
       <${Figur} teile=${HINTEN} linien=${LINIEN_HINTEN} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten"/></div>
     <div class="muskel-info"><i style=${`background:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
-      <span class="muted">${w == null ? 'keine Daten (über Schulterdrücken, Klimmzug oder Rudern bei Symmetric Strength prüfen)' : `${fmt(w, 1)} · ${stufe(w).name}`}</span></div>
+      <span class="muted">${w == null ? 'keine Daten – in den letzten 26 Wochen keine passende Übung mit Gewicht' : `${fmt(w, 1)} · ${stufe(w).name}`}</span>
+      ${w != null && herkunft ? html`<span class="muskel-herkunft muted"><span>Quelle:</span> ${herkunft}${geschaetzt ? html` <span>· * Näherung</span>` : null}</span>` : null}</div>
     <div class="stufen-skala">${STUFEN.slice(0, -1).reverse().map(([, name]) => html`<span key=${name} class=${vorkommend.includes(name) ? 'da' : ''}>
       <i style=${`background:${STUFEN_FARBE[name]}`}></i>${name}</span>`)}</div>
   </div>`;

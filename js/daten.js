@@ -168,7 +168,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
       }
       const top = verlauf.get(HAUPT[l])?.find(([d]) => d === tag.datum);
       if (top) {
-        if (laufend != null && top[1] > laufend) feed.push({ datum: tag.datum, lift: l, text: satzText(top[2], true), e1rm: top[1] });
+        if (laufend != null && top[1] > laufend) feed.push({ datum: tag.datum, lift: l, text: satzText(top[2], true), satz: top[2], e1rm: top[1] });
         if (laufend == null || top[1] > laufend) laufend = top[1];
       }
     }
@@ -180,7 +180,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
   for (const tag of tagListe) for (const u of tag.uebungen) ZULETZT[u.key] = tag.datum;     // aufsteigend: am Ende steht das letzte Datum
   for (const [key, l] of verlauf) {
     const [d, , s] = l.at(-1);
-    LETZTES[key] = [satzText(s), datumKurz(d)];
+    LETZTES[key] = [satzText(s), datumKurz(d), s];      // Text für Tests/Export, Satz für die Anzeige in der App-Sprache
     BEST_E1RM[key] = Math.max(...l.map(([, w]) => w));
     E1RM_AKTUELL[key] = referenz(key, heute) ?? l.at(-1)[1];   // länger nicht trainiert: letzter bekannter Wert
   }
@@ -189,7 +189,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
     for (const u of tag.uebungen) {
       if (verlauf.has(u.key) || !u.saetze.length) continue;
       const s = u.saetze.reduce((a, b) => (besser(b, a) ? b : a), null);
-      LETZTES[u.key] = [satzText(s), datumKurz(tag.datum)];
+      LETZTES[u.key] = [satzText(s), datumKurz(tag.datum), s];
     }
   }
   for (const [alt, neu] of Object.entries(GLEICH)) {
