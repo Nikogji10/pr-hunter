@@ -23,9 +23,17 @@ export const ladeHintergrund = () => { const h = hintergrund(); setzeHintergrund
 
 // Neigung: das Bild folgt ganz leicht der Handyneigung (nur dieses Gerät, Standard an, aus bei „Bewegung reduzieren“).
 // Ausgangslage ist, wie das Handy gehalten wird; sie wandert langsam mit, damit das Bild nach dem Hinlegen wieder mittig steht.
-const NEIGUNG = 'prh-neigung', WEG = 12;
+const NEIGUNG = 'prh-neigung', STAERKE = 'prh-neigung-staerke', WEG_MAX = 30;   // Stärke 0–100 % → bis 30 px
 let neigungAktiv = false, rahmen = 0, lage = null, x = 0, y = 0;
 export const neigungAn = () => speicher.lies(NEIGUNG) !== '0';
+export const neigungStaerke = () => { const s = Number(speicher.lies(STAERKE)); return Number.isFinite(s) && speicher.lies(STAERKE) != null ? s : 40; };
+let weg = (neigungStaerke() / 100) * WEG_MAX;
+/** Stärke in Prozent setzen und merken (nur dieses Gerät). */
+export function setzeNeigungStaerke(prozent) {
+  speicher.schreib(STAERKE, String(prozent));
+  weg = (prozent / 100) * WEG_MAX;
+  document.documentElement.style.setProperty('--neigung-rand', `${Math.ceil(weg) + 2}px`);
+}
 const bewegung = (e) => {
   if (e.beta == null || e.gamma == null) return;
   if (!lage) lage = { b: e.beta, g: e.gamma };
@@ -35,7 +43,7 @@ const bewegung = (e) => {
   rahmen = requestAnimationFrame(() => {
     rahmen = 0;
     const s = document.documentElement.style;
-    s.setProperty('--px', `${(-x * WEG).toFixed(1)}px`); s.setProperty('--py', `${(-y * WEG).toFixed(1)}px`);
+    s.setProperty('--px', `${(-x * weg).toFixed(1)}px`); s.setProperty('--py', `${(-y * weg).toFixed(1)}px`);
   });
 };
 export function setzeNeigung(an) {
@@ -47,6 +55,7 @@ export function setzeNeigung(an) {
     el.style.removeProperty('--px'); el.style.removeProperty('--py');
   }
   el.classList.toggle('neigung', darf);
+  el.style.setProperty('--neigung-rand', `${Math.ceil(weg) + 2}px`);
 }
 /** Schalter in den Einstellungen; das iPhone fragt nach der Erlaubnis (geht nur direkt nach einem Tippen). */
 export async function schalteNeigung(an) {

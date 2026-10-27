@@ -110,7 +110,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const hart = Object.entries(harteSaetzeJeMuskel(eintraege)).map(([m, v]) => ({ name: MUSKEL_DE[m] ?? m, wert: Math.round((v / n) * 10) / 10 }))
     .sort((a, b) => b.wert - a.wert);
   // Intensität: Arbeitssätze nach % vom e1RM der Übung (aktuelle Form am Trainingstag), Gesamtlast bei Körpergewicht
-  const zonen = [['unter 70 %', 0, 0.7], ['70–80 %', 0.7, 0.8], ['80–90 %', 0.8, 0.9], ['über 90 %', 0.9, Infinity]].map(([name]) => ({ name, wert: 0 }));
+  const zonen = [[deEn('unter 70 %', 'below 70 %'), 0, 0.7], ['70–80 %', 0.7, 0.8], ['80–90 %', 0.8, 0.9], [deEn('über 90 %', 'above 90 %'), 0.9, Infinity]].map(([name]) => ({ name, wert: 0 }));
   for (const w of wd) for (const t of w.trainings) for (const u of t.uebungen) {
     if (!(u.e1rm > 0)) continue;
     for (const s of u.saetze) {
@@ -239,7 +239,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
           <span class="stufe-text"><b>${fmt(u.wert, 1)}</b> ${u.stufe}</span>
           <span class="muted stufe-naechste">${`e1RM ${gwE(u.e1rm, 1)}`}${u.begrenzt ? html`<span title="Wert auf ±20 um den Schnitt der drei Lifts begrenzt">${' · '}<span>begrenzt</span></span>` : null}</span></div>`)}</div>` : null}
       <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet, zählt halb so viel und liegt höchstens 20 Punkte über oder unter dem Schnitt deiner drei Lifts („begrenzt“: Maschinen zeigen je Gerät andere Gewichte, viele Wdh ergeben ein zu hohes e1RM). Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
-      <p class="muted" style="margin:0;font-size:12.5px"><b>Punkte</b>: Wert je Lift nach Symmetric Strength, Körpergewicht eingerechnet (100 = „Herausragend“). „% zum Schnitt“ zeigt, welcher Lift stärker oder schwächer ist als deine drei im Mittel. Die Stufen sind die von Symmetric Strength in eigener Übersetzung – Strength Level zählt anders (z. B. „Advanced“ dort ≠ „Stark“ hier).</p>
+      <p class="muted" style="margin:0;font-size:12.5px">Punkte: Wert je Lift nach Symmetric Strength, Körpergewicht eingerechnet (100 = „Herausragend“). „% zum Schnitt“ zeigt, welcher Lift stärker oder schwächer ist als deine drei im Mittel. Die Stufen sind die von Symmetric Strength in eigener Übersetzung – Strength Level zählt anders (z. B. „Advanced“ dort ≠ „Stark“ hier).</p>
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>

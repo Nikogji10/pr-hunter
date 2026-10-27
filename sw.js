@@ -2,7 +2,7 @@
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
 // einem eigenen Cache, der Versionswechsel überdauert.
-const VERSION = 'fb78d41a05f7';
+const VERSION = '906e1556d0c4';
 const DATEIEN = [
   "./",
   "app.js",

@@ -4,7 +4,7 @@
 import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep } from './basis.js';
 import { DEMO } from './stand.js';
 import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnisHolen } from './mitteilung.js';
-import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung } from './hintergrund.js';
+import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung, neigungStaerke, setzeNeigungStaerke } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
 import { KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 
@@ -64,6 +64,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   // Regler: beim Ziehen sofort zeigen, beim Loslassen speichern (sonst ein Abgleich je Pixel)
   const [deck, setDeck] = useState(Math.round((einst.deckkraft ?? 0.88) * 100));
   const [neigung, setNeigung] = useState(neigungAn);
+  const [staerke, setStaerke] = useState(neigungStaerke);
   const [sicht, setSicht] = useState(Math.round((1 - (einst.hintergrundDunkel ?? bild.dunkel)) * 100));
   const aendere = (art, d) => setEinst({ ...einst, pausen: { ...einst.pausen, [art]: Math.max(15, Math.min(900, einst.pausen[art] + d)) } });
   const zahl = (t) => { const n = Number(String(t).replace(',', '.')); return t.trim() && Number.isFinite(n) ? n : null; };
@@ -212,6 +213,9 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
             onChange=${(e) => setEinst({ ...einst, hintergrundDunkel: Math.round(100 - Number(e.currentTarget.value)) / 100 })}/></label>` : null}
         ${bild.bild ? html`<label class="schalter" for="e-neigung"><span>Bild bewegt sich mit dem Handy<span class="muted" style="display:block;font-size:12.5px">Ganz leicht, beim Neigen · nur dieses Gerät</span></span>
           <input type="checkbox" id="e-neigung" checked=${neigung} onChange=${async (e) => { const an = e.currentTarget.checked; setNeigung(an); if (!(await schalteNeigung(an))) setNeigung(false); }}/></label>` : null}
+        ${bild.bild && neigung ? html`<label class="regler-zeile" for="e-staerke"><span>Stärke der Bewegung</span><b>${staerke} %</b>
+          <input id="e-staerke" class="regler" type="range" min="10" max="100" step="10" value=${staerke} style="grid-column:1 / -1"
+            onInput=${(ev) => { const v = Number(ev.currentTarget.value); setStaerke(v); setzeNeigungStaerke(v); }}/></label>` : null}
         ${bildFehler ? html`<p class="fehler">${bildFehler}</p>` : null}
         <span class="muted" style="font-size:12.5px">Beim Hochladen wählst du den Ausschnitt passend zum Bildschirm. Wird mit deinem Konto gespeichert (ab Update 11).</span></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Flächen</span>
@@ -238,7 +242,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
         <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
-  ["Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.", "Shows friends your e1RM in squat, bench press and deadlift and your body weight. On by default; if you switch it off, you can't see the others either. No sessions, no sets. Your display name is your name in the comparison."],
+          <span class="muted" style="font-size:12.5px">Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
           <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
         <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
           <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'

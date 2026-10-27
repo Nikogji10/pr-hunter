@@ -357,7 +357,7 @@ function App() {
     setNutzer(n);
     const s = await speicherFuer(n.id);
     sp.current = s;
-    const [tr, me, bl, ei, lauf, inf, ue, an, zf] = await Promise.all(['', 'messwerte', 'block', 'einst', 'laufend', 'programme', 'uebungen', 'anpassungen', 'zusammen']
+    const [tr, me, bl, ei, lauf, inf, ue, an, zf, pause] = await Promise.all(['', 'messwerte', 'block', 'einst', 'laufend', 'programme', 'uebungen', 'anpassungen', 'zusammen', 'pause']
       .map((k) => (k ? s.meta(k) : s.alle())));
     zusammenSetzen(zf);
     setTrainings(tr);
@@ -367,6 +367,7 @@ function App() {
     katalogMischen(ue ?? []);
     setAnpassungen(an ?? {});
     setTraining(lauf);
+    if (lauf && pause?.ende > Date.now()) setTimer(pause);          // laufende Pause übersteht das Schließen der App
     setInfo(inf && Object.keys(inf).length ? inf : await vorlagenAusDateien());
     setPhase('bereit');
     dauerhaft();
@@ -492,6 +493,7 @@ function App() {
 
   // Laufendes Training bei jeder Änderung sichern (übersteht Neuladen, Akku leer, App-Wechsel)
   useEffect(() => { if (!DEMO && sp.current && phase === 'bereit') sp.current.setzeMeta('laufend', training ?? null).catch(() => {}); }, [training]);
+  useEffect(() => { if (!DEMO && sp.current && phase === 'bereit') sp.current.setzeMeta('pause', timer ?? null).catch(() => {}); }, [timer]);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 3200); return () => clearTimeout(id); }, [toast]);
   useEffect(() => { thema(einst.thema); speicher.schreib('prh-thema', einst.thema ?? 'system'); }, [einst.thema]);
   // Vor dem Laden (einst noch der Standard) gilt der Gerätespeicher vom Start – nicht mit Standardwerten überschreiben
@@ -516,9 +518,10 @@ function App() {
       clearTimeout(id); clearInterval(takt);
       if (!training || training.bearbeiten) return;
       zeigeTraining();
-      // Countdown: im Hintergrund während der Pause alle 5 s neu, sonst jede halbe Minute (Trainingszeit)
+      // Countdown während der Pause: bei offener App sekündlich, im Hintergrund so oft das Handy den Zeitgeber laufen
+      // lässt (Android drosselt Web-Apps dort auf grobe Schritte); ohne Pause jede halbe Minute (Trainingszeit)
       const pauseLaeuft = timer && !timer.fertig && timer.ende > Date.now();
-      takt = setInterval(zeigeTraining, document.visibilityState !== 'visible' && pauseLaeuft ? 5000 : 30000);
+      takt = setInterval(zeigeTraining, pauseLaeuft ? 1000 : 30000);
       if (document.visibilityState === 'visible') { mitteilung.schliesse(mitteilung.TAG_PAUSE); return; }
       if (pauseLaeuft) {
         id = setTimeout(() => {
@@ -555,7 +558,9 @@ function App() {
   const stand = useMemo(() => (DEMO || phase !== 'bereit' ? null
     : erstelleStand(trainings, { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' })), [trainings, messwerte, heute, phase, einst.formel]);
   if (stand) setzeStand(stand);
-  setzeAnzeige({ sprache: einst.sprache, einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton,
+  // Bis die Einstellungen geladen sind (in der Demo: bis man etwas ändert) gilt die gemerkte Sprache – wie bei der
+  // Übersetzung der Oberfläche, sonst stünden Übungsnamen, Zahlen und Datum kurz (Demo: dauerhaft) in der anderen Sprache
+  setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton,
     inc: einst.einheit === 'lb' ? (einst.inc ?? 5) * KG_PRO_LB : einst.inc ?? 2.5 });
 
   // Dienste für die Ansichten (Übungen anpassen, anlegen, ändern, Details laden); in der Demo bleiben sie leer

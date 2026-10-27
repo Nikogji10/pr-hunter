@@ -2,9 +2,34 @@
 // Rekorde und das ganze Training – jede Übung mit ihren Sätzen (gleiche kg × Wdh hintereinander zusammengefasst).
 // Sätze und Gewichte lassen sich ausblenden (gemerkt pro Gerät). „Teilen“ zeichnet dieselbe Karte als Bild (Canvas,
 // 1080 × 1350) und gibt sie ans Teilen-Menü des Handys; ohne Teilen-Funktion wird das Bild heruntergeladen.
-import { html, useState, I, deEn, datumLang, gw, gwE, einheit, tonnage, minutenText, nameVon } from './basis.js';
+import { html, useState, I, deEn, fmt, datumLang, gw, gwE, einheit, tonnage, minutenText, nameVon } from './basis.js';
 
 const MIT_SAETZEN = 'prh-abschluss-saetze';
+
+// Bewegtes Gewicht als Turm aus 25-kg-Scheiben neben einem Menschen (Wunsch 104): eine liegende Scheibe ≈ 6,5 cm, ein
+// Mensch 1,80 m. Beide im selben Maßstab – je mehr Volumen, desto höher der Turm und desto kleiner wirkt der Mensch.
+const SCHEIBE_CM = 6.5, MENSCH_CM = 180;
+export function stapelMasse(volumenKg, hoehePx) {
+  const n = Math.max(1, Math.round(volumenKg / 25)), cm = n * SCHEIBE_CM;
+  const skala = (hoehePx * 0.92) / Math.max(cm, MENSCH_CM);
+  return { n, cm, turm: cm * skala, mensch: MENSCH_CM * skala, scheibe: SCHEIBE_CM * skala, menschen: cm / MENSCH_CM };
+}
+const stapelText = (m) => deEn(`${m.n} × 25-kg-Scheiben übereinander: ${fmt(m.cm / 100, 1)} m – ${m.menschen >= 1 ? `so hoch wie ${fmt(m.menschen, 1)} Menschen` : 'noch kleiner als ein Mensch'}`,
+  `${m.n} × 25 kg plates stacked: ${fmt(m.cm / 100, 1)} m – ${m.menschen >= 1 ? `as tall as ${fmt(m.menschen, 1)} people` : 'still shorter than a person'}`);
+const MENSCH = html`<circle cx="20" cy="9" r="8"/><path d="M7 22 Q20 16 33 22 L35 57 L29 57 L28 100 L21.5 100 L20 64 L18.5 100 L12 100 L11 57 L5 57 Z"/>`;
+
+function Stapel({ volumen }) {
+  const H = 170, m = stapelMasse(volumen, H);
+  // Der Mensch startet so groß wie die Szene und schrumpft auf seinen Maßstab, während der Turm wächst
+  const start = Math.min(4, (H * 0.92) / m.mensch);
+  return html`<div class="ak-stapel">
+    <div class="st-szene" style=${`height:${H}px`}>
+      <div class="st-turm" style=${`height:${m.turm}px;--scheibe:${Math.max(1.2, m.scheibe).toFixed(2)}px`}></div>
+      <svg class="st-mensch" viewBox="0 0 40 100" style=${`height:${m.mensch}px;--start:${start.toFixed(3)}`}>${MENSCH}</svg>
+    </div>
+    <p class="st-text">${stapelText(m)}</p>
+  </div>`;
+}
 
 /** Sätze in Reihenfolge, gleiche kg × Wdh hintereinander zusammengefasst: [{ kg, wdh, n }]. */
 function folgeAus(saetze) {
@@ -56,6 +81,7 @@ export function Abschluss({ daten: a, zu }) {
         <div><span class="eyebrow">Sätze</span><b>${a.saetze}</b></div>
         <div><span class="eyebrow">Übungen</span><b>${a.uebungen}</b></div>
       </div>
+      <${Stapel} volumen=${a.volumen}/>
       ${a.prs.length ? html`<div class="ak-prs"><span class="medaille">PR</span><div><b>${a.prs.length === 1 ? '1 neuer Rekord' : `${a.prs.length} neue Rekorde`}</b>
         <div class="ak-pr-liste">${a.prs.map((p, i) => html`<span key=${i}>${nameVon(p.key)} · ${gwE(p.kg)} × ${p.wdh}</span>`)}</div></div></div>` : null}
       <div class="row between"><span class="eyebrow">Training</span>
@@ -101,7 +127,22 @@ async function bildAus(a, mitSaetzen) {
     x.font = `900 50px ${schrift}`;
     text(kuerze(v, 175), kx + 24, ky + 118, { groesse: 50, gewicht: 900 });
   });
-  let y = 570;
+  // Turm aus 25-kg-Scheiben neben einem Menschen, rechts der Text
+  const m = stapelMasse(a.volumen, 200), boden = 730;
+  const sx = 110, sb = 70;
+  const sch = Math.max(1.5, m.scheibe);
+  for (let h = 0; h < m.turm; h += sch) {
+    x.fillStyle = '#D7263D'; x.fillRect(sx, boden - Math.min(m.turm, h + sch), sb, Math.min(sch, m.turm - h) - (sch > 4 ? 1.5 : 0));
+  }
+  x.save(); x.translate(sx + sb + 24, boden - m.mensch); x.scale(m.mensch / 100, m.mensch / 100);
+  x.fillStyle = ink; x.beginPath(); x.arc(20, 9, 8, 0, Math.PI * 2); x.fill();
+  x.fill(new Path2D('M7 22 Q20 16 33 22 L35 57 L29 57 L28 100 L21.5 100 L20 64 L18.5 100 L12 100 L11 57 L5 57 Z')); x.restore();
+  x.fillStyle = 'rgba(255,255,255,0.15)'; x.fillRect(80, boden, B - 160, 3);
+  x.font = `700 30px ${schrift}`;
+  const zeilen = stapelText(m).split(': ');
+  text(zeilen[0], 330, 610, { groesse: 30, gewicht: 800 });
+  text(zeilen[1] ?? '', 330, 655, { groesse: 30, gewicht: 600, f: muted });
+  let y = 800;
   if (a.prs.length) {
     text(`★ ${a.prs.length === 1 ? deEn('1 NEUER REKORD', '1 NEW PR') : `${a.prs.length} ${deEn('NEUE REKORDE', 'NEW PRS')}`}`, 80, y, { groesse: 40, gewicht: 900, f: gold });
     y += 70;

@@ -1,6 +1,6 @@
 // PR Hunter · Rechner: Scheiben, RPE, 1RM, Klimmzug, Aufwärmen, Prozent, Punkte, Versuche – mit dem getesteten Rechenkern.
 // Eingaben und Ergebnisse in der gewählten Einheit (kg/lb); Scheiben und Hantelbild rechnen intern in kg.
-import { html, useState, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
+import { deEn, html, useState, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
 import { e1rm, wdhTabelle, rpeRechner, aufwaermen, e1rmKoerper, zusatzFuer, lastFuer } from '../js/rechnen.js';
 import { dots, ipfGl, wilksPunkte, versuche } from '../js/punkte.js';
 import { E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
@@ -85,7 +85,8 @@ export function Rechner({ einst, vorlage = null }) {
       <div class="fields"><${Zahl} id="k-zwdh" label="Wdh" schritt="1" wert=${kz.zielWdh} setze=${(x) => setKz({ ...kz, zielWdh: x })}/>
         <${Zahl} id="k-zrpe" label="RPE" schritt="0.5" wert=${kz.zielRpe} setze=${(x) => setKz({ ...kz, zielRpe: x })}/></div>
       <div class="result"><div class="big">${kZiel != null ? `${kZiel > 0 ? '+' : ''}${fmt(kZiel)}` : '–'}<small>${E}</small></div>
-        <p class="muted" style="margin:6px 0 0">${kZiel != null ? `Zusatz für ${kz.zielWdh} Wdh @ RPE ${fmt(kz.zielRpe)}${kZiel < 0 ? ' (negativ = Unterstützung)' : ''} · nur mit Zusatz gerechnet wären es ${fmt(naiv)} ${E}` : 'Wdh 1–12 und RPE 6–10 eingeben'}</p></div>
+        <p class="muted" style="margin:6px 0 0">${kZiel != null ? deEn(`Zusatz für ${kz.zielWdh} Wdh @ RPE ${fmt(kz.zielRpe)}${kZiel < 0 ? ' (negativ = Unterstützung)' : ''} · nur mit Zusatz gerechnet wären es ${fmt(naiv)} ${E}`,
+          `Added load for ${kz.zielWdh} reps @ RPE ${fmt(kz.zielRpe)}${kZiel < 0 ? ' (negative = assistance)' : ''} · counting only the added load it would be ${fmt(naiv)} ${E}`) : 'Wdh 1–12 und RPE 6–10 eingeben'}</p></div>
     </section>`}
 
     ${art === 'warm' && html`<section class="card pad stack">

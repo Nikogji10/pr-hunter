@@ -577,7 +577,7 @@ html.mit-bild::before { content: ""; position: fixed; inset: 0; z-index: -1; poi
     var(--bild) center / cover no-repeat; }
 html.mit-bild body { background: var(--bg); }
 /* Neigung (Wunsch 81): Bild etwas größer, damit beim Verschieben kein Rand sichtbar wird */
-html.mit-bild.neigung::before { inset: -14px; transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform .25s linear; will-change: transform; }
+html.mit-bild.neigung::before { inset: calc(-1 * var(--neigung-rand, 14px)); transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform .25s linear; will-change: transform; }
 .bild-vorschau { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-md); background: var(--bild, none) center / cover, var(--sunken); border: 1px solid var(--kante); box-shadow: var(--shadow-tief); }
 
 /* Profilbild */
@@ -718,16 +718,18 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
   background: radial-gradient(60% 45% at 50% 45%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 70%), var(--flaeche-2, #101116);
   transition: opacity .3s ease, transform .3s ease; }
 #startbild.weg { opacity: 0; transform: scale(1.06); pointer-events: none; }
-#startbild .sb-hantel { width: min(80vw, 340px); overflow: visible; }
+#startbild .sb-hantel { position: relative; width: min(80vw, 340px); aspect-ratio: 340 / 90; }
+#startbild .sb-hantel svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#startbild .sb-ebene { transform: translateZ(0); backface-visibility: hidden; }
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
-#startbild .sb-l { animation: sb-links .38s cubic-bezier(.3, .9, .35, 1) .05s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
-#startbild .sb-r { animation: sb-rechts .38s cubic-bezier(.3, .9, .35, 1) .05s both; }
+#startbild .sb-l { animation: sb-links .42s cubic-bezier(.25, .85, .3, 1) .05s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
+#startbild .sb-r { animation: sb-rechts .42s cubic-bezier(.25, .85, .3, 1) .05s both; }
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
   animation: sb-logo .35s ease .3s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
-@keyframes sb-links { from { transform: translateX(-140px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes sb-rechts { from { transform: translateX(140px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sb-links { from { transform: translate3d(-40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
+@keyframes sb-rechts { from { transform: translate3d(40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
 /* nur transform/opacity: letter-spacing und blur liessen das Logo ruckeln */
 @keyframes sb-logo { from { opacity: 0; transform: scale(1.35); } to { opacity: 1; transform: none; } }
 #startbild .sb-l, #startbild .sb-r, #startbild .sb-logo { will-change: transform, opacity; }
@@ -1108,3 +1110,15 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
 @keyframes sz-zeichnen { 0% { stroke-dashoffset: 1; } 45%, 90% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
 @keyframes sz-punkt { 0%, 40% { transform: scale(0); } 50% { transform: scale(1.5); } 60%, 90% { transform: scale(1); } 100% { transform: scale(0); } }
 @media (prefers-reduced-motion: reduce) { .einf-szene * { animation: none !important; } }
+/* Abschlusskarte (104): Turm aus 25-kg-Scheiben wächst, der Mensch daneben schrumpft auf seinen Maßstab */
+.ak-stapel { display: grid; gap: 6px; }
+.st-szene { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 16px; border-bottom: 2px solid var(--line); overflow: hidden; }
+.st-turm { width: 56px; border-radius: 4px 4px 0 0; transform-origin: bottom;
+  background: repeating-linear-gradient(to top, #D7263D 0 calc(var(--scheibe) - 1px), #7A0F1E calc(var(--scheibe) - 1px) var(--scheibe));
+  box-shadow: inset -10px 0 14px -8px rgba(0, 0, 0, .45), inset 8px 0 10px -8px rgba(255, 255, 255, .25), 0 0 26px -8px rgba(215, 38, 61, .7);
+  animation: st-wachsen 1.6s cubic-bezier(.3, .8, .3, 1) .3s both; }
+.st-mensch { fill: var(--ink); opacity: .9; transform-origin: bottom center; animation: st-schrumpfen 1.6s cubic-bezier(.3, .8, .3, 1) .3s both; }
+.st-text { margin: 0; text-align: center; font-size: 13px; color: var(--ink-2, var(--muted)); }
+@keyframes st-wachsen { from { transform: scaleY(0); } }
+@keyframes st-schrumpfen { from { transform: scale(var(--start, 1)); } }
+@media (prefers-reduced-motion: reduce) { .st-turm, .st-mensch { animation: none; } }
