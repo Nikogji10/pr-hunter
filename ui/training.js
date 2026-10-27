@@ -311,12 +311,13 @@ const eingabeTippen = () => { try { return localStorage.getItem(EINGABE) === 'ti
 const merkeEingabe = (tippen) => { try { localStorage.setItem(EINGABE, tippen ? 'tippen' : 'knoepfe'); } catch { /* egal */ } };
 
 /** Große Zahl: Tippen öffnet die Tastatur; wer danach die Knöpfe nimmt, bekommt wieder die große Anzeige. */
-function GrossZahl({ id, text, setze, einheitText, ganz = false, tippen, setTippen }) {
+function GrossZahl({ id, text, setze, einheitText, ganz = false, tippen, setTippen, fertig }) {
   const feld = useRef(null);
   const [eingabe, setEingabe] = useState(text);
   useEffect(() => { if (tippen) { setEingabe(text); feld.current?.focus(); feld.current?.select(); } }, [tippen]);
   if (!tippen) return html`<button class="big big-knopf" onClick=${() => { setTippen(true); merkeEingabe(true); }} aria-label="Zahl eintippen">${text}<small>${einheitText}</small></button>`;
-  return html`<label class="big big-eingabe" for=${id}><input id=${id} ref=${feld} type="text" inputmode=${ganz ? 'numeric' : 'decimal'} value=${eingabe}
+  return html`<label class="big big-eingabe" for=${id}><input id=${id} ref=${feld} type="text" inputmode=${ganz ? 'numeric' : 'decimal'} enterkeyhint="done" value=${eingabe}
+    onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); setTimeout(() => fertig?.(), 0); } }}
     onInput=${(e) => { const v = e.currentTarget.value; setEingabe(v); const n = leseZahl(v); if (n != null) setze(ganz ? Math.max(0, Math.round(n)) : n); }}/><small>${einheitText}</small></label>`;
 }
 
@@ -336,7 +337,7 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
   };
   return html`<${Sheet} zu=${zu} label="Gewicht">
     <div><div class="eyebrow">${koerper ? 'Zusatzgewicht' : 'Gewicht'} · Satz ${z.si + 1}</div><h2 class="h2">${nameVon(k.key)}</h2></div>
-    <${GrossZahl} id="kg-zahl" text=${`${koerper && kg > 0 ? '+' : ''}${gw(kg)}`} einheitText=${einheit()} tippen=${tippen} setTippen=${setTippen}
+    <${GrossZahl} id="kg-zahl" text=${`${koerper && kg > 0 ? '+' : ''}${gw(kg)}`} einheitText=${einheit()} tippen=${tippen} setTippen=${setTippen} fertig=${ok}
       setze=${(n) => setKg(koerper ? inKg(n) : Math.max(0, inKg(n)))}/>
     <div class="stepper">${[-2 * inc, -inc, inc, 2 * inc].map((d) => html`<button key=${d} onClick=${() => knopf(() => setKg(koerper ? +(kg + d).toFixed(4) : Math.max(0, +(kg + d).toFixed(4))))}>${d > 0 ? '+' : '−'}${gw(Math.abs(d))}</button>`)}</div>
     ${koerper ? html`<p class="muted" style="margin:0;font-size:13.5px">Gesamtlast ${koerperKg ? gwE(koerperKg + kg) : '–'} (Körpergewicht ${koerperKg ? gwE(koerperKg) : 'fehlt – in den Einstellungen eintragen'}). Negativ = Unterstützung.</p>` : null}
@@ -353,12 +354,13 @@ function WdhSheet({ t, s: z, zu, satz }) {
   const g = t.karten[z.ki].gruppen[z.gi], s = g.saetze[z.si];
   const [wdh, setWdh] = useState(Number.isFinite(s.wdh) ? s.wdh : parseInt(g.wdhText, 10) || 5);
   const [tippen, setTippen] = useState(eingabeTippen);
+  const ok = () => { satz(z.ki, z.gi, z.si, (x) => { x.wdh = wdh; x.geaendert = true; }); zu(); };
   return html`<${Sheet} zu=${zu} label="Wiederholungen">
     <div class="eyebrow">Wiederholungen · Satz ${z.si + 1}</div>
-    <${GrossZahl} id="wdh-zahl" text=${String(wdh)} einheitText="Wdh" ganz=${true} tippen=${tippen} setTippen=${setTippen} setze=${setWdh}/>
+    <${GrossZahl} id="wdh-zahl" text=${String(wdh)} einheitText="Wdh" ganz=${true} tippen=${tippen} setTippen=${setTippen} setze=${setWdh} fertig=${ok}/>
     <div class="stepper">${[-2, -1, 1, 2].map((d) => html`<button key=${d} onClick=${() => { setTippen(false); merkeEingabe(false); setWdh(Math.max(0, wdh + d)); }}>${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`)}</div>
     ${wdh === 0 ? html`<p class="muted" style="margin:0">0 Wdh zählt als Fehlversuch: gespeichert, aber nicht für e1RM und Volumen gewertet.</p>` : null}
-    <button class="btn btn-chalk btn-block" onClick=${() => { satz(z.ki, z.gi, z.si, (x) => { x.wdh = wdh; x.geaendert = true; }); zu(); }}>Übernehmen</button>
+    <button class="btn btn-chalk btn-block" onClick=${ok}>Übernehmen</button>
   <//>`;
 }
 

@@ -238,7 +238,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
         <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
-          <span class="muted" style="font-size:12.5px">Zeigt deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht – nur, wenn ihr beide einschaltet. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
+  ["Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.", "Shows friends your e1RM in squat, bench press and deadlift and your body weight. On by default; if you switch it off, you can't see the others either. No sessions, no sets. Your display name is your name in the comparison."],
           <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
         <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
           <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'

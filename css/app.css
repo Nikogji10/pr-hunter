@@ -716,15 +716,15 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 /* Startbild (index.html): sofort sichtbar, Scheiben fliegen auf die Stange, Logo leuchtet auf, dann Übergang in die App */
 #startbild { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 22px;
   background: radial-gradient(60% 45% at 50% 45%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 70%), var(--flaeche-2, #101116);
-  transition: opacity .45s ease, transform .45s ease; }
+  transition: opacity .3s ease, transform .3s ease; }
 #startbild.weg { opacity: 0; transform: scale(1.06); pointer-events: none; }
 #startbild .sb-hantel { width: min(80vw, 340px); overflow: visible; }
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
-#startbild .sb-l { animation: sb-links .55s cubic-bezier(.2, 1.4, .4, 1) .1s both; }
-#startbild .sb-r { animation: sb-rechts .55s cubic-bezier(.2, 1.4, .4, 1) .1s both; }
+#startbild .sb-l { animation: sb-links .38s cubic-bezier(.3, .9, .35, 1) .05s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
+#startbild .sb-r { animation: sb-rechts .38s cubic-bezier(.3, .9, .35, 1) .05s both; }
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
-  animation: sb-logo .5s ease .55s both; }
+  animation: sb-logo .35s ease .3s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
 @keyframes sb-links { from { transform: translateX(-140px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes sb-rechts { from { transform: translateX(140px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -971,9 +971,6 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
   transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), opacity .3s ease; }
 .einf-karte[style*="--tiefe:0"] { animation: einf-rein .45s cubic-bezier(.2, .9, .3, 1.25); }
 .einf-karte.weg { transform: translateX(130%) rotate(16deg); opacity: 0; transition: transform .42s cubic-bezier(.5, 0, .7, .4), opacity .42s ease; }
-.einf-symbol { width: 92px; height: 92px; display: grid; place-items: center; border-radius: 50%; color: var(--acc-hi, var(--acc));
-  background: radial-gradient(circle, color-mix(in srgb, var(--acc) 30%, transparent), transparent 70%); filter: drop-shadow(0 0 16px var(--acc-glow)); }
-.einf-symbol svg { width: 56px; height: 56px; }
 .einf-titel { margin: 0; font: 900 30px/1 var(--f); font-stretch: 72%; text-transform: uppercase; letter-spacing: .01em; }
 .einf-text { margin: 0 0 8px; color: var(--ink-2, var(--muted)); font-size: 15.5px; line-height: 1.45; max-width: 30ch; }
 .einf-haken { width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; color: #fff;
@@ -1015,8 +1012,99 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
 .ak-prs b { color: var(--gold); }
 .ak-pr-liste { display: flex; flex-direction: column; font-size: 13.5px; margin-top: 3px; }
 .ak-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ak-liste li { display: grid; grid-template-columns: minmax(0, 1fr) auto 34px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.ak-liste li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .ak-liste li:first-child { border-top: 0; }
-.ak-liste li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ak-liste.mit-saetzen li { grid-template-columns: 1fr; }
+.ak-name { font-weight: 700; min-width: 0; }
+.ak-saetze { color: var(--ink-2, var(--muted)); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.ak-anzahl { font-size: 13px; }
+.ak-schalter { min-height: 28px; font-size: 12px; }
 .ak-knoepfe { width: min(100%, 440px); margin: 0 auto; }
 .ak-knoepfe svg { width: 18px; height: 18px; }
+/* Total-Überschrift einzeilig (87), Programmzeile auf Heute: Name oben, Woche + Phase geschlossen darunter (88) */
+.total-kopf { white-space: nowrap; }   /* darf über die DOTS-Spalte laufen, die unten ausgerichtet ist */
+.block-name { display: block; }
+.block-woche { font-size: 13px; }
+.block-woche span { white-space: nowrap; }
+/* Programm-Ansicht (89): Wochen eingeklappt mit Pfeil, Tage mit deutlichem Kopf in Akzentfarbe */
+.woche-rechts { display: flex; align-items: center; gap: 8px; flex: none; }
+.woche-rechts > .muted { white-space: nowrap; }
+.woche-pfeil { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--raised); color: var(--acc-text, var(--acc)); transition: transform .2s ease; }
+.woche-pfeil svg { width: 16px; height: 16px; }
+.woche[open] > summary .woche-pfeil { transform: rotate(90deg); }
+.tp-kopf { align-items: baseline; padding: 4px 0 2px; }
+.tp-wt { font: 800 16px/1.1 var(--f); color: var(--acc-text, var(--acc)); }
+.tp-datum { font: 700 14px/1.1 var(--f); color: var(--ink); font-variant-numeric: tabular-nums; }
+.tp-zusatz { font-size: 12.5px; }
+/* Aktiver Block (90): schlicht, grüner Status, Fortschrittsbalken, Plan vs. Ist aufklappbar */
+.aktiv-block { border-color: color-mix(in srgb, var(--ok) 40%, var(--kante)); }
+.status-aktiv { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 99px; font: 800 12px/1 var(--f); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ok); background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.status-aktiv i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); animation: puls 1.8s infinite; }
+.ab-name { font-size: 24px; margin: 0; }
+.ab-unter { font-size: 13.5px; margin-top: 3px; }
+.ab-fortschritt { height: 8px; border-radius: 99px; background: var(--raised); overflow: hidden; }
+.ab-fortschritt i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 70%, transparent), var(--ok)); }
+.ab-zahlen { font-size: 13px; gap: 10px; flex-wrap: wrap; }
+.ab-maxe { display: flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; }
+.ab-maxe b { color: var(--ink); }
+.ab-sollist { border-top: 1px solid var(--line); }
+.ab-sollist > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; padding: 10px 0 4px; cursor: pointer; font-weight: 800; font-size: 14px; }
+.ab-sollist > summary::-webkit-details-marker { display: none; }
+.ab-sollist[open] > summary .woche-pfeil { transform: rotate(90deg); }
+
+/* Einführung (96): Szenen je Karte, laufen nur auf der vorderen Karte (.vorn), Schleife ca. 3 s */
+.einf-szene { width: 100%; height: 120px; display: grid; place-items: center; position: relative; margin-bottom: 4px; }
+.einf-karte:not(.vorn) .einf-szene * { animation: none !important; }
+.einf-karte.vorn .einf-titel { animation: einf-auf .45s .1s cubic-bezier(.2, .9, .3, 1) both; }
+.einf-karte.vorn .einf-text { animation: einf-auf .45s .2s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes einf-auf { from { opacity: 0; transform: translateY(10px); } }
+/* 1: Hantel wird beladen, dann springt ein PR-Abzeichen auf */
+.sz-start { position: relative; width: 210px; }
+.sz-start svg { width: 100%; overflow: visible; }
+.sz-stange { fill: #9AA1AB; } .sz-kragen { fill: #C9CED6; }
+.sz-l { animation: sz-l 3s cubic-bezier(.3, .9, .35, 1) infinite; } .sz-r { animation: sz-r 3s cubic-bezier(.3, .9, .35, 1) infinite; }
+@keyframes sz-l { 0% { transform: translateX(-60px); opacity: 0; } 15%, 85% { transform: none; opacity: 1; } 100% { transform: none; opacity: 0; } }
+@keyframes sz-r { 0% { transform: translateX(60px); opacity: 0; } 15%, 85% { transform: none; opacity: 1; } 100% { transform: none; opacity: 0; } }
+.sz-pr { position: absolute; right: -8px; top: -14px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #1A1300;
+  font: 900 15px/1 var(--f); box-shadow: 0 0 24px color-mix(in srgb, var(--gold) 70%, transparent); animation: sz-pr 3s cubic-bezier(.2, 1.6, .4, 1) infinite; }
+@keyframes sz-pr { 0%, 25% { transform: scale(0) rotate(-30deg); opacity: 0; } 38%, 85% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+/* 2: Satzzeile – Haken wird grün, danach läuft die Pause ab */
+.sz-satz { width: 230px; display: grid; gap: 10px; }
+.sz-zeile { display: grid; grid-template-columns: 1fr 1fr 48px; gap: 8px; }
+.sz-feld { background: var(--raised); border-radius: 12px; padding: 7px 0; display: grid; place-items: center; }
+.sz-feld b { font: 900 22px/1 var(--f); font-stretch: 70%; } .sz-feld small { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.sz-check { display: grid; place-items: center; border-radius: 12px; border: 2px solid var(--line); color: var(--muted); position: relative; overflow: hidden; }
+.sz-check::before { content: ""; position: absolute; inset: 0; background: var(--ok); transform: scale(0); border-radius: 10px; animation: sz-fuellen 3s ease infinite; }
+.sz-check svg { width: 22px; height: 22px; position: relative; animation: sz-haken 3s ease infinite; }
+@keyframes sz-fuellen { 0%, 22% { transform: scale(0); } 32%, 90% { transform: scale(1); } 100% { transform: scale(0); } }
+@keyframes sz-haken { 0%, 22% { color: var(--muted); transform: scale(1); } 30% { color: #fff; transform: scale(1.35); } 40%, 90% { color: #fff; transform: scale(1); } }
+.sz-pause { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: var(--muted); animation: sz-zeige 3s ease infinite; }
+.sz-pause > i { flex: 1; height: 6px; border-radius: 99px; background: var(--raised); overflow: hidden; }
+.sz-pause > i > i { display: block; height: 100%; background: var(--acc); transform-origin: left; animation: sz-ablauf 3s linear infinite; }
+@keyframes sz-zeige { 0%, 30% { opacity: 0; } 38%, 92% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes sz-ablauf { 0%, 35% { transform: scaleX(1); } 95%, 100% { transform: scaleX(0); } }
+/* 3: Karte wird nach rechts (einklappen) und nach links (entfernen) gewischt, ein Finger zieht mit */
+.sz-wisch { position: relative; width: 230px; height: 64px; overflow: hidden; border-radius: 14px; background: var(--sunken); }
+.sz-spur { position: absolute; inset: 0; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; padding: 0 14px; }
+.sz-spur svg { width: 22px; height: 22px; }
+.sz-links { color: var(--acc); animation: sz-sicht-l 4s ease infinite; } .sz-rechts { color: var(--ok); animation: sz-sicht-r 4s ease infinite; }
+.sz-karte { position: absolute; inset: 0; border-radius: 14px; background: linear-gradient(180deg, var(--raised), var(--surface)); border: 1px solid var(--kante);
+  display: grid; grid-template-columns: 30px 1fr; grid-template-rows: 1fr 1fr; gap: 6px 10px; align-items: center; padding: 10px 14px; animation: sz-schieben 4s cubic-bezier(.4, 0, .2, 1) infinite; }
+.sz-karte i { grid-row: 1 / 3; width: 30px; height: 30px; border-radius: 50%; background: var(--acc); opacity: .8; }
+.sz-karte b { display: block; height: 8px; border-radius: 99px; background: var(--line); } .sz-karte b + b { width: 60%; }
+.sz-finger { position: absolute; top: 50%; left: 50%; width: 26px; height: 26px; margin: -13px; border-radius: 50%; background: rgba(255, 255, 255, .85);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .2); animation: sz-schieben 4s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes sz-schieben { 0%, 8% { transform: none; } 28%, 36% { transform: translateX(64px); } 50%, 58% { transform: none; } 78%, 86% { transform: translateX(-64px); } 100% { transform: none; } }
+@keyframes sz-sicht-r { 0%, 10%, 45%, 100% { opacity: 0; } 25%, 38% { opacity: 1; } }
+@keyframes sz-sicht-l { 0%, 60%, 95%, 100% { opacity: 0; } 75%, 88% { opacity: 1; } }
+/* 4: Kurve zeichnet sich, der Endpunkt pulsiert, „+5 kg“ springt auf */
+.sz-kurve { position: relative; width: 230px; }
+.sz-kurve svg { width: 100%; overflow: visible; }
+.sz-gitter { stroke: var(--line); stroke-width: 1; fill: none; }
+.sz-linie { fill: none; stroke: var(--acc); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: sz-zeichnen 3s ease infinite; }
+.sz-punkt { fill: var(--gold); transform-origin: 186px 18px; animation: sz-punkt 3s ease infinite; }
+.sz-plus { position: absolute; right: -6px; top: -18px; padding: 3px 8px; border-radius: 99px; background: var(--gold); color: #1A1300; font: 900 12px/1.2 var(--f); animation: sz-pr 3s cubic-bezier(.2, 1.6, .4, 1) infinite; }
+@keyframes sz-zeichnen { 0% { stroke-dashoffset: 1; } 45%, 90% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes sz-punkt { 0%, 40% { transform: scale(0); } 50% { transform: scale(1.5); } 60%, 90% { transform: scale(1); } 100% { transform: scale(0); } }
+@media (prefers-reduced-motion: reduce) { .einf-szene * { animation: none !important; } }

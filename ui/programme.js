@@ -70,7 +70,11 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     starten=${(b) => { setBlock(b); setAnsicht(null); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); zuHeute(); }}/>`;
   const aktivTage = block ? blockTage(programme[block.datei], { ...block, cut: einst.cut }) : [];
   const wochen = wochenListe(aktivTage);
-  const eigene = Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
+  // Stand: erledigt laut Soll-Ist (zählt auch Trainings ohne Planbezug), sonst die aus dem Plan gestarteten
+  const erledigtZahl = sollIst.length ? sollIst.reduce((a, z) => a + z.erledigt, 0) : aktivTage.filter((t) => erledigt.has(t.datum)).length;
+  const naechsterTag = aktivTage.find((t) => t.datum >= HEUTE);
+  const aktWoche = naechsterTag ? wochen.indexOf(naechsterTag.woche) + 1 : wochen.length;
+  const eigene =Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
   const vorlagen = Object.keys(programme).filter((d) => !eigene.includes(d));
   const karte = (datei) => {
     const p = programme[datei];
@@ -86,17 +90,14 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   };
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Blöcke und Vorlagen</div><h1 class="h1">Programme</h1></div>${DEMO ? html`<span class="proto">Demo</span>` : null}</header>
-    ${block ? html`<section class="card pad stack aktiv">
-      <div class="row between"><span class="eyebrow">Aktiver Block</span><span class="tag">${einst.cut ? 'Cut-Modus' : 'Normal'}</span></div>
-      <h2 class="h2" style="font-size:26px">${INFO[block.datei].kurz}</h2>
-      <div class="prog-meta">
-        <div><b>${wochen.length}</b><span>Wochen</span></div>
-        <div><b>${aktivTage.length}</b><span>Einheiten</span></div>
-        <div><b>${aktivTage.filter((t) => erledigt.has(t.datum)).length}</b><span>erledigt</span></div>
-        <div><b>${aktivTage.length ? datumKurz(aktivTage.at(-1).datum) : '–'}</b><span>Ende</span></div>
-      </div>
-      <div class="row wrap" style="gap:6px">${Object.entries(block.werte).map(([k, v]) => html`<span key=${k} class="chip" style="cursor:default">${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</div>
-      <${SollIst} zeilen=${sollIst}/>
+    ${block ? html`<section class="card pad stack aktiv-block">
+      <div class="row between"><span class="status-aktiv"><i></i>Aktiv</span>${einst.cut ? html`<span class="tag">Cut-Modus</span>` : null}</div>
+      <div><h2 class="h2 ab-name">${INFO[block.datei].kurz}</h2>
+        <div class="muted ab-unter"><span>${`Woche ${aktWoche}/${wochen.length}`}</span>${' · '}<span>${`bis ${aktivTage.length ? datumKurz(aktivTage.at(-1).datum) : '–'}`}</span></div></div>
+      <div class="ab-fortschritt" role="progressbar" aria-valuemin="0" aria-valuemax=${aktivTage.length} aria-valuenow=${erledigtZahl}><i style=${`width:${aktivTage.length ? (erledigtZahl / aktivTage.length) * 100 : 0}%`}></i></div>
+      <div class="row between ab-zahlen"><span>${`${erledigtZahl} von ${aktivTage.length} Einheiten`}</span>
+        <span class="ab-maxe">${Object.entries(block.werte).map(([k, v]) => html`<span key=${k}>${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</span></div>
+      ${sollIst.length ? html`<details class="ab-sollist"><summary><span>Plan vs. Ist</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary><${SollIst} zeilen=${sollIst}/></details>` : null}
       <${NeueMaxe} maxe=${neueMaxe} vertrauen=${mitVertrauen ? vertrauen : null} setVertrauen=${setVertrauen} planen=${() => setAnsicht({ art: 'detail', datei: block.datei, ausTest: true,
         werte: { ...block.werte, ...Object.fromEntries(Object.entries(neueMaxe).filter(([, m]) => m.neuesMax != null).map(([l, m]) => [l, m.neuesMax])) },
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
@@ -184,8 +185,9 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       <div class="row between" style="margin-bottom:4px"><span class="eyebrow">Wochenplan</span><span class="muted" style="font-size:13px">${tage.length} Einheiten</span></div>
       ${planFehler ? html`<p class="fehler">${planFehler}</p>` : vollstaendig ? wochenListe(tage).map((w, i) => {
         const wt = tage.filter((t) => t.woche === w);
-        return html`<details key=${w} class="woche" open=${i === 0}>
-          <summary><span><b>Woche ${i + 1}</b> <span class="muted">· ${titel[w]}</span></span><span class="muted" style="font-size:13px">${datumKurz(wt[0].datum)} – ${datumKurz(wt.at(-1).datum)}</span></summary>
+        // Wochen eingeklappt; der Pfeil zeigt, dass sich die Tage aufklappen lassen
+        return html`<details key=${w} class="woche">
+          <summary><span><b>Woche ${i + 1}</b> <span class="muted">· ${titel[w]}</span></span><span class="woche-rechts"><span class="muted" style="font-size:13px">${datumKurz(wt[0].datum)} – ${datumKurz(wt.at(-1).datum)}</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></span></summary>
           ${wt.map((t) => html`<${TagPlan} key=${t.datum + t.offset} tag=${t}/>`)}
         </details>`;
       }) : html`<p class="muted" style="margin:0">Startdatum und alle Maxe eintragen, dann erscheinen die Gewichte.</p>`}

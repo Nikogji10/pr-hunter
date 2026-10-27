@@ -10,11 +10,21 @@ const rpeZiel = (r) => (r == null ? null : typeof r === 'number' ? r : r.max ?? 
  */
 export function sollIst(tage, trainings, blockId) {
   const wochen = [...new Set(tage.map((t) => t.woche))];
-  const eigene = trainings.filter((t) => !t.geloescht && t.runId === blockId && t.tagOffset != null);
+  const istEigen = (t) => t.runId === blockId && t.tagOffset != null;
+  const eigene = trainings.filter((t) => !t.geloescht && istEigen(t));
+  // Trainings ohne Planbezug (Jefit-Import, freies Training) zählen für die Blockwoche, in deren Zeitraum ihr Datum
+  // fällt: ab dem ersten Plantag der Woche bis vor den ersten der nächsten (die letzte Woche bis 6 Tage nach ihrem Ende)
+  const daten = tage.filter((t) => t.datum).sort((a, b) => a.datum.localeCompare(b.datum));
+  const letzter = daten.at(-1)?.datum;
+  const ende = letzter ? new Date(Date.parse(`${letzter}T00:00:00Z`) + 6 * 864e5).toISOString().slice(0, 10) : null;
+  const wocheAm = (d) => (daten.length && d >= daten[0].datum && d <= ende ? daten.filter((t) => t.datum <= d).at(-1).woche : null);
+  const lose = trainings.filter((t) => !t.geloescht && !istEigen(t) && t.datum && wocheAm(t.datum) != null);
   return wochen.map((woche) => {
     const plan = tage.filter((t) => t.woche === woche);
     const offsets = new Set(plan.map((t) => t.offset));
-    const gemacht = eigene.filter((t) => offsets.has(t.tagOffset));
+    const geplant = eigene.filter((t) => offsets.has(t.tagOffset));
+    const ohnePlan = lose.filter((t) => wocheAm(t.datum) === woche);
+    const gemacht = [...geplant, ...ohnePlan];
     const abw = [], rpeIst = [], rpeSoll = [];
     let saetze = 0;
     for (const t of gemacht) {
@@ -28,7 +38,8 @@ export function sollIst(tage, trainings, blockId) {
         }
       }
     }
-    return { woche, geplant: plan.length, erledigt: new Set(gemacht.map((t) => t.tagOffset)).size, saetze,
+    const tageErledigt = new Set(geplant.map((t) => t.tagOffset)).size + new Set(ohnePlan.map((t) => t.datum)).size;
+    return { woche, geplant: plan.length, erledigt: Math.min(plan.length, tageErledigt), saetze,
       abweichungKg: mittel(abw), rpeIst: mittel(rpeIst), rpeSoll: mittel(rpeSoll) };
   });
 }

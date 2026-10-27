@@ -89,6 +89,9 @@ export const LIFT = {
   dead: { name: 'Kreuzheben', kurz: 'KH', farbe: 'var(--lift-dead)' },
   andere: { name: 'Zubehör', kurz: '+', farbe: 'var(--andere)' },
 };
+/** Liftname in der Anzeigesprache – für zusammengesetzte Texte, die der Übersetzer nicht als Ganzes kennt. */
+const LIFT_EN = { squat: 'Squat', bench: 'Bench press', dead: 'Deadlift', andere: 'Accessories' };
+export const liftName = (l) => (ANZEIGE.sprache === 'en' ? LIFT_EN[l] : LIFT[l].name);
 // Katalog (app/daten/katalog.json), einmal beim Start geladen
 const KATALOG = { liste: [], nach: new Map() };
 /** Katalog setzen; zusammengeführte Übungen (versteckt) behalten ihren Namen für alte Trainings, sind aber nicht mehr wählbar. */

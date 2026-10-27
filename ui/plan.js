@@ -1,6 +1,6 @@
 // PR Hunter · Gemeinsame Planbausteine für Programme, Generator, Editor, Heute und Verlauf:
 // Beschreibungen der Vorlagen, Startmaxe, Plantage eines Blocks, Wochentitel, Darstellung eines Plantags.
-import { html, nameVon, liftVon, LIFT, datumKurz, rpeText, incStandard, gw, einheit } from './basis.js';
+import { html, nameVon, liftVon, LIFT, datumKurz, datumLang, rpeText, incStandard, gw, einheit } from './basis.js';
 import { planeBlock } from '../js/programm.js';
 import { programmText } from './programmtexte.js';
 import { mround } from '../js/rechnen.js';
@@ -62,7 +62,7 @@ function zeile(u, g) {
 
 export function TagPlan({ tag }) {
   return html`<div class=${`tag-plan ${tag.uebersprungen ? 'weg' : ''}`}>
-    <div class="row between"><b style="font-size:13px">${datumKurz(tag.datum)} · ${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][new Date(`${tag.datum}T00:00:00Z`).getUTCDay()]}${tag.verschoben ? ' · verschoben' : ''}${tag.uebersprungen ? ' · übersprungen' : ''}</b>
+    <div class="row between tp-kopf"><span><b class="tp-wt">${datumLang(tag.datum).split(',')[0]}</b> <span class="tp-datum">${datumKurz(tag.datum)}</span>${tag.verschoben ? html` <span class="muted tp-zusatz">· verschoben</span>` : ''}${tag.uebersprungen ? html` <span class="muted tp-zusatz">· übersprungen</span>` : ''}</span>
       <span class="row" style="gap:4px">${[...new Set(tag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))].map((l) => html`<i key=${l} class="dot" style=${`background:${LIFT[l].farbe}`}></i>`)}</span></div>
     ${tag.uebungen.filter((u) => u.gruppen.length).flatMap((u, i) => u.gruppen.map((g, j) => {
       const [sw, last] = zeile(u, g);

@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -10,6 +10,7 @@ import { LinienChart, StapelSaeulen, Heatmap, Sparkline, ZonenBalken, Rangliste 
 import { KoerperKarte, ErholungKarte } from './koerper.js';
 import { Zielprognose, Vergleich } from './vergleich.js';
 import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT } from './stand.js';
+import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
 
@@ -121,8 +122,11 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const hinweise = [];
   const plateaus = LIFTS.map((l) => [l, plateau(e1rmWoche[l].slice(-n))]).filter(([, p]) => p.plateau);
   if (plateaus.length) {
-    hinweise.push({ t: plateaus.length === 1 ? `${LIFT[plateaus[0][0]].name}: kein neues e1RM` : 'Kein neues e1RM',
-      text: `${plateaus.map(([l, p]) => `${LIFT[l].name} seit ${p.wochenOhneRekord} Trainingswochen (Bestwert ${gwE(p.best, 1)})`).join(', ')}. Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche einplanen.` });
+    // Zusammengesetzte Hinweise gleich in der Anzeigesprache bauen – Teil für Teil kann der Übersetzer sie nicht
+    hinweise.push({ t: plateaus.length === 1 ? deEn(`${liftName(plateaus[0][0])}: kein neues e1RM`, `${liftName(plateaus[0][0])}: no new e1RM`) : deEn('Kein neues e1RM', 'No new e1RM'),
+      text: `${plateaus.map(([l, p]) => deEn(`${liftName(l)} seit ${p.wochenOhneRekord} Trainingswochen (Bestwert ${gwE(p.best, 1)})`,
+        `${liftName(l)} for ${p.wochenOhneRekord} training weeks (best ${gwE(p.best, 1)})`)).join(', ')}. ${deEn('Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche einplanen.',
+        'Levers: change the rep range, add a variation (pause, pins) or plan a deload week.')}` });
   }
   const liftWerte = Object.entries(profil.lifts).sort((a, b) => a[1].wert - b[1].wert);
   if (liftWerte.length === 3 && profil.gesamt - liftWerte[0][1].wert >= 3) {
@@ -130,9 +134,11 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     // In Prozent zum eigenen Schnitt der drei Lifts (Symmetric Strength gleicht Körpergewicht und Lift aus), statt „Punkte“
     const pz = (x) => `${x >= 0 ? '+' : '−'}${fmt(Math.abs(x), 0)} %`;
     const abw = (ll) => (profil.lifts[ll].wert / profil.gesamt - 1) * 100;
-    const andere = liftWerte.slice(1).map(([ll]) => `${LIFT[ll].name} ${pz(abw(ll))}`).join(', ');
-    hinweise.push({ t: `Schwächster Lift im Verhältnis: ${LIFT[l].name}`,
-      text: `${LIFT[l].name} liegt ${fmt(Math.abs(abw(l)), 0)} % unter deinem Schnitt (${andere}). Noch ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM bis zur Stufe „${w.naechste?.name}“ – Stufen nach Symmetric Strength, nicht Strength Level.` });
+    const andere = liftWerte.slice(1).map(([ll]) => `${liftName(ll)} ${pz(abw(ll))}`).join(', ');
+    const naechste = deEn(w.naechste?.name, uebersetze(w.naechste?.name ?? '') ?? w.naechste?.name);
+    hinweise.push({ t: deEn(`Schwächster Lift im Verhältnis: ${liftName(l)}`, `Weakest lift relatively: ${liftName(l)}`),
+      text: deEn(`${liftName(l)} liegt ${fmt(Math.abs(abw(l)), 0)} % unter deinem Schnitt (${andere}). Noch ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM bis zur Stufe „${naechste}“ – Stufen nach Symmetric Strength, nicht Strength Level.`,
+        `${liftName(l)} is ${fmt(Math.abs(abw(l)), 0)} % below your average (${andere}). ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM to go until the “${naechste}” level – levels per Symmetric Strength, not Strength Level.`) });
   }
   const belastung = wd.slice(-Math.min(n, 26));
   // Verläufe je Woche: Total aus der aktuellen Form (bestes e1RM der letzten 12 Wochen je Lift), Körpergewicht, Punkte
@@ -165,8 +171,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
     ${reiter === 'kraft' ? html`
     <section class="card total wichtig">
-      <div><div class="eyebrow">Total · bestes e1RM der letzten ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>
-        ${totalVorher != null ? html`<div class=${`delta ${total >= totalVorher ? 'auf' : 'ab'}`}>${pfeil(total - totalVorher)} ${einheit()} seit ${datumKurz(x[0])}${x[0].slice(0, 4)}</div>`
+      <div><div class="eyebrow total-kopf">Total · bestes e1RM, ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>
+        ${totalVorher != null ? html`<div class=${`delta ${total >= totalVorher ? 'auf' : 'ab'}`}>${pfeil(total - totalVorher)} ${einheit()} ${deEn("seit", "since")} ${datumKurz(x[0])}${x[0].slice(0, 4)}</div>`
           : html`<div class="muted" style="font-size:13px">${total == null ? 'Braucht je einen Satz in Kniebeuge, Bankdrücken und Kreuzheben.' : 'Im Zeitraum nicht alle drei Lifts trainiert.'}</div>`}</div>
       <div class="dots-wert"><div class="eyebrow">DOTS</div><b>${total != null && kg > 0 ? fmt(dots(total, kg), 1) : '–'}</b><span class="muted" style="font-size:12px">${kg > 0 ? `IPF GL ${fmt(ipfGl(total, kg), 1)} · bei ${gwE(kg)}` : 'Körpergewicht fehlt'}</span></div>
     </section>
@@ -287,7 +293,7 @@ function KoerperStatistik({ x, werte, von, ziel }) {
   return html`<section class="stack" style="gap:8px">
     ${g ? html`<div class="kacheln vier">
       <div class="kachel"><span class="l">Aktuell</span><b>${gw(g.aktuell, 1)}</b><span class="muted" style="font-size:12px">${einheit()}${ziel ? ` · Ziel ${gw(ziel, 1)}` : ''}</span></div>
-      <div class="kachel"><span class="l">Im Zeitraum</span><b>${vz(g.veraenderung)}</b><span class="muted" style="font-size:12px">seit ${datumKurz(g.seit)}</span></div>
+      <div class="kachel"><span class="l">Im Zeitraum</span><b>${vz(g.veraenderung)}</b><span class="muted" style="font-size:12px">${deEn("seit", "since")} ${datumKurz(g.seit)}</span></div>
       <div class="kachel"><span class="l">Trend</span><b>${vz(g.proWoche, 2)}</b><span class="muted" style="font-size:12px">${einheit()} je Woche</span></div>
       <div class="kachel"><span class="l">Spanne</span><b>${gw(g.max - g.min, 1)}</b><span class="muted" style="font-size:12px">${gw(g.min, 1)}–${gw(g.max, 1)}</span></div>
     </div>` : null}

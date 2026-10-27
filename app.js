@@ -216,7 +216,8 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
     ${tag ? html`<section class="card pad stack heute-plan wichtig">
       <div class="row between" style="align-items:flex-start"><span class="eyebrow">${tag.datum === HEUTE ? 'Heute' : 'Nächstes Training'} · ${datumLang(tag.datum)}</span><span class="muted" style="font-size:13px;white-space:nowrap">ca. ${minuten} min</span></div>
       <div class="block-zeile">
-        <div style="min-width:0"><b>${INFO[block.datei].kurz}</b><span class="muted"> · ${`Woche ${akt}/${wochen.length}`}${wochenTitel ? html` · <span>${wochenTitel}</span>` : ''}${einst.cut ? ' · Cut' : ''}</span></div>
+        <div style="min-width:0"><b class="block-name">${INFO[block.datei].kurz}</b>
+          <div class="muted block-woche"><span>${`Woche ${akt}/${wochen.length}`}</span>${wochenTitel ? html`${' · '}<span>${wochenTitel}</span>` : ''}${einst.cut ? ' · Cut' : ''}</div></div>
         <div class="row" style="gap:6px;flex:none"><button class="chip" aria-expanded=${String(planOffen)} onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan zu' : 'Plan'}</button>
           <button class="chip" onClick=${zuProgrammen}>Block ›</button></div>
       </div>
@@ -477,7 +478,7 @@ function App() {
     if (phase === 'laden') return;
     const sb = document.getElementById('startbild');
     if (!sb) return;
-    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 500); }, Math.max(0, 1200 - performance.now()));
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 800 - performance.now()));
     return () => clearTimeout(id);
   }, [phase]);
   useEffect(() => {
@@ -506,20 +507,29 @@ function App() {
   // Im Hintergrund kommt am Pausenende zusätzlich eine laute Meldung; zurück in der App verschwindet nur diese.
   useEffect(() => {
     if (DEMO || !einst.mitteilungen || !mitteilung.erlaubt()) return;
-    let id = null;
-    const pruefe = () => {
-      clearTimeout(id);
-      if (!training || training.bearbeiten) return;
+    let id = null, takt = null;
+    const zeigeTraining = () => {
       const s = alleSaetze(training), { titel, text } = mitteilung.trainingsText(training, { fertig: s.filter((x) => x.erledigt).length, gesamt: s.length, timer });
       mitteilung.zeige(mitteilung.TAG_TRAINING, titel, text, { zeit: training.start, bleibt: true });
+    };
+    const pruefe = () => {
+      clearTimeout(id); clearInterval(takt);
+      if (!training || training.bearbeiten) return;
+      zeigeTraining();
+      // Countdown: im Hintergrund während der Pause alle 5 s neu, sonst jede halbe Minute (Trainingszeit)
+      const pauseLaeuft = timer && !timer.fertig && timer.ende > Date.now();
+      takt = setInterval(zeigeTraining, document.visibilityState !== 'visible' && pauseLaeuft ? 5000 : 30000);
       if (document.visibilityState === 'visible') { mitteilung.schliesse(mitteilung.TAG_PAUSE); return; }
-      if (timer && !timer.fertig && timer.ende > Date.now()) {
-        id = setTimeout(() => { const p = mitteilung.pauseEndeText(timer); mitteilung.zeige(mitteilung.TAG_PAUSE, p.titel, p.text, { laut: true }); }, timer.ende - Date.now());
+      if (pauseLaeuft) {
+        id = setTimeout(() => {
+          clearInterval(takt); takt = setInterval(zeigeTraining, 30000); zeigeTraining();
+          const p = mitteilung.pauseEndeText(timer); mitteilung.zeige(mitteilung.TAG_PAUSE, p.titel, p.text, { laut: true });
+        }, timer.ende - Date.now());
       }
     };
     document.addEventListener('visibilitychange', pruefe);
     pruefe();
-    return () => { clearTimeout(id); document.removeEventListener('visibilitychange', pruefe); };
+    return () => { clearTimeout(id); clearInterval(takt); document.removeEventListener('visibilitychange', pruefe); };
   }, [training, timer, einst.mitteilungen]);
   // Training beendet: Benachrichtigungen weg
   useEffect(() => { if (!training) mitteilung.schliesse(mitteilung.TAG_TRAINING, mitteilung.TAG_PAUSE); }, [!training]);
