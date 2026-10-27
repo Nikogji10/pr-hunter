@@ -34,7 +34,7 @@ export async function sitzung() {
   return data.session ?? null;
 }
 
-export const abmelden = () => supabase().auth.signOut();
+export const abmelden = () => { try { localStorage.removeItem('prh-feed'); } catch { /* egal */ } return supabase().auth.signOut(); };
 
 /** Fehlermeldungen von Supabase auf Deutsch, soweit bekannt. */
 function meldung(e) {

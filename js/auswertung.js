@@ -11,8 +11,8 @@ import { rtsPct, runde } from './rechnen.js';
 const WILKS_MAENNER = [-216.0475144, 16.2606339, -0.002388645, -0.00113732, 7.01863e-6, -1.291e-8];
 export const ANTEIL_AM_KREUZHEBEN = { squat: 0.87, bench: 0.65, dead: 1 };
 const TOTAL_JE_KREUZHEBEN = 1 + 0.87 + 0.65;
-export const STUFEN = [[125, 'Weltklasse'], [112.5, 'Elite'], [100, 'Herausragend'], [87.5, 'Fortgeschritten'],
-  [75, 'Versiert'], [60, 'Mittelstufe'], [45, 'Einsteiger'], [30, 'Untrainiert'], [-Infinity, 'Unter Untrainiert']];
+export const STUFEN = [[125, 'Weltklasse'], [112.5, 'Spitzenklasse'], [100, 'Herausragend'], [87.5, 'Stark'],
+  [75, 'Versiert'], [60, 'Solide'], [45, 'Aufbau'], [30, 'Untrainiert'], [-Infinity, 'Unter Untrainiert']];
 
 /** Wilks-Koeffizient (Originalformel, Männer). */
 export function wilks(koerperKg) {
@@ -55,9 +55,9 @@ export const ANTEIL_GESCHAETZT = {
   romanian_deadlift: [0.78, { beinbeuger: 1, gesaess: 1, ruecken_unten: 0.5 }],
   'stiff-legged_barbell_deadlift': [0.75, { beinbeuger: 1, ruecken_unten: 0.5 }],
   barbell_hip_thrust: [1.0, { gesaess: 1 }], barbell_glute_bridge: [0.95, { gesaess: 1 }],
-  leg_extensions: [0.5, { quadrizeps: 1 }],
-  lying_leg_curls: [0.33, { beinbeuger: 1 }], seated_leg_curl: [0.38, { beinbeuger: 1 }],
-  standing_calf_raises: [0.9, { waden: 1 }], seated_calf_raise: [0.55, { waden: 1 }], calf_press_on_the_leg_press_machine: [1.1, { waden: 1 }],
+  leg_extensions: [0.61, { quadrizeps: 1 }],
+  lying_leg_curls: [0.41, { beinbeuger: 1 }], seated_leg_curl: [0.46, { beinbeuger: 1 }],
+  standing_calf_raises: [0.9, { waden: 1 }], seated_calf_raise: [0.68, { waden: 1 }], calf_press_on_the_leg_press_machine: [1.1, { waden: 1 }],
   standing_barbell_calf_raise: [0.6, { waden: 1 }],
   standing_military_press: [0.42, { schulter_vorn: 1, schulter_seite: 0.5, trizeps: 0.5 }],
   barbell_shoulder_press: [0.42, { schulter_vorn: 1, schulter_seite: 0.5, trizeps: 0.5 }],
@@ -69,19 +69,19 @@ export const ANTEIL_GESCHAETZT = {
   incline_dumbbell_press: [0.21, { brust: 1, schulter_vorn: 0.5 }], dumbbell_bench_press: [0.25, { brust: 1, trizeps: 0.5 }],
   parallel_bar_dip: [0.75, { trizeps: 1, brust: 1 }], weighted_triceps_dip: [0.75, { trizeps: 1, brust: 1 }], 'dips_-_triceps_version': [0.75, { trizeps: 1, brust: 0.5 }],
   'dips_-_chest_version': [0.75, { brust: 1, trizeps: 0.5 }],
-  barbell_skull_crusher: [0.25, { trizeps: 1 }], 'ez-bar_skullcrusher': [0.25, { trizeps: 1 }],
-  'triceps_pushdown_-_rope_attachment': [0.28, { trizeps: 1 }], 'triceps_pushdown_-_v-bar_attachment': [0.32, { trizeps: 1 }],
+  barbell_skull_crusher: [0.27, { trizeps: 1 }], 'ez-bar_skullcrusher': [0.27, { trizeps: 1 }],
+  'triceps_pushdown_-_rope_attachment': [0.3, { trizeps: 1 }], 'triceps_pushdown_-_v-bar_attachment': [0.37, { trizeps: 1 }],
   weighted_pull_ups: [0.6, { latissimus: 1, bizeps: 0.5 }], pullups: [0.6, { latissimus: 1, bizeps: 0.5 }], 'chin-up': [0.62, { latissimus: 1, bizeps: 1 }],
-  'wide-grip_lat_pulldown': [0.48, { latissimus: 1 }],
+  'wide-grip_lat_pulldown': [0.51, { latissimus: 1 }],
   bent_over_barbell_row: [0.55, { latissimus: 1, trapez: 0.5, schulter_seite: 0.5 }], pendlay_row: [0.52, { latissimus: 1, trapez: 0.5, schulter_seite: 0.5 }],
-  't-bar_row_with_handle': [0.6, { latissimus: 1, trapez: 0.5 }], seated_cable_rows: [0.52, { latissimus: 1, trapez: 0.5 }],
+  't-bar_row_with_handle': [0.6, { latissimus: 1, trapez: 0.5 }], seated_cable_rows: [0.56, { latissimus: 1, trapez: 0.5 }],
   'one-arm_dumbbell_row': [0.27, { latissimus: 1 }],
   barbell_shrug: [0.95, { trapez: 1 }],
   barbell_curl: [0.3, { bizeps: 1 }], 'ez-bar_curl': [0.3, { bizeps: 1 }], preacher_curl: [0.25, { bizeps: 1 }],
-  reverse_barbell_curl: [0.22, { unterarme: 1, bizeps: 0.5 }], hammer_curls: [0.12, { bizeps: 1, unterarme: 0.5 }], dumbbell_bicep_curl: [0.11, { bizeps: 1 }],
+  reverse_barbell_curl: [0.22, { unterarme: 1, bizeps: 0.5 }], hammer_curls: [0.13, { bizeps: 1, unterarme: 0.5 }], dumbbell_bicep_curl: [0.12, { bizeps: 1 }],
   'palms-up_barbell_wrist_curl_over_a_bench': [0.27, { unterarme: 1 }],
-  side_lateral_raise: [0.07, { schulter_seite: 1 }], face_pull: [0.18, { schulter_seite: 1, trapez: 0.5 }],
-  butterfly: [0.45, { brust: 1 }],
+  side_lateral_raise: [0.11, { schulter_seite: 1 }], face_pull: [0.3, { schulter_seite: 1, trapez: 0.5 }],
+  butterfly: [0.54, { brust: 1 }],
 };
 // Die Wettkampf-Lifts nach der veröffentlichten Methode, mit Gewicht je Muskel; Bauch aus Kniebeuge und Kreuzheben abgeleitet
 const SBD_MUSKELN = {
@@ -90,6 +90,7 @@ const SBD_MUSKELN = {
   bench: { brust: 1, schulter_vorn: 1, trizeps: 1 },
 };
 const GEWICHT_GESCHAETZT = 0.5;      // eine geschätzte Übung zählt halb so viel wie ein Wettkampf-Lift
+const BAND = 20;                     // geschätzte Übung höchstens so viele Punkte über/unter dem Schnitt der drei Lifts
 
 /** Wert einer weiteren Übung: wie ein Lift, nur mit dem geschätzten Anteil am Kreuzheben. */
 export function uebungsWert(key, e1rmKg, koerperKg) {
@@ -119,10 +120,14 @@ export function kraftprofil(e1rms, koerperKg, weitere = []) {
     for (const [m, g] of Object.entries(ms)) beitraege[m].push({ name: lift, wert: lifts[lift].wert, gewicht: g, geschaetzt: false });
   }
   const uebungen = [];
+  // Geschätzte Übungen höchstens BAND Punkte über/unter dem Schnitt der Wettkampf-Lifts: Maschinen und Kabelzüge zeigen je
+  // Gerät sehr verschiedene Gewichte, und Isolationen mit vielen Wdh ergeben ein zu hohes e1RM (Seitheben → „Weltklasse“)
+  const schnitt = werte.length ? werte.reduce((a, x) => a + x, 0) / werte.length : null;
   for (const u of weitere) {
-    const wert = uebungsWert(u.key, u.e1rm, koerperKg);
-    if (wert == null) continue;
-    uebungen.push({ key: u.key, name: u.name ?? u.key, e1rm: u.e1rm, wert: runde(wert, 1), stufe: stufe(wert).name });
+    const roh = uebungsWert(u.key, u.e1rm, koerperKg);
+    if (roh == null) continue;
+    const wert = schnitt == null ? roh : Math.min(schnitt + BAND, Math.max(schnitt - BAND, roh));
+    uebungen.push({ key: u.key, name: u.name ?? u.key, e1rm: u.e1rm, wert: runde(wert, 1), stufe: stufe(wert).name, begrenzt: wert !== roh });
     for (const [m, g] of Object.entries(ANTEIL_GESCHAETZT[u.key][1])) beitraege[m].push({ name: u.name ?? u.key, wert, gewicht: g * GEWICHT_GESCHAETZT, geschaetzt: true });
   }
   const muskeln = {}, quellen = {};

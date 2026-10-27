@@ -14,6 +14,8 @@ import { Einstellungen } from './ui/einstellungen.js';
 import { Statistik } from './ui/statistik.js';
 import { Rechner } from './ui/rechner.js';
 import { Feed } from './ui/feed.js';
+import { Einfuehrung, einfuehrungOffen } from './ui/einfuehrung.js';
+import { Abschluss, abschlussAus } from './ui/abschluss.js';
 import { BereitschaftSheet } from './ui/bereitschaft.js';
 import { GewichtKarte } from './ui/gewicht.js';
 import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung } from './ui/hintergrund.js';
@@ -53,7 +55,8 @@ if (DEMO) setzeStand(beispielStand());
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
 const deckkraft = (d) => {
   const wert = d >= 0 && d <= 1 ? d : 0.88;
-  document.documentElement.style.setProperty('--deckkraft', String(wert));
+  // Kurve: der Regler bleibt über einen großen Bereich durchscheinend, voll deckend erst gegen 100 %
+  document.documentElement.style.setProperty('--deckkraft', String(wert * wert));
   document.documentElement.classList.toggle('durchsichtig', wert === 0);     // 0 %: Kacheln ganz ohne Fläche, Unschärfe und Schatten
 };
 // iOS ignoriert user-scalable=no: Zwei-Finger-Zoom hier abfangen
@@ -296,6 +299,8 @@ function App() {
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
   const [neueUebung, setNeueUebung] = useState(null);           // { text, beiWahl } – Formular „Neue Übung“ offen
   const [bereit, setBereit] = useState(null);                   // Readiness-Check vor dem Start: { tag } oder { frei: true }
+  const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
+  const [abschluss, setAbschluss] = useState(null);             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
   const sp = useRef(null);
   const laeuft = useRef(false);
@@ -496,17 +501,18 @@ function App() {
   useEffect(() => { if (!geladen) return; setzeSprache(einst.sprache); speicher.schreib('prh-sprache', einst.sprache ?? 'de'); }, [einst.sprache, geladen]);
   useEffect(() => { if (!geladen) return; stilSetzen(einst.stil); speicher.schreib('prh-stil', einst.stil ?? 'eisen'); }, [einst.stil, geladen]);
   useEffect(() => { if (!geladen) return; schriftSetzen(einst.schrift); speicher.schreib('prh-schrift', einst.schrift ?? 'archivo'); }, [einst.schrift, geladen]);
-  // Benachrichtigungen: geht die App in den Hintergrund, während ein Training läuft, steht es in der Leiste des Handys
-  // (mit Endzeit der Pause); am Pausenende kommt eine laute Meldung. Zurück in der App verschwinden beide.
+  // Benachrichtigungen: solange ein Training läuft, steht es leise in der Leiste des Handys (mit Endzeit der Pause) –
+  // auch bei offener App, damit es bleibt, wenn die App versehentlich geschlossen wird; weg erst mit dem Trainingsende.
+  // Im Hintergrund kommt am Pausenende zusätzlich eine laute Meldung; zurück in der App verschwindet nur diese.
   useEffect(() => {
     if (DEMO || !einst.mitteilungen || !mitteilung.erlaubt()) return;
     let id = null;
     const pruefe = () => {
       clearTimeout(id);
-      if (document.visibilityState === 'visible') { mitteilung.schliesse(mitteilung.TAG_TRAINING, mitteilung.TAG_PAUSE); return; }
       if (!training || training.bearbeiten) return;
       const s = alleSaetze(training), { titel, text } = mitteilung.trainingsText(training, { fertig: s.filter((x) => x.erledigt).length, gesamt: s.length, timer });
-      mitteilung.zeige(mitteilung.TAG_TRAINING, titel, text, { zeit: training.start });
+      mitteilung.zeige(mitteilung.TAG_TRAINING, titel, text, { zeit: training.start, bleibt: true });
+      if (document.visibilityState === 'visible') { mitteilung.schliesse(mitteilung.TAG_PAUSE); return; }
       if (timer && !timer.fertig && timer.ende > Date.now()) {
         id = setTimeout(() => { const p = mitteilung.pauseEndeText(timer); mitteilung.zeige(mitteilung.TAG_PAUSE, p.titel, p.text, { laut: true }); }, timer.ende - Date.now());
       }
@@ -666,6 +672,7 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
+    if (!t.bearbeiten) setAbschluss(abschlussAus(t));
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
     // Beim Bearbeiten bleiben Ende und Körpergewicht des Originals, sonst gelten jetzt und das aktuelle Körpergewicht
     const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.bearbeiten && t.ende ? { ende: t.ende } : {}),
@@ -801,7 +808,7 @@ function App() {
         })()}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
-          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen}/>`
+          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)}/>`
       : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
@@ -820,6 +827,8 @@ function App() {
       los=${(r, l) => { const b = bereit; setBereit(null); if (b.frei) starteFrei(r); else startePlan(b.tag, r, l); }}/>` : null}
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
+    ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
+    ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)}/>` : null}
   </div>`;
 }
 

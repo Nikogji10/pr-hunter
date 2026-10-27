@@ -127,7 +127,12 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const liftWerte = Object.entries(profil.lifts).sort((a, b) => a[1].wert - b[1].wert);
   if (liftWerte.length === 3 && profil.gesamt - liftWerte[0][1].wert >= 3) {
     const [l, w] = liftWerte[0];
-    hinweise.push({ t: `Schwächster Lift im Verhältnis: ${LIFT[l].name}`, text: `${fmt(w.wert, 1)} Punkte gegenüber ${fmt(profil.gesamt, 1)} im Schnitt. Noch ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM bis „${w.naechste?.name}“.` });
+    // In Prozent zum eigenen Schnitt der drei Lifts (Symmetric Strength gleicht Körpergewicht und Lift aus), statt „Punkte“
+    const pz = (x) => `${x >= 0 ? '+' : '−'}${fmt(Math.abs(x), 0)} %`;
+    const abw = (ll) => (profil.lifts[ll].wert / profil.gesamt - 1) * 100;
+    const andere = liftWerte.slice(1).map(([ll]) => `${LIFT[ll].name} ${pz(abw(ll))}`).join(', ');
+    hinweise.push({ t: `Schwächster Lift im Verhältnis: ${LIFT[l].name}`,
+      text: `${LIFT[l].name} liegt ${fmt(Math.abs(abw(l)), 0)} % unter deinem Schnitt (${andere}). Noch ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM bis zur Stufe „${w.naechste?.name}“ – Stufen nach Symmetric Strength, nicht Strength Level.` });
   }
   const belastung = wd.slice(-Math.min(n, 26));
   // Verläufe je Woche: Total aus der aktuellen Form (bestes e1RM der letzten 12 Wochen je Lift), Körpergewicht, Punkte
@@ -218,15 +223,17 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
         <span class="row" style="gap:6px"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i><b>${LIFT[l].name}</b></span>
         <span class="stufe-spur"><i style=${`width:${Math.min(100, (profil.lifts[l].wert / 125) * 100)}%`}></i></span>
         <span class="stufe-text"><b>${fmt(profil.lifts[l].wert, 1)}</b> ${profil.lifts[l].stufe}</span>
-        <span class="muted stufe-naechste">${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span>
+        <span class="muted stufe-naechste"><b class=${profil.lifts[l].wert >= profil.gesamt ? 'pz-auf' : 'pz-ab'}>${`${profil.lifts[l].wert >= profil.gesamt ? '+' : '−'}${fmt(Math.abs((profil.lifts[l].wert / profil.gesamt - 1) * 100), 0)} % zum Schnitt`}</b>
+          ${' · '}<span>${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span></span>
       </div>`)}</div>
       ${profil.uebungen.length ? html`<div class="stack unterteil" style="gap:10px"><span class="eyebrow">Weitere Übungen · Näherung</span>
         ${profil.uebungen.slice(0, 10).map((u) => html`<div key=${u.key} class="stufe-zeile">
           <span class="rl-name">${u.name}</span>
           <span class="stufe-spur geschaetzt"><i style=${`width:${Math.min(100, Math.max(0, (u.wert / 125) * 100))}%`}></i></span>
           <span class="stufe-text"><b>${fmt(u.wert, 1)}</b> ${u.stufe}</span>
-          <span class="muted stufe-naechste">e1RM ${gwE(u.e1rm, 1)}</span></div>`)}</div>` : null}
-      <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet und zählt halb so viel. Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
+          <span class="muted stufe-naechste">${`e1RM ${gwE(u.e1rm, 1)}`}${u.begrenzt ? html`<span title="Wert auf ±20 um den Schnitt der drei Lifts begrenzt">${' · '}<span>begrenzt</span></span>` : null}</span></div>`)}</div>` : null}
+      <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet, zählt halb so viel und liegt höchstens 20 Punkte über oder unter dem Schnitt deiner drei Lifts („begrenzt“: Maschinen zeigen je Gerät andere Gewichte, viele Wdh ergeben ein zu hohes e1RM). Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
+      <p class="muted" style="margin:0;font-size:12.5px"><b>Punkte</b>: Wert je Lift nach Symmetric Strength, Körpergewicht eingerechnet (100 = „Herausragend“). „% zum Schnitt“ zeigt, welcher Lift stärker oder schwächer ist als deine drei im Mittel. Die Stufen sind die von Symmetric Strength in eigener Übersetzung – Strength Level zählt anders (z. B. „Advanced“ dort ≠ „Stark“ hier).</p>
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>

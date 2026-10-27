@@ -44,14 +44,14 @@ export function Rechner({ einst, vorlage = null }) {
     </section>`}
 
     ${art === 'rpe' && html`<section class="card pad stack">
-      <span class="eyebrow">Bekannter Satz</span>
-      <div class="fields drei"><${Zahl} id="r-bkg" label=${E} wert=${b.kg} schritt=${inc} setze=${(x) => setB({ ...b, kg: x })}/>
-        <${Zahl} id="r-bwdh" label="Wdh" schritt="1" wert=${b.wdh} setze=${(x) => setB({ ...b, wdh: x })}/>
-        <${Zahl} id="r-brpe" label="RPE" schritt="0.5" wert=${b.rpe} setze=${(x) => setB({ ...b, rpe: x })}/></div>
-      <span class="eyebrow">Ziel</span>
-      <div class="fields drei"><${Zahl} id="r-zwdh" label="Wdh" schritt="1" wert=${z.wdh} setze=${(x) => setZ({ ...z, wdh: x })}/>
-        <${Zahl} id="r-zrpe" label="RPE" schritt="0.5" wert=${z.rpe} setze=${(x) => setZ({ ...z, rpe: x })}/><span></span></div>
-      <div class="result"><div class="big">${r.kg != null ? fmt(r.kg) : '–'}<small>${E}</small></div>
+      <div class="rechner-box"><div class="rechner-kopf"><span class="rechner-nr">1</span><b>Bekannter Satz</b><span class="muted">was du geschafft hast</span></div>
+        <div class="fields drei"><${Zahl} id="r-bkg" label=${E} wert=${b.kg} schritt=${inc} setze=${(x) => setB({ ...b, kg: x })}/>
+          <${Zahl} id="r-bwdh" label="Wdh" schritt="1" wert=${b.wdh} setze=${(x) => setB({ ...b, wdh: x })}/>
+          <${Zahl} id="r-brpe" label="RPE" schritt="0.5" wert=${b.rpe} setze=${(x) => setB({ ...b, rpe: x })}/></div></div>
+      <div class="rechner-box ziel"><div class="rechner-kopf"><span class="rechner-nr">2</span><b>Ziel</b><span class="muted">was du vorhast</span></div>
+        <div class="fields drei"><${Zahl} id="r-zwdh" label="Wdh" schritt="1" wert=${z.wdh} setze=${(x) => setZ({ ...z, wdh: x })}/>
+          <${Zahl} id="r-zrpe" label="RPE" schritt="0.5" wert=${z.rpe} setze=${(x) => setZ({ ...z, rpe: x })}/><span></span></div></div>
+      <div class="result rechner-ergebnis"><div class="big">${r.kg != null ? fmt(r.kg) : '–'}<small>${E}</small></div>
         <p class="muted" style="margin:6px 0 0">${r.kg != null ? `für ${z.wdh} Wdh @ RPE ${fmt(z.rpe)} · e1RM ${fmt(r.e1rm, 1)} ${E}` : 'Wdh 1–12 und RPE 6–10 eingeben'}</p></div>
     </section>`}
 

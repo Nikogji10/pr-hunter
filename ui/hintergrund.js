@@ -19,7 +19,45 @@ export function setzeHintergrund(dataUrl, dunkel = 0.55) {
 }
 
 export const hintergrund = () => ({ bild: speicher.lies(BILD), dunkel: Number(speicher.lies(DUNKEL)) || 0.55, stand: speicher.lies(STAND), offen: speicher.lies(OFFEN) === '1' });
-export const ladeHintergrund = () => { const h = hintergrund(); setzeHintergrund(h.bild, h.dunkel); };
+export const ladeHintergrund = () => { const h = hintergrund(); setzeHintergrund(h.bild, h.dunkel); setzeNeigung(neigungAn()); };
+
+// Neigung: das Bild folgt ganz leicht der Handyneigung (nur dieses Gerät, Standard an, aus bei „Bewegung reduzieren“).
+// Ausgangslage ist, wie das Handy gehalten wird; sie wandert langsam mit, damit das Bild nach dem Hinlegen wieder mittig steht.
+const NEIGUNG = 'prh-neigung', WEG = 12;
+let neigungAktiv = false, rahmen = 0, lage = null, x = 0, y = 0;
+export const neigungAn = () => speicher.lies(NEIGUNG) !== '0';
+const bewegung = (e) => {
+  if (e.beta == null || e.gamma == null) return;
+  if (!lage) lage = { b: e.beta, g: e.gamma };
+  lage.b += (e.beta - lage.b) * 0.01; lage.g += (e.gamma - lage.g) * 0.01;
+  x = Math.max(-1, Math.min(1, (e.gamma - lage.g) / 25)); y = Math.max(-1, Math.min(1, (e.beta - lage.b) / 25));
+  if (rahmen) return;
+  rahmen = requestAnimationFrame(() => {
+    rahmen = 0;
+    const s = document.documentElement.style;
+    s.setProperty('--px', `${(-x * WEG).toFixed(1)}px`); s.setProperty('--py', `${(-y * WEG).toFixed(1)}px`);
+  });
+};
+export function setzeNeigung(an) {
+  const el = document.documentElement;
+  const darf = an && 'DeviceOrientationEvent' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (darf && !neigungAktiv) { addEventListener('deviceorientation', bewegung); neigungAktiv = true; }
+  if (!darf && neigungAktiv) {
+    removeEventListener('deviceorientation', bewegung); neigungAktiv = false; lage = null;
+    el.style.removeProperty('--px'); el.style.removeProperty('--py');
+  }
+  el.classList.toggle('neigung', darf);
+}
+/** Schalter in den Einstellungen; das iPhone fragt nach der Erlaubnis (geht nur direkt nach einem Tippen). */
+export async function schalteNeigung(an) {
+  speicher.schreib(NEIGUNG, an ? '1' : '0');
+  const frage = window.DeviceOrientationEvent?.requestPermission;
+  if (an && typeof frage === 'function') {
+    try { if (await frage.call(window.DeviceOrientationEvent) !== 'granted') { setzeNeigung(false); return false; } } catch { setzeNeigung(false); return false; }
+  }
+  setzeNeigung(an);
+  return true;
+}
 
 /** Bild speichern (vom Nutzer gewählt → offen, oder vom Server geholt → mit Stand); false, wenn der Speicher voll ist. */
 export function speichereHintergrund(dataUrl, dunkel, { stand = null, offen = true } = {}) {

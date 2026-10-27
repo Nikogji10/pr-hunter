@@ -1,4 +1,4 @@
-// PR Hunter · Statistik-Karten Zielprognose (Funktionskatalog „Zielprognose“) und Vergleich mit dem Kumpel
+// PR Hunter · Statistik-Karten Zielprognose (Funktionskatalog „Zielprognose“) und Vergleich mit Freunden
 // („Vergleich mit Kumpel“, nur wenn beide in den Einstellungen zustimmen; Daten über public.compare_stats).
 import { html, useState, useEffect, useRef, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld, Avatar } from './basis.js';
 import { zielprognose } from '../js/auswertung.js';
@@ -39,23 +39,33 @@ export function Zielprognose({ aktuell, ziele = {}, setZiel = null }) {
   </section>`;
 }
 
-/** Vergleich mit dem Kumpel: e1RM je Lift, Total, Körpergewicht, DOTS. */
+const AUS = 'prh-vergleich-aus';
+/** Vergleich mit Freunden: e1RM je Lift, Total, Körpergewicht, DOTS; bei mehreren Freunden auswählbar, wer in der Tabelle steht. */
 export function Vergleich({ freigegeben }) {
   const [daten, setDaten] = useState(undefined);            // undefined = lädt, null = Update 08 fehlt, { fehler }
+  // Abgewählte Freunde (ids), nur auf diesem Gerät; mindestens einer bleibt sichtbar
+  const [aus, setAus] = useState(() => { try { return JSON.parse(localStorage.getItem(AUS)) ?? []; } catch { return []; } });
+  const umschalten = (id) => {
+    const neu = aus.includes(id) ? aus.filter((x) => x !== id) : [...aus, id];
+    if (daten.filter((p) => !p.ich && !neu.includes(p.id)).length === 0) return;
+    setAus(neu);
+    try { localStorage.setItem(AUS, JSON.stringify(neu)); } catch { /* egal */ }
+  };
   useEffect(() => {
     if (!freigegeben || !DIENSTE.ladeVergleich) return;
     DIENSTE.ladeVergleich().then(setDaten).catch((e) => setDaten({ fehler: navigator.onLine ? e.message : 'Kein Netz – der Vergleich kommt vom Server.' }));
   }, [freigegeben]);
   if (!DIENSTE.ladeVergleich) return null;
-  const kopf = html`<div><span class="viz-t">Vergleich mit dem Kumpel</span><div class="viz-u">Nur e1RM und Körpergewicht – keine Trainings, keine Sätze</div></div>`;
+  const kopf = html`<div><span class="viz-t">Vergleich mit Freunden</span><div class="viz-u">Nur e1RM und Körpergewicht – keine Trainings, keine Sätze</div></div>`;
   if (!freigegeben) return html`<section class="card pad stack">${kopf}
-    <p class="muted" style="margin:0;font-size:14px">Aus. Wenn ihr beide in den Einstellungen „Mit dem Kumpel vergleichen“ einschaltet, steht hier, wer wo vorne liegt.</p></section>`;
+    <p class="muted" style="margin:0;font-size:14px">Aus. Wenn du und deine Freunde in den Einstellungen „Mit Freunden vergleichen“ einschaltet, steht hier, wer wo vorne liegt.</p></section>`;
   if (daten === undefined) return html`<section class="card pad stack">${kopf}<p class="muted" style="margin:0">Lade …</p></section>`;
   if (daten === null) return html`<section class="card pad stack">${kopf}<p class="muted" style="margin:0;font-size:14px">Die Datenbank kennt den Vergleich noch nicht (Update 08 fehlt).</p></section>`;
   if (daten.fehler) return html`<section class="card pad stack">${kopf}<p class="fehler">${daten.fehler}</p></section>`;
-  const personen = daten;
-  if (personen.length < 2) return html`<section class="card pad stack">${kopf}
-    <p class="muted" style="margin:0;font-size:14px">Du hast freigegeben. Sobald dein Kumpel es auch tut, erscheint er hier.</p></section>`;
+  const freunde = daten.filter((p) => !p.ich);
+  const personen = daten.filter((p) => p.ich || !aus.includes(p.id));
+  if (daten.length < 2) return html`<section class="card pad stack">${kopf}
+    <p class="muted" style="margin:0;font-size:14px">Du hast freigegeben. Sobald Freunde es auch tun, erscheinen sie hier.</p></section>`;
   const total = (p) => (LIFTS.every((l) => p.lifts[l]?.aktuell != null) ? LIFTS.reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);
   const zeile = (titel, wert, besser = 'hoch') => {
     const w = personen.map(wert);
@@ -64,6 +74,9 @@ export function Vergleich({ freigegeben }) {
     return html`<tr key=${titel}><td>${titel}</td>${w.map((x, i) => html`<td key=${i} class=${x != null && x === top ? 'k vorne' : 'k'}>${x == null ? '–' : titel === 'DOTS' ? fmt(x, 1) : gw(x, 1)}</td>`)}</tr>`;
   };
   return html`<section class="card pad stack">${kopf}
+    ${freunde.length > 1 ? html`<div class="stack" style="gap:6px"><span class="eyebrow">Wen vergleichen?</span>
+      <div class="chips-zeile">${freunde.map((p) => html`<button key=${p.id} class="chip" aria-pressed=${String(!aus.includes(p.id))} onClick=${() => umschalten(p.id)}>
+        <${Avatar} bild=${p.avatar} name=${p.name} groesse=${20}/>${p.name}</button>`)}</div></div>` : null}
     <div style="overflow-x:auto"><table class="rec vergleich"><thead><tr><th></th>${personen.map((p) => html`<th key=${p.id}><span class="vgl-kopf"><${Avatar} bild=${p.avatar} name=${p.name} groesse=${30}/>${p.ich ? 'Du' : p.name}</span></th>`)}</tr></thead>
       <tbody>${LIFTS.map((l) => zeile(LIFT[l].name, (p) => p.lifts[l]?.aktuell))}
         ${zeile('Total', total)}

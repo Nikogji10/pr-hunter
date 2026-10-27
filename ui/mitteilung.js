@@ -21,12 +21,13 @@ async function anmeldung() {
 }
 
 /** Benachrichtigung zeigen oder ersetzen (gleicher tag); laut = Ton und Vibration des Systems. */
-export async function zeige(tag, titel, text, { laut = false, zeit = Date.now() } = {}) {
+// Ohne `icon`: Android zeigt es sonst rechts als großes Bild zusätzlich zum App-Symbol (Wunsch 67)
+export async function zeige(tag, titel, text, { laut = false, zeit = Date.now(), bleibt = false } = {}) {
   if (!erlaubt()) return;
   const r = await anmeldung();
   if (!r) return;
   try {
-    await r.showNotification(titel, { body: text, tag, renotify: laut, silent: !laut, timestamp: zeit, icon: 'icons/icon-192.png',
+    await r.showNotification(titel, { body: text, tag, renotify: laut, silent: !laut, timestamp: zeit, requireInteraction: bleibt,
       badge: 'icons/favicon-32.png', vibrate: laut ? [180, 80, 180] : undefined, data: { url: location.href } });
   } catch { /* Gerät erlaubt es gerade nicht */ }
 }
@@ -40,12 +41,13 @@ export async function schliesse(...tags) {
 const uhrzeit = (ms) => new Date(ms).toLocaleTimeString(deEn('de-DE', 'en-GB'), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const uhrzeitKurz = (ms) => new Date(ms).toLocaleTimeString(deEn('de-DE', 'en-GB'), { hour: '2-digit', minute: '2-digit' });
 
-/** Text der Trainings-Benachrichtigung: Titel, Beginn, erledigte Sätze, laufende Pause mit Endzeit. */
+/** Text der Trainings-Benachrichtigung, kurz genug für eine Zeile: Sätze im Titel, darunter Pause oder Beginn. */
 export function trainingsText(training, { fertig, gesamt, timer = null }) {
-  const titel = `${deEn('Training läuft', 'Workout running')} · ${training.titel}`;
-  const zeilen = [`${deEn('Seit', 'Since')} ${uhrzeitKurz(training.start)} · ${fertig}/${gesamt} ${deEn('Sätze', 'sets')}`];
-  if (timer && timer.ende > Date.now()) zeilen.push(`${deEn('Pause bis', 'Rest until')} ${uhrzeit(timer.ende)} · ${deEn('nächster', 'next')}: ${timer.naechster}`);
-  return { titel, text: zeilen.join('\n') };
+  const titel = `${deEn('Training', 'Workout')} · ${fertig}/${gesamt} ${deEn('Sätze', 'sets')}`;
+  const text = timer && timer.ende > Date.now()
+    ? `${deEn('Pause bis', 'Rest until')} ${uhrzeit(timer.ende)} · ${timer.naechster}`
+    : `${deEn('Seit', 'Since')} ${uhrzeitKurz(training.start)}`;
+  return { titel, text };
 }
 
 export const pauseEndeText = (timer) => ({ titel: deEn('Pause vorbei – los!', 'Rest over – go!'), text: `${deEn('Nächster Satz', 'Next set')}: ${timer.naechster}` });

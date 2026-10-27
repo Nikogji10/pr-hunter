@@ -173,6 +173,8 @@ export const I = {
   zurueck: svg(html`<path d="M15 6l-6 6 6 6"/>`),
   chart: svg(html`<path d="M4 19h16M5 15l4-4 3 3 7-7"/>`),
   tausch: svg(html`<path d="M7 7h11l-3-3M17 17H6l3 3"/>`),
+  neu: svg(html`<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>`),
+  teilen: svg(html`<path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/>`),
   suche: svg(html`<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/>`),
   warn: svg(html`<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17h.01"/>`),
   plus: svg(html`<path d="M12 5v14M5 12h14"/>`),

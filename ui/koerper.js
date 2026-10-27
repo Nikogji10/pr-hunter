@@ -11,8 +11,8 @@ export const MUSKEL_NAME = {
 };
 // Farbe je Stärkestufe (von unten nach oben): dunkelrot → rot → orange → gelb → grün → smaragd → türkis → violett
 const STUFEN_FARBE = {
-  'Unter Untrainiert': '#6B1220', Untrainiert: '#9E1B2C', Einsteiger: '#D2412D', Mittelstufe: '#E8822A', Versiert: '#E7C23B',
-  Fortgeschritten: '#7CC243', Herausragend: '#25B07A', Elite: '#22A7C9', Weltklasse: '#8B5CF6',
+  'Unter Untrainiert': '#6B1220', Untrainiert: '#9E1B2C', Aufbau: '#D2412D', Solide: '#E8822A', Versiert: '#E7C23B',
+  Stark: '#7CC243', Herausragend: '#25B07A', Spitzenklasse: '#22A7C9', Weltklasse: '#8B5CF6',
 };
 const farbeVon = (w) => STUFEN_FARBE[stufe(w).name];
 

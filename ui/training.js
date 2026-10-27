@@ -2,7 +2,7 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild } from './basis.js';
+import { UebungsBild, useEffect, leseZahl } from './basis.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -281,10 +281,21 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     <div class="ex-foot">
       <span class="satz-pm" role="group" aria-label="Sätze">
         <button class="mini" disabled=${!k.gruppen.at(-1).saetze.some((s) => !s.erledigt) || k.gruppen.flatMap((g) => g.saetze).length < 2} aria-label="Satz entfernen"
-          onClick=${() => aendere((ks) => { const g = ks[ki].gruppen.at(-1); const i = g.saetze.findLastIndex((s) => !s.erledigt); if (i >= 0) g.saetze.splice(i, 1); })}>−</button>
+          onClick=${() => aendere((ks) => {
+            const gr = ks[ki].gruppen, g = gr.at(-1), i = g.saetze.findLastIndex((s) => !s.erledigt);
+            if (i >= 0) g.saetze.splice(i, 1);
+            if (!g.saetze.length && gr.length > 1) gr.pop();          // leere Gruppe entfernen, sonst legt „+“ Sätze ohne Werte an
+          })}>−</button>
         <span>Satz</span>
         <button class="mini" aria-label="Satz hinzufügen"
-          onClick=${() => aendere((ks) => { const g = ks[ki].gruppen.at(-1); const s = g.saetze.at(-1); g.saetze.push({ ...s, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined }); })}>+</button>
+          onClick=${() => aendere((ks) => {
+            const g = ks[ki].gruppen.at(-1);
+            // Vorlage: letzter Satz der Gruppe, sonst der Übung; fehlen Werte, Wdh aus dem Plan und Gewicht aus dem e1RM
+            const vorlage = g.saetze.at(-1) ?? ks[ki].gruppen.flatMap((x) => x.saetze).at(-1) ?? {};
+            const wdh = vorlage.wdh ?? (parseInt(g.wdhText, 10) || 5);
+            const kg = vorlage.kg ?? vorschlag(ks[ki].key, wdh, g.rpe?.max ?? 8, einst.koerpergewicht);
+            g.saetze.push({ ...vorlage, kg, kgPlan: vorlage.kgPlan ?? kg, wdh, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined, geaendert: false });
+          })}>+</button>
       </span>
       <button class="link" onClick=${() => setSheet({ art: 'unotiz', ki })}>${k.notiz ? 'Notiz ändern' : 'Notiz'}</button>
       ${k.supersatz ? html`<button class="link" onClick=${() => supersatz(false)}>Supersatz lösen</button>`
@@ -294,10 +305,27 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
   </section>`;
 }
 
+// Eingabeart im Gewichts-/Wdh-Fenster: Tippen (Tastatur) oder Knöpfe; die zuletzt genutzte bleibt auf dem Gerät gemerkt
+const EINGABE = 'prh-eingabe';
+const eingabeTippen = () => { try { return localStorage.getItem(EINGABE) === 'tippen'; } catch { return false; } };
+const merkeEingabe = (tippen) => { try { localStorage.setItem(EINGABE, tippen ? 'tippen' : 'knoepfe'); } catch { /* egal */ } };
+
+/** Große Zahl: Tippen öffnet die Tastatur; wer danach die Knöpfe nimmt, bekommt wieder die große Anzeige. */
+function GrossZahl({ id, text, setze, einheitText, ganz = false, tippen, setTippen }) {
+  const feld = useRef(null);
+  const [eingabe, setEingabe] = useState(text);
+  useEffect(() => { if (tippen) { setEingabe(text); feld.current?.focus(); feld.current?.select(); } }, [tippen]);
+  if (!tippen) return html`<button class="big big-knopf" onClick=${() => { setTippen(true); merkeEingabe(true); }} aria-label="Zahl eintippen">${text}<small>${einheitText}</small></button>`;
+  return html`<label class="big big-eingabe" for=${id}><input id=${id} ref=${feld} type="text" inputmode=${ganz ? 'numeric' : 'decimal'} value=${eingabe}
+    onInput=${(e) => { const v = e.currentTarget.value; setEingabe(v); const n = leseZahl(v); if (n != null) setze(ganz ? Math.max(0, Math.round(n)) : n); }}/><small>${einheitText}</small></label>`;
+}
+
 function KgSheet({ t, s: z, zu, satz, koerperKg }) {
   const k = t.karten[z.ki], g = k.gruppen[z.gi], s = g.saetze[z.si], inc = incVon(k.key), koerper = koerperUebung(k.key);
-  const [kg, setKg] = useState(s.kg ?? 0);
+  const [kg, setKg] = useState(s.kg ?? vorschlag(k.key, s.wdh ?? (parseInt(g.wdhText, 10) || 5), g.rpe?.max ?? 8, koerperKg) ?? 0);
   const [alle, setAlle] = useState(true);
+  const [tippen, setTippen] = useState(eingabeTippen);
+  const knopf = (f) => { setTippen(false); merkeEingabe(false); f(); };
   const best = BEST_E1RM[k.key];
   const zielRpe = s.rpe ?? g.rpe?.max ?? 9;
   const ok = () => {
@@ -308,8 +336,9 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
   };
   return html`<${Sheet} zu=${zu} label="Gewicht">
     <div><div class="eyebrow">${koerper ? 'Zusatzgewicht' : 'Gewicht'} · Satz ${z.si + 1}</div><h2 class="h2">${nameVon(k.key)}</h2></div>
-    <div class="big">${koerper && kg > 0 ? '+' : ''}${gw(kg)}<small>${einheit()}</small></div>
-    <div class="stepper">${[-2 * inc, -inc, inc, 2 * inc].map((d) => html`<button key=${d} onClick=${() => setKg(koerper ? +(kg + d).toFixed(4) : Math.max(0, +(kg + d).toFixed(4)))}>${d > 0 ? '+' : '−'}${gw(Math.abs(d))}</button>`)}</div>
+    <${GrossZahl} id="kg-zahl" text=${`${koerper && kg > 0 ? '+' : ''}${gw(kg)}`} einheitText=${einheit()} tippen=${tippen} setTippen=${setTippen}
+      setze=${(n) => setKg(koerper ? inKg(n) : Math.max(0, inKg(n)))}/>
+    <div class="stepper">${[-2 * inc, -inc, inc, 2 * inc].map((d) => html`<button key=${d} onClick=${() => knopf(() => setKg(koerper ? +(kg + d).toFixed(4) : Math.max(0, +(kg + d).toFixed(4))))}>${d > 0 ? '+' : '−'}${gw(Math.abs(d))}</button>`)}</div>
     ${koerper ? html`<p class="muted" style="margin:0;font-size:13.5px">Gesamtlast ${koerperKg ? gwE(koerperKg + kg) : '–'} (Körpergewicht ${koerperKg ? gwE(koerperKg) : 'fehlt – in den Einstellungen eintragen'}). Negativ = Unterstützung.</p>` : null}
     ${stangeVon(k.key) ? html`<div class="stack" style="gap:8px"><${Hantel} kg=${kg}/><div class="row between"><span class="eyebrow">Pro Seite</span><${Scheiben} kg=${kg}/></div></div>` : null}
     ${best && !koerper && lastFuerWeit(best, s.wdh, zielRpe) ? html`<p class="muted" style="margin:0;font-size:13.5px">Bestes e1RM ${gwE(best, 1)}. Das entspricht etwa <b style="color:var(--ink)">${gwE(lastFuerWeit(best, s.wdh, zielRpe, inc))} × ${s.wdh} @ RPE ${fmt(zielRpe)}</b>, darüber wird es ein Rekord.</p>` : null}
@@ -321,12 +350,13 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
 }
 
 function WdhSheet({ t, s: z, zu, satz }) {
-  const s = t.karten[z.ki].gruppen[z.gi].saetze[z.si];
-  const [wdh, setWdh] = useState(s.wdh);
+  const g = t.karten[z.ki].gruppen[z.gi], s = g.saetze[z.si];
+  const [wdh, setWdh] = useState(Number.isFinite(s.wdh) ? s.wdh : parseInt(g.wdhText, 10) || 5);
+  const [tippen, setTippen] = useState(eingabeTippen);
   return html`<${Sheet} zu=${zu} label="Wiederholungen">
     <div class="eyebrow">Wiederholungen · Satz ${z.si + 1}</div>
-    <div class="big">${wdh}<small>Wdh</small></div>
-    <div class="stepper">${[-2, -1, 1, 2].map((d) => html`<button key=${d} onClick=${() => setWdh(Math.max(0, wdh + d))}>${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`)}</div>
+    <${GrossZahl} id="wdh-zahl" text=${String(wdh)} einheitText="Wdh" ganz=${true} tippen=${tippen} setTippen=${setTippen} setze=${setWdh}/>
+    <div class="stepper">${[-2, -1, 1, 2].map((d) => html`<button key=${d} onClick=${() => { setTippen(false); merkeEingabe(false); setWdh(Math.max(0, wdh + d)); }}>${d > 0 ? '+' : '−'}${Math.abs(d)}</button>`)}</div>
     ${wdh === 0 ? html`<p class="muted" style="margin:0">0 Wdh zählt als Fehlversuch: gespeichert, aber nicht für e1RM und Volumen gewertet.</p>` : null}
     <button class="btn btn-chalk btn-block" onClick=${() => { satz(z.ki, z.gi, z.si, (x) => { x.wdh = wdh; x.geaendert = true; }); zu(); }}>Übernehmen</button>
   <//>`;
@@ -388,21 +418,21 @@ function SatzSheet({ t, s: z, zu, satz, aendere, koerperKg }) {
   };
   return html`<${Sheet} zu=${zu} label="Satzdetails">
     <div class="row between"><div><div class="eyebrow">Satz ${z.si + 1} · ${gw(s.kg)} ${einheit()} × ${s.wdh}</div><h2 class="h2">Wie schwer war's?</h2></div>${g.rpe ? html`<span class="tag">Ziel ${rpeText(g.rpe)}</span>` : null}</div>
-    <div class="rpe-grid">
+    <div class="rpe-grid knapp">
       ${[4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((r) => html`<button key=${r} aria-pressed=${String(rpe === r)} onClick=${() => setRpe(r)}>
         <b>${fmt(r)}</b><span>${r === 10 ? 'Limit' : `noch ${fmt(10 - r)}`}</span></button>`)}
       <button aria-pressed=${String(rpe == null)} onClick=${() => setRpe(null)}><b>–</b><span>ohne</span></button>
     </div>
-    <div class="kv">
+    <div class="kv knapp">
       <div><span class="eyebrow">e1RM${koerperUebung(k.key) ? ' ges.' : ''}</span><b>${wert ? gw(wert, 1) : '–'}</b></div>
       <div><span class="eyebrow">% 1RM</span><b>${rpe != null && rtsPct(s.wdh, rpe) ? fmt(rtsPct(s.wdh, rpe) * 100, 1) : '–'}</b></div>
       <div><span class="eyebrow">Bestwert</span><b>${gw(BEST_E1RM[k.key] ?? null, 1)}</b></div>
     </div>
     <div class="stack" style="gap:6px"><span class="eyebrow">Satztyp</span>
-      <div class="row wrap" style="gap:6px">${SATZTYP.map(([id, text]) => html`<button key=${id} class="chip" aria-pressed=${String(typ === id)} onClick=${() => setTyp(id)}>${text}</button>`)}</div>
+      <div class="chips-zeile">${SATZTYP.map(([id, text]) => html`<button key=${id} class="chip" aria-pressed=${String(typ === id)} onClick=${() => setTyp(id)}>${text}</button>`)}</div>
       ${typ === 'warmup' ? html`<span class="muted" style="font-size:12.5px">Aufwärmsätze zählen nicht ins Volumen und nicht fürs e1RM.</span>` : null}</div>
     <div class="stack" style="gap:6px"><span class="eyebrow">Ausrüstung</span>
-      <div class="row wrap" style="gap:6px">${AUSRUESTUNG.map(([id, text]) => html`<button key=${id} class="chip" aria-pressed=${String(extra.gear.includes(id))} onClick=${() => gear(id)}>${text}</button>`)}</div></div>
+      <div class="chips-zeile">${AUSRUESTUNG.map(([id, text]) => html`<button key=${id} class="chip" aria-pressed=${String(extra.gear.includes(id))} onClick=${() => gear(id)}>${text}</button>`)}</div></div>
     ${mehr ? html`<div class="filter-zeile">
       <label class="field" for="x-baender"><span class="label">Bänder</span><input id="x-baender" class="text" type="text" placeholder="z. B. mini" value=${extra.baender ?? ''} onInput=${(e) => { const v = e.currentTarget.value; setExtra((x) => ({ ...x, baender: v })); }}/></label>
       <label class="field" for="x-ketten"><span class="label">Ketten (${einheit()})</span><input id="x-ketten" type="text" inputmode="decimal" value=${kettenText} onInput=${(e) => setKettenText(e.currentTarget.value)}/></label>

@@ -4,7 +4,7 @@
 import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep } from './basis.js';
 import { DEMO } from './stand.js';
 import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnisHolen } from './mitteilung.js';
-import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung } from './hintergrund.js';
+import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
 import { KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 
@@ -40,7 +40,7 @@ export const STIL_WAHL = [
 export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
   ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
-export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen }) {
+export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung }) {
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
   const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
   const [zielText, setZielText] = useState(einst.gewichtZiel ? String(inAnzeige(einst.gewichtZiel)).replace('.', ',') : '');
@@ -63,6 +63,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   };
   // Regler: beim Ziehen sofort zeigen, beim Loslassen speichern (sonst ein Abgleich je Pixel)
   const [deck, setDeck] = useState(Math.round((einst.deckkraft ?? 0.88) * 100));
+  const [neigung, setNeigung] = useState(neigungAn);
   const [sicht, setSicht] = useState(Math.round((1 - (einst.hintergrundDunkel ?? bild.dunkel)) * 100));
   const aendere = (art, d) => setEinst({ ...einst, pausen: { ...einst.pausen, [art]: Math.max(15, Math.min(900, einst.pausen[art] + d)) } });
   const zahl = (t) => { const n = Number(String(t).replace(',', '.')); return t.trim() && Number.isFinite(n) ? n : null; };
@@ -109,6 +110,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           <span class="einst-text"><b>${name}</b><span class="muted">${was}</span><small>${stand}</small></span>
           <span class="einst-pfeil">${I.weiter}</span></button>`)}
       </section>
+      ${anleitung ? html`<button class="btn btn-soft btn-block" onClick=${anleitung}>Anleitung erneut ansehen</button>` : null}
       ${DEMO ? html`<section class="card pad stack"><span class="viz-t">Demo</span>
         <p style="margin:0;font-size:14px">Alles hier sind Beispieldaten, nichts wird gespeichert.</p>
         <a class="btn btn-chalk btn-block" href="./">Zur Anmeldung</a></section>` : null}`
@@ -126,7 +128,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           onClick=${() => { piep(id); setEinst({ ...einst, ton: id }); }}>${t.name}</button>`)}</div>
         <span class="muted" style="font-size:12.5px">Tippen spielt den Ton zur Probe. Dazu vibriert das Handy (das iPhone kann es nicht).</span></div>
       <label class="schalter" for="e-mitteilung"><span><b>Benachrichtigungen</b><br/>
-        <span class="muted" style="font-size:12.5px">Läuft ein Training und die App ist im Hintergrund: Trainingszeit, Sätze und bis wann die Pause läuft in der Leiste des Handys, am Pausenende eine Meldung mit Ton. Gilt nur für dieses Gerät.</span></span>
+        <span class="muted" style="font-size:12.5px">Solange ein Training läuft: Sätze und bis wann die Pause läuft in der Leiste des Handys, bis das Training beendet ist. Im Hintergrund am Pausenende eine Meldung mit Ton. Gilt nur für dieses Gerät.</span></span>
         <input type="checkbox" id="e-mitteilung" disabled=${!mitteilungMoeglich() || DEMO} checked=${!!einst.mitteilungen && mitteilungErlaubt()}
           onChange=${(e) => mitteilungenSchalten(e.currentTarget.checked)}/></label>
       ${!mitteilungMoeglich() ? html`<span class="muted" style="font-size:12.5px">Dieser Browser kann keine Benachrichtigungen. Auf dem iPhone geht es ab iOS 16.4 und nur in der installierten App (Zum Home-Bildschirm).</span>`
@@ -208,12 +210,14 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           <input id="e-sicht" class="regler" type="range" min="10" max="90" step="5" value=${sicht} style="grid-column:1 / -1"
             onInput=${(e) => { const v = Number(e.currentTarget.value); setSicht(v); setzeAbdunklung(1 - v / 100); }}
             onChange=${(e) => setEinst({ ...einst, hintergrundDunkel: Math.round(100 - Number(e.currentTarget.value)) / 100 })}/></label>` : null}
+        ${bild.bild ? html`<label class="schalter" for="e-neigung"><span>Bild bewegt sich mit dem Handy<span class="muted" style="display:block;font-size:12.5px">Ganz leicht, beim Neigen · nur dieses Gerät</span></span>
+          <input type="checkbox" id="e-neigung" checked=${neigung} onChange=${async (e) => { const an = e.currentTarget.checked; setNeigung(an); if (!(await schalteNeigung(an))) setNeigung(false); }}/></label>` : null}
         ${bildFehler ? html`<p class="fehler">${bildFehler}</p>` : null}
         <span class="muted" style="font-size:12.5px">Beim Hochladen wählst du den Ausschnitt passend zum Bildschirm. Wird mit deinem Konto gespeichert (ab Update 11).</span></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Flächen</span>
         <label class="regler-zeile" for="e-deck"><span>Deckkraft</span><b>${deck} %</b>
           <input id="e-deck" class="regler" type="range" min="0" max="100" step="2" value=${deck} style="grid-column:1 / -1"
-            onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String(v / 100)); document.documentElement.classList.toggle('durchsichtig', v === 0); }}
+            onInput=${(e) => { const v = Number(e.currentTarget.value); setDeck(v); document.documentElement.style.setProperty('--deckkraft', String((v / 100) ** 2)); document.documentElement.classList.toggle('durchsichtig', v === 0); }}
             onChange=${(e) => setEinst({ ...einst, deckkraft: Number(e.currentTarget.value) / 100 })}/></label>
         <span class="muted" style="font-size:12.5px">Gilt für alle Karten, Fenster und Leisten gleich. 100 % = undurchsichtig.</span></div>
     </section>
@@ -233,7 +237,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         ${einst.appSettings ? null : html`<span class="muted" style="font-size:12px">Profilbild und Schriftgröße gelten nach Update 11 auf allen Geräten, bis dahin nur auf diesem.</span>`}
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
-        <label class="schalter" for="e-vergleich"><span><b>Mit dem Kumpel vergleichen</b><br/>
+        <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
           <span class="muted" style="font-size:12.5px">Zeigt deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht – nur, wenn ihr beide einschaltet. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
           <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
         <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>

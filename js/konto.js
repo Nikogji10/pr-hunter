@@ -230,7 +230,9 @@ export async function ladeVergleich(sb) {
 export const feedAusZeilen = (zeilen) => zeilen.map((z) => ({
   id: z.workout_id, nutzer: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, datum: z.datum, ich: !!z.ich,
   minuten: z.minuten ?? null, uebungen: z.uebungen ?? 0, saetze: z.saetze ?? 0, volumen: Number(z.volumen_kg ?? 0), prs: z.prs ?? 0,
-  liste: (z.beste ?? []).map((b) => ({ key: b.key, de: b.de, en: b.en, saetze: b.saetze, prs: b.prs, kg: b.kg == null ? null : Number(b.kg), wdh: b.wdh ?? null })),
+  liste: (z.beste ?? []).map((b) => ({ key: b.key, de: b.de, en: b.en, saetze: b.saetze, prs: b.prs, kg: b.kg == null ? null : Number(b.kg), wdh: b.wdh ?? null,
+    // ab Update 16: Sätze zusammengefasst (Top-Satz und Back-offs getrennt)
+    folge: Array.isArray(b.folge) ? b.folge.map((g) => ({ kg: g.kg == null ? null : Number(g.kg), wdh: g.wdh ?? null, n: g.n ?? 1 })) : null })),
 }));
 /** Feed der letzten tage Tage; null, solange Update 15 fehlt. */
 export async function ladeFeed(sb, tage = 30) {
