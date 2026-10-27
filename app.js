@@ -3,7 +3,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung } from './ui/basis.js';
+  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
@@ -479,7 +479,7 @@ function App() {
     if (phase === 'laden') return;
     const sb = document.getElementById('startbild');
     if (!sb) return;
-    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 800 - performance.now()));
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 2600 - performance.now())   /* PRÜFLAUF (108), danach wieder 800 */);
     return () => clearTimeout(id);
   }, [phase]);
   useEffect(() => {
@@ -538,7 +538,7 @@ function App() {
   useEffect(() => { if (!training) mitteilung.schliesse(mitteilung.TAG_TRAINING, mitteilung.TAG_PAUSE); }, [!training]);
   useEffect(() => {
     if (!lichter) return;
-    if (lichter.gold) try { navigator.vibrate?.([70, 50, 70, 50, 160]); } catch { /* ohne Vibration */ }
+    if (lichter.gold) vibriere([70, 50, 70, 50, 160]);
     const id = setTimeout(() => setLichter(null), lichter.gold ? 3800 : 1900); return () => clearTimeout(id);
   }, [lichter]);
 
@@ -560,7 +560,7 @@ function App() {
   if (stand) setzeStand(stand);
   // Bis die Einstellungen geladen sind (in der Demo: bis man etwas ändert) gilt die gemerkte Sprache – wie bei der
   // Übersetzung der Oberfläche, sonst stünden Übungsnamen, Zahlen und Datum kurz (Demo: dauerhaft) in der anderen Sprache
-  setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton,
+  setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton, vibration: einst.vibration,
     inc: einst.einheit === 'lb' ? (einst.inc ?? 5) * KG_PRO_LB : einst.inc ?? 2.5 });
 
   // Dienste für die Ansichten (Übungen anpassen, anlegen, ändern, Details laden); in der Demo bleiben sie leer
@@ -662,6 +662,7 @@ function App() {
   const startePlan = (tag, bereitschaft = null, leicht = tag.datum === HEUTE && leichter) => {
     tonFreigeben(); wachBleiben();
     const nr = wochenListe(tage).indexOf(tag.woche) + 1;
+    vibriere(60);                                                    // kurz: Training läuft
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: tag.datum, titel: `Woche ${nr} · ${datumLang(tag.datum).split(',')[0]}`,
       runId: aktiverBlock?.id ?? null, woche: tag.woche, tagOffset: tag.offset, bereitschaft,
       // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
@@ -670,6 +671,7 @@ function App() {
   };
   const starteFrei = (bereitschaft = null) => {
     tonFreigeben(); wachBleiben();
+    vibriere(60);                                                    // kurz: Training läuft
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: 'Freies Training', runId: null, bereitschaft, karten: [] });
     gehe('training');
   };
@@ -687,7 +689,7 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
-    if (!t.bearbeiten) setAbschluss(abschlussAus(t));
+    if (!t.bearbeiten) { setAbschluss(abschlussAus(t)); vibriere([60, 60, 120]); }   // gespeichert: doppelt kurz
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
     // Beim Bearbeiten bleiben Ende und Körpergewicht des Originals, sonst gelten jetzt und das aktuelle Körpergewicht
     const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.bearbeiten && t.ende ? { ende: t.ende } : {}),

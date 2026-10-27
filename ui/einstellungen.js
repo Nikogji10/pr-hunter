@@ -128,6 +128,9 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <div class="ton-wahl">${Object.entries(TOENE).map(([id, t]) => html`<button key=${id} class="chip" aria-pressed=${String((einst.ton ?? 'piep') === id)}
           onClick=${() => { piep(id); setEinst({ ...einst, ton: id }); }}>${t.name}</button>`)}</div>
         <span class="muted" style="font-size:12.5px">Tippen spielt den Ton zur Probe. Dazu vibriert das Handy (das iPhone kann es nicht).</span></div>
+      <label class="schalter" for="e-vibration"><span><b>Vibration</b><br/>
+        <span class="muted" style="font-size:12.5px">Kurz beim Starten und Speichern eines Trainings, am Pausenende und bei Rekorden. Vibriert es beim Antippen von Tabs und Menüs, kommt das nicht von der App, sondern vom Handy: Android → Einstellungen → Töne und Vibration → Systemsteuerung → Berührungen.</span></span>
+        <input type="checkbox" id="e-vibration" checked=${einst.vibration !== false} onChange=${(e) => setEinst({ ...einst, vibration: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-mitteilung"><span><b>Benachrichtigungen</b><br/>
         <span class="muted" style="font-size:12.5px">Solange ein Training läuft: Sätze und bis wann die Pause läuft in der Leiste des Handys, bis das Training beendet ist. Im Hintergrund am Pausenende eine Meldung mit Ton. Gilt nur für dieses Gerät.</span></span>
         <input type="checkbox" id="e-mitteilung" disabled=${!mitteilungMoeglich() || DEMO} checked=${!!einst.mitteilungen && mitteilungErlaubt()}

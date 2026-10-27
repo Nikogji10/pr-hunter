@@ -11,7 +11,7 @@ export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.
 // Anzeige: Sprache, Einheit, Stange/Scheiben und persönliche Übungsanpassungen (von app.js gesetzt).
 // Intern ist alles kg; nur Anzeige und Eingabe rechnen in die gewählte Einheit um.
 // #################################################################
-const ANZEIGE = { sprache: 'de', einheit: 'kg', stange: 20, scheiben: STANDARD_SCHEIBEN, anpassung: {}, inc: 2.5, formel: 'rpe', ton: 'piep' };
+const ANZEIGE = { sprache: 'de', einheit: 'kg', stange: 20, scheiben: STANDARD_SCHEIBEN, anpassung: {}, inc: 2.5, formel: 'rpe', ton: 'piep', vibration: true };
 export function setzeAnzeige(neu = {}) { for (const [k, v] of Object.entries(neu)) if (v != null) ANZEIGE[k] = v; }
 /** Steigerung für Programmgewichte in kg (aus den Einstellungen; in lb 5 lb usw.). */
 export const incStandard = () => ANZEIGE.inc;
@@ -152,8 +152,11 @@ export function piep(art = ANZEIGE.ton) {
       g.gain.exponentialRampToValueAtTime(0.0001, s + dauer); o.connect(g).connect(audio.destination); o.start(s); o.stop(s + dauer + 0.02);
     }
   } catch { /* kein Ton im Rahmen */ }
-  try { navigator.vibrate?.([180, 80, 180]); } catch { /* iPhone kann es nicht */ }
+  vibriere([180, 80, 180]);
 }
+/** Vibration der App (Pausenende, Rekord, Training starten/beenden) – abschaltbar in Einstellungen → Training.
+ *  Beim Antippen von Tabs und Menüs vibriert die App nicht; das ist das Berührungs-Feedback von Android. */
+export function vibriere(muster) { if (ANZEIGE.vibration !== false) try { navigator.vibrate?.(muster); } catch { /* iPhone kann es nicht */ } }
 /** Text in der App-Sprache für Stellen, die der Übersetzer nicht erreicht (Benachrichtigungen). */
 export const deEn = (de, enText) => (ANZEIGE.sprache === 'en' ? enText : de);
 export function useTakt(aktiv, ms = 250) {

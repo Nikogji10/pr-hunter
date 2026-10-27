@@ -723,10 +723,10 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 #startbild .sb-ebene { transform: translateZ(0); backface-visibility: hidden; }
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
-#startbild .sb-l { animation: sb-links .42s cubic-bezier(.25, .85, .3, 1) .05s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
-#startbild .sb-r { animation: sb-rechts .42s cubic-bezier(.25, .85, .3, 1) .05s both; }
+#startbild .sb-l { animation: sb-links 1.6s cubic-bezier(.25, .85, .3, 1) .1s both; }   /* PRÜFLAUF (108): langsam, danach wieder ~.42s */   /* kein Überschwingen: Scheiben stoppen am Kragen */
+#startbild .sb-r { animation: sb-rechts 1.6s cubic-bezier(.25, .85, .3, 1) .1s both; }
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
-  animation: sb-logo .35s ease .3s both; }
+  animation: sb-logo .6s ease 1.4s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
 @keyframes sb-links { from { transform: translate3d(-40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
 @keyframes sb-rechts { from { transform: translate3d(40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
@@ -1112,13 +1112,19 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
 @media (prefers-reduced-motion: reduce) { .einf-szene * { animation: none !important; } }
 /* Abschlusskarte (104): Turm aus 25-kg-Scheiben wächst, der Mensch daneben schrumpft auf seinen Maßstab */
 .ak-stapel { display: grid; gap: 6px; }
-.st-szene { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 16px; border-bottom: 2px solid var(--line); overflow: hidden; }
-.st-turm { width: 56px; border-radius: 4px 4px 0 0; transform-origin: bottom;
+.st-szene { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 10px; border-bottom: 2px solid var(--line); overflow: hidden; }
+.st-turm { border-radius: 2px 2px 0 0; transform-origin: bottom;
   background: repeating-linear-gradient(to top, #D7263D 0 calc(var(--scheibe) - 1px), #7A0F1E calc(var(--scheibe) - 1px) var(--scheibe));
-  box-shadow: inset -10px 0 14px -8px rgba(0, 0, 0, .45), inset 8px 0 10px -8px rgba(255, 255, 255, .25), 0 0 26px -8px rgba(215, 38, 61, .7);
-  animation: st-wachsen 1.6s cubic-bezier(.3, .8, .3, 1) .3s both; }
-.st-mensch { fill: var(--ink); opacity: .9; transform-origin: bottom center; animation: st-schrumpfen 1.6s cubic-bezier(.3, .8, .3, 1) .3s both; }
+  box-shadow: inset -2px 0 2px rgba(0, 0, 0, .35), inset 1px 0 1px rgba(255, 255, 255, .25), 0 0 18px -4px rgba(215, 38, 61, .7);
+  animation: st-wachsen 2.8s cubic-bezier(.35, .1, .25, 1) .3s both; }
+.st-mensch { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5)); transform-origin: bottom center; animation: st-schrumpfen 2.8s cubic-bezier(.35, .1, .25, 1) .3s both; }
 .st-text { margin: 0; text-align: center; font-size: 13px; color: var(--ink-2, var(--muted)); }
 @keyframes st-wachsen { from { transform: scaleY(0); } }
 @keyframes st-schrumpfen { from { transform: scale(var(--start, 1)); } }
 @media (prefers-reduced-motion: reduce) { .st-turm, .st-mensch { animation: none; } }
+/* Einstellungen (106/107): Kacheln und Knöpfe in den Unterseiten mit demselben Abstand wie auf den übrigen Seiten */
+.einstellungen .reiter-inhalt { display: flex; flex-direction: column; gap: 12px; }
+/* Gefahr immer rot, unabhängig von der Farbwelt (110): Papierkorb, Löschen, Verwerfen, Block beenden */
+:root { --rot: #E5384B; }
+.btn-gefahr { color: var(--rot); border-color: color-mix(in srgb, var(--rot) 55%, transparent); }
+.loeschen-knopf { color: var(--rot); border-color: color-mix(in srgb, var(--rot) 45%, transparent); background: color-mix(in srgb, var(--rot) 10%, transparent); }
