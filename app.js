@@ -3,7 +3,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
@@ -163,8 +163,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   const stand = block ? blockStand(tage, erledigt) : null;
   const kopf = html`<header class="topbar duenn">
     <span class="logo"><b>PR</b> Hunter</span>
-    ${stand ? html`<button class="kopf-hantel" onClick=${zuProgrammen} aria-label=${`Block: Woche ${stand.akt} von ${stand.wochen.length}`}>
-      <${BlockHantel} wochen=${stand.wochen} aktuell=${stand.akt}/></button>` : html`<span></span>`}
+    <span></span>
     <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/>
       <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${30}/><span class="zahnrad">${I.zahnrad}</span></button></div>
   </header>`;
