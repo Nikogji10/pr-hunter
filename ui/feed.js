@@ -49,14 +49,19 @@ function demoKalender(von, bis) {
   return z;
 }
 
-const FARBEN = ['var(--acc)', '#3B82F6', '#F59E0B', '#10B981', '#A855F7', '#EC4899'];
+// Feste Palette ohne Akzentfarbe: die Farbwelt (z. B. Kobalt = blau) darf nicht mit einem Freund zusammenfallen
+const FARBEN = ['#F59E0B', '#3B82F6', '#EC4899', '#A855F7', '#14B8A6', '#EF4444'];
 const MONAT = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const MONAT_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /** Monatskalender: je Tag ein Punkt pro Person (gefüllt = trainiert, Ring = geplant); grün = alle trainieren,
  *  grau = alle haben Ruhetag. Blättern bis 2 Monate zurück und 2 vor. */
-function Kalender() {
+const uebName = (u) => (u.key ? nameVon(u.key, sprache() === 'en' ? u.en : u.de) : '–');
+
+function Kalender({ eintraege = [] }) {
   const [monat, setMonat] = useState(0);
+  const [tag, setTag] = useState(null);                       // angetippter Tag
+  const [auf, setAuf] = useState(null);                       // aufgeklappte Person an diesem Tag
   const [daten, setDaten] = useState(null);                  // null = lädt, { fehlt } = Update 18 fehlt
   const erster = (() => { const d = new Date(`${HEUTE.slice(0, 7)}-01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + monat); return d.toISOString().slice(0, 10); })();
   const naechster = (() => { const d = new Date(`${erster}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); })();
@@ -86,12 +91,29 @@ function Kalender() {
           const drin = d >= erster && d < naechster;
           const da = personen.map((p) => [p, art(p.nutzer, d)]).filter(([, a]) => a);
           const alle = personen.length > 1 && da.length === personen.length, keiner = personen.length > 1 && !da.length && drin;
-          return html`<div key=${d} class=${`kal-tag ${drin ? '' : 'aussen'} ${d === HEUTE ? 'heute' : ''} ${alle ? 'alle' : ''} ${keiner ? 'frei' : ''}`}>
+          return html`<button key=${d} class=${`kal-tag ${drin ? '' : 'aussen'} ${d === HEUTE ? 'heute' : ''} ${alle ? 'alle' : ''} ${keiner ? 'frei' : ''} ${tag === d ? 'gewaehlt' : ''}`}
+            onClick=${() => { setTag(tag === d ? null : d); setAuf(null); }} aria-label=${datumLang(d)}>
             <span class="kal-nr">${Number(d.slice(8, 10))}</span>
-            <span class="kal-punkte">${da.map(([p, a]) => html`<i key=${p.nutzer} class=${a} style=${`--f:${farbe[p.nutzer]}`}></i>`)}</span></div>`;
+            <span class="kal-punkte">${da.map(([p, a]) => html`<i key=${p.nutzer} class=${a} style=${`--f:${farbe[p.nutzer]}`}></i>`)}</span></button>`;
         })}
       </div>
       ${daten == null ? html`<p class="muted" style="margin:0">Lade …</p>` : null}
+      ${tag ? html`<div class="kal-detail"><b>${datumLang(tag)}</b>
+        ${personen.filter((p) => art(p.nutzer, tag)).length ? personen.filter((p) => art(p.nutzer, tag)).map((p) => {
+          const a = art(p.nutzer, tag), e = eintraege.find((x) => x.datum === tag && (p.ich ? x.ich : x.nutzer === p.nutzer));
+          const offen = auf === p.nutzer;
+          return html`<div key=${p.nutzer} class="kal-person">
+            <button class="kal-person-kopf" aria-expanded=${String(offen)} disabled=${!e} onClick=${() => setAuf(offen ? null : p.nutzer)}>
+              <i style=${`background:${farbe[p.nutzer]}`}></i><b>${p.ich ? 'Du' : p.name}</b>
+              <span class="muted">${a === 'geplant' ? 'geplant' : e ? `${e.uebungen} Übungen · ${e.saetze} Sätze` : 'trainiert'}</span>
+              ${e ? html`<span class="woche-pfeil" aria-hidden="true">${I.weiter}</span>` : null}</button>
+            ${offen && e ? html`<ul class="feed-liste">${e.liste.map((u, i) => html`<li key=${i}><span class="feed-name">${uebName(u)}</span>
+              ${u.folge?.length ? html`<b class="feed-folge" style="grid-column:2 / 4">${folgeText(u.folge)}</b>` : html`<span class="muted">${u.saetze} ×</span><b>${u.kg != null && u.wdh != null ? `${gwE(u.kg)} × ${u.wdh}` : '–'}</b>`}
+              ${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}</li>`)}</ul>` : null}
+          </div>`;
+        }) : html`<span class="muted" style="font-size:13px">Niemand trainiert an diesem Tag.</span>`}
+        ${personen.some((p) => art(p.nutzer, tag) === 'erledigt' && !eintraege.some((x) => x.datum === tag && (p.ich ? x.ich : x.nutzer === p.nutzer)))
+          ? html`<span class="muted" style="font-size:12px">Details gibt es für die letzten 30 Tage.</span>` : null}</div>` : null}
       <div class="kal-legende">${personen.map((p) => html`<span key=${p.nutzer}><i style=${`background:${farbe[p.nutzer]}`}></i>${p.ich ? 'Du' : p.name}</span>`)}</div>
       <span class="muted" style="font-size:12px">● trainiert · ○ geplant · grün = alle trainieren · grau = alle haben Ruhetag</span>`}
   </section>`;
@@ -125,7 +147,7 @@ export function Feed({ einst, zuEinstellungen }) {
     ${!geteilt && !DEMO ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
       <p>Wer seine Trainings nicht teilt, sieht auch die der anderen nicht.</p><span></span>
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
-    ${(geteilt || DEMO) && einst.kalender !== false ? html`<${Kalender}/>` : null}
+    ${(geteilt || DEMO) && einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege}/>` : null}
     ${stand.fehler ? html`<p class="fehler">${stand.fehler}</p>` : null}
     ${stand.laedt && !stand.eintraege.length ? html`<p class="muted">Lade …</p>` : null}
     ${!stand.laedt && !stand.eintraege.length && !stand.fehlt && geteilt ? html`<section class="card pad"><p class="muted" style="margin:0">In den letzten 30 Tagen noch keine geteilten Trainings.</p></section>` : null}

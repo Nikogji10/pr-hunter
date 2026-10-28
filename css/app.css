@@ -1167,3 +1167,14 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
 .kal-legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; font-weight: 700; }
 .kal-legende span { display: inline-flex; align-items: center; gap: 6px; }
 .kal-legende i { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Kalender: Tage antippbar, darunter je Person eine einklappbare Zeile mit dem Training */
+button.kal-tag { width: 100%; color: var(--ink); border: 0; }
+.kal-tag.gewaehlt { box-shadow: inset 0 0 0 2px var(--ink); }
+.kal-detail { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.kal-person { display: grid; gap: 4px; }
+.kal-person-kopf { display: grid; grid-template-columns: 10px auto 1fr auto; gap: 8px; align-items: center; width: 100%; padding: 8px 10px; border-radius: 12px; background: var(--raised); color: var(--ink); text-align: left; font-size: 14px; }
+.kal-person-kopf > i { width: 10px; height: 10px; border-radius: 50%; }
+.kal-person-kopf .muted { font-size: 12.5px; justify-self: end; }
+.kal-person-kopf[aria-expanded="true"] .woche-pfeil { transform: rotate(90deg); }
+.kal-person-kopf[disabled] { opacity: 1; }
