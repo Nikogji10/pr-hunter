@@ -2,7 +2,7 @@
 // je Einheit, Zeitraum, Ziellinie, Min/Max, Zielprognose), Rekorde (bestes Gewicht je Wdh-Zahl), Info (Steckbrief, Bild,
 // Anleitung, persönliche Anpassung, Basisdaten, Zusammenführen). Dazu das Formular zum Anlegen und Ändern von Übungen.
 import { html, useState, useEffect, fmt, gw, gwE, einheit, inAnzeige, I, Sheet, LIFT, liftVon, nameVon, katalogName, uebung, anpassung, MUSKEL_DE,
-  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild } from './basis.js';
+  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild } from './basis.js';
 import { DEMO, DIENSTE, HEUTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, kanon, rekordeVon } from './stand.js';
 import { FAMILIE, EQUIPMENT, UebungSuche } from './suche.js';
 import { LinienChart } from './diagramme.js';
@@ -179,8 +179,12 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
       </section>` : null}`
     : html`
       <section class="card pad stack">
-        ${details?.bilder?.length ? html`<div class="bilder">${details.bilder.slice(0, 2).map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy"
-          onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null}
+        ${(() => {
+          // Bilder aus den Details, sonst aus dem Katalog (Varianten ohne eigenes Foto: Bild der Grundübung); antippen vergrößert
+          const bilder = details?.bilder?.length ? details.bilder.slice(0, 2) : bilderVon(schluessel);
+          return bilder.length ? html`<div class="bilder">${bilder.map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy" class="zoombar"
+            onClick=${() => zeigeBild(bilder, nameVon(schluessel))} onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null;
+        })()}
         <div class="steckbrief">
           ${a.name ? html`<div><span class="eyebrow">Katalogname</span><b>${katalogName(schluessel)}</b></div>` : null}
           <div><span class="eyebrow">Typ</span><b>${LASTART[e?.lt] ?? '–'}</b></div>

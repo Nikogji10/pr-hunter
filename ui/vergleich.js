@@ -66,7 +66,7 @@ export function Vergleich({ freigegeben, ausgeblendet = [] }) {
   const freunde = daten.filter((p) => !p.ich && !ausgeblendet.includes(p.id));
   const personen = daten.filter((p) => p.ich || (!aus.includes(p.id) && !ausgeblendet.includes(p.id)));
   if (daten.length < 2) return html`<section class="card pad stack">${kopf}
-    <p class="muted" style="margin:0;font-size:14px">Du hast freigegeben. Sobald Freunde es auch tun, erscheinen sie hier.</p></section>`;
+    <p class="muted" style="margin:0;font-size:14px">Noch keine Freunde im Vergleich.</p></section>`;
   const total = (p) => (LIFTS.every((l) => p.lifts[l]?.aktuell != null) ? LIFTS.reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);
   const zeile = (titel, wert, besser = 'hoch') => {
     const w = personen.map(wert);

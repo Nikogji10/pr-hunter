@@ -51,11 +51,23 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const [ansicht, setAnsicht] = useState(null);
   useEffect(() => window.scrollTo(0, 0), [ansicht?.art]);           // Unterseiten (Generatoren, Detail) beginnen oben
   const [beenden, setBeenden] = useState(false);
-  const zurListe = () => setAnsicht(null);
+  // Unterseiten (Generatoren, Plan, Editor, Import) mit eigenem Verlaufseintrag: die Zurück-Taste des Handys schließt
+  // erst die Unterseite, statt die vorige App-Ansicht (z. B. Feed) zu öffnen
+  const oeffne = (a) => {
+    if (!history.state?.unter) history.pushState({ ...history.state, unter: a.art }, '');
+    else history.replaceState({ ...history.state, unter: a.art }, '');
+    setAnsicht(a);
+  };
+  useEffect(() => {
+    const zurueck = (e) => { if (!e.state?.unter) setAnsicht(null); };
+    addEventListener('popstate', zurueck);
+    return () => removeEventListener('popstate', zurueck);
+  }, []);
+  const zurListe = () => (history.state?.unter ? history.back() : setAnsicht(null));
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
     try {
       const d = await importieren(p, herkunft);
-      setAnsicht({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start });
+      oeffne({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start });
       toast({ titel: 'Programm gespeichert', text: p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
@@ -65,13 +77,13 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
     start=${block?.datei === ansicht.datei ? block.start : null}
-    zurueck=${() => setAnsicht({ art: 'detail', datei: ansicht.datei })} toast=${toast}/>`;
+    zurueck=${() => oeffne({ art: 'detail', datei: ansicht.datei })} toast=${toast}/>`;
   if (ansicht?.art === 'detail' && programme[ansicht.datei]) return html`<${Detail} key=${ansicht.datei} datei=${ansicht.datei} prog=${programme[ansicht.datei]} vorgabe=${ansicht.werte}
     ausTest=${!!ansicht.ausTest} startVorschlag=${ansicht.start} block=${block} einst=${einst} setEinst=${setEinst} toast=${toast} zurueck=${zurListe}
     neueVersion=${block?.datei === ansicht.datei && info[ansicht.datei]?.version != null && block.version != null && info[ansicht.datei].version !== block.version ? info[ansicht.datei].version : null}
     umstellen=${(v) => { setBlock({ ...block, version: v }); toast({ titel: `Block auf Version ${v} umgestellt`, text: 'Gilt ab der nächsten Einheit; erledigte Trainings bleiben, wie sie waren.' }); }}
-    bearbeiten=${(d) => setAnsicht({ art: 'editor', datei: d })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
-    zumGenerator=${(vorgabe) => setAnsicht({ art: 'generator', vorgabe })}
+    bearbeiten=${(d) => oeffne({ art: 'editor', datei: d })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
+    zumGenerator=${(vorgabe) => oeffne({ art: 'generator', vorgabe })}
     starten=${(b) => { setBlock(b); setAnsicht(null); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); zuHeute(); }}/>`;
   const aktivTage = block ? blockTage(programme[block.datei], { ...block, cut: einst.cut }) : [];
   const wochen = wochenListe(aktivTage);
@@ -85,7 +97,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     const p = programme[datei];
     let tage = [], w = [];
     try { tage = blockTage(p, { werte: { ...BEISPIEL_MAXE, ...Object.fromEntries((p.inputs ?? []).map((k) => [k, BEISPIEL_MAXE[k] ?? 100])) } }); w = wochenListe(tage); } catch { /* unvollständiges Programm */ }
-    return html`<button key=${datei} class="card prog" onClick=${() => setAnsicht({ art: 'detail', datei })}>
+    return html`<button key=${datei} class="card prog" onClick=${() => oeffne({ art: 'detail', datei })}>
       <div class="row between" style="align-items:flex-start"><h2 class="h2">${INFO[datei].kurz}</h2>${block?.datei === datei ? html`<span class="tag top">Aktiv</span>` : null}</div>
       <p class="muted" style="margin:0;font-size:14px">${INFO[datei].text}</p>
       <div class="prog-meta"><div><b>${w.length}</b><span>Wochen</span></div><div><b>${tage.length}</b><span>Einheiten</span></div>
@@ -103,25 +115,30 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row between ab-zahlen"><span>${`${erledigtZahl} von ${aktivTage.length} Einheiten`}</span>
         <span class="ab-maxe">${['S', 'B', 'D'].filter((k) => block.werte[k] != null).map((k) => [k, block.werte[k]]).map(([k, v]) => html`<span key=${k}>${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</span></div>
       ${sollIst.length ? html`<details class="ab-sollist"><summary><span>Plan vs. Ist</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary><${SollIst} zeilen=${sollIst}/></details>` : null}
-      <${NeueMaxe} maxe=${neueMaxe} vertrauen=${mitVertrauen ? vertrauen : null} setVertrauen=${setVertrauen} planen=${() => setAnsicht({ art: 'detail', datei: block.datei, ausTest: true,
+      <${NeueMaxe} maxe=${neueMaxe} vertrauen=${mitVertrauen ? vertrauen : null} setVertrauen=${setVertrauen} planen=${() => oeffne({ art: 'detail', datei: block.datei, ausTest: true,
         werte: { ...block.werte, ...Object.fromEntries(Object.entries(neueMaxe).filter(([, m]) => m.neuesMax != null).map(([l, m]) => [l, m.neuesMax])) },
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
-      <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
+      <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => oeffne({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
         <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Wähle unten eine Vorlage und starte sie mit deinen Maxen – oder lass dir mit dem Generator einen Block bis zu einem Termin bauen.</p></section>`}
     <span class="eyebrow" style="margin-top:6px">Neuer Plan</span>
     <div class="neu-wege">
-      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
+      <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
         <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
-      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding-Generator</b>
+      <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding-Generator</b>
         <span>Split wählen (z. B. Push/Pull/Legs), zwei Übungen je Muskel, Tage pro Woche – Block mit RPE-Steigerung und Deload.</span></button>
-      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting-Generator</b>
+      <button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting-Generator</b>
         <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, Top-Satz und Back-offs vom Trainingsmax, Test am Ende.</span></button>
     </div>
-    <button class="link" style="justify-self:start" onClick=${() => setAnsicht({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button>
-    ${eigene.length ? html`<span class="eyebrow" style="margin-top:6px">Eigene Programme</span>${eigene.map(karte)}` : null}
-    <span class="eyebrow" style="margin-top:6px">Powerlifting-Vorlagen</span>
-    ${vorlagen.map(karte)}
+    <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button>
+    ${(() => {
+      // nach Kategorie: eigene Pläne, Bodybuilding, Powerlifting (eigene Powerlifting-Programme vor den Vorlagen)
+      const kat = (d) => programme[d]?.kategorie ?? 'powerlifting';
+      const gruppen = [['eigen', 'Eigene Pläne', eigene.filter((d) => kat(d) === 'eigen')], ['bodybuilding', 'Bodybuilding', eigene.filter((d) => kat(d) === 'bodybuilding')],
+        ['powerlifting', 'Powerlifting', [...eigene.filter((d) => kat(d) === 'powerlifting'), ...vorlagen]]];
+      return gruppen.filter(([, , l]) => l.length).map(([k, titel, l]) => html`<div key=${k} class="stack" style="gap:12px">
+        <span class="eyebrow kat-kopf" style="margin-top:6px">${titel}<small>${l.length}</small></span>${l.map(karte)}</div>`);
+    })()}
     ${beenden ? html`<${Sheet} zu=${() => setBeenden(false)} label="Block beenden">
       <h2 class="h2">Block beenden?</h2>
       <p style="margin:0">Erledigte Trainings bleiben im Verlauf. Der Plan verschwindet aus „Heute“, bis du einen neuen Block startest.</p>

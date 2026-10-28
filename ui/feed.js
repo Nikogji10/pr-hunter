@@ -148,6 +148,11 @@ function Freunde({ einst, setEinst }) {
     setFehler(null);
     try { await DIENSTE.freundAktion(art, id); await laden(); } catch (e) { setFehler(e.message); }
   };
+  // Eigene Freigabe für diesen Freund (Server, Update 21) – sofort in der Liste zeigen, bei Fehler neu laden
+  const teilen = async (id, art, wert) => {
+    setListe((l) => l.map((x) => (x.id === id ? { ...x, teilt: { ...x.teilt, [art]: wert } } : x)));
+    try { await DIENSTE.freigabeSetzen(id, art, wert); } catch (e) { setFehler(e.message); laden(); }
+  };
   const umschalten = (id, art) => {
     const alt = einst.freundeAus ?? {}, f = { ...(alt[id] ?? {}) };
     f[art] = f[art] === false;                                 // false = ausgeblendet; zurück auf an entfernt den Eintrag
@@ -181,8 +186,13 @@ function Freunde({ einst, setEinst }) {
       ${freunde.map((x) => html`<div key=${x.id} class="freund-block">
         ${zeile(x, html`<button class="iconbtn klein" aria-expanded=${String(offen === x.id)} aria-label="Einstellungen für diesen Freund" onClick=${() => setOffen(offen === x.id ? null : x.id)}><span class="woche-pfeil" style="background:none">${I.weiter}</span></button>`)}
         ${offen === x.id ? html`<div class="freund-optionen">
-          ${SICHT.map(([art, text]) => html`<label key=${art} class="schalter" for=${`f-${x.id}-${art}`}><span>${text} zeigen</span>
+          ${x.teilt ? html`<span class="eyebrow">Was ich mit ${x.name} teile</span>
+          ${SICHT.map(([art, text]) => html`<label key=${'t' + art} class="schalter" for=${`ft-${x.id}-${art}`}><span>${`Mein ${text}`}</span>
+            <input type="checkbox" id=${`ft-${x.id}-${art}`} checked=${x.teilt[art] !== false} onChange=${(e) => teilen(x.id, art, e.currentTarget.checked)}/></label>`)}` : null}
+          <span class="eyebrow">Was ich von ${x.name} sehe</span>
+          ${SICHT.map(([art, text]) => html`<label key=${art} class="schalter" for=${`f-${x.id}-${art}`}><span>${`${text} von ${x.name}`}</span>
             <input type="checkbox" id=${`f-${x.id}-${art}`} checked=${sichtbar(einst, x.id, art)} onChange=${() => umschalten(x.id, art)}/></label>`)}
+          <span class="muted" style="font-size:12px">Was du teilst, sieht nur dieser Freund – unabhängig von deinen Standard-Einstellungen. Was du siehst, betrifft nur deine Anzeige.</span>
           <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => aktion('entfernen', x.id)}>Entfernen</button>
             <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => aktion('blockieren', x.id)}>Blockieren</button></div></div>` : null}</div>`)}
     </section>
@@ -202,6 +212,8 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
   const [reiter, setReiter] = useState('feed');
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);
+  const [uebAuf, setUebAuf] = useState(() => new Set());       // aufgeklappte Übungen (Feed-Eintrag-Id + Index)
+  const umschaltenUeb = (id) => setUebAuf((alt) => { const n = new Set(alt); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const laden = async () => {
     if (DEMO || !DIENSTE.ladeFeed) return;
     setStand((s) => ({ ...s, laedt: true, fehler: null }));
@@ -219,13 +231,13 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
       ${DEMO ? html`<span class="proto">Beispieldaten</span>` : html`<button class=${`iconbtn ${stand.laedt ? 'dreht' : ''}`} onClick=${laden} aria-label="Neu laden" disabled=${stand.laedt}>${I.neu}</button>`}</header>
     ${stand.fehlt ? html`<section class="hint immer">${I.warn}<span class="t">Datenbank-Update 15 fehlt</span><span></span>
       <p>Der Feed braucht <b>db/15_feed.sql</b> in Supabase. Bis dahin bleibt er leer.</p></section>` : null}
-    ${!geteilt && !DEMO ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
+    ${false ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
       <p>Wer seine Trainings nicht teilt, sieht auch die der anderen nicht.</p><span></span>
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
     <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
     ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
-    ${(geteilt || DEMO) && einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege} einst=${einst}/>` : null}
+    ${einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege} einst=${einst}/>` : null}
     ${stand.fehler ? html`<p class="fehler">${stand.fehler}</p>` : null}
     ${stand.laedt && !stand.eintraege.length ? html`<p class="muted">Lade …</p>` : null}
     ${!stand.laedt && !stand.eintraege.length && !stand.fehlt && geteilt ? html`<section class="card pad"><p class="muted" style="margin:0">In den letzten 30 Tagen noch keine geteilten Trainings.</p></section>` : null}
@@ -238,10 +250,18 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
         <div><span class="eyebrow">Übungen</span><b>${e.uebungen}</b></div>
         <div><span class="eyebrow">Sätze</span><b>${e.saetze}</b></div>
         <div><span class="eyebrow">Volumen</span><b>${tonnage(e.volumen)}</b></div></div>
-      <ul class="feed-liste">${(offen === e.id ? e.liste : e.liste.slice(0, 4)).map((u, i) => html`<li key=${i}>
-        <span class="feed-name">${name(u)}</span>
-        ${u.folge?.length ? html`<b class="feed-folge" style="grid-column:2 / 4">${folgeText(u.folge)}</b>`
-          : html`<span class="muted">${u.saetze} ×</span><b>${u.kg != null && u.wdh != null ? `${gwE(u.kg)} × ${u.wdh}` : '–'}</b>`}${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}</li>`)}</ul>
+      ${/* Je Übung zugeklappt: Name und Satzzahl; aufgeklappt die Sätze untereinander (Gewicht × Wdh) */ ''}
+      <ul class="feed-liste feed-uebungen">${(offen === e.id ? e.liste : e.liste.slice(0, 4)).map((u, i) => {
+        const id = `${e.id}-${i}`, auf = uebAuf.has(id);
+        const folge = (u.folge ?? []).filter((g) => (g.kg ?? 0) > 0 || (g.wdh ?? 0) > 0);
+        return html`<li key=${i}>
+          <button class="feed-ueb-kopf" aria-expanded=${String(auf)} onClick=${() => umschaltenUeb(id)}>
+            <span class="feed-name">${name(u)}</span><span class="muted">${`${u.saetze} Sätze`}</span>
+            ${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}<span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></button>
+          ${auf ? html`<ul class="feed-saetze">${folge.length ? folge.map((g, j) => html`<li key=${j}><span class="muted">${g.n > 1 ? `${g.n} ×` : ''}</span><b>${g.kg != null ? gwE(g.kg) : '–'}</b><span>${`× ${g.wdh ?? '–'}`}</span></li>`)
+            : html`<li><span></span><b>${u.kg != null && u.wdh != null ? gwE(u.kg) : '–'}</b><span>${u.wdh != null ? `× ${u.wdh}` : ''}</span></li>`}</ul>` : null}
+        </li>`;
+      })}</ul>
       ${e.liste.length > 4 ? html`<button class="link" style="justify-self:start" onClick=${() => setOffen(offen === e.id ? null : e.id)}>${offen === e.id ? 'Weniger' : `Alle ${e.liste.length} Übungen`}</button>` : null}
     </article>`)}
     </div>`}

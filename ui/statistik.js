@@ -251,7 +251,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
-    <${Vergleich} freigegeben=${!!einst.vergleich} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`
+    <${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`
     : reiter === 'belastung' ? html`
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>

@@ -3,7 +3,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere } from './ui/basis.js';
+  BlockHantel, PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
 import { beispielStand } from './ui/beispiel.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
@@ -203,8 +203,11 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   return html`<div class="screen">
     ${kopf}
     ${gewicht}
-    <div class="maxes kompakt">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`} title="Trainingsmax">
-      <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b></div>`)}</div>
+    ${/* SBD-Maxe nur bei einem Powerlifting-Programm (Bodybuilding/eigene Pläne haben keine Maxe) und wenn nicht abgeschaltet */ ''}
+    ${einst.sbdHeute !== false && (prog.kategorie ?? 'powerlifting') === 'powerlifting' && ['S', 'B', 'D'].some((k) => block.werte?.[k] > 0)
+      ? html`<div class="maxes kompakt">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`} title="Trainingsmax">
+      <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b></div>`)}</div>` : null}
+    <div class="heute-trenner" aria-hidden="true"><i></i></div>
     ${planOffen ? html`<${PlanAnsicht} tage=${tage} erledigt=${erledigt} wochen=${wochen} akt=${akt} prog=${prog} oeffne=${setTagOffen}/>` : null}
 
     ${tag?.datum === HEUTE && !erledigt.has(HEUTE) && !training && pause >= PAUSE_HINWEIS_TAGE ? html`<section class="hint" aria-live="polite">${I.warn}
@@ -622,6 +625,7 @@ function App() {
       ladeFreunde: async () => { const f = await konto.ladeFreunde(supabase()); if (f) setAnfragen(f.filter((x) => x.status === 'offen' && x.richtung === 'rein').length); return f; },
       sucheNutzer: (q) => konto.sucheNutzer(supabase(), q),
       freundAktion: (art, id) => konto.freundAktion(supabase(), art, id),
+      freigabeSetzen: (id, art, wert) => konto.freigabeSetzen(supabase(), id, art, wert),
       zusammenfuehren: async (von, nach) => {
         if (!navigator.onLine) throw new Error('Zum Zusammenführen braucht das Handy Netz.');
         const n = await konto.zusammenfuehren(supabase(), von, nach);
@@ -644,8 +648,8 @@ function App() {
   const aktiverBlock = blockDef ? block : null;
   if (aktiverBlock) programme[aktiverBlock.datei] = blockDef;
   const tage = aktiverBlock ? tageMitOptionen(blockTage(blockDef, { ...aktiverBlock, cut: einst.cut }), aktiverBlock) : [];
-  // Kalender aus (Einstellungen → Freunde): Pläne bleiben privat, es wird eine leere Liste hochgeladen
-  planTage.current = einst.kalender === false ? [] : tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).slice(0, 40)
+  // Wer die geplanten Tage sieht, regelt die Freigabe je Freund (Update 21) – hochgeladen wird immer
+  planTage.current = tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).slice(0, 40)
     .map((t) => ({ datum: t.datum, keys: t.uebungen.map((u) => u.key).filter(Boolean) }));
   // Erledigt nach Datum des Plantags (bei verschobenen Tagen das neue Datum)
   const datumVon = new Map(tage.map((t) => [t.offset, t.datum]));
@@ -871,6 +875,7 @@ function App() {
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
     ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
+    <${BildLupe}/>
     ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)} zuProgrammen=${aktiverBlock ? null : () => gehe('programme')}/>` : null}
   </div>`;
 }

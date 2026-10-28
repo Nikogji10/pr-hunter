@@ -1266,3 +1266,27 @@ button.kal-tag { width: 100%; color: var(--ink); border: 0; }
 @keyframes sz-fuellen-x { 0%, 10% { transform: scaleX(0); } 35%, 85% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
 .link svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
 .topbar.unter .h1 { overflow-wrap: break-word; min-width: 0; }   /* lange Programmnamen: notfalls im Wort umbrechen statt seitlich überlaufen */
+.kat-kopf { display: flex; align-items: center; gap: 8px; }
+.kat-kopf small { padding: 1px 7px; border-radius: 99px; background: var(--raised); font-size: 11px; }
+
+/* Heute: feine Trennlinie zwischen Körpergewicht/Maxen und dem Training, Training rückt minimal nach unten */
+.heute-trenner { display: grid; place-items: center; height: 10px; margin: 2px 0 4px; }
+.heute-trenner i { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--acc) 55%, var(--line)) 50%, transparent); }
+
+/* Feed (129): Übung zugeklappt mit Satzzahl, aufgeklappt Sätze untereinander */
+.feed-uebungen > li { display: block; padding: 0; }
+.feed-ueb-kopf { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 28px; gap: 8px; align-items: center; width: 100%; padding: 9px 0; background: none; color: var(--ink); text-align: left; font-size: 14px; }
+.feed-ueb-kopf .muted { font-size: 12.5px; }
+.feed-ueb-kopf .woche-pfeil { width: 24px; height: 24px; }
+.feed-ueb-kopf[aria-expanded="true"] .woche-pfeil { transform: rotate(90deg); }
+.feed-saetze { list-style: none; margin: 0 0 8px; padding: 6px 10px; border-radius: 10px; background: var(--raised); display: grid; gap: 4px; }
+.feed-saetze li { display: grid; grid-template-columns: 34px auto 1fr; gap: 6px; align-items: baseline; font-size: 14px; font-variant-numeric: tabular-nums; border: 0; padding: 0; }
+.feed-saetze li .muted { text-align: right; font-size: 12.5px; }
+
+/* Übungsbilder vergrößern: antippbar, Vollbild mit beiden Positionen */
+.zoombar { cursor: zoom-in; }
+.bild-lupe { position: fixed; inset: 0; z-index: 95; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 24px 14px;
+  background: color-mix(in srgb, #000 88%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: abdunkeln .2s ease; color: #fff; }
+.bild-lupe b { font: 800 18px/1.2 var(--f); text-align: center; }
+.bild-lupe-bilder { display: grid; gap: 10px; width: min(100%, 520px); }
+.bild-lupe-bilder img { width: 100%; border-radius: 14px; background: #fff; animation: einf-rein .3s cubic-bezier(.2, .9, .3, 1.1); }

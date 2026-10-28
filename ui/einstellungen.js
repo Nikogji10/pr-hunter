@@ -119,15 +119,22 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <a class="btn btn-chalk btn-block" href="./">Zur Anmeldung</a></section>` : null}`
     : bereich === 'sozial' ? html`
       <section class="card pad stack">
-        <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
-          <span class="muted" style="font-size:12.5px">Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
+        <span class="viz-t">Standard für neue Freunde</span>
+        <span class="muted" style="font-size:12.5px">Gilt nur für Freunde, die du ab jetzt hinzufügst. Bestehende Freunde stellst du einzeln ein: Feed → Freunde → Freund antippen → „Was ich teile“.</span>
+        <label class="schalter" for="e-vergleich"><span><b>Vergleich teilen</b><br/>
+          <span class="muted" style="font-size:12.5px">Neue Freunde sehen deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Keine Trainings, keine Sätze.</span></span>
           <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
-        <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
-          <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'
+        <label class="schalter" for="e-feed"><span><b>Trainings teilen</b><br/>
+          <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Neue Freunde sehen Datum, Dauer, Übungen, Sätze und Rekorde deiner Trainings – keine Notizen, kein Körpergewicht.'
             : 'Braucht Datenbank-Update 15 (db/15_feed.sql).'}</span></span>
           <input type="checkbox" id="e-feed" disabled=${!einst.feedSpalte} checked=${einst.feedTeilen !== false} onChange=${(e) => setEinst({ ...einst, feedTeilen: e.currentTarget.checked })}/></label>
-        <label class="schalter" for="e-kalender"><span><b>Kalender im Feed</b><br/>
-          <span class="muted" style="font-size:12.5px">Monatskalender, wer wann trainiert – deine geplanten Trainingstage sehen Freunde, die auch teilen. Aus: kein Kalender, deine Pläne bleiben privat.</span></span>
+        <label class="schalter" for="e-kalender-teilen"><span><b>Kalender teilen</b><br/>
+          <span class="muted" style="font-size:12.5px">${einst.kalenderSpalte ? 'Neue Freunde sehen, an welchen Tagen du trainierst und was du geplant hast (Übungen, keine Gewichte).' : 'Braucht Datenbank-Update 21 (db/21_freigabe_je_freund.sql).'}</span></span>
+          <input type="checkbox" id="e-kalender-teilen" disabled=${!einst.kalenderSpalte} checked=${einst.kalenderTeilen !== false} onChange=${(ev) => setEinst({ ...einst, kalenderTeilen: ev.currentTarget.checked })}/></label>
+      </section>
+      <section class="card pad stack"><span class="viz-t">Anzeige</span>
+        <label class="schalter" for="e-kalender"><span><b>Kalender im Feed zeigen</b><br/>
+          <span class="muted" style="font-size:12.5px">Nur deine Anzeige: der Monatskalender oben im Feed. Was Freunde sehen, regelt „Kalender teilen“.</span></span>
           <input type="checkbox" id="e-kalender" checked=${einst.kalender !== false} onChange=${(e) => setEinst({ ...einst, kalender: e.currentTarget.checked })}/></label>
       </section>`
     : bereich === 'training' ? html`
@@ -216,6 +223,9 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           onClick=${() => setEinst({ ...einst, schrift: id })} style=${`font-family:${familie}, system-ui, sans-serif`}><b>${fmt(inAnzeige(182.5), 1)} ${einheit()}</b><span>${name}</span><small>${was}</small></button>`)}</div></div>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Sprache</span>
         <${Seg} label="Sprache" werte=${[['de', 'Deutsch'], ['en', 'English']]} wert=${einst.sprache ?? 'de'} setze=${(v) => setEinst({ ...einst, sprache: v })}/></div>
+      <label class="schalter unterteil" for="e-sbd"><span><b>SBD-Maxe auf Heute</b><br/>
+        <span class="muted" style="font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben oben auf „Heute“ – nur bei einem Powerlifting-Programm.</span></span>
+        <input type="checkbox" id="e-sbd" checked=${einst.sbdHeute !== false} onChange=${(ev) => setEinst({ ...einst, sbdHeute: ev.currentTarget.checked })}/></label>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Schriftgröße</span>
         <${Seg} label="Schriftgröße" werte=${SCHRIFT} wert=${einst.zoom ?? 1} setze=${(v) => setEinst({ ...einst, zoom: v })}/></div>
       <div class="stack unterteil" style="gap:8px"><span class="eyebrow">Hintergrundbild</span>

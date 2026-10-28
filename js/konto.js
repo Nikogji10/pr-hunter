@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus'];
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -30,6 +30,7 @@ export function einstAusProfil(p, alt = {}) {
     formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats, loeschenAb: p.loeschen_ab ?? null,
     // Feed (Update 15): Spalte da → Wert übernehmen und beim Speichern mitschicken
     ...('share_feed' in p ? { feedTeilen: p.share_feed !== false, feedSpalte: true } : {}),
+    ...('share_kalender' in p ? { kalenderTeilen: p.share_kalender !== false, kalenderSpalte: true } : {}),
     // app_settings: Spalte vorhanden → Werte von dort (und beim Speichern mitschicken), sonst die lokalen behalten
     ...('app_settings' in p ? { ...Object.fromEntries(APP_SETTINGS.filter((k) => k in (p.app_settings ?? {})).map((k) => [k, p.app_settings[k]])), appSettings: true } : {}),
     ...('avatar' in p ? { avatar: p.avatar ?? null } : {}) };
@@ -42,6 +43,7 @@ export const profilAusEinst = (e) => ({
   bar_weight_kg: e.stange ?? 20, plates_kg: e.scheiben ?? STANDARD_SCHEIBEN, e1rm_formula: e.formel ?? 'rpe', theme: e.thema ?? 'system',
   ...(e.name ? { display_name: e.name } : {}), ...(e.vergleichGeaendert ? { share_stats: !!e.vergleich } : {}),
   ...(e.feedSpalte ? { share_feed: e.feedTeilen !== false } : {}),
+  ...(e.kalenderSpalte ? { share_kalender: e.kalenderTeilen !== false } : {}),
   // Update 11 bringt app_settings und avatar gemeinsam
   ...(e.appSettings ? { app_settings: Object.fromEntries(APP_SETTINGS.map((k) => [k, e[k] ?? STANDARD_EINSTELLUNGEN[k]]).filter(([, v]) => v !== undefined)), avatar: e.avatar ?? null } : {}),
 });
@@ -260,13 +262,20 @@ export async function ladeFreunde(sb) {
   const r = await sb.rpc('freunde_liste');
   if (ohne19(r)) return null;
   if (r.error) throw new Error(r.error.message);
-  return r.data.map((z) => ({ id: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, status: z.status, richtung: z.richtung }));
+  return r.data.map((z) => ({ id: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, status: z.status, richtung: z.richtung,
+    // ab Update 21: was ich mit diesem Freund teile (null = Update fehlt)
+    teilt: 'teilt_feed' in z ? { feed: z.teilt_feed, kalender: z.teilt_kalender, vergleich: z.teilt_vergleich } : null }));
 }
 export async function sucheNutzer(sb, q) {
   const r = await sb.rpc('suche_nutzer', { q });
   if (ohne19(r)) return [];
   if (r.error) throw new Error(r.error.message);
   return r.data.map((z) => ({ id: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null }));
+}
+/** Eigene Freigabe für einen Freund setzen (Update 21): art feed | kalender | vergleich. */
+export async function freigabeSetzen(sb, id, art, wert) {
+  const r = await sb.rpc('freigabe_setzen', { freund: id, art, wert });
+  if (r.error) throw new Error(/freigabe_setzen|function/i.test(r.error.message) ? 'Datenbank-Update 21 fehlt (db/21_freigabe_je_freund.sql).' : r.error.message);
 }
 export const freundAktion = async (sb, art, id) => {
   const name = { anfragen: ['freund_anfragen', 'ziel'], annehmen: ['freund_annehmen', 'anfragender'], entfernen: ['freund_entfernen', 'anderer'], blockieren: ['freund_blockieren', 'anderer'] }[art];

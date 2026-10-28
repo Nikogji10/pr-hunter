@@ -357,6 +357,12 @@ export function Avatar({ bild, name, groesse = 40 }) {
 // Übungsbild aus der Free Exercise DB (gemeinfrei); ohne Bild ein Hantel-Symbol in der Farbe des Lifts
 const BILD_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 export const bildVon = (key) => { const i = uebung(key)?.i ?? uebung(kanon(key))?.i; return i ? `${BILD_URL}${encodeURIComponent(i)}/0.jpg` : null; };
+/** Beide Bilder (Start- und Endposition) einer Übung aus dem Katalog; Varianten ohne Foto nehmen die der Grundübung. */
+export const bilderVon = (key) => { const i = uebung(key)?.i ?? uebung(kanon(key))?.i; return i ? [0, 1].map((n) => `${BILD_URL}${encodeURIComponent(i)}/${n}.jpg`) : []; };
+/** Große Ansicht öffnen (BildLupe hört darauf, eingebunden in app.js). */
+export const zeigeBild = (urls, name = '') => dispatchEvent(new CustomEvent('prh-bild', { detail: { urls, name } }));
+
+// Antippen vergrößert (auch innerhalb von Knöpfen: Klick wird nicht weitergereicht)
 export function UebungsBild({ schluessel, groesse = 44 }) {
   const [kaputt, setKaputt] = useState(false);
   const url = bildVon(schluessel), lift = liftVon(schluessel);
@@ -364,5 +370,25 @@ export function UebungsBild({ schluessel, groesse = 44 }) {
   if (!url || kaputt) {
     return html`<span class="uebung-bild leer" style=${`${masse};color:${lift === 'andere' ? 'var(--ink-2)' : LIFT[lift].farbe}`} aria-hidden="true">${I.heute}</span>`;
   }
-  return html`<img class="uebung-bild" src=${url} alt="" loading="lazy" decoding="async" style=${masse} onError=${() => setKaputt(true)}/>`;
+  const gross = (e) => { e.stopPropagation(); e.preventDefault(); zeigeBild(bilderVon(schluessel), nameVon(schluessel)); };
+  return html`<img class="uebung-bild zoombar" src=${url} alt="" role="button" aria-label="Bild vergrößern" loading="lazy" decoding="async" style=${masse}
+    onClick=${gross} onError=${() => setKaputt(true)}/>`;
+}
+
+/** Vollbild-Ansicht der Übungsbilder; Tippen oder Zurück schließt. */
+export function BildLupe() {
+  const [bild, setBild] = useState(null);
+  // eigener Verlaufseintrag: die Zurück-Taste des Handys schließt nur das Bild
+  useEffect(() => {
+    const h = (e) => { setBild(e.detail); history.pushState({ ...history.state, lupe: true }, ''); };
+    const zu = (e) => { if (!e.state?.lupe) setBild(null); };
+    addEventListener('prh-bild', h); addEventListener('popstate', zu);
+    return () => { removeEventListener('prh-bild', h); removeEventListener('popstate', zu); };
+  }, []);
+  if (!bild) return null;
+  return html`<div class="bild-lupe" role="dialog" aria-label=${bild.name || 'Bild'} onClick=${() => (history.state?.lupe ? history.back() : setBild(null))}>
+    ${bild.name ? html`<b>${bild.name}</b>` : null}
+    <div class="bild-lupe-bilder">${bild.urls.map((u, i) => html`<img key=${i} src=${u} alt="" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>
+    <span class="muted">Tippen zum Schließen</span>
+  </div>`;
 }
