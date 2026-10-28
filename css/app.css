@@ -1290,3 +1290,57 @@ button.kal-tag { width: 100%; color: var(--ink); border: 0; }
 .bild-lupe b { font: 800 18px/1.2 var(--f); text-align: center; }
 .bild-lupe-bilder { display: grid; gap: 10px; width: min(100%, 520px); }
 .bild-lupe-bilder img { width: 100%; border-radius: 14px; background: #fff; animation: einf-rein .3s cubic-bezier(.2, .9, .3, 1.1); }
+
+.vorlagen-auf > summary { list-style: none; display: grid; grid-template-columns: auto 1fr 28px; gap: 10px; align-items: center; padding: 12px 14px; border-radius: var(--r-lg); background: var(--karte); border: 1px solid var(--kante); cursor: pointer; font-weight: 800; }
+.vorlagen-auf > summary::-webkit-details-marker { display: none; }
+.vorlagen-auf > summary .muted { font-size: 12.5px; font-weight: 600; }
+.vorlagen-auf[open] > summary .woche-pfeil { transform: rotate(90deg); }
+
+/* Freund-Freigaben (137): Tabelle Art × Ich teile / Ich sehe */
+.freigabe-tabelle { display: grid; grid-template-columns: 1fr 78px 78px; gap: 6px 4px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--raised); }
+.ft-kopf { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; }
+.ft-art { font-size: 14px; font-weight: 700; }
+.ft-zelle { display: grid; place-items: center; }
+
+/* Programme (Seite aufgeräumt): deutliche Abschnittstitel */
+.abschnitt-titel { margin: 14px 0 0; font: 900 20px/1.1 var(--f); text-transform: uppercase; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; }
+.abschnitt-titel::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 50%, var(--line)), transparent); }
+.neu-frage { animation: einf-rein .3s cubic-bezier(.2, .9, .3, 1.1); }
+
+/* Übungssuche (138/139): Treffer mit Bild, Muskeldiagramm statt Auswahlmenü */
+.treffer button.treffer-mit-bild { grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+.treffer-mit-bild .treffer-text { display: grid; gap: 2px; min-width: 0; }
+.treffer-mit-bild .treffer-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.treffer-gruppe { display: block; padding: 10px 14px 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-text, var(--acc)); }
+.such-filter .figuren { max-width: 300px; margin: 0 auto; }
+.muskel-wahl-diagramm { display: grid; gap: 4px; }
+.muskel-wahl-diagramm .muskel path:first-child { transition: fill .15s ease; }
+
+/* Bodybuilding-Generator: Übungen als Bildkacheln statt Auswahlmenü */
+.ueb-kacheln { display: grid; grid-auto-flow: column; grid-auto-columns: 112px; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; margin: 0 -2px; scroll-snap-type: x proximity; }
+.ueb-kacheln::-webkit-scrollbar { display: none; }
+.ueb-kachel { position: relative; display: grid; justify-items: center; gap: 6px; padding: 8px 6px 10px; border-radius: 14px; background: var(--raised); border: 2px solid transparent; color: var(--ink); scroll-snap-align: start; transition: transform .12s ease, border-color .15s ease; }
+.ueb-kachel:active { transform: scale(.96); }
+.ueb-kachel span:last-child { font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ueb-kachel .uebung-bild { border-radius: 10px; }
+.ueb-kachel.gewaehlt { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, var(--raised)); box-shadow: 0 6px 16px -8px var(--acc-glow); }
+.ueb-nr { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--acc); color: #fff; font: 800 11px/1 var(--f); z-index: 1; }
+.treffer-mit-bild .tag { grid-column: 3; grid-row: 1; font-size: 10px; }
+.treffer-mit-bild .treffer-text small { grid-column: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.treffer-mit-bild > .uebung-bild { grid-column: 1; grid-row: 1; border-radius: 10px; }
+.treffer button.treffer-mit-bild { grid-template-columns: 40px minmax(0, 1fr); }
+.treffer-mit-bild .tag { display: none; }
+.treffer-mit-bild .treffer-text b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Untere Leiste (28.10.): aktiver Reiter als Pille hinter dem Symbol, Beschriftung normal geschrieben und lesbarer, inaktive heller */
+.tabs { border-top-color: color-mix(in srgb, var(--kante) 70%, transparent); }
+.tabs button { height: 64px; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: color-mix(in srgb, var(--ink) 58%, transparent); -webkit-tap-highlight-color: transparent; transition: color .2s ease; }
+.tabs button svg { box-sizing: content-box; width: 22px; height: 22px; padding: 4px 14px; border-radius: 999px; transition: background-color .25s ease, transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+.tabs button:active svg { transform: scale(.88); }
+.tabs button[aria-current="page"] { color: var(--ink); font-weight: 800; }
+.tabs button[aria-current="page"] svg { color: var(--acc-text); background: color-mix(in srgb, var(--acc) 30%, transparent); filter: none; transform: translateY(-1px); }
+.tabs button[aria-current="page"]::before { display: none; }
+.tabs button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+.tabs button .lauf { top: 7px; right: calc(50% - 24px); }
+.tabs .anfrage-punkt { top: 3px; left: calc(50% + 10px); }
+@media (prefers-reduced-motion: reduce) { .tabs button svg { transition: none; } }

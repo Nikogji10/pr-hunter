@@ -51,6 +51,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const [ansicht, setAnsicht] = useState(null);
   useEffect(() => window.scrollTo(0, 0), [ansicht?.art]);           // Unterseiten (Generatoren, Detail) beginnen oben
   const [beenden, setBeenden] = useState(false);
+  const [neuOffen, setNeuOffen] = useState(false);         // „Neuen Plan erstellen“ aufgeklappt
   // Unterseiten (Generatoren, Plan, Editor, Import) mit eigenem Verlaufseintrag: die Zurück-Taste des Handys schließt
   // erst die Unterseite, statt die vorige App-Ansicht (z. B. Feed) zu öffnen
   const oeffne = (a) => {
@@ -120,24 +121,31 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
       <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => oeffne({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
         <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
-    </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Wähle unten eine Vorlage und starte sie mit deinen Maxen – oder lass dir mit dem Generator einen Block bis zu einem Termin bauen.</p></section>`}
-    <span class="eyebrow" style="margin-top:6px">Neuer Plan</span>
-    <div class="neu-wege">
-      <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
-        <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
-      <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding-Generator</b>
-        <span>Split wählen (z. B. Push/Pull/Legs), zwei Übungen je Muskel, Tage pro Woche – Block mit RPE-Steigerung und Deload.</span></button>
-      <button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting-Generator</b>
-        <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, Top-Satz und Back-offs vom Trainingsmax, Test am Ende.</span></button>
-    </div>
-    <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button>
+    </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Erstelle unten einen neuen Plan.</p></section>`}
+    ${/* Seite einfach halten: ein Knopf „Neuen Plan erstellen“ fragt erst dann nach dem Weg; Meine Pläne und Vorlagen zugeklappt */ ''}
+    <h2 class="abschnitt-titel">Neuer Plan</h2>
+    ${!neuOffen ? html`<button class="btn btn-chalk btn-block" onClick=${() => setNeuOffen(true)}>+ Neuen Plan erstellen</button>`
+      : html`<section class="card pad stack neu-frage"><div class="row between"><span class="viz-t">Wie willst du planen?</span>
+          <button class="iconbtn klein" aria-label="Schließen" onClick=${() => setNeuOffen(false)}>${I.zu}</button></div>
+        <div class="neu-wege">
+          <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
+            <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
+          <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding</b>
+            <span>Muskelaufbau: Split wählen, zwei Übungen je Muskel, Tage pro Woche – die App baut den Block.</span></button>
+          <button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting</b>
+            <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, deine Maxe, Test am Ende – die App baut den Block.</span></button>
+        </div>
+        <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button></section>`}
     ${(() => {
-      // nach Kategorie: eigene Pläne, Bodybuilding, Powerlifting (eigene Powerlifting-Programme vor den Vorlagen)
+      // Meine Pläne nach Kategorie (je zugeklappt), danach die Vorlagen (zugeklappt)
       const kat = (d) => programme[d]?.kategorie ?? 'powerlifting';
-      const gruppen = [['eigen', 'Eigene Pläne', eigene.filter((d) => kat(d) === 'eigen')], ['bodybuilding', 'Bodybuilding', eigene.filter((d) => kat(d) === 'bodybuilding')],
-        ['powerlifting', 'Powerlifting', [...eigene.filter((d) => kat(d) === 'powerlifting'), ...vorlagen]]];
-      return gruppen.filter(([, , l]) => l.length).map(([k, titel, l]) => html`<div key=${k} class="stack" style="gap:12px">
-        <span class="eyebrow kat-kopf" style="margin-top:6px">${titel}<small>${l.length}</small></span>${l.map(karte)}</div>`);
+      // Candito-Vorlagen nur für freigeschaltete Konten (Update 22: Niko, liridonperzha) – dort unter Powerlifting bei den eigenen Plänen
+      const mitVorlagen = DEMO || einst.vorlagen === true;
+      const gruppen = [['powerlifting', 'Powerlifting'], ['bodybuilding', 'Bodybuilding'], ['eigen', 'Eigene Pläne']]
+        .map(([k, titel]) => [k, titel, [...eigene.filter((d) => kat(d) === k), ...(k === 'powerlifting' && mitVorlagen ? vorlagen : [])]]).filter(([, , l]) => l.length);
+      const klappe = (k, titel, l, zusatz = null) => html`<details key=${k} class="vorlagen-auf"><summary><span>${titel}</span><span class="muted">${zusatz ?? `${l.length} ${l.length === 1 ? 'Plan' : 'Pläne'}`}</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary>
+        <div class="stack" style="gap:12px;margin-top:10px">${l.map(karte)}</div></details>`;
+      return gruppen.length ? html`<h2 class="abschnitt-titel">Meine Pläne</h2>${gruppen.map(([k, titel, l]) => klappe(k, titel, l))}` : null;
     })()}
     ${beenden ? html`<${Sheet} zu=${() => setBeenden(false)} label="Block beenden">
       <h2 class="h2">Block beenden?</h2>
@@ -184,8 +192,8 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
     <p class="muted" style="margin:0">${INFO[datei].text}</p>
     ${neueVersion != null && !vorgabe ? html`<section class="card pad stack">
       <span class="viz-t">Neue Version der Vorlage</span>
-      <p style="margin:0;font-size:14px">Dein Block läuft mit Version ${block.version}, aktuell ist Version ${neueVersion}. Umstellen ändert die Gewichte ab der nächsten Einheit; erledigte Trainings bleiben unverändert.</p>
-      <button class="btn btn-soft btn-sm" onClick=${() => umstellen(neueVersion)}>Auf Version ${neueVersion} umstellen</button>
+      <p style="margin:0;font-size:14px">${`Dein Block läuft mit Version ${block.version}, aktuell ist Version ${neueVersion}. Umstellen ändert die Gewichte ab der nächsten Einheit; erledigte Trainings bleiben unverändert.`}</p>
+      <button class="btn btn-soft btn-sm" onClick=${() => umstellen(neueVersion)}>${`Auf Version ${neueVersion} umstellen`}</button>
     </section>` : null}
     ${ausTest ? html`<section class="hint">${I.warn}<span class="t">Neue Maxe übernommen</span><span></span><p>Aus dem Test des letzten Blocks vorgeschlagen. Vor dem Start prüfen; der aktive Block wird dabei beendet.</p></section>` : null}
     <section class="card pad stack">

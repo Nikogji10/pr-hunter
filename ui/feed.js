@@ -186,13 +186,14 @@ function Freunde({ einst, setEinst }) {
       ${freunde.map((x) => html`<div key=${x.id} class="freund-block">
         ${zeile(x, html`<button class="iconbtn klein" aria-expanded=${String(offen === x.id)} aria-label="Einstellungen für diesen Freund" onClick=${() => setOffen(offen === x.id ? null : x.id)}><span class="woche-pfeil" style="background:none">${I.weiter}</span></button>`)}
         ${offen === x.id ? html`<div class="freund-optionen">
-          ${x.teilt ? html`<span class="eyebrow">Was ich mit ${x.name} teile</span>
-          ${SICHT.map(([art, text]) => html`<label key=${'t' + art} class="schalter" for=${`ft-${x.id}-${art}`}><span>${`Mein ${text}`}</span>
-            <input type="checkbox" id=${`ft-${x.id}-${art}`} checked=${x.teilt[art] !== false} onChange=${(e) => teilen(x.id, art, e.currentTarget.checked)}/></label>`)}` : null}
-          <span class="eyebrow">Was ich von ${x.name} sehe</span>
-          ${SICHT.map(([art, text]) => html`<label key=${art} class="schalter" for=${`f-${x.id}-${art}`}><span>${`${text} von ${x.name}`}</span>
-            <input type="checkbox" id=${`f-${x.id}-${art}`} checked=${sichtbar(einst, x.id, art)} onChange=${() => umschalten(x.id, art)}/></label>`)}
-          <span class="muted" style="font-size:12px">Was du teilst, sieht nur dieser Freund – unabhängig von deinen Standard-Einstellungen. Was du siehst, betrifft nur deine Anzeige.</span>
+          ${/* Tabelle: je Art eine Zeile, Spalten „Ich teile“ (Freigabe in der DB) und „Ich sehe“ (nur Anzeige) */ ''}
+          <div class="freigabe-tabelle" role="table" aria-label=${`Freigaben mit ${x.name}`}>
+            <span></span><b class="ft-kopf">Ich teile</b><b class="ft-kopf">Ich sehe</b>
+            ${SICHT.map(([art, text]) => html`<span key=${'n' + art} class="ft-art">${text}</span>
+              <span key=${'t' + art} class="ft-zelle">${x.teilt ? html`<input type="checkbox" class="ft-schalter" aria-label=${`${text} teilen`} checked=${x.teilt[art] !== false} onChange=${(ev) => teilen(x.id, art, ev.currentTarget.checked)}/>` : html`<span class="muted">–</span>`}</span>
+              <span key=${'s' + art} class="ft-zelle"><input type="checkbox" class="ft-schalter" aria-label=${`${text} sehen`} checked=${sichtbar(einst, x.id, art)} onChange=${() => umschalten(x.id, art)}/></span>`)}
+          </div>
+          <span class="muted" style="font-size:12px">${`„Ich teile“: was ${x.name} von dir sieht. „Ich sehe“: was du von ${x.name} angezeigt bekommst.`}</span>
           <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => aktion('entfernen', x.id)}>Entfernen</button>
             <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => aktion('blockieren', x.id)}>Blockieren</button></div></div>` : null}</div>`)}
     </section>

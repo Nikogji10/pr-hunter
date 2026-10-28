@@ -113,3 +113,39 @@ export function KoerperKarte({ muskeln, quellen = {} }) {
       <i style=${`background:${STUFEN_FARBE[name]}`}></i>${name}</span>`)}</div>
   </div>`;
 }
+
+// #################################################################
+// Muskelwahl für die Übungssuche (Wunsch 138): feinere Zonen als das Kraftprofil – Schulter vorne/seitlich/hinten,
+// oberer Rücken, Abduktoren. Antippen wählt eine Zone (nochmal antippen hebt sie auf); gewählt = Akzentfarbe.
+// #################################################################
+export const ZONE_NAME = {
+  brust: 'Brust', schulter_vorn: 'Vordere Schulter', schulter_seite: 'Seitliche Schulter', schulter_hinten: 'Hintere Schulter',
+  trapez: 'Trapez', oberer_ruecken: 'Oberer Rücken', latissimus: 'Latissimus', ruecken_unten: 'Unterer Rücken',
+  bizeps: 'Bizeps', trizeps: 'Trizeps', unterarme: 'Unterarme', bauch: 'Bauch', quadrizeps: 'Quadrizeps', adduktoren: 'Adduktoren',
+  abduktoren: 'Abduktoren', gesaess: 'Gesäß', beinbeuger: 'Beinbeuger', waden: 'Waden',
+};
+const SUCH_VORNE = {
+  trapez: VORNE.trapez,
+  schulter_seite: ['M54 89 C44 92 38 102 38 116 C38 128 42 134 46 136 C46 122 46 108 52 98 C54 94 56 91 54 89 Z'],
+  schulter_vorn: ['M58 88 C54 90 50 96 50 104 C51 116 50 128 47 136 C52 122 58 108 70 100 C70 94 66 89 58 88 Z'],
+  brust: VORNE.brust, bizeps: VORNE.bizeps, unterarme: VORNE.unterarme, bauch: VORNE.bauch, schraeg: VORNE.schraeg,
+  abduktoren: ['M72 238 C66 244 63 256 63 270 C65 262 69 252 75 246 C74 242 73 240 72 238 Z'],
+  quadrizeps: VORNE.quadrizeps, adduktoren: VORNE.adduktoren, waden: VORNE.waden,
+};
+const SUCH_HINTEN = {
+  trapez: ['M100 64 L88 72 C78 78 66 82 58 88 C70 90 82 92 92 96 C96 98 98 100 100 102 Z'],
+  oberer_ruecken: ['M100 102 C94 100 86 98 76 100 C82 110 88 122 92 134 C95 140 98 144 100 146 Z'],
+  schulter_hinten: HINTEN.schulter_seite, latissimus: HINTEN.latissimus, trizeps: HINTEN.trizeps, unterarme: HINTEN.unterarme,
+  ruecken_unten: HINTEN.ruecken_unten,
+  abduktoren: ['M100 224 C92 218 80 216 72 222 C68 226 68 232 70 236 C76 228 88 224 100 226 Z'],
+  gesaess: HINTEN.gesaess, beinbeuger: HINTEN.beinbeuger, waden: HINTEN.waden,
+};
+export function MuskelWahl({ zone, waehle }) {
+  const farbe = (g) => (g === zone ? 'var(--acc)' : 'var(--muskel-leer)');
+  const tippen = (g) => waehle(g === zone ? null : g);
+  return html`<div class="muskel-wahl-diagramm">
+    <div class="figuren"><${Figur} teile=${SUCH_VORNE} linien=${LINIEN_VORNE} werte=${{}} aktiv=${zone} waehle=${tippen} titel="Vorne" farbe=${farbe}/>
+      <${Figur} teile=${SUCH_HINTEN} linien=${LINIEN_HINTEN} werte=${{}} aktiv=${zone} waehle=${tippen} titel="Hinten" farbe=${farbe}/></div>
+    <span class="muted" style="font-size:12.5px;text-align:center">${zone ? ZONE_NAME[zone] : 'Muskel antippen'}</span>
+  </div>`;
+}

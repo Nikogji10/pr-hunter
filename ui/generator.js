@@ -2,7 +2,7 @@
 // Wochenübersicht in kg und Speichern als eigenes Programm. Die Rechnung steckt in js/generator.js.
 import { html, useState, useEffect, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz } from './basis.js';
 import { generiere, wochenBis, STANDARD_VARIANTEN, haeufigkeiten } from '../js/generator.js';
-import { Schritte } from './bbgenerator.js';
+import { Schritte, useSchritte } from './bbgenerator.js';
 import { HEUTE, plusTage } from './stand.js';
 import { montagVon } from '../js/daten.js';
 import { MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
@@ -50,12 +50,11 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
   const [werte, setWerte] = useState(() => { const s = startMaxe(); return { S: s.S, D: s.D, B: s.B, G: s.G }; });
   const setze = (k, v) => setF((alt) => ({ ...alt, [k]: v }));
   // Schritt für Schritt statt alles auf einmal; jeder Schritt beginnt oben
-  const [schritt, setSchritt] = useState(1);
-  useEffect(() => window.scrollTo(0, 0), [schritt]);
+  const [schritt, weiter, zurueckSchritt] = useSchritte();
   const wochen = f.dauer === 'datum' ? (f.ende ? wochenBis(f.start, f.ende) : null) : f.wochen;
-  // Bankdrücken: Candito Advanced Bench ist Standard, wenn die Dauer passt (6 Wochen), sonst ohne Bank; eine Wahl bleibt
-  const bank = f.bank ?? (wochen === 6 && vorlagen.candito_int_adv_bench ? 'candito' : 'keine');
-  const bankGeht = wochen === 6 && !!vorlagen.candito_int_adv_bench;
+  // Bankdrücken: Advanced Bench ist Standard ab 4 Wochen, sonst ohne Bank; eine Wahl bleibt
+  const bank = f.bank ?? (wochen >= 4 && vorlagen.candito_int_adv_bench ? 'candito' : 'keine');
+  const bankGeht = wochen >= 4 && !!vorlagen.candito_int_adv_bench;
   const bankWirklich = bank === 'candito' && !bankGeht ? 'keine' : bank;
   let erg = null, fehler = null;
   try {
@@ -98,9 +97,9 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     ${schritt === 2 ? html`<section class="card pad stack">
       <span class="viz-t">Aufbau</span>
       <span class="eyebrow">Bankdrücken</span>
-      <div class="seg" role="group" aria-label="Bankdrücken">${[['keine', 'Ohne'], ['top', 'Top-Satz/Back-off'], ['candito', 'Candito Adv. Bench']].map(([v, t]) => html`<button key=${v}
+      <div class="seg" role="group" aria-label="Bankdrücken">${[['keine', 'Ohne'], ['top', 'Top-Satz/Back-off'], ['candito', 'Advanced Bench']].map(([v, t]) => html`<button key=${v}
         aria-pressed=${String(bankWirklich === v)} disabled=${v === 'candito' && !bankGeht} onClick=${() => setze('bank', v)}>${t}</button>`)}</div>
-      ${!bankGeht ? html`<span class="muted" style="font-size:12.5px">Candito Advanced Bench passt nur bei genau 6 Wochen.</span>` : null}
+      ${!bankGeht ? html`<span class="muted" style="font-size:12.5px">Advanced Bench braucht mindestens 4 Wochen.</span>` : null}
       <span class="eyebrow">Wie oft pro Woche</span>
       ${[['squat', 'Kniebeuge', [1, 2, 3]], ['dead', 'Kreuzheben', [1, 2, 3]], ...(bankWirklich === 'top' ? [['bench', 'Bankdrücken', [2, 3, 4]]] : [])].map(([lift, name, werte]) => html`
         <div class="pro-woche" key=${lift}><span>${name}</span><div class="seg" role="group" aria-label=${`${name} pro Woche`}>${werte.map((n) => html`<button key=${n}
@@ -152,7 +151,7 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     <button class="btn btn-chalk btn-block" disabled=${!speicherbar} onClick=${() => speichern(p, { werte, start: f.start, quelle: 'generator' })}>Als eigenes Programm speichern</button>
     <span class="muted" style="font-size:12.5px;text-align:center">Danach lässt es sich bearbeiten, teilen und als Block starten.</span>
     ` : null}
-    <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => setSchritt(schritt - 1)}>Zurück</button>` : null}
-      ${schritt < 4 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${() => setSchritt(schritt + 1)}>Weiter</button>` : null}</div>
+    <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${zurueckSchritt}>Zurück</button>` : null}
+      ${schritt < 4 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${weiter}>Weiter</button>` : null}</div>
   </div>`;
 }

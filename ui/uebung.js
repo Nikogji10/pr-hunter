@@ -157,7 +157,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
           : prognose.grund === 'keinTrend' ? `Derzeit kein Aufwärtstrend (${fmt(prognose.proWoche, 2)} ${einheit()} je Woche), daher kein Datum.`
           : prognose.grund === 'zuWenig' ? 'Zu wenige Wochen mit dieser Übung für eine Prognose.'
           : html`Voraussichtlich <b>${datumMitJahr(prognose.datum)}</b> (in ${prognose.wochen} Wochen, +${fmt(prognose.proWoche, 2)} ${einheit()} je Woche).`}</p></section>` : null}
-      ${p?.plateau ? html`<section class="hint">${I.warn}<span class="t">Seit ${p.wochenOhneRekord} Trainingswochen kein neues e1RM</span><span></span>
+      ${p?.plateau ? html`<section class="hint">${I.warn}<span class="t">${`Seit ${p.wochenOhneRekord} Trainingswochen kein neues e1RM`}</span><span></span>
         <p>Bestwert im letzten halben Jahr ${gwE(p.best, 1)}. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}
       ${unterChart.length ? html`<div class="row between" style="margin-top:4px"><span class="viz-t">Verlauf</span>${gewaehlt ? html`<button class="chip" onClick=${() => setGewaehlt(null)}>${datumKurz(gewaehlt)} ✕</button>`
         : html`<span class="muted" style="font-size:12.5px">Punkt antippen zeigt den Tag</span>`}</div>` : null}

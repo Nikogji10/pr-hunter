@@ -10,7 +10,7 @@ export const einfuehrungGesehen = () => speicher.schreib(GESEHEN, '1');
 // Fünf Karten (Wünsche 117, 98): Willkommen · drei Wege zum Plan · was die Generatoren fragen · eigener Plan in einer
 // Minute · trainieren mit oder ohne Plan. Ohne aktiven Block führt die letzte Karte direkt zu „Programme“.
 const KARTEN = [
-  { szene: 'start', titel: 'Jag deine Rekorde', text: 'PR Hunter plant dein Training, rechnet die Gewichte aus und zeigt dir, wie du stärker wirst.' },
+  { szene: 'start', titel: 'Willkommen bei PR Hunter', text: 'PR Hunter plant dein Training, rechnet die Gewichte aus und zeigt dir, wie du stärker wirst.' },
   { szene: 'wege', titel: 'Drei Wege zum Plan', text: 'Eigener Plan: Tage und Übungen selbst wählen – am einfachsten. Für Fortgeschrittene: Bodybuilding- oder Powerlifting-Generator, die App baut den ganzen Block.' },
   { szene: 'kurve', titel: 'So arbeiten die Generatoren', text: 'Bodybuilding: Split (z. B. Push/Pull/Legs), zwei Übungen je Muskel, Tage pro Woche. Powerlifting: wie oft Kniebeuge, Bank, Kreuzheben, deine Maxe, Termin. Sätze, Wdh, RPE und Steigerung rechnet die App.' },
   { szene: 'liste', titel: 'Eigener Plan in einer Minute', text: 'Tage anlegen (z. B. Push, Pull, Beine), Übungen über die Suche hinzufügen, Sätze × Wdh und RPE eintragen, speichern – fertig.' },

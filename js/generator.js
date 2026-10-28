@@ -109,7 +109,7 @@ export function generiere(e) {
   const hinweise = [];
   if (e.urlaubDanach && e.abschluss === 'deload') hinweise.push('Danach folgt Urlaub: kein Deload davor, die Pause übernimmt das.');
   const candito = bank === 'candito' ? canditoWochen(e.bankVorlage, e.wochen) : null;
-  if (candito) hinweise.push('Bankdrücken und Oberkörper-Zubehör 1:1 aus Candito Advanced Bench (Woche 6 = deren Deload); das neue Bank-Max kommt aus dem AMRAP in Woche 5.');
+  if (candito) hinweise.push('Bankdrücken und Oberkörper-Zubehör nach Advanced Bench (letzte Woche = Deload, davor AMRAP-Test; längere Blöcke mit Aufbauwochen, Variationen RPE 8 → 9); das neue Bank-Max kommt aus dem AMRAP.');
   const mitBank = bank === 'top';
   const weeks = folge.map((w, i) => {
     const o = i * 7, days = [];
@@ -176,19 +176,28 @@ export function generiere(e) {
         max_increase: { S: 0.02, D: 0.02 }, source: 'Wie im Hybrid: MROUND(Testgewicht ÷ %1RM; inc), unter 2 Wdh altes Max, Kniebeuge/Kreuzheben höchstens +2 %.' },
     },
   };
-  if (candito) programm.rules.projection_bench = { ...e.bankVorlage.rules.projection, week: 5, lift: 'B' };
+  if (candito) programm.rules.projection_bench = { ...e.bankVorlage.rules.projection, week: e.wochen - 1, lift: 'B' };   // AMRAP in der vorletzten Woche
   const pruefung = pruefePana(programm);
   return { programm, pruefung: { fehler: pruefung.fehler, hinweise: [...hinweise, ...pruefung.hinweise] } };
 }
 
 /** Bankdrücken- und Oberkörper-Einträge der Candito-Wochen 1–6 (ohne Taper-Alternative), Offsets relativ zur Woche. */
 function canditoWochen(vorlage, wochen) {
-  if (wochen !== 6) throw new Error('Candito Advanced Bench passt nur zu genau 6 Wochen.');
-  if (!vorlage?.weeks) throw new Error('Die Vorlage Candito Advanced Bench fehlt.');
+  // Advanced Bench (Wunsch 141) für jede Blocklänge ab 4 Wochen, Aufbau der Vorlage bleibt: kürzer → später einsteigen
+  // (Spitze, AMRAP in W5 und Deload W6 bleiben am Ende); länger → vorne Aufbauwochen nach W1, Variationen RPE 8 → 9
+  if (wochen < 4) throw new Error('Advanced Bench braucht mindestens 4 Wochen.');
+  if (!vorlage?.weeks) throw new Error('Die Vorlage Advanced Bench fehlt.');
   const unten = (it) => it.exercise_key === 'competition_squat' || it.exercise_key === 'competition_deadlift' || !!it.slot?.families?.includes('hinge');
-  return vorlage.weeks.filter((w) => !w.alternative_to).slice(0, 6).map((w, i) => w.days
-    .map((d) => ({ offset: d.offset - i * 7, items: d.items.filter((it) => !unten(it)) }))
-    .filter((d) => d.items.length));
+  const basis = vorlage.weeks.filter((w) => !w.alternative_to).slice(0, 6);
+  const extra = Math.max(0, wochen - 6);
+  const folge = wochen <= 6 ? basis.map((_, i) => i).slice(6 - wochen) : [...Array(extra).fill(0), 0, 1, 2, 3, 4, 5];
+  return folge.map((idx, i) => {
+    const vorne = i < extra;                                      // zusätzliche Aufbauwoche
+    const rpe = Math.floor((8 + i / extra) * 2) / 2;              // 8 → 8,5, danach W1 der Vorlage mit RPE 9
+    const variation = (gr) => (vorne && gr.rpe === 'RPE9' ? { ...gr, rpe: `RPE${rpe}` } : gr);   // Bankvariationen stehen in der Vorlage auf RPE 9
+    return basis[idx].days.map((d) => ({ offset: d.offset - idx * 7, items: d.items.filter((it) => !unten(it)).map((it) => ({ ...it, groups: it.groups.map(variation) })) }))
+      .filter((d) => d.items.length);
+  });
 }
 
 /**

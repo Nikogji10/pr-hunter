@@ -363,7 +363,7 @@ export const bilderVon = (key) => { const i = uebung(key)?.i ?? uebung(kanon(key
 export const zeigeBild = (urls, name = '') => dispatchEvent(new CustomEvent('prh-bild', { detail: { urls, name } }));
 
 // Antippen vergrößert (auch innerhalb von Knöpfen: Klick wird nicht weitergereicht)
-export function UebungsBild({ schluessel, groesse = 44 }) {
+export function UebungsBild({ schluessel, groesse = 44, zoom = true }) {
   const [kaputt, setKaputt] = useState(false);
   const url = bildVon(schluessel), lift = liftVon(schluessel);
   const masse = `width:${groesse}px;height:${groesse}px`;
@@ -371,6 +371,7 @@ export function UebungsBild({ schluessel, groesse = 44 }) {
     return html`<span class="uebung-bild leer" style=${`${masse};color:${lift === 'andere' ? 'var(--ink-2)' : LIFT[lift].farbe}`} aria-hidden="true">${I.heute}</span>`;
   }
   const gross = (e) => { e.stopPropagation(); e.preventDefault(); zeigeBild(bilderVon(schluessel), nameVon(schluessel)); };
+  if (!zoom) return html`<img class="uebung-bild" src=${url} alt="" loading="lazy" decoding="async" style=${masse} onError=${() => setKaputt(true)}/>`;
   return html`<img class="uebung-bild zoombar" src=${url} alt="" role="button" aria-label="Bild vergrößern" loading="lazy" decoding="async" style=${masse}
     onClick=${gross} onError=${() => setKaputt(true)}/>`;
 }

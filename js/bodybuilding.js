@@ -35,6 +35,7 @@ export const SPLITS = {
 // Wochentage je Anzahl Trainingstage (Offsets ab Montag), Pausen möglichst verteilt
 const WOCHENTAGE = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
 // RPE je Woche für Grundübungen (letzte Aufbauwoche = Spitze); Maschinen dürfen in der Spitzenwoche bis 10
+const MAX_JE_TAG = 7;                                        // Übungen pro Trainingstag
 const RPE_GRUND = { 4: ['7-8', '8', '8.5-9', '9-9.5'], 5: ['7-8', '8', '8.5', '9', '9-9.5'], 6: ['7-8', '7.5-8', '8', '8.5', '9', '9-9.5'] };
 
 /** Vorgeschlagene Auswahl: je Gruppe die ersten zwei Übungen. */
@@ -61,10 +62,14 @@ export function generiereBodybuilding(e) {
   const weeks = [];
   for (let w = 0; w < wochen + (e.deload !== false ? 1 : 0); w++) {
     const deload = w === wochen, spitze = w === wochen - 1;
+    const vorkommen = {};                                        // wie oft eine Gruppe in dieser Woche schon dran war
     const days = offsets.map((off, i) => {
       const [label, gruppen] = split.tage[i % split.tage.length];
+      // Höchstens MAX_JE_TAG Übungen: sonst je Gruppe nur eine, die zwei gewählten wechseln sich ab (A/B)
+      const voll = gruppen.reduce((a, g) => a + Math.min(2, (auswahl[g] ?? []).filter(Boolean).length), 0);
       const items = gruppen.flatMap((g) => {
-        const keys = (auswahl[g] ?? []).filter(Boolean).slice(0, 2);
+        const alle = (auswahl[g] ?? []).filter(Boolean).slice(0, 2), n = vorkommen[g] = (vorkommen[g] ?? -1) + 1;
+        const keys = voll > MAX_JE_TAG && alle.length > 1 ? [alle[n % alle.length]] : alle;
         // Sätze je Übung: Wochenziel der Gruppe ÷ (Häufigkeit × Übungen); +1 ab der zweiten Hälfte (Volumen steigt)
         const ziel = MUSKELGRUPPEN[g].saetze + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
         const jeUebung = Math.max(2, Math.min(5, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));

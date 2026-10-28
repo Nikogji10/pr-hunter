@@ -161,7 +161,7 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
         <button class="btn btn-gefahr" style="flex:1" onClick=${zurueck}>Verwerfen</button></div>
     <//>` : null}
     ${sheet?.art === 'woche-weg' ? html`<${Sheet} zu=${() => setSheet(null)} label="Woche löschen">
-      <h2 class="h2">Woche ${w.week} löschen?</h2>
+      <h2 class="h2">${`Woche ${w.week} löschen?`}</h2>
       <p style="margin:0">${w.alternative_to ? 'Die Alternative verschwindet.' : 'Die folgenden Wochen rücken eine Woche nach vorn.'} ${kurzTitel(w.title)} · ${w.days.length} Tage.</p>
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Abbrechen</button>
         <button class="btn btn-gefahr" style="flex:1" onClick=${() => { setDef((d) => loescheWoche(d, wIndex)); setGeaendert(true); setWi(Math.max(0, wIndex - 1)); setStand((s) => s + 1); setSheet(null); }}>Löschen</button></div>

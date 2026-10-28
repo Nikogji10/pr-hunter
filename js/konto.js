@@ -31,6 +31,7 @@ export function einstAusProfil(p, alt = {}) {
     // Feed (Update 15): Spalte da → Wert übernehmen und beim Speichern mitschicken
     ...('share_feed' in p ? { feedTeilen: p.share_feed !== false, feedSpalte: true } : {}),
     ...('share_kalender' in p ? { kalenderTeilen: p.share_kalender !== false, kalenderSpalte: true } : {}),
+    vorlagen: p.vorlagen === true,                             // Update 22: Candito-Vorlagen sichtbar (nur lesen)
     // app_settings: Spalte vorhanden → Werte von dort (und beim Speichern mitschicken), sonst die lokalen behalten
     ...('app_settings' in p ? { ...Object.fromEntries(APP_SETTINGS.filter((k) => k in (p.app_settings ?? {})).map((k) => [k, p.app_settings[k]])), appSettings: true } : {}),
     ...('avatar' in p ? { avatar: p.avatar ?? null } : {}) };

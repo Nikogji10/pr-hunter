@@ -2,11 +2,12 @@
 // die Woche wiederholt sich über die gewählte Zahl an Wochen. Gewichte schlägt die App beim Training aus RPE + e1RM vor.
 import { html, useState, useEffect, I, nameVon } from './basis.js';
 import { UebungSuche } from './suche.js';
-import { Schritte } from './bbgenerator.js';
+import { Schritte, useSchritte } from './bbgenerator.js';
 
 // Wochentage je Anzahl Trainingstage (Offsets ab Montag), Pausen verteilt
 const WOCHENTAGE = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5], 7: [0, 1, 2, 3, 4, 5, 6] };
 const BUCHSTABE = 'ABCDEFG';
+const FORTLAUFEND = 52;                                     // „fortlaufend“ = ein Jahr, die Woche wiederholt sich
 const neuerTag = (i) => ({ name: `Tag ${BUCHSTABE[i]}`, uebungen: [] });
 
 /** Programm im App-Format aus dem Formular (ohne Maxe). */
@@ -22,7 +23,7 @@ export function eigenerPlanAus({ name, wochen, tage }) {
 }
 
 export function EigenerPlan({ zurueck, speichern }) {
-  const [schritt, setSchritt] = useState(1);
+  const [schritt, weiter, zurueckSchritt] = useSchritte();
   const [name, setName] = useState('');
   const [wochen, setWochen] = useState(6);
   const [tage, setTage] = useState([neuerTag(0), neuerTag(1), neuerTag(2)]);
@@ -40,7 +41,8 @@ export function EigenerPlan({ zurueck, speichern }) {
       <span class="eyebrow">Trainingstage pro Woche</span>
       <div class="seg" role="group" aria-label="Trainingstage pro Woche">${[1, 2, 3, 4, 5, 6].map((n) => html`<button key=${n} aria-pressed=${String(tage.length === n)} onClick=${() => anzahl(n)}>${`${n}×`}</button>`)}</div>
       <span class="eyebrow">Wie viele Wochen</span>
-      <div class="seg" role="group" aria-label="Wochen">${[4, 6, 8, 12].map((n) => html`<button key=${n} aria-pressed=${String(wochen === n)} onClick=${() => setWochen(n)}>${`${n} Wo.`}</button>`)}</div>
+      <div class="seg" role="group" aria-label="Wochen">${[4, 6, 8, 12, FORTLAUFEND].map((n) => html`<button key=${n} aria-pressed=${String(wochen === n)} onClick=${() => setWochen(n)}>${n === FORTLAUFEND ? 'Fortlaufend' : `${n} Wo.`}</button>`)}</div>
+      ${wochen === FORTLAUFEND ? html`<span class="muted" style="font-size:12.5px">Ohne festes Ende: die Woche läuft ein Jahr lang weiter, beenden oder ändern geht jederzeit.</span>` : null}
       <span class="eyebrow">Namen der Tage</span>
       ${tage.map((t, i) => html`<input key=${i} class="text" type="text" aria-label=${`Name Tag ${i + 1}`} value=${t.name} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => ({ ...x, name: v })); }}/>`)}
       <span class="muted" style="font-size:12.5px">Zum Beispiel „Push“, „Pull“, „Beine“ oder „Oberkörper“. Die Woche wiederholt sich – steigern kannst du beim Training über Gewicht und Wdh.</span>
@@ -66,7 +68,7 @@ export function EigenerPlan({ zurueck, speichern }) {
       <span class="muted" style="font-size:12.5px">${leer ? 'Jeder Tag braucht mindestens eine Übung.' : 'Danach als Block starten – die Gewichte schlägt die App beim Training aus deinem besten e1RM und der RPE vor.'}</span>
     </section>` : null}
 
-    <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => setSchritt(schritt - 1)}>Zurück</button>` : null}
-      ${schritt < 3 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${() => setSchritt(schritt + 1)}>Weiter</button>` : null}</div>
+    <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${zurueckSchritt}>Zurück</button>` : null}
+      ${schritt < 3 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${weiter}>Weiter</button>` : null}</div>
   </div>`;
 }
