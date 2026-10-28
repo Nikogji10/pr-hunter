@@ -58,7 +58,7 @@ const MONAT_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July'
  *  grau = alle haben Ruhetag. Blättern bis 2 Monate zurück und 2 vor. */
 const uebName = (u) => (u.key ? nameVon(u.key, sprache() === 'en' ? u.en : u.de) : '–');
 
-function Kalender({ eintraege = [] }) {
+function Kalender({ eintraege = [], einst = {} }) {
   const [monat, setMonat] = useState(0);
   const [tag, setTag] = useState(null);                       // angetippter Tag
   const [auf, setAuf] = useState(null);                       // aufgeklappte Person an diesem Tag
@@ -73,10 +73,12 @@ function Kalender({ eintraege = [] }) {
     DIENSTE.ladeKalender(von, bis).then((k) => setDaten(k ?? { fehlt: true })).catch(() => setDaten([]));
   }, [monat]);
   const tage = []; for (let d = von; d <= bis; d = plusTage(d, 1)) tage.push(d);
-  const liste = Array.isArray(daten) ? daten : [];
+  // Ausgeblendete Freunde (Freunde → je Freund „Kalender zeigen“) fallen weg
+  const liste = (Array.isArray(daten) ? daten : []).filter((z) => z.ich || sichtbar(einst, z.nutzer, 'kalender'));
   const personen = [...new Map(liste.map((z) => [z.nutzer, z])).values()].sort((x, y) => (y.ich - x.ich) || x.name.localeCompare(y.name));
   const farbe = Object.fromEntries(personen.map((p, i) => [p.nutzer, FARBEN[i % FARBEN.length]]));
-  const art = (n, d) => liste.find((z) => z.nutzer === n && z.datum === d)?.art ?? null;
+  const zeileVon = (n, d) => liste.find((z) => z.nutzer === n && z.datum === d) ?? null;
+  const art = (n, d) => zeileVon(n, d)?.art ?? null;
   const en = sprache() === 'en';
   const titel = `${(en ? MONAT_EN : MONAT)[Number(erster.slice(5, 7)) - 1]} ${erster.slice(0, 4)}`;
   return html`<section class="card pad stack kalender">
@@ -100,23 +102,95 @@ function Kalender({ eintraege = [] }) {
       ${daten == null ? html`<p class="muted" style="margin:0">Lade …</p>` : null}
       ${tag ? html`<div class="kal-detail"><b>${datumLang(tag)}</b>
         ${personen.filter((p) => art(p.nutzer, tag)).length ? personen.filter((p) => art(p.nutzer, tag)).map((p) => {
-          const a = art(p.nutzer, tag), e = eintraege.find((x) => x.datum === tag && (p.ich ? x.ich : x.nutzer === p.nutzer));
+          const z = zeileVon(p.nutzer, tag), a = z.art;
+          const e = p.ich && a === 'erledigt' ? eintraege.find((x) => x.datum === tag && x.ich) : null;   // Sätze nur bei einem selbst
+          const namen = (z.uebungen ?? []).map((k) => nameVon(k, k));
           const offen = auf === p.nutzer;
           return html`<div key=${p.nutzer} class="kal-person">
-            <button class="kal-person-kopf" aria-expanded=${String(offen)} disabled=${!e} onClick=${() => setAuf(offen ? null : p.nutzer)}>
+            <button class="kal-person-kopf" aria-expanded=${String(offen)} disabled=${!e && !namen.length} onClick=${() => setAuf(offen ? null : p.nutzer)}>
               <i style=${`background:${farbe[p.nutzer]}`}></i><b>${p.ich ? 'Du' : p.name}</b>
-              <span class="muted">${a === 'geplant' ? 'geplant' : e ? `${e.uebungen} Übungen · ${e.saetze} Sätze` : 'trainiert'}</span>
-              ${e ? html`<span class="woche-pfeil" aria-hidden="true">${I.weiter}</span>` : null}</button>
+              <span class="muted">${e ? `${e.uebungen} Übungen · ${e.saetze} Sätze` : namen.length ? `${a === 'geplant' ? 'geplant' : 'trainiert'} · ${namen.length} Übungen` : a === 'geplant' ? 'geplant' : 'trainiert'}</span>
+              ${e || namen.length ? html`<span class="woche-pfeil" aria-hidden="true">${I.weiter}</span>` : null}</button>
             ${offen && e ? html`<ul class="feed-liste">${e.liste.map((u, i) => html`<li key=${i}><span class="feed-name">${uebName(u)}</span>
               ${u.folge?.length ? html`<b class="feed-folge" style="grid-column:2 / 4">${folgeText(u.folge)}</b>` : html`<span class="muted">${u.saetze} ×</span><b>${u.kg != null && u.wdh != null ? `${gwE(u.kg)} × ${u.wdh}` : '–'}</b>`}
-              ${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}</li>`)}</ul>` : null}
+              ${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}</li>`)}</ul>`
+              : offen && namen.length ? html`<ul class="kal-namen">${namen.map((n, i) => html`<li key=${i}>${n}</li>`)}</ul>` : null}
           </div>`;
         }) : html`<span class="muted" style="font-size:13px">Niemand trainiert an diesem Tag.</span>`}
-        ${personen.some((p) => art(p.nutzer, tag) === 'erledigt' && !eintraege.some((x) => x.datum === tag && (p.ich ? x.ich : x.nutzer === p.nutzer)))
+        ${personen.some((p) => art(p.nutzer, tag) === 'erledigt' && !zeileVon(p.nutzer, tag)?.uebungen?.length && !(p.ich && eintraege.some((x) => x.datum === tag && x.ich)))
           ? html`<span class="muted" style="font-size:12px">Details gibt es für die letzten 30 Tage.</span>` : null}</div>` : null}
       <div class="kal-legende">${personen.map((p) => html`<span key=${p.nutzer}><i style=${`background:${farbe[p.nutzer]}`}></i>${p.ich ? 'Du' : p.name}</span>`)}</div>
       <span class="muted" style="font-size:12px">● trainiert · ○ geplant · grün = alle trainieren · grau = alle haben Ruhetag</span>`}
   </section>`;
+}
+
+// #################################################################
+// Freunde (Wunsch 122): suchen, anfragen, annehmen, entfernen, blockieren; je Freund Feed/Kalender/Vergleich ausblenden
+// (einst.freundeAus = { id: { feed: false, kalender: false, vergleich: false } }, auf allen Geräten). Daten: db/19_freunde.sql.
+// #################################################################
+const SICHT = [['feed', 'Feed'], ['kalender', 'Kalender'], ['vergleich', 'Vergleich']];
+export const sichtbar = (einst, id, art) => einst.freundeAus?.[id]?.[art] !== false;
+
+function Freunde({ einst, setEinst }) {
+  const [liste, setListe] = useState(null);                 // null = lädt, false = Update 19 fehlt
+  const [q, setQ] = useState('');
+  const [treffer, setTreffer] = useState([]);
+  const [fehler, setFehler] = useState(null);
+  const [offen, setOffen] = useState(null);                  // aufgeklappter Freund (Einstellungen je Freund)
+  const laden = () => DIENSTE.ladeFreunde?.().then((f) => setListe(f ?? false)).catch((e) => setFehler(e.message));
+  useEffect(() => { if (!DEMO) laden(); else setListe([]); }, []);
+  useEffect(() => {
+    if (DEMO || q.trim().length < 2) { setTreffer([]); return; }
+    const id = setTimeout(() => DIENSTE.sucheNutzer?.(q).then(setTreffer).catch(() => setTreffer([])), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+  const aktion = async (art, id) => {
+    setFehler(null);
+    try { await DIENSTE.freundAktion(art, id); await laden(); } catch (e) { setFehler(e.message); }
+  };
+  const umschalten = (id, art) => {
+    const alt = einst.freundeAus ?? {}, f = { ...(alt[id] ?? {}) };
+    f[art] = f[art] === false;                                 // false = ausgeblendet; zurück auf an entfernt den Eintrag
+    if (f[art]) delete f[art];
+    setEinst({ ...einst, freundeAus: { ...alt, [id]: f } });
+  };
+  if (liste === false) return html`<section class="hint immer">${I.warn}<span class="t">Datenbank-Update 19 fehlt</span><span></span><p>Freunde brauchen <b>db/19_freunde.sql</b> in Supabase.</p></section>`;
+  const l = liste ?? [];
+  const rein = l.filter((x) => x.status === 'offen' && x.richtung === 'rein'), raus = l.filter((x) => x.status === 'offen' && x.richtung === 'raus');
+  const freunde = l.filter((x) => x.status === 'angenommen'), blockiert = l.filter((x) => x.status === 'blockiert');
+  const bekannt = new Map(l.map((x) => [x.id, x]));
+  const zeile = (x, rechts) => html`<div key=${x.id} class="freund-zeile"><${Avatar} bild=${x.avatar} name=${x.name} groesse=${34}/><b>${x.name}</b><span class="row" style="gap:6px">${rechts}</span></div>`;
+  return html`<div class="stack" style="gap:12px">
+    ${rein.length ? html`<section class="card pad stack anfragen-karte"><span class="viz-t">Anfragen an dich</span>
+      ${rein.map((x) => zeile(x, html`<button class="btn btn-go btn-sm" onClick=${() => aktion('annehmen', x.id)}>Annehmen</button>
+        <button class="iconbtn klein" aria-label="Ablehnen" onClick=${() => aktion('entfernen', x.id)}>${I.zu}</button>`))}</section>` : null}
+    <section class="card pad stack">
+      <label class="field" for="f-suche"><span class="label">Freunde finden</span>
+        <input id="f-suche" class="text" type="search" placeholder="Anzeigename suchen" value=${q} onInput=${(e) => setQ(e.currentTarget.value)}/></label>
+      ${treffer.map((x) => { const b = bekannt.get(x.id);
+        return zeile(x, b?.status === 'angenommen' ? html`<span class="muted" style="font-size:12.5px">Freund</span>`
+          : b?.status === 'offen' && b.richtung === 'raus' ? html`<span class="muted" style="font-size:12.5px">angefragt</span>`
+          : b?.status === 'offen' ? html`<button class="btn btn-go btn-sm" onClick=${() => aktion('annehmen', x.id)}>Annehmen</button>`
+          : b?.status === 'blockiert' ? html`<span class="muted" style="font-size:12.5px">blockiert</span>`
+          : html`<button class="btn btn-chalk btn-sm" onClick=${() => aktion('anfragen', x.id)}>Anfragen</button>`); })}
+      ${q.trim().length >= 2 && !treffer.length ? html`<span class="muted" style="font-size:13px">Niemand mit diesem Namen.</span>` : null}
+      ${fehler ? html`<p class="fehler">${fehler}</p>` : null}
+    </section>
+    <section class="card pad stack"><span class="viz-t">Deine Freunde</span>
+      ${!freunde.length ? html`<p class="muted" style="margin:0;font-size:13.5px">Noch keine Freunde. Such oben nach dem Anzeigenamen und schick eine Anfrage – sobald sie angenommen ist, seht ihr euch im Feed, im Kalender und im Vergleich (so weit ihr es in den Einstellungen unter „Freunde“ freigebt).</p>` : null}
+      ${freunde.map((x) => html`<div key=${x.id} class="freund-block">
+        ${zeile(x, html`<button class="iconbtn klein" aria-expanded=${String(offen === x.id)} aria-label="Einstellungen für diesen Freund" onClick=${() => setOffen(offen === x.id ? null : x.id)}><span class="woche-pfeil" style="background:none">${I.weiter}</span></button>`)}
+        ${offen === x.id ? html`<div class="freund-optionen">
+          ${SICHT.map(([art, text]) => html`<label key=${art} class="schalter" for=${`f-${x.id}-${art}`}><span>${text} zeigen</span>
+            <input type="checkbox" id=${`f-${x.id}-${art}`} checked=${sichtbar(einst, x.id, art)} onChange=${() => umschalten(x.id, art)}/></label>`)}
+          <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => aktion('entfernen', x.id)}>Entfernen</button>
+            <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => aktion('blockieren', x.id)}>Blockieren</button></div></div>` : null}</div>`)}
+    </section>
+    ${raus.length ? html`<section class="card pad stack"><span class="viz-t">Gesendete Anfragen</span>
+      ${raus.map((x) => zeile(x, html`<button class="btn btn-soft btn-sm" onClick=${() => aktion('entfernen', x.id)}>Zurückziehen</button>`))}</section>` : null}
+    ${blockiert.length ? html`<section class="card pad stack"><span class="viz-t">Blockiert</span>
+      ${blockiert.map((x) => zeile(x, html`<button class="btn btn-soft btn-sm" onClick=${() => aktion('entfernen', x.id)}>Freigeben</button>`))}</section>` : null}
+  </div>`;
 }
 
 // Letzter Stand im Gerät: der Feed erscheint sofort, die Abfrage aktualisiert im Hintergrund
@@ -124,7 +198,8 @@ const CACHE = 'prh-feed';
 const ausCache = () => { try { return JSON.parse(localStorage.getItem(CACHE)) ?? []; } catch { return []; } };
 const inCache = (f) => { try { localStorage.setItem(CACHE, JSON.stringify(f)); } catch { /* voll oder gesperrt */ } };
 
-export function Feed({ einst, zuEinstellungen }) {
+export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen }) {
+  const [reiter, setReiter] = useState('feed');
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);
   const laden = async () => {
@@ -147,11 +222,14 @@ export function Feed({ einst, zuEinstellungen }) {
     ${!geteilt && !DEMO ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
       <p>Wer seine Trainings nicht teilt, sieht auch die der anderen nicht.</p><span></span>
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
-    ${(geteilt || DEMO) && einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege}/>` : null}
+    <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
+      ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
+    ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
+    ${(geteilt || DEMO) && einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege} einst=${einst}/>` : null}
     ${stand.fehler ? html`<p class="fehler">${stand.fehler}</p>` : null}
     ${stand.laedt && !stand.eintraege.length ? html`<p class="muted">Lade …</p>` : null}
     ${!stand.laedt && !stand.eintraege.length && !stand.fehlt && geteilt ? html`<section class="card pad"><p class="muted" style="margin:0">In den letzten 30 Tagen noch keine geteilten Trainings.</p></section>` : null}
-    ${stand.eintraege.map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''}`}>
+    ${stand.eintraege.filter((e) => e.ich || !e.nutzer || sichtbar(einst, e.nutzer, 'feed')).map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''}`}>
       <div class="feed-kopf"><${Avatar} bild=${e.avatar} name=${e.name} groesse=${40}/>
         <div style="min-width:0;flex:1"><b>${e.ich ? 'Du' : e.name}</b><div class="muted" style="font-size:12.5px">${datumLang(e.datum)}</div></div>
         ${e.prs ? html`<span class="feed-pr"><span class="medaille">PR</span><b>${e.prs}</b></span>` : null}</div>
@@ -166,5 +244,6 @@ export function Feed({ einst, zuEinstellungen }) {
           : html`<span class="muted">${u.saetze} ×</span><b>${u.kg != null && u.wdh != null ? `${gwE(u.kg)} × ${u.wdh}` : '–'}</b>`}${u.prs ? html`<span class="tag gold">PR</span>` : html`<span></span>`}</li>`)}</ul>
       ${e.liste.length > 4 ? html`<button class="link" style="justify-self:start" onClick=${() => setOffen(offen === e.id ? null : e.id)}>${offen === e.id ? 'Weniger' : `Alle ${e.liste.length} Übungen`}</button>` : null}
     </article>`)}
+    </div>`}
   </div>`;
 }

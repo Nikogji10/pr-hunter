@@ -90,7 +90,7 @@ const SBD_MUSKELN = {
   bench: { brust: 1, schulter_vorn: 1, trizeps: 1 },
 };
 const GEWICHT_GESCHAETZT = 0.5;      // eine geschätzte Übung zählt halb so viel wie ein Wettkampf-Lift
-const BAND = 20;                     // geschätzte Übung höchstens so viele Punkte über/unter dem Schnitt der drei Lifts
+const BAND = 10;                     // geschätzte Übung höchstens so viele Punkte über/unter dem Schnitt der drei Lifts (120: vorher 20)
 
 /** Wert einer weiteren Übung: wie ein Lift, nur mit dem geschätzten Anteil am Kreuzheben. */
 export function uebungsWert(key, e1rmKg, koerperKg) {

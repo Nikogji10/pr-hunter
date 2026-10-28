@@ -40,7 +40,7 @@ export const STIL_WAHL = [
 export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
   ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
-export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung }) {
+export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null }) {
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
   const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
   const [zielText, setZielText] = useState(einst.gewichtZiel ? String(inAnzeige(einst.gewichtZiel)).replace('.', ',') : '');
@@ -271,21 +271,27 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <button class="btn btn-soft btn-block" onClick=${raus}>Abmelden</button>
         <span class="muted" style="font-size:12.5px">Beim Abmelden werden die Daten auf diesem Handy gelöscht. Auf dem Server bleibt alles.</span>
         ${sync.fehler ? html`<button class="link" style="justify-self:start" onClick=${neuAnmelden}>Neu anmelden, Daten auf dem Handy behalten</button>` : null}
-        ${kontoLoeschen ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setLoeschen({ text: '' })}>Konto löschen …</button>` : null}
+        ${einst.loeschenAb && loeschungAbbrechen ? html`<div class="hint immer">${I.warn}<span class="t">${`Löschung vorgemerkt bis ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)}`}</span><span></span>
+          <p>Danach werden Konto und alle Trainingsdaten endgültig gelöscht.</p><span></span>
+          <div class="row" style="margin-top:6px"><button class="btn btn-go btn-sm" onClick=${loeschungAbbrechen}>Löschung abbrechen</button></div></div>`
+          : kontoLoeschen ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setLoeschen({ text: '' })}>Konto löschen …</button>` : null}
       </section>`}
     </div>
     ${zuschnitt ? html`<${Zuschnitt} quelle=${zuschnitt} uebernehmen=${bildUebernehmen} zu=${zuschnittZu}/>` : null}
     ${loeschen ? html`<${Sheet} zu=${() => !loeschen.laeuft && setLoeschen(null)} label="Konto löschen">
       <h2 class="h2">Konto löschen</h2>
-      <p style="margin:0">Löscht dein Konto mit allen Trainings, Sätzen, Blöcken, eigenen Programmen, Körperwerten und Anpassungen – auf dem Server und auf diesem Handy. Das lässt sich nicht rückgängig machen.</p>
-      <p class="muted" style="margin:0;font-size:13.5px">Vorher sichern? „Alle Sätze als CSV“ oben. Selbst angelegte Übungen bleiben im gemeinsamen Katalog.</p>
+      <div class="hint immer">${I.warn}<span class="t">Erst deine Trainings sichern</span><span></span>
+        <p>Nach dem Löschen sind alle Trainings, Sätze, Blöcke, eigenen Programme und Körperwerte weg. Exportiere sie vorher – die CSV lässt sich später wieder importieren oder in Excel öffnen.</p><span></span>
+        <div class="row" style="margin-top:6px"><button class="btn btn-chalk btn-sm" onClick=${exportieren}>Trainings als CSV exportieren</button></div></div>
+      <p style="margin:0">Dein Konto wird sofort abgemeldet und ist für Freunde nicht mehr sichtbar. <b>Endgültig gelöscht wird erst nach 14 Tagen</b> – meldest du dich bis dahin wieder an, ist alles wieder da und die Löschung aufgehoben.</p>
+      <p class="muted" style="margin:0;font-size:13.5px">Selbst angelegte Übungen bleiben im gemeinsamen Katalog.</p>
       <label class="field" for="e-loeschen"><span class="label">Zur Bestätigung LÖSCHEN eintippen</span>
         <input id="e-loeschen" class="text" type="text" autocomplete="off" value=${loeschen.text} onInput=${(e) => setLoeschen({ ...loeschen, text: e.currentTarget.value })}/></label>
       ${loeschen.fehler ? html`<p class="fehler">${loeschen.fehler}</p>` : null}
       <div class="row"><button class="btn btn-soft" style="flex:1" disabled=${loeschen.laeuft} onClick=${() => setLoeschen(null)}>Abbrechen</button>
         <button class="btn btn-gefahr" style="flex:1" disabled=${loeschen.laeuft || loeschen.text.trim().toUpperCase() !== 'LÖSCHEN'}
           onClick=${async () => { setLoeschen({ ...loeschen, laeuft: true, fehler: null }); try { await kontoLoeschen(); } catch (e) { setLoeschen({ ...loeschen, laeuft: false, fehler: e.message }); } }}>
-          ${loeschen.laeuft ? 'Löscht …' : 'Endgültig löschen'}</button></div>
+          ${loeschen.laeuft ? 'Wird vorgemerkt …' : 'In 14 Tagen löschen'}</button></div>
     <//>` : null}
   </div>`;
 }

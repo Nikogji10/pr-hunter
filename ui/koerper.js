@@ -14,7 +14,7 @@ const STUFEN_FARBE = {
   'Unter Untrainiert': '#6B1220', Untrainiert: '#9E1B2C', Aufbau: '#D2412D', Solide: '#E8822A', Versiert: '#E7C23B',
   Stark: '#7CC243', Herausragend: '#25B07A', Spitzenklasse: '#22A7C9', Weltklasse: '#8B5CF6',
 };
-const farbeVon = (w) => STUFEN_FARBE[stufe(w).name];
+export const farbeVon = (w) => STUFEN_FARBE[stufe(w).name];
 
 // Grundfigur (Silhouette) und Muskeln der linken Körperhälfte im Koordinatensystem 0…200 × 0…430; rechts gespiegelt
 const KOERPER = 'M100 10 C84 10 76 22 76 40 C76 54 82 64 88 68 L86 78 C74 82 60 84 50 90 C38 96 34 110 36 126 C34 140 38 156 40 170 C36 188 32 206 32 226 C32 234 30 244 34 250 C40 252 44 246 46 238 C48 224 52 206 56 190 C60 176 62 162 64 150 L70 176 C70 192 68 208 70 226 C66 240 62 262 62 290 C62 316 68 330 70 340 C66 360 64 384 66 404 C64 412 62 420 70 422 L84 422 C86 412 84 404 84 396 C86 376 88 356 86 340 C90 320 94 300 96 270 C97 258 98 248 100 244 Z';

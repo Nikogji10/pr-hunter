@@ -7,7 +7,7 @@ import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plate
   erholung, muskelGewichte, ERHOLUNG, rekordChronik } from '../js/auswertung.js';
 import { SYMMETRIC_RECHNER } from '../js/verweise.js';
 import { LinienChart, StapelSaeulen, Heatmap, Sparkline, ZonenBalken, Rangliste } from './diagramme.js';
-import { KoerperKarte, ErholungKarte } from './koerper.js';
+import { KoerperKarte, ErholungKarte, MUSKEL_NAME, farbeVon } from './koerper.js';
 import { Zielprognose, Vergleich } from './vergleich.js';
 import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT } from './stand.js';
 import { uebersetze } from './sprache.js';
@@ -119,8 +119,16 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     }
   }
   // Hinweise
+  // Hinweise (124): zuerst Fortschritt (grün), dann Plateau erst nach 8 Trainingswochen ohne neues e1RM (im Cut 12 –
+  // Blöcke laufen länger und im Defizit ist Halten schon gut), der schwächste Lift als Tipp statt Warnung
   const hinweise = [];
-  const plateaus = LIFTS.map((l) => [l, plateau(e1rmWoche[l].slice(-n))]).filter(([, p]) => p.plateau);
+  const fenster = 8, fort = LIFTS.map((l) => {
+    const w = e1rmWoche[l].slice(-n), neu = w.slice(-fenster).filter((v) => v != null), alt = w.slice(0, -fenster).filter((v) => v != null);
+    return [l, neu.length && alt.length ? Math.max(...neu) - Math.max(...alt) : null];
+  }).filter(([, d]) => d != null && d > 0.5);
+  if (fort.length) hinweise.push({ art: 'gut', t: deEn('Fortschritt', 'Progress'),
+    text: `${fort.map(([l, d]) => `${liftName(l)} +${gwE(d, 1)}`).join(', ')} ${deEn(`e1RM in den letzten ${fenster} Wochen gegenüber dem Bestwert davor.`, `e1RM in the last ${fenster} weeks over the best before.`)}` });
+  const plateaus = LIFTS.map((l) => [l, plateau(e1rmWoche[l].slice(-n), { wochen: einst.cut ? 12 : 8 })]).filter(([, p]) => p.plateau);
   if (plateaus.length) {
     // Zusammengesetzte Hinweise gleich in der Anzeigesprache bauen – Teil für Teil kann der Übersetzer sie nicht
     hinweise.push({ t: plateaus.length === 1 ? deEn(`${liftName(plateaus[0][0])}: kein neues e1RM`, `${liftName(plateaus[0][0])}: no new e1RM`) : deEn('Kein neues e1RM', 'No new e1RM'),
@@ -136,7 +144,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     const abw = (ll) => (profil.lifts[ll].wert / profil.gesamt - 1) * 100;
     const andere = liftWerte.slice(1).map(([ll]) => `${liftName(ll)} ${pz(abw(ll))}`).join(', ');
     const naechste = deEn(w.naechste?.name, uebersetze(w.naechste?.name ?? '') ?? w.naechste?.name);
-    hinweise.push({ t: deEn(`Schwächster Lift im Verhältnis: ${liftName(l)}`, `Weakest lift relatively: ${liftName(l)}`),
+    hinweise.push({ art: 'tipp', t: deEn(`Ausgleich: ${liftName(l)}`, `Balance: ${liftName(l)}`),
       text: deEn(`${liftName(l)} liegt ${fmt(Math.abs(abw(l)), 0)} % unter deinem Schnitt (${andere}). Noch ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM bis zur Stufe „${naechste}“ – Stufen nach Symmetric Strength, nicht Strength Level.`,
         `${liftName(l)} is ${fmt(Math.abs(abw(l)), 0)} % below your average (${andere}). ${gwE(w.naechste?.fehlenKg ?? 0, 1)} e1RM to go until the “${naechste}” level – levels per Symmetric Strength, not Strength Level.`) });
   }
@@ -165,8 +173,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
-      <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav></header>
-    ${reiter === 'profil' ? null : html`<div class="filter einreihig" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}
+      <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
+      ${/* Zeitraum im feststehenden Kopf: bleibt beim Scrollen sichtbar und filtert alles darunter (Wunsch 123) */ ''}
+      ${reiter === 'profil' ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 
     <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
     ${reiter === 'kraft' ? html`
@@ -181,7 +190,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       return html`<div class="kachel" key=${l}><span class="l"><i class="dot" style=${`background:${LIFT[l].farbe}`}></i>${LIFT[l].name}</span>
         <b>${gw(jetzt, 1)}</b>${d != null ? html`<span class=${`delta ${d >= 0 ? 'auf' : 'ab'}`}>${pfeil(d)}</span>` : null}<${Sparkline} werte=${w} farbe=${LIFT[l].farbe}/></div>`;
     })}</div>
-    ${hinweise.length ? html`<section class="stack" style="gap:8px">${hinweise.map((h) => html`<div key=${h.t} class="hint">${I.warn}<span class="t">${h.t}</span><span></span><p>${h.text}</p></div>`)}</section>` : null}
+    ${hinweise.length ? html`<section class="stack" style="gap:8px">${hinweise.map((h) => html`<div key=${h.t} class=${`hint ${h.art ?? ''}`}>${h.art === 'gut' ? I.check : h.art === 'tipp' ? I.statistik : I.warn}<span class="t">${h.t}</span><span></span><p>${h.text}</p></div>`)}</section>` : null}
     <${LinienChart} titel="e1RM-Verlauf" unter="Bester Satz je Woche" x=${x} serien=${serien} einheit=${einheit()}/>
     ${hat(totalReihe) ? html`<${LinienChart} titel="Total" unter="Summe der besten e1RM der jeweils letzten 12 Wochen" x=${x} serien=${[{ id: 'total', name: 'Total', farbe: 'var(--ink)', werte: ab(totalReihe).map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}/>` : null}
     ${hat(dotsReihe) ? html`<${LinienChart} titel="Punkte" unter="DOTS und IPF GL aus Total und Körpergewicht (zeitlich nächster Messwert)" x=${x}
@@ -232,19 +241,17 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
         <span class="muted stufe-naechste"><b class=${profil.lifts[l].wert >= profil.gesamt ? 'pz-auf' : 'pz-ab'}>${`${profil.lifts[l].wert >= profil.gesamt ? '+' : '−'}${fmt(Math.abs((profil.lifts[l].wert / profil.gesamt - 1) * 100), 0)} % zum Schnitt`}</b>
           ${' · '}<span>${profil.lifts[l].naechste ? `noch ${gwE(profil.lifts[l].naechste.fehlenKg, 1)} e1RM bis „${profil.lifts[l].naechste.name}“` : 'höchste Stufe'}</span></span>
       </div>`)}</div>
-      ${profil.uebungen.length ? html`<div class="stack unterteil" style="gap:10px"><span class="eyebrow">Weitere Übungen · Näherung</span>
-        ${profil.uebungen.slice(0, 10).map((u) => html`<div key=${u.key} class="stufe-zeile">
-          <span class="rl-name">${u.name}</span>
-          <span class="stufe-spur geschaetzt"><i style=${`width:${Math.min(100, Math.max(0, (u.wert / 125) * 100))}%`}></i></span>
-          <span class="stufe-text"><b>${fmt(u.wert, 1)}</b> ${u.stufe}</span>
-          <span class="muted stufe-naechste">${`e1RM ${gwE(u.e1rm, 1)}`}${u.begrenzt ? html`<span title="Wert auf ±20 um den Schnitt der drei Lifts begrenzt">${' · '}<span>begrenzt</span></span>` : null}</span></div>`)}</div>` : null}
       <details class="ab-sollist"><summary><span>So wird gerechnet</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary>
-      <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet, zählt halb so viel und liegt höchstens 20 Punkte über oder unter dem Schnitt deiner drei Lifts („begrenzt“: Maschinen zeigen je Gerät andere Gewichte, viele Wdh ergeben ein zu hohes e1RM). Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
+      <div class="muskel-quellen">${Object.entries(profil.muskeln).filter(([, w]) => w != null).sort((x, y) => y[1] - x[1]).map(([m, w]) => html`<details key=${m} class="muskel-quelle">
+        <summary><i style=${`background:${farbeVon(w)}`}></i><b>${MUSKEL_NAME[m]}</b><span class="muskel-wert" style=${`color:${farbeVon(w)}`}>${fmt(w, 1)}</span></summary>
+        <ul>${(profil.quellen[m] ?? []).map((q, i) => html`<li key=${i}><span>${LIFT[q.name] ? liftName(q.name) : q.name}${q.geschaetzt ? ' *' : ''}</span><b style=${`color:${farbeVon(q.wert)}`}>${fmt(q.wert, 1)}</b></li>`)}</ul></details>`)}</div>
+      <span class="muted" style="font-size:12px">* Näherung über das Verhältnis zum Kreuzheben, zählt halb.</span>
+      <p class="muted" style="margin:0;font-size:12.5px">Kniebeuge, Bankdrücken und Kreuzheben nach der Methode von Symmetric Strength. Weitere Übungen (Klimmzug, Rudern, Schulterdrücken, Waden, Arme …) sind eine eigene Näherung: Jede Übung wird über ihr typisches Verhältnis zum Kreuzheben bei gleicher Stärke umgerechnet, zählt halb so viel und liegt höchstens 10 Punkte über oder unter dem Schnitt deiner drei Lifts („begrenzt“: Maschinen zeigen je Gerät andere Gewichte, viele Wdh ergeben ein zu hohes e1RM). Bauch kommt aus Kniebeuge und Kreuzheben. Genau prüfen: bei Symmetric Strength.</p>
       <p class="muted" style="margin:0;font-size:12.5px">Punkte: Wert je Lift nach Symmetric Strength, Körpergewicht eingerechnet (100 = „Herausragend“). „% zum Schnitt“ zeigt, welcher Lift stärker oder schwächer ist als deine drei im Mittel. Die Stufen sind die von Symmetric Strength in eigener Übersetzung – Strength Level zählt anders (z. B. „Advanced“ dort ≠ „Stark“ hier).</p></details>
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
-    <${Vergleich} freigegeben=${!!einst.vergleich}/>`
+    <${Vergleich} freigegeben=${!!einst.vergleich} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`
     : reiter === 'belastung' ? html`
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>

@@ -21,13 +21,13 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender'];
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
     name: p.display_name ?? alt.name ?? null, admin: p.role === 'admin', sprache: p.language ?? 'de', einheit: p.unit ?? 'kg',
     inc: num(p.load_increment) ?? 2.5, stange: num(p.bar_weight_kg) ?? 20, scheiben: (p.plates_kg ?? STANDARD_SCHEIBEN).map(Number),
-    formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats,
+    formel: p.e1rm_formula ?? 'rpe', thema: p.theme ?? 'system', vergleich: !!p.share_stats, loeschenAb: p.loeschen_ab ?? null,
     // Feed (Update 15): Spalte da → Wert übernehmen und beim Speichern mitschicken
     ...('share_feed' in p ? { feedTeilen: p.share_feed !== false, feedSpalte: true } : {}),
     // app_settings: Spalte vorhanden → Werte von dort (und beim Speichern mitschicken), sonst die lokalen behalten
@@ -240,9 +240,10 @@ export async function ladeFeed(sb, tage = 30) {
   if (r.error) { if (/feed|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
   return feedAusZeilen(r.data ?? []);
 }
-/** Eigene geplante Trainingstage für den Kalender der Freunde (Update 18); ohne Update 18 still. */
-export async function speicherePlanTage(sb, uid, tage) {
-  const r = await sb.from('profiles').update({ plan_tage: tage }).eq('id', uid);
+/** Eigene geplante Trainingstage für den Kalender der Freunde (Update 18), ab Update 19 mit Übungen je Tag; still ohne Update. */
+export async function speicherePlanTage(sb, uid, tage, inhalt = null) {
+  let r = await sb.from('profiles').update({ plan_tage: tage, ...(inhalt ? { plan_inhalt: inhalt } : {}) }).eq('id', uid);
+  if (r.error && inhalt && /plan_inhalt/i.test(r.error.message)) r = await sb.from('profiles').update({ plan_tage: tage }).eq('id', uid);
   if (r.error && !/plan_tage/i.test(r.error.message)) throw new Error(r.error.message);
   return !r.error;                                                // false: Update 18 fehlt noch, beim nächsten Abgleich wieder versuchen
 }
@@ -250,10 +251,38 @@ export async function speicherePlanTage(sb, uid, tage) {
 export async function ladeKalender(sb, von, bis) {
   const r = await sb.rpc('feed_kalender', { p_von: von, p_bis: bis });
   if (r.error) { if (/feed_kalender|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
-  return (r.data ?? []).map((z) => ({ nutzer: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, datum: z.datum, art: z.art, ich: !!z.ich }));
+  return (r.data ?? []).map((z) => ({ nutzer: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, datum: z.datum, art: z.art, ich: !!z.ich,
+    uebungen: z.uebungen ?? null }));
 }
+// Freunde (Update 19): Liste, Suche, Anfragen; null bzw. Fehler „Update 19 fehlt“, solange die Funktionen fehlen
+const ohne19 = (r) => r.error && /freunde_liste|suche_nutzer|freund_|function/i.test(r.error.message);
+export async function ladeFreunde(sb) {
+  const r = await sb.rpc('freunde_liste');
+  if (ohne19(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return r.data.map((z) => ({ id: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, status: z.status, richtung: z.richtung }));
+}
+export async function sucheNutzer(sb, q) {
+  const r = await sb.rpc('suche_nutzer', { q });
+  if (ohne19(r)) return [];
+  if (r.error) throw new Error(r.error.message);
+  return r.data.map((z) => ({ id: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null }));
+}
+export const freundAktion = async (sb, art, id) => {
+  const name = { anfragen: ['freund_anfragen', 'ziel'], annehmen: ['freund_annehmen', 'anfragender'], entfernen: ['freund_entfernen', 'anderer'], blockieren: ['freund_blockieren', 'anderer'] }[art];
+  const r = await sb.rpc(name[0], { [name[1]]: id });
+  if (r.error) throw new Error(ohne19(r) ? 'Datenbank-Update 19 fehlt (db/19_freunde.sql).' : r.error.message);
+  return r.data;
+};
 /** Konto mit allen eigenen Daten löschen (Update 08). Selbst angelegte Übungen bleiben im gemeinsamen Katalog. */
 export const kontoLoeschen = async (sb) => pruefe(await sb.rpc('delete_my_account'));
+/** Löschen mit 14 Tagen Frist (Update 20): vormerken → Datum, ab dem gelöscht wird; abbrechen innerhalb der Frist. */
+export async function kontoLoeschenVormerken(sb) {
+  const r = await sb.rpc('konto_loeschen_vormerken');
+  if (r.error) throw new Error(/konto_loeschen|function/i.test(r.error.message) ? 'Datenbank-Update 20 fehlt (db/20_konto_loeschfrist.sql).' : r.error.message);
+  return r.data;
+}
+export const kontoLoeschenAbbrechen = async (sb) => pruefe(await sb.rpc('konto_loeschen_abbrechen'));
 /** Zusammengeführte Schlüssel { alt: neu }; vor Update 08 leer. */
 export async function ladeZusammenfuehrungen(sb) {
   const r = await sb.from('exercise_merges').select('from_key, into_key');

@@ -1178,3 +1178,42 @@ button.kal-tag { width: 100%; color: var(--ink); border: 0; }
 .kal-person-kopf .muted { font-size: 12.5px; justify-self: end; }
 .kal-person-kopf[aria-expanded="true"] .woche-pfeil { transform: rotate(90deg); }
 .kal-person-kopf[disabled] { opacity: 1; }
+
+/* Freunde (122): Reiter im Feed, Anfragen rot, Zeilen je Person, Optionen je Freund */
+.anfrage-punkt { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--rot, #E5384B); color: #fff;
+  font: 800 11px/1 var(--f); font-style: normal; margin-left: 6px; box-shadow: 0 0 0 2px var(--bg); animation: puls 1.6s infinite; }
+.tabs .anfrage-punkt { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; }
+.tabs button { position: relative; }
+.anfragen-karte { border-color: color-mix(in srgb, var(--rot, #E5384B) 60%, transparent); box-shadow: 0 0 22px -8px color-mix(in srgb, var(--rot, #E5384B) 70%, transparent), var(--shadow); }
+.freund-zeile { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.freund-zeile > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.freund-block { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+.freund-block:first-of-type { border-top: 0; }
+.freund-block [aria-expanded="true"] .woche-pfeil { transform: rotate(90deg); }
+.freund-optionen { display: grid; gap: 4px; padding: 4px 0 6px 44px; }
+.kal-namen { margin: 0; padding: 4px 0 2px 28px; font-size: 13.5px; display: grid; gap: 3px; }
+
+/* Statistik (123): Zeitraum-Leiste im feststehenden Kopf unter den Reitern */
+.kopf-filter { width: 100%; margin-top: 2px; padding-top: 8px; border-top: 1px solid var(--line); gap: 6px; }
+.kopf-filter .chip { min-height: 30px; padding: 0 11px; font-size: 12px; }
+
+/* Statistik-Hinweise (124): Fortschritt grün, Tipp neutral, Warnung wie bisher */
+.hint.gut { box-shadow: inset 3px 0 0 var(--ok), var(--shadow); background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 16%, transparent), transparent 70%), var(--karte); }
+.hint.gut > svg, .hint.gut .t { color: var(--ok); }
+.hint.tipp { box-shadow: inset 3px 0 0 var(--lift-bench, #3B82F6), var(--shadow); background: linear-gradient(90deg, color-mix(in srgb, var(--lift-bench, #3B82F6) 12%, transparent), transparent 70%), var(--karte); }
+.hint.tipp > svg, .hint.tipp .t { color: var(--lift-bench, #3B82F6); }
+
+/* Kraftprofil (120): Aufschlüsselung je Muskel in „So wird gerechnet“, farbig, je Muskel zugeklappt */
+.muskel-quellen { display: grid; gap: 4px; margin: 4px 0; }
+.muskel-quelle { border-radius: 10px; background: var(--raised); }
+.muskel-quelle > summary { list-style: none; display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; cursor: pointer; font-size: 13.5px; }
+.muskel-quelle > summary::-webkit-details-marker { display: none; }
+.muskel-quelle > summary > i { width: 10px; height: 10px; border-radius: 50%; }
+.muskel-wert { font: 800 15px/1 var(--f); }
+.muskel-quelle ul { list-style: none; margin: 0; padding: 0 10px 8px 28px; display: grid; gap: 3px; font-size: 13px; }
+.muskel-quelle li { display: flex; justify-content: space-between; gap: 10px; }
+
+/* Konto-Löschung vorgemerkt (121): auffälliger Hinweis über der Tab-Leiste */
+.loesch-hinweis { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 19; display: flex; gap: 8px; align-items: center;
+  padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--rot, #E5384B) 22%, var(--karte)); border: 1px solid var(--rot, #E5384B); color: var(--ink); font-size: 13px; font-weight: 700; text-align: left; }
+.loesch-hinweis svg { color: var(--rot, #E5384B); flex: none; }

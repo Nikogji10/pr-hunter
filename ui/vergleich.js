@@ -41,7 +41,7 @@ export function Zielprognose({ aktuell, ziele = {}, setZiel = null }) {
 
 const AUS = 'prh-vergleich-aus';
 /** Vergleich mit Freunden: e1RM je Lift, Total, Körpergewicht, DOTS; bei mehreren Freunden auswählbar, wer in der Tabelle steht. */
-export function Vergleich({ freigegeben }) {
+export function Vergleich({ freigegeben, ausgeblendet = [] }) {
   const [daten, setDaten] = useState(undefined);            // undefined = lädt, null = Update 08 fehlt, { fehler }
   // Abgewählte Freunde (ids), nur auf diesem Gerät; mindestens einer bleibt sichtbar
   const [aus, setAus] = useState(() => { try { return JSON.parse(localStorage.getItem(AUS)) ?? []; } catch { return []; } });
@@ -62,8 +62,9 @@ export function Vergleich({ freigegeben }) {
   if (daten === undefined) return html`<section class="card pad stack">${kopf}<p class="muted" style="margin:0">Lade …</p></section>`;
   if (daten === null) return html`<section class="card pad stack">${kopf}<p class="muted" style="margin:0;font-size:14px">Die Datenbank kennt den Vergleich noch nicht (Update 08 fehlt).</p></section>`;
   if (daten.fehler) return html`<section class="card pad stack">${kopf}<p class="fehler">${daten.fehler}</p></section>`;
-  const freunde = daten.filter((p) => !p.ich);
-  const personen = daten.filter((p) => p.ich || !aus.includes(p.id));
+  // je Freund in „Freunde“ ausgeblendet → gar nicht erst anbieten
+  const freunde = daten.filter((p) => !p.ich && !ausgeblendet.includes(p.id));
+  const personen = daten.filter((p) => p.ich || (!aus.includes(p.id) && !ausgeblendet.includes(p.id)));
   if (daten.length < 2) return html`<section class="card pad stack">${kopf}
     <p class="muted" style="margin:0;font-size:14px">Du hast freigegeben. Sobald Freunde es auch tun, erscheinen sie hier.</p></section>`;
   const total = (p) => (LIFTS.every((l) => p.lifts[l]?.aktuell != null) ? LIFTS.reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);

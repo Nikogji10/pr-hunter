@@ -301,7 +301,8 @@ function App() {
   const [neueUebung, setNeueUebung] = useState(null);           // { text, beiWahl } – Formular „Neue Übung“ offen
   const [bereit, setBereit] = useState(null);                   // Readiness-Check vor dem Start: { tag } oder { frei: true }
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
-  const [abschluss, setAbschluss] = useState(null);             // Abschlusskarte nach dem Speichern eines Trainings
+  const [abschluss, setAbschluss] = useState(null);
+  const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
   const sp = useRef(null);
   const laeuft = useRef(false);
@@ -421,12 +422,23 @@ function App() {
         if (JSON.stringify(await s.meta('einst')) === JSON.stringify(ei)) await s.setzeMeta('einst', { ...ei, offen: false });
       } else {
         const e = konto.einstAusProfil(await konto.ladeProfil(sb, uid), ei ?? {});
+        // Wieder angemeldet, solange die Löschung nur vorgemerkt ist (Update 20): Löschung aufheben, alles bleibt
+        if (e.loeschenAb) {
+          await konto.kontoLoeschenAbbrechen(sb);
+          Object.assign(e, { loeschenAb: null, vergleich: true, feedTeilen: true });
+          setToast({ titel: 'Willkommen zurück', text: 'Die Löschung deines Kontos ist aufgehoben, alle Daten sind wieder da.' });
+        }
         if (!(await s.meta('einst'))?.offen) { await s.setzeMeta('einst', e); setEinstRoh({ ...STANDARD_EINSTELLUNGEN, ...e }); }
       }
       await hintergrundAbgleichen(sb, s);
       // Geplante Tage für den Kalender im Feed (nur wenn sich etwas geändert hat; ohne Update 18 still)
       const plan = JSON.stringify(planTage.current);
-      if (plan !== (await s.meta('plan_tage'))) { if (await konto.speicherePlanTage(sb, uid, planTage.current)) await s.setzeMeta('plan_tage', plan); }
+      if (plan !== (await s.meta('plan_tage'))) {
+        const tageListe = planTage.current.map((x) => x.datum), inhalt = Object.fromEntries(planTage.current.map((x) => [x.datum, x.keys]));
+        if (await konto.speicherePlanTage(sb, uid, tageListe, inhalt)) await s.setzeMeta('plan_tage', plan);
+      }
+      // Offene Freundschaftsanfragen an mich: roter Hinweis am Feed
+      try { const fr = await konto.ladeFreunde(sb); setAnfragen(fr ? fr.filter((x) => x.status === 'offen' && x.richtung === 'rein').length : 0); } catch { /* egal */ }
       let me = (await s.meta('messwerte')) ?? [];
       for (const m of me.filter((x) => x.offen)) { await konto.messwertHochladen(sb, m); m.offen = false; }
       me = konto.mischeMesswerte(me, await konto.ladeMesswerte(sb));
@@ -607,6 +619,9 @@ function App() {
       ladeVergleich: () => konto.ladeVergleich(supabase()),
       ladeFeed: () => konto.ladeFeed(supabase(), 30),
       ladeKalender: (von, bis) => konto.ladeKalender(supabase(), von, bis),
+      ladeFreunde: async () => { const f = await konto.ladeFreunde(supabase()); if (f) setAnfragen(f.filter((x) => x.status === 'offen' && x.richtung === 'rein').length); return f; },
+      sucheNutzer: (q) => konto.sucheNutzer(supabase(), q),
+      freundAktion: (art, id) => konto.freundAktion(supabase(), art, id),
       zusammenfuehren: async (von, nach) => {
         if (!navigator.onLine) throw new Error('Zum Zusammenführen braucht das Handy Netz.');
         const n = await konto.zusammenfuehren(supabase(), von, nach);
@@ -630,7 +645,8 @@ function App() {
   if (aktiverBlock) programme[aktiverBlock.datei] = blockDef;
   const tage = aktiverBlock ? tageMitOptionen(blockTage(blockDef, { ...aktiverBlock, cut: einst.cut }), aktiverBlock) : [];
   // Kalender aus (Einstellungen → Freunde): Pläne bleiben privat, es wird eine leere Liste hochgeladen
-  planTage.current = einst.kalender === false ? [] : tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).map((t) => t.datum).slice(0, 40);
+  planTage.current = einst.kalender === false ? [] : tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).slice(0, 40)
+    .map((t) => ({ datum: t.datum, keys: t.uebungen.map((u) => u.key).filter(Boolean) }));
   // Erledigt nach Datum des Plantags (bei verschobenen Tagen das neue Datum)
   const datumVon = new Map(tage.map((t) => [t.offset, t.datum]));
   const erledigt = DEMO ? demoErledigt : new Set(trainings.filter((t) => aktiverBlock && t.runId === aktiverBlock.id && t.tagOffset != null && !t.geloescht)
@@ -791,7 +807,8 @@ function App() {
   const kontoLoeschen = async () => {
     if (!navigator.onLine) throw new Error('Zum Löschen braucht das Handy Netz.');
     if (training) throw new Error('Erst das laufende Training beenden.');
-    await konto.kontoLoeschen(supabase());
+    // 14 Tage Frist (Update 20): vormerken, abmelden; innerhalb der Frist anmelden und abbrechen geht
+    await konto.kontoLoeschenVormerken(supabase());
     try { await abmelden(); } catch { /* Login gibt es nicht mehr */ }
     await sp.current?.leeren();
     speicher.schreib('prh-nutzer', 'null');
@@ -824,7 +841,7 @@ function App() {
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
-      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} zuEinstellungen=${() => gehe('einstellungen')}/>`
+      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
       : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi} vorlage=${(() => {
           const s = training?.karten.flatMap((k) => (k.key && !koerperUebung(k.key) ? k.gruppen.flatMap((g) => g.saetze) : [])).find((x) => !x.erledigt && x.kg > 0);
@@ -832,17 +849,19 @@ function App() {
         })()}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
-          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)}/>`
+          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)}
+          loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
       : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')}/>`}
+    ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer}/>` : null}
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
-      ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}</button>`)}</nav></div>
+      ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
         <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}
