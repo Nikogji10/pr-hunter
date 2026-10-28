@@ -40,7 +40,8 @@ export const STIL_WAHL = [
 export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
   ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
-export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null }) {
+export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null }) {
+  const [mail, setMail] = useState(null);                   // null = zu, sonst { text, laeuft, fehler, gesendet }
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
   const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
   const [zielText, setZielText] = useState(einst.gewichtZiel ? String(inAnzeige(einst.gewichtZiel)).replace('.', ',') : '');
@@ -258,6 +259,16 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         ${einst.appSettings ? null : html`<span class="muted" style="font-size:12px">Profilbild und Schriftgröße gelten nach Update 11 auf allen Geräten, bis dahin nur auf diesem.</span>`}
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
+        ${emailAendern ? mail == null ? html`<button class="link" style="justify-self:start" onClick=${() => setMail({ text: '' })}>E-Mail-Adresse ändern</button>`
+          : mail.gesendet ? html`<div class="hint immer gut">${I.check}<span class="t">Bestätigung gesendet</span><span></span>
+            <p>${`Bitte den Link in der Mail an ${mail.text.trim()} öffnen (je nach Einstellung auch an deine bisherige Adresse). Bis dahin gilt die alte Adresse.`}</p></div>`
+          : html`<div class="stack" style="gap:8px"><label class="field" for="e-mail"><span class="label">Neue E-Mail-Adresse</span>
+            <input id="e-mail" class="text" type="email" autocomplete="email" value=${mail.text} onInput=${(ev) => setMail({ ...mail, text: ev.currentTarget.value, fehler: null })}/></label>
+            ${mail.fehler ? html`<p class="fehler">${mail.fehler}</p>` : null}
+            <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setMail(null)}>Abbrechen</button>
+              <button class="btn btn-chalk btn-sm" style="flex:1.4" disabled=${mail.laeuft || !mail.text.trim()}
+                onClick=${async () => { setMail({ ...mail, laeuft: true }); try { await emailAendern(mail.text); setMail({ ...mail, laeuft: false, gesendet: true }); } catch (x) { setMail({ ...mail, laeuft: false, fehler: x.message }); } }}>
+                ${mail.laeuft ? 'Sende …' : 'Bestätigung senden'}</button></div></div>` : null}
       </section>
       <section class="card pad stack">
         <div class="row between"><span class="viz-t">Abgleich</span><${SyncPunkt} sync=${sync} offen=${offen}/></div>

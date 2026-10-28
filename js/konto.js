@@ -146,7 +146,7 @@ export async function ladeProgramme(sb) {
   return programmeAusServer(programme, versionen);
 }
 
-const HERKUNFT = { import: ['Importiert (CSV oder JSON)', 'Import'], generator: ['Block-Generator', 'Generator'], kopie: ['Bearbeitete Kopie', 'Kopie'] };
+const HERKUNFT = { import: ['Importiert (CSV oder JSON)', 'Import'], generator: ['Generator', 'Generator'], kopie: ['Bearbeitete Kopie', 'Kopie'], eigen: ['Eigener Plan', 'Eigen'] };
 
 /**
  * Eigenes Programm speichern (Import, Generator oder Kopie einer Vorlage; braucht Netz).

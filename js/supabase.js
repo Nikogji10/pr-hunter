@@ -29,6 +29,15 @@ export async function codePruefen(email, code) {
   return data.session;
 }
 
+/** E-Mail-Adresse ändern (Wunsch 125): Supabase schickt Bestätigungslinks (je nach Einstellung an alte und neue
+ *  Adresse); bis zur Bestätigung bleibt die alte Adresse gültig. Der Link führt zurück in die App. */
+export async function emailAendern(email) {
+  const neu = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(neu)) throw new Error('Das sieht nicht nach einer E-Mail-Adresse aus.');
+  const { error } = await supabase().auth.updateUser({ email: neu }, { emailRedirectTo: location.origin + location.pathname });
+  if (error) throw new Error(meldung(error));
+}
+
 export async function sitzung() {
   const { data } = await supabase().auth.getSession();
   return data.session ?? null;

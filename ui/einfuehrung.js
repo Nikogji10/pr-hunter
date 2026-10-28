@@ -7,12 +7,14 @@ const GESEHEN = 'prh-einfuehrung';
 export const einfuehrungOffen = () => speicher.lies(GESEHEN) !== '1';
 export const einfuehrungGesehen = () => speicher.schreib(GESEHEN, '1');
 
-// Drei Karten (Wunsch 117): Willkommen · was ein Programm ist (zuerst eins wählen) · wie das Training läuft.
-// Ohne aktiven Block führt die letzte Karte direkt zu „Programme“.
+// Fünf Karten (Wünsche 117, 98): Willkommen · drei Wege zum Plan · was die Generatoren fragen · eigener Plan in einer
+// Minute · trainieren mit oder ohne Plan. Ohne aktiven Block führt die letzte Karte direkt zu „Programme“.
 const KARTEN = [
-  { szene: 'start', titel: 'Jag deine Rekorde', text: 'PR Hunter plant deine Kraftblöcke, rechnet die Gewichte aus und zeigt dir, wie du stärker wirst.' },
-  { szene: 'kurve', titel: 'Zuerst ein Programm', text: 'Ein Programm ist dein Plan für 4–8 Wochen: welche Übung an welchem Tag, wie viele Sätze, wie schwer. Wähle eine Vorlage oder bau dir mit dem Generator deinen Block – die Gewichte kommen aus deinen Maxen.' },
-  { szene: 'satz', titel: 'Dann trainieren', text: 'Jeden Tag steht dein Training auf „Heute“. Gewicht antippen zum Ändern, Haken bei geschafftem Satz – die Pause läuft von selbst.' },
+  { szene: 'start', titel: 'Jag deine Rekorde', text: 'PR Hunter plant dein Training, rechnet die Gewichte aus und zeigt dir, wie du stärker wirst.' },
+  { szene: 'wege', titel: 'Drei Wege zum Plan', text: 'Eigener Plan: Tage und Übungen selbst wählen – am einfachsten. Für Fortgeschrittene: Bodybuilding- oder Powerlifting-Generator, die App baut den ganzen Block.' },
+  { szene: 'kurve', titel: 'So arbeiten die Generatoren', text: 'Bodybuilding: Split (z. B. Push/Pull/Legs), zwei Übungen je Muskel, Tage pro Woche. Powerlifting: wie oft Kniebeuge, Bank, Kreuzheben, deine Maxe, Termin. Sätze, Wdh, RPE und Steigerung rechnet die App.' },
+  { szene: 'liste', titel: 'Eigener Plan in einer Minute', text: 'Tage anlegen (z. B. Push, Pull, Beine), Übungen über die Suche hinzufügen, Sätze × Wdh und RPE eintragen, speichern – fertig.' },
+  { szene: 'satz', titel: 'Trainieren – mit oder ohne Plan', text: 'Dein Training steht jeden Tag auf „Heute“. Lieber spontan? „Training ohne Plan“ startet sofort. Haken bei geschafftem Satz – die Pause läuft von selbst.' },
 ];
 
 export function Einfuehrung({ fertig, zuProgrammen = null }) {
@@ -52,6 +54,8 @@ const SZENE = {
       <span class="sz-check">${I.check}</span></div><div class="sz-pause"><span>Pause</span><i><i></i></i></div></div>`,
   wisch: html`<div class="sz-wisch"><div class="sz-spur"><span class="sz-links">${I.papierkorb}</span><span class="sz-rechts">${I.check}</span></div>
       <div class="sz-karte"><i></i><b></b><b></b></div><span class="sz-finger"></span></div>`,
+  wege: html`<div class="sz-wege"><span class="einfach"><b>Eigener Plan</b><small>Einfach</small></span><span><b>Bodybuilding</b><small>Fortgeschritten</small></span><span><b>Powerlifting</b><small>Fortgeschritten</small></span></div>`,
+  liste: html`<div class="sz-liste"><span><b>Push</b><i></i><i></i></span><span><b>Pull</b><i></i><i></i></span><span><b>Beine</b><i></i><i></i></span></div>`,
   kurve: html`<div class="sz-kurve"><svg viewBox="0 0 200 90"><path class="sz-gitter" d="M10 80H190M10 55H190M10 30H190"/>
       <path class="sz-linie" pathLength="1" d="M12 76 L42 66 L70 70 L98 52 L126 56 L154 34 L186 18"/><circle class="sz-punkt" cx="186" cy="18" r="6"/></svg>
     <span class="sz-plus">+5 kg</span></div>`,

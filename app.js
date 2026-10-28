@@ -27,7 +27,7 @@ import { sollIst, neueMaxe, tageMitOptionen } from './js/block.js';
 import { projiziere } from './js/programm.js';
 import { ausTraining, zuTraining, abgleichen, neueId, setzeUmbenannt } from './js/sync.js';
 import { speicherFuer, dauerhaft } from './js/lokal.js';
-import { supabase, codeSenden, codePruefen, sitzung, abmelden } from './js/supabase.js';
+import { supabase, codeSenden, codePruefen, sitzung, abmelden, emailAendern } from './js/supabase.js';
 import * as konto from './js/konto.js';
 
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -495,7 +495,7 @@ function App() {
     if (phase === 'laden') return;
     const sb = document.getElementById('startbild');
     if (!sb) return;
-    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 900 - performance.now()));
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 650 - performance.now()));
     return () => clearTimeout(id);
   }, [phase]);
   useEffect(() => {
@@ -849,7 +849,7 @@ function App() {
         })()}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
-          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)}
+          neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
       : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}

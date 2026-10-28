@@ -724,10 +724,10 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
 /* Startlogo (116): Stange blendet ein, Scheiben springen auf (scaleY, nur Grafikkarte), dann der Schriftzug – kurz, kein Gleiten */
-#startbild .sb-hantel { animation: sb-auf .3s ease-out both; }
-#startbild .sb-l, #startbild .sb-r { transform-origin: 50% 50%; animation: sb-scheiben .42s cubic-bezier(.2, 1.35, .4, 1) .12s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
+#startbild .sb-hantel { animation: sb-auf .22s ease-out both; }
+#startbild .sb-l, #startbild .sb-r { transform-origin: 50% 50%; animation: sb-scheiben .3s cubic-bezier(.2, 1.35, .4, 1) .08s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
-  animation: sb-logo .35s ease-out .38s both; }
+  animation: sb-logo .25s ease-out .26s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
 /* nur transform/opacity: letter-spacing und blur liessen das Logo ruckeln */
 @keyframes sb-logo { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
@@ -1217,3 +1217,52 @@ button.kal-tag { width: 100%; color: var(--ink); border: 0; }
 .loesch-hinweis { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 19; display: flex; gap: 8px; align-items: center;
   padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--rot, #E5384B) 22%, var(--karte)); border: 1px solid var(--rot, #E5384B); color: var(--ink); font-size: 13px; font-weight: 700; text-align: left; }
 .loesch-hinweis svg { color: var(--rot, #E5384B); flex: none; }
+
+/* Generatoren (98): Schritte, Split-Karten, Übungswahl je Muskel, Häufigkeit */
+.schritte { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.schritte span { display: grid; justify-items: center; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.schritte i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 800 12.5px/1 var(--f); font-style: normal; background: var(--raised); }
+.schritte .jetzt { color: var(--ink); } .schritte .jetzt i { background: var(--acc); color: #fff; }
+.schritte .ok i { background: var(--ok); color: #fff; }
+.schritt-kopf { display: flex; align-items: center; gap: 8px; }
+.schritt-knoepfe { position: sticky; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+.split-wahl { display: grid; gap: 8px; }
+.split-karte { display: grid; gap: 3px; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--raised); color: var(--ink); border: 2px solid transparent; }
+.split-karte span { font-size: 12.5px; color: var(--muted); }
+.split-karte[aria-pressed="true"] { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, var(--raised)); }
+.muskel-wahl { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.muskel-wahl select { width: 100%; }
+.haeufigkeit { display: flex; flex-wrap: wrap; gap: 6px; }
+.haeufigkeit span { padding: 4px 10px; border-radius: 99px; background: var(--raised); font-size: 12.5px; }
+.haeufigkeit span.gut { background: color-mix(in srgb, var(--ok) 20%, var(--raised)); }
+.bb-zeile { grid-template-columns: minmax(0, 1fr) auto auto; }
+.bb-zeile span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Programme (98): drei Wege zum Plan – einfach zuerst, Generatoren als „Fortgeschritten“ */
+.neu-wege { display: grid; gap: 8px; }
+.weg-karte { display: grid; gap: 4px; justify-items: start; text-align: left; padding: 14px 16px; border-radius: var(--r-lg); background: var(--karte); border: 1px solid var(--kante); color: var(--ink); box-shadow: var(--shadow); }
+.weg-karte b { font: 800 17px/1.1 var(--f); text-transform: uppercase; }
+.weg-karte > span:last-child { font-size: 13px; color: var(--muted); }
+.weg-karte:first-child { border-color: color-mix(in srgb, var(--ok) 50%, var(--kante)); }
+.tag.gut { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+.eigen-uebung { display: grid; grid-template-columns: repeat(3, 1fr) 34px; gap: 6px 8px; align-items: end; padding-top: 8px; border-top: 1px solid var(--line); }
+.eigen-uebung > b { grid-column: 1 / 4; font-size: 14px; }
+.eigen-uebung > button { grid-column: 4; grid-row: 1; }
+.eigen-uebung label { display: grid; gap: 3px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+.eigen-uebung input { min-height: 38px; padding: 4px 8px; }
+
+/* Einführung (98): Szenen „drei Wege“ (Karten tauchen nacheinander auf) und „eigener Plan“ (Tage füllen sich) */
+.sz-wege { display: grid; gap: 6px; width: 230px; }
+.sz-wege span { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; border-radius: 10px; background: var(--raised); font-size: 13px; animation: sz-rein 3s ease infinite; }
+.sz-wege span:nth-child(2) { animation-delay: .25s; } .sz-wege span:nth-child(3) { animation-delay: .5s; }
+.sz-wege small { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+.sz-wege .einfach { box-shadow: inset 0 0 0 2px var(--ok); } .sz-wege .einfach small { color: var(--ok); }
+@keyframes sz-rein { 0% { opacity: 0; transform: translateX(-16px); } 15%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.sz-liste { display: grid; gap: 6px; width: 230px; }
+.sz-liste span { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 6px; align-items: center; font-size: 13px; }
+.sz-liste i { height: 14px; border-radius: 6px; background: var(--acc); transform-origin: left; animation: sz-fuellen-x 3s ease infinite; }
+.sz-liste span:nth-child(2) i { animation-delay: .3s; } .sz-liste span:nth-child(3) i { animation-delay: .6s; }
+.sz-liste i + i { opacity: .55; }
+@keyframes sz-fuellen-x { 0%, 10% { transform: scaleX(0); } 35%, 85% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+.link svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.topbar.unter .h1 { overflow-wrap: break-word; min-width: 0; }   /* lange Programmnamen: notfalls im Wort umbrechen statt seitlich überlaufen */

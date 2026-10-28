@@ -1,7 +1,8 @@
 // PR Hunter · Block-Generator (Funktionskatalog „Block-Generator“): Eingaben, Prüfung gegen die Pana-Grenzen,
 // Wochenübersicht in kg und Speichern als eigenes Programm. Die Rechnung steckt in js/generator.js.
-import { html, useState, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz } from './basis.js';
+import { html, useState, useEffect, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz } from './basis.js';
 import { generiere, wochenBis, STANDARD_VARIANTEN, haeufigkeiten } from '../js/generator.js';
+import { Schritte } from './bbgenerator.js';
 import { HEUTE, plusTage } from './stand.js';
 import { montagVon } from '../js/daten.js';
 import { MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
@@ -48,6 +49,9 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
   const [f, setF] = useState(() => startFormular(einst, vorgabe));
   const [werte, setWerte] = useState(() => { const s = startMaxe(); return { S: s.S, D: s.D, B: s.B, G: s.G }; });
   const setze = (k, v) => setF((alt) => ({ ...alt, [k]: v }));
+  // Schritt für Schritt statt alles auf einmal; jeder Schritt beginnt oben
+  const [schritt, setSchritt] = useState(1);
+  useEffect(() => window.scrollTo(0, 0), [schritt]);
   const wochen = f.dauer === 'datum' ? (f.ende ? wochenBis(f.start, f.ende) : null) : f.wochen;
   // Bankdrücken: Candito Advanced Bench ist Standard, wenn die Dauer passt (6 Wochen), sonst ohne Bank; eine Wahl bleibt
   const bank = f.bank ?? (wochen === 6 && vorlagen.candito_int_adv_bench ? 'candito' : 'keine');
@@ -73,9 +77,10 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
   return html`<div class="screen">
     <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label="Zurück zu den Programmen">${I.zurueck}</button>
-      <div style="flex:1;min-width:0"><div class="eyebrow">Top-Satz und Back-off bis zum Termin</div><h1 class="h1" style="font-size:26px">Block-Generator</h1></div>
+      <div style="flex:1;min-width:0"><div class="eyebrow">Fortgeschritten · Top-Satz und Back-off</div><h1 class="h1" style="font-size:26px">Powerlifting-Generator</h1></div>
     </header>
-    <section class="card pad stack">
+    <${Schritte} schritt=${schritt} namen=${['Dauer', 'Aufbau', 'Maxe', 'Vorschau']}/>
+    ${schritt === 1 ? html`<section class="card pad stack">
       <span class="viz-t">Dauer</span>
       <label class="field" for="g-start"><span class="label">Start</span><input id="g-start" type="date" value=${f.start} onInput=${(e) => setze('start', e.currentTarget.value)}/></label>
       ${seg('dauer', [['wochen', 'Anzahl Wochen'], ['datum', 'Bis zu einem Datum']], 'Dauer angeben als')}
@@ -89,8 +94,8 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
         <input type="checkbox" id="g-urlaub" checked=${f.urlaubDanach} onChange=${(e) => setze('urlaubDanach', e.currentTarget.checked)}/></label>
       <label class="schalter" for="g-wieder"><span><b>Wiedereinstiegswoche</b><br/><span class="muted" style="font-size:13px">Leichte erste Woche nach einer Pause, alle Werte an der unteren Pana-Grenze.</span></span>
         <input type="checkbox" id="g-wieder" checked=${f.wiedereinstieg} onChange=${(e) => setze('wiedereinstieg', e.currentTarget.checked)}/></label>
-    </section>
-    <section class="card pad stack">
+    </section>` : null}
+    ${schritt === 2 ? html`<section class="card pad stack">
       <span class="viz-t">Aufbau</span>
       <span class="eyebrow">Bankdrücken</span>
       <div class="seg" role="group" aria-label="Bankdrücken">${[['keine', 'Ohne'], ['top', 'Top-Satz/Back-off'], ['candito', 'Candito Adv. Bench']].map(([v, t]) => html`<button key=${v}
@@ -110,13 +115,14 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
       <span class="eyebrow">Trainingsmax</span>
       ${seg('tm', [[0.95, '95 % (Aufbau)'], [0.92, '92 % (Cut)'], [1, '100 %']], 'Trainingsmax')}
       ${f.proWoche.squat >= 2 || f.proWoche.dead >= 2 ? html`<div class="filter-zeile">${f.proWoche.squat >= 2 ? auswahl('squat') : html`<span></span>`}${f.proWoche.dead >= 2 ? auswahl('dead') : null}</div>` : null}
-    </section>
-    <section class="card pad stack">
+    </section>` : null}
+    ${schritt === 3 ? html`<section class="card pad stack">
       <span class="viz-t">Maxe (echtes 1RM)</span>
       <div class="fields">${(p?.inputs ?? ['S', 'D']).map((k) => html`<${ZahlFeld} key=${k} id=${`g-${k}`} label=${`${MAX_NAME[k]} (${einheit()})`} kg=${true}
         wert=${werte[k]} setze=${(v) => setWerte((w) => ({ ...w, [k]: v }))}/>`)}</div>
       <span class="muted" style="font-size:12.5px">Gerechnet wird vom Trainingsmax (${fmt((f.tm ?? 0.95) * 100)} %), der Test vom echten 1RM. Beim Blockstart lassen sich die Maxe noch ändern.</span>
-    </section>
+    </section>` : null}
+    ${schritt === 4 ? html`
     ${fehler ? html`<p class="fehler">${fehler}</p>` : null}
     ${erg?.pruefung.fehler.length ? html`<section class="hint">${I.warn}<span class="t">Außerhalb der Pana-Grenzen – nicht speicherbar</span><span></span>
       <ul style="margin:0;padding-left:18px;font-size:13.5px">${erg.pruefung.fehler.map((x) => html`<li key=${x}>${x}</li>`)}</ul></section>` : null}
@@ -145,5 +151,8 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     </section>` : null}
     <button class="btn btn-chalk btn-block" disabled=${!speicherbar} onClick=${() => speichern(p, { werte, start: f.start, quelle: 'generator' })}>Als eigenes Programm speichern</button>
     <span class="muted" style="font-size:12.5px;text-align:center">Danach lässt es sich bearbeiten, teilen und als Block starten.</span>
+    ` : null}
+    <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => setSchritt(schritt - 1)}>Zurück</button>` : null}
+      ${schritt < 4 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${() => setSchritt(schritt + 1)}>Weiter</button>` : null}</div>
   </div>`;
 }

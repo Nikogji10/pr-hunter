@@ -1,6 +1,8 @@
 // PR Hunter · Programme – aktiver Block (Soll-Ist, neue Maxe aus dem Test), Vorlagen und eigene Programme, Detail mit
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
-import { html, useState, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld } from './basis.js';
+import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld } from './basis.js';
+import { BodybuildingGenerator } from './bbgenerator.js';
+import { EigenerPlan } from './eigenerplan.js';
 import { useRef } from '../vendor/htm-preact.js';
 import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson } from '../js/import.js';
 import { pruefePana } from '../js/generator.js';
@@ -47,6 +49,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const neueMaxe = neueMaxeFuer?.(mitVertrauen ? vertrauen : null) ?? {};
   // { art: 'detail' | 'import' | 'generator' | 'editor', datei, werte, start, ausTest, vorgabe }
   const [ansicht, setAnsicht] = useState(null);
+  useEffect(() => window.scrollTo(0, 0), [ansicht?.art]);           // Unterseiten (Generatoren, Detail) beginnen oben
   const [beenden, setBeenden] = useState(false);
   const zurListe = () => setAnsicht(null);
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
@@ -57,6 +60,8 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
   if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} speichern=${(p) => speichernNeu(p, { quelle: 'import' })}/>`;
+  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu}/>`;
+  if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>`;
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
     start=${block?.datei === ansicht.datei ? block.start : null}
@@ -104,12 +109,18 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
         <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Wähle unten eine Vorlage und starte sie mit deinen Maxen – oder lass dir mit dem Generator einen Block bis zu einem Termin bauen.</p></section>`}
-    <div class="row wrap" style="gap:8px">
-      <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'generator' })}>${I.programme} Block-Generator</button>
-      <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setAnsicht({ art: 'import' })}>${I.import} Importieren</button>
+    <span class="eyebrow" style="margin-top:6px">Neuer Plan</span>
+    <div class="neu-wege">
+      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
+        <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
+      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding-Generator</b>
+        <span>Split wählen (z. B. Push/Pull/Legs), zwei Übungen je Muskel, Tage pro Woche – Block mit RPE-Steigerung und Deload.</span></button>
+      <button class="weg-karte" onClick=${() => setAnsicht({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting-Generator</b>
+        <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, Top-Satz und Back-offs vom Trainingsmax, Test am Ende.</span></button>
     </div>
+    <button class="link" style="justify-self:start" onClick=${() => setAnsicht({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button>
     ${eigene.length ? html`<span class="eyebrow" style="margin-top:6px">Eigene Programme</span>${eigene.map(karte)}` : null}
-    <span class="eyebrow" style="margin-top:6px">Vorlagen</span>
+    <span class="eyebrow" style="margin-top:6px">Powerlifting-Vorlagen</span>
     ${vorlagen.map(karte)}
     ${beenden ? html`<${Sheet} zu=${() => setBeenden(false)} label="Block beenden">
       <h2 class="h2">Block beenden?</h2>
