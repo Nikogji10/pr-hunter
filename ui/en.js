@@ -1100,6 +1100,8 @@ export const EN_MUSTER = [
   ["begrenzt", "capped"],
   ["Training geschafft", "Workout done"],
   ["Plan vs. Ist", "Planned vs. actual"],
+  ["So wird gerechnet", "How it is calculated"],
+  ["Muskel antippen für Wert und Quelle", "Tap a muscle for its score and source"],
   ["Sätze ausblenden", "Hide sets"],
   ["Sätze zeigen", "Show sets"],
   ["bis {0}", "until {0}"],

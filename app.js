@@ -175,7 +175,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   if (!block) {
     const t = letztes ? trainingsTage[letztes] : null;
     return html`<div class="screen">${kopf}${gewicht}
-      <section class="card pad stack"><h2 class="h2">Kein aktiver Block</h2>
+      <section class="card pad stack wichtig"><h2 class="h2">Kein aktiver Block</h2>
         <p class="muted" style="margin:0">Starte eine Vorlage mit deinen Maxen, dann steht hier jeden Tag dein Training. Oder trainiere frei und wähle die Übungen selbst.</p>
         <button class="btn btn-chalk btn-block" onClick=${zuProgrammen}>Programm wählen</button>
         ${ohnePlan}</section>
@@ -662,7 +662,7 @@ function App() {
   const startePlan = (tag, bereitschaft = null, leicht = tag.datum === HEUTE && leichter) => {
     tonFreigeben(); wachBleiben();
     const nr = wochenListe(tage).indexOf(tag.woche) + 1;
-    vibriere(60);                                                    // kurz: Training läuft
+    vibriere(120);                                                   // kurz: Training läuft (60 ms war kaum spürbar)
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: tag.datum, titel: `Woche ${nr} · ${datumLang(tag.datum).split(',')[0]}`,
       runId: aktiverBlock?.id ?? null, woche: tag.woche, tagOffset: tag.offset, bereitschaft,
       // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
@@ -671,7 +671,7 @@ function App() {
   };
   const starteFrei = (bereitschaft = null) => {
     tonFreigeben(); wachBleiben();
-    vibriere(60);                                                    // kurz: Training läuft
+    vibriere(120);                                                   // kurz: Training läuft (60 ms war kaum spürbar)
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: 'Freies Training', runId: null, bereitschaft, karten: [] });
     gehe('training');
   };
@@ -689,7 +689,7 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
-    if (!t.bearbeiten) { setAbschluss(abschlussAus(t)); vibriere([60, 60, 120]); }   // gespeichert: doppelt kurz
+    if (!t.bearbeiten) { setAbschluss(abschlussAus(t)); vibriere([120, 80, 160]); }   // gespeichert: doppelt
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
     // Beim Bearbeiten bleiben Ende und Körpergewicht des Originals, sonst gelten jetzt und das aktuelle Körpergewicht
     const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.bearbeiten && t.ende ? { ende: t.ende } : {}),
@@ -834,7 +834,7 @@ function App() {
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer}/>` : null}
     </div>` : null}
-    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onClick=${() => gehe(k)}>
+    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onClick=${() => { vibriere(15); gehe(k); }}>
       ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>

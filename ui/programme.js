@@ -96,7 +96,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         <div class="muted ab-unter"><span>${`Woche ${aktWoche}/${wochen.length}`}</span>${' · '}<span>${`bis ${aktivTage.length ? datumKurz(aktivTage.at(-1).datum) : '–'}`}</span></div></div>
       <div class="ab-fortschritt" role="progressbar" aria-valuemin="0" aria-valuemax=${aktivTage.length} aria-valuenow=${erledigtZahl}><i style=${`width:${aktivTage.length ? (erledigtZahl / aktivTage.length) * 100 : 0}%`}></i></div>
       <div class="row between ab-zahlen"><span>${`${erledigtZahl} von ${aktivTage.length} Einheiten`}</span>
-        <span class="ab-maxe">${Object.entries(block.werte).map(([k, v]) => html`<span key=${k}>${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</span></div>
+        <span class="ab-maxe">${['S', 'B', 'D'].filter((k) => block.werte[k] != null).map((k) => [k, block.werte[k]]).map(([k, v]) => html`<span key=${k}>${MAX_NAME[k]} <b>${gw(v)}</b></span>`)}</span></div>
       ${sollIst.length ? html`<details class="ab-sollist"><summary><span>Plan vs. Ist</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary><${SollIst} zeilen=${sollIst}/></details>` : null}
       <${NeueMaxe} maxe=${neueMaxe} vertrauen=${mitVertrauen ? vertrauen : null} setVertrauen=${setVertrauen} planen=${() => setAnsicht({ art: 'detail', datei: block.datei, ausTest: true,
         werte: { ...block.werte, ...Object.fromEntries(Object.entries(neueMaxe).filter(([, m]) => m.neuesMax != null).map(([l, m]) => [l, m.neuesMax])) },

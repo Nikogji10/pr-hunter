@@ -96,7 +96,7 @@ export function ErholungKarte({ zustand }) {
 
 /** Muskeln eingefärbt nach Stärkestufe; Tippen zeigt Wert, Stufe und aus welchen Übungen er stammt (* = Näherung). */
 export function KoerperKarte({ muskeln, quellen = {} }) {
-  const [aktiv, setAktiv] = useState('quadrizeps');
+  const [aktiv, setAktiv] = useState(null);                  // erst beim Antippen eines Muskels Details zeigen
   const w = muskeln[aktiv];
   const vorkommend = STUFEN.map(([, name]) => name).reverse().filter((name) => Object.values(muskeln).some((x) => x != null && stufe(x).name === name));
   // je Quelle ein eigener Textknoten, damit die Übersetzung Liftnamen erkennt
@@ -106,9 +106,9 @@ export function KoerperKarte({ muskeln, quellen = {} }) {
   return html`<div class="koerper">
     <div class="figuren"><${Figur} teile=${VORNE} linien=${LINIEN_VORNE} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne"/>
       <${Figur} teile=${HINTEN} linien=${LINIEN_HINTEN} werte=${muskeln} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten"/></div>
-    <div class="muskel-info"><i style=${`background:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
+    ${aktiv == null ? html`<p class="muted" style="margin:0;font-size:12.5px;text-align:center">Muskel antippen für Wert und Quelle</p>` : html`<div class="muskel-info"><i style=${`background:${w == null ? 'var(--muskel-leer)' : farbeVon(w)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
       <span class="muted">${w == null ? 'keine Daten – in den letzten 26 Wochen keine passende Übung mit Gewicht' : `${fmt(w, 1)} · ${stufe(w).name}`}</span>
-      ${w != null && herkunft ? html`<span class="muskel-herkunft muted"><span>Quelle:</span> ${herkunft}${geschaetzt ? html` <span>· * Näherung</span>` : null}</span>` : null}</div>
+      ${w != null && herkunft ? html`<span class="muskel-herkunft muted"><span>Quelle:</span> ${herkunft}${geschaetzt ? html` <span>· * Näherung</span>` : null}</span>` : null}</div>`}
     <div class="stufen-skala">${STUFEN.slice(0, -1).reverse().map(([, name]) => html`<span key=${name} class=${vorkommend.includes(name) ? 'da' : ''}>
       <i style=${`background:${STUFEN_FARBE[name]}`}></i>${name}</span>`)}</div>
   </div>`;
