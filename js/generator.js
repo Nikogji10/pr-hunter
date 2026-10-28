@@ -128,6 +128,9 @@ export function generiere(e) {
         { exercise_key: 'competition_deadlift', role: null, groups: [gruppe(DELOAD.d2, last('D', tm, DELOAD.d2[2]))] }]);
     } else {
       const t = WOCHENTYPEN[w.typ], plus = w.welle * WELLE;
+      // Schwere Wochen mit einem Tag weniger (Wunsch 114): die leichte Technik-Einheit fällt weg, Bank eine Einheit weniger
+      const weniger = !!e.schwerWeniger && ['ueberlastung', 'peak'].includes(w.typ);
+      const Lw = weniger && L === 3 ? 2 : L;
       const mit = (a) => [a[0], a[1], a[2] + plus, a[3]];
       const haupt = (key, v, top, backoff) => [
         { exercise_key: key, role: 'top', groups: [gruppe(mit(top), last(v, tm, mit(top)[2]))] },
@@ -140,7 +143,7 @@ export function generiere(e) {
       if (f.dead >= 2) tag(kbTag, [zweit(varianten.dead, 'D', t.dVar)]);
       if (f.squat >= 2) tag(khTag, [zweit('competition_squat', 'S', t.sSingle, 'Technik-Single'), zweit(varianten.squat, 'S', t.sVar)]);
       tag(khTag, haupt('competition_deadlift', 'D', t.dTop, t.dBackoff));
-      if (L === 3) {
+      if (L === 3 && !weniger) {
         if (f.squat === 3) tag(o + unten[2], [zweit('competition_squat', 'S', TECHNIK, 'Leicht – Technik')]);
         if (f.dead === 3) tag(o + unten[2], [zweit('competition_deadlift', 'D', KH_LEICHT, 'Leicht – Technik')]);
       }
@@ -148,10 +151,10 @@ export function generiere(e) {
         // Bank: schwer und Volumen an den Oberkörpertagen, weitere Einheiten leichter an Unterkörpertagen
         const einheitenBank = [haupt('competition_bench_press', 'B', t.top, t.backoff), [zweit('competition_bench_press', 'B', BANK_VOLUMEN(t, plus), 'Volumen')],
           [zweit('close-grip_barbell_bench_press', 'B', BANK_ENG(plus), 'Variante, höchstens RPE 8,5')], [zweit('competition_bench_press', 'B', BANK_LEICHT, 'Leicht – Technik')]]
-          .slice(0, f.bench);
+          .slice(0, weniger ? Math.max(2, f.bench - 1) : f.bench);
         const oben = OBEN_TAGE[L].slice(0, Math.min(2, f.bench));
         oben.forEach((d, j) => tag(o + d, [...einheitenBank[j], ...(zubehoer ? structuredClone(OBEN_ZUBEHOER) : [])]));
-        einheitenBank.slice(oben.length).forEach((b, j) => tag(o + unten[j % L], b));
+        einheitenBank.slice(oben.length).forEach((b, j) => tag(o + unten[j % Lw], b));
       }
       if (zubehoer && !candito) for (const d of unten.slice(0, L)) if (days.some((x) => x.offset === o + d)) tag(o + d, structuredClone(BEIN_ZUBEHOER));
       if (t.notiz) days[0].notes = [t.notiz];
@@ -167,7 +170,7 @@ export function generiere(e) {
     inputs: ['S', 'D', ...(mitBank ? ['B'] : candito ? ['B', 'G'] : [])], weeks,
     settings: { cut_mode: { reduce_sets: 1, min_sets: 1 } },
     rules: {
-      generator: { wochen: e.wochen, abschluss: e.abschluss ?? 'test', urlaubDanach: !!e.urlaubDanach, tm, proWoche: f, zubehoer, varianten, bank, wiedereinstieg: !!e.wiedereinstieg },
+      generator: { wochen: e.wochen, abschluss: e.abschluss ?? 'test', urlaubDanach: !!e.urlaubDanach, tm, proWoche: f, zubehoer, varianten, bank, wiedereinstieg: !!e.wiedereinstieg, schwerWeniger: !!e.schwerWeniger },
       // gleicher Test wie im Hybrid (1–2 Wdh @ 97,5 %), daher dieselbe Projektion
       projection: { method: 'divide', table: { 1: 1, 2: 0.96, 3: 0.92, 4: 0.89, 5: 0.86, 6: 0.84, 7: 0.81 }, round_to: 'inc', min_reps: 2,
         max_increase: { S: 0.02, D: 0.02 }, source: 'Wie im Hybrid: MROUND(Testgewicht ÷ %1RM; inc), unter 2 Wdh altes Max, Kniebeuge/Kreuzheben höchstens +2 %.' },

@@ -193,7 +193,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       ${!PR_FEED.length ? html`<p class="muted" style="margin:0;font-size:14px">Noch keine Rekorde in Kniebeuge, Bankdrücken oder Kreuzheben.</p>` : null}
       ${PR_FEED.map((p) => html`<div key=${p.datum + p.lift} class="row">
         <span class="medaille">PR</span>
-        <div style="flex:1;min-width:0"><b>${LIFT[p.lift].name} · ${p.satz ? `${gwE(p.satz.kg)} × ${p.satz.wdh}` : p.text}</b><div class="muted" style="font-size:12.5px">${datumKurz(p.datum)}</div></div>
+        <div style="flex:1;min-width:0"><b>${LIFT[p.lift].name} · ${p.satz ? `${gwE(p.satz.kg)} × ${p.satz.wdh}` : p.text}</b><div class="muted" style="font-size:12.5px">${datumKurz(p.datum)}${p.datum.slice(0, 4)}</div></div>
         <b class="zahl" style="font-size:22px">${gw(p.e1rm, 1)}</b></div>`)}
     </section>
 
@@ -210,7 +210,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="filter" style="margin-bottom:6px">${LIFTS.map((l) => html`<button key=${l} class="chip" aria-pressed=${String(rekLift === l)} onClick=${() => setRekLift(l)}>
         <i class="dot" style=${`background:${LIFT[l].farbe}`}></i>${LIFT[l].name}</button>`)}</div>
       <table class="rec"><thead><tr><th>Wdh</th><th>Gewicht</th><th>Datum</th><th>e1RM</th></tr></thead>
-        <tbody>${REKORDE[rekLift].map((r, i) => r ? html`<tr key=${i}><td>${i + 1}</td><td class="k">${gwE(r[0])}</td><td class="muted">${datumKurz(r[1])}</td><td>${gw(e1rm(r[0], i + 1), 1)}</td></tr>`
+        <tbody>${REKORDE[rekLift].map((r, i) => r ? html`<tr key=${i}><td>${i + 1}</td><td class="k">${gwE(r[0])}</td><td class="muted">${datumKurz(r[1])}${r[1].slice(0, 4)}</td><td>${gw(e1rm(r[0], i + 1), 1)}</td></tr>`
           : html`<tr key=${i}><td>${i + 1}</td><td class="k muted">–</td><td></td><td></td></tr>`)}</tbody></table>
     </section>`
     : reiter === 'profil' ? html`

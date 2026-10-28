@@ -7,20 +7,21 @@ const GESEHEN = 'prh-einfuehrung';
 export const einfuehrungOffen = () => speicher.lies(GESEHEN) !== '1';
 export const einfuehrungGesehen = () => speicher.schreib(GESEHEN, '1');
 
+// Drei Karten (Wunsch 117): Willkommen · was ein Programm ist (zuerst eins wählen) · wie das Training läuft.
+// Ohne aktiven Block führt die letzte Karte direkt zu „Programme“.
 const KARTEN = [
-  { szene: 'start', titel: 'Jag deine Rekorde', text: 'Plane deine Blöcke, trainiere Satz für Satz und sieh, wie du stärker wirst.' },
-  { szene: 'satz', titel: 'Satz abhaken', text: 'Gewicht oder Wdh antippen zum Ändern. Satz geschafft? Haken drücken – die Pause läuft von selbst.' },
-  { szene: 'wisch', titel: 'Wischen', text: 'Übung nach rechts wischen: einklappen. Nach links: entfernen.' },
-  { szene: 'kurve', titel: 'Fortschritt sehen', text: 'Neue Rekorde feiert die App sofort. In der Statistik: Verlauf, Kraftprofil, Erholung.' },
+  { szene: 'start', titel: 'Jag deine Rekorde', text: 'PR Hunter plant deine Kraftblöcke, rechnet die Gewichte aus und zeigt dir, wie du stärker wirst.' },
+  { szene: 'kurve', titel: 'Zuerst ein Programm', text: 'Ein Programm ist dein Plan für 4–8 Wochen: welche Übung an welchem Tag, wie viele Sätze, wie schwer. Wähle eine Vorlage oder bau dir mit dem Generator deinen Block – die Gewichte kommen aus deinen Maxen.' },
+  { szene: 'satz', titel: 'Dann trainieren', text: 'Jeden Tag steht dein Training auf „Heute“. Gewicht antippen zum Ändern, Haken bei geschafftem Satz – die Pause läuft von selbst.' },
 ];
 
-export function Einfuehrung({ fertig }) {
+export function Einfuehrung({ fertig, zuProgrammen = null }) {
   const [i, setI] = useState(0);
   const [weg, setWeg] = useState(false);
   const haken = () => {
     if (weg) return;
     setWeg(true);
-    setTimeout(() => { setWeg(false); if (i + 1 >= KARTEN.length) { einfuehrungGesehen(); fertig(); } else setI(i + 1); }, 420);
+    setTimeout(() => { setWeg(false); if (i + 1 >= KARTEN.length) { einfuehrungGesehen(); fertig(); zuProgrammen?.(); } else setI(i + 1); }, 420);
   };
   const ueberspringen = () => { einfuehrungGesehen(); fertig(); };
   return html`<div class="einf" role="dialog" aria-modal="true" aria-label="Einführung">
@@ -30,6 +31,7 @@ export function Einfuehrung({ fertig }) {
         <span class="eyebrow">${j + 1} / ${KARTEN.length}</span>
         <h2 class="einf-titel">${k.titel}</h2>
         <p class="einf-text">${k.text}</p>
+        ${j + 1 === KARTEN.length && zuProgrammen ? html`<span class="einf-weiter">Haken – weiter zu Programme</span>` : null}
         <button class="einf-haken" onClick=${haken} aria-label=${j + 1 < KARTEN.length ? 'Verstanden, weiter' : 'Los geht’s'} tabindex=${j === i ? 0 : -1}>${I.check}</button>
       </article>`).reverse()}
     </div>

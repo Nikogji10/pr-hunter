@@ -102,6 +102,9 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
           aria-pressed=${String(f.proWoche[lift] === n)} disabled=${lift === 'bench' && n === 4 && Math.max(f.proWoche.squat, f.proWoche.dead) === 1}
           onClick=${() => setze('proWoche', { ...f.proWoche, [lift]: n })}>${`${n}×`}</button>`)}</div></div>`)}
       <span class="muted" style="font-size:12.5px">Bei 3× Kniebeuge oder Kreuzheben: schwer, Variante, leicht. Unterkörpertage mindestens 3 Tage auseinander (vor leichten 2), schwere Kniebeuge und schweres Kreuzheben an verschiedenen Tagen. Bank ab 3× zusätzlich leicht an Unterkörpertagen.</span>
+      ${Math.max(f.proWoche.squat, f.proWoche.dead) === 3 || (bankWirklich === 'top' && f.proWoche.bench >= 3) ? html`<label class="schalter" for="g-weniger"><span><b>Schwere Wochen: ein Tag weniger</b><br/>
+        <span class="muted" style="font-size:12.5px">In Überlastung und Peak entfällt die leichte Technik-Einheit – z. B. Aufbau 5 Tage, schwere Wochen 4.</span></span>
+        <input type="checkbox" id="g-weniger" checked=${!!f.schwerWeniger} onChange=${(ev) => setze('schwerWeniger', ev.currentTarget.checked)}/></label>` : null}
       <label class="schalter" for="g-zubehoer"><span><b>Zubehör</b><br/><span class="muted" style="font-size:12.5px">Oberkörpertag mit Rudern, Schulterdrücken, Klimmzug mit Gewicht und 2 Isolationen; Unterkörpertage mit 2 Bein-Isolationen.</span></span>
         <input type="checkbox" id="g-zubehoer" checked=${f.zubehoer !== false} onChange=${(e) => setze('zubehoer', e.currentTarget.checked)}/></label>
       <span class="eyebrow">Trainingsmax</span>
@@ -121,14 +124,14 @@ export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vor
     ${p && vollstaendig ? html`<section class="card pad stack">
       <div class="row between"><span class="viz-t">Vorschau</span><span class="muted" style="font-size:13px">${wl.length} Wochen · ${tage.length} Einheiten · bis ${datumKurz(tage.at(-1).datum)}</span></div>
       ${(() => { const w = p.weeks.find((x) => !['test', 'deload'].includes(x.typ) && x.week > 1) ?? p.weeks[0];
-        return html`<div class="wochenplan"><span class="eyebrow">${`Typische Woche (Woche ${w.week})`}</span>
+        return html`<div class="wochenplan"><span class="eyebrow">${`Typische Woche (Woche ${w.week}) · ${w.days.length} Trainingstage`}</span>
           ${w.days.map((d) => html`<div key=${d.offset} class="wp-zeile"><b>${wtKurz(plusTage(f.start, d.offset))}</b><span>${tagInhalt(d.items)}</span></div>`)}</div>`; })()}
-      <div style="overflow-x:auto"><table class="rec gen-tab"><thead><tr><th>W</th><th>Typ</th><th>KB Top</th><th>KB Back-off</th><th>KH Top</th><th>KH Back-off</th></tr></thead>
+      <div style="overflow-x:auto"><table class="rec gen-tab"><thead><tr><th>W</th><th>Typ</th><th>Tage</th><th>KB Top</th><th>KB Back-off</th><th>KH Top</th><th>KH Back-off</th></tr></thead>
         <tbody>${p.weeks.map((w) => {
           const wt = tage.filter((t) => t.woche === w.week);
           const finde = (key, rolle) => satzText(wt.find((t) => t.uebungen.some((u) => u.key === key && u.rolle === rolle)), key, rolle);
           const test = w.typ === 'test', del = w.typ === 'deload';
-          return html`<tr key=${w.week}><td>${w.week}</td><td>${TYP_NAME[w.typ] ?? kurzTitel(w.title)}${w.title.includes('Welle') ? ' ²' : ''}</td>
+          return html`<tr key=${w.week}><td>${w.week}</td><td>${TYP_NAME[w.typ] ?? kurzTitel(w.title)}${w.title.includes('Welle') ? ' ²' : ''}</td><td>${w.days.length}</td>
             <td>${del ? satzText(wt[0], 'competition_squat', null) : finde('competition_squat', test ? 'test' : 'top') ?? '–'}</td><td>${test || del ? '–' : finde('competition_squat', 'backoff') ?? '–'}</td>
             <td>${del ? satzText(wt[0], 'competition_deadlift', null) : finde('competition_deadlift', test ? 'test' : 'top') ?? '–'}</td><td>${test || del ? '–' : finde('competition_deadlift', 'backoff') ?? '–'}</td></tr>`;
         })}</tbody></table></div>

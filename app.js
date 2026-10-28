@@ -307,6 +307,7 @@ function App() {
   const laeuft = useRef(false);
   const nochmal = useRef(false);                                 // während eines Abgleichs angefordert → danach noch einmal
   const zuletzt = useRef(0);
+  const planTage = useRef([]);                                    // geplante Trainingstage für den Kalender der Freunde (Update 18)
   const jetzt = useRef({ ansicht: 'heute', key: null });          // aktuelle Ansicht für den popstate-Handler
   const scrollPos = useRef({});                                    // Scrollposition je Ansicht (zurück ins Training = gleiche Stelle)
   const katalogStatisch = useRef([]);
@@ -423,6 +424,9 @@ function App() {
         if (!(await s.meta('einst'))?.offen) { await s.setzeMeta('einst', e); setEinstRoh({ ...STANDARD_EINSTELLUNGEN, ...e }); }
       }
       await hintergrundAbgleichen(sb, s);
+      // Geplante Tage für den Kalender im Feed (nur wenn sich etwas geändert hat; ohne Update 18 still)
+      const plan = JSON.stringify(planTage.current);
+      if (plan !== (await s.meta('plan_tage'))) { if (await konto.speicherePlanTage(sb, uid, planTage.current)) await s.setzeMeta('plan_tage', plan); }
       let me = (await s.meta('messwerte')) ?? [];
       for (const m of me.filter((x) => x.offen)) { await konto.messwertHochladen(sb, m); m.offen = false; }
       me = konto.mischeMesswerte(me, await konto.ladeMesswerte(sb));
@@ -479,7 +483,7 @@ function App() {
     if (phase === 'laden') return;
     const sb = document.getElementById('startbild');
     if (!sb) return;
-    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 2600 - performance.now())   /* PRÜFLAUF (108), danach wieder 800 */);
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 900 - performance.now()));
     return () => clearTimeout(id);
   }, [phase]);
   useEffect(() => {
@@ -602,6 +606,7 @@ function App() {
       neueUebungStarten: (text, beiWahl) => setNeueUebung({ text, beiWahl }),
       ladeVergleich: () => konto.ladeVergleich(supabase()),
       ladeFeed: () => konto.ladeFeed(supabase(), 30),
+      ladeKalender: (von, bis) => konto.ladeKalender(supabase(), von, bis),
       zusammenfuehren: async (von, nach) => {
         if (!navigator.onLine) throw new Error('Zum Zusammenführen braucht das Handy Netz.');
         const n = await konto.zusammenfuehren(supabase(), von, nach);
@@ -624,6 +629,8 @@ function App() {
   const aktiverBlock = blockDef ? block : null;
   if (aktiverBlock) programme[aktiverBlock.datei] = blockDef;
   const tage = aktiverBlock ? tageMitOptionen(blockTage(blockDef, { ...aktiverBlock, cut: einst.cut }), aktiverBlock) : [];
+  // Kalender aus (Einstellungen → Freunde): Pläne bleiben privat, es wird eine leere Liste hochgeladen
+  planTage.current = einst.kalender === false ? [] : tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).map((t) => t.datum).slice(0, 40);
   // Erledigt nach Datum des Plantags (bei verschobenen Tagen das neue Datum)
   const datumVon = new Map(tage.map((t) => [t.offset, t.datum]));
   const erledigt = DEMO ? demoErledigt : new Set(trainings.filter((t) => aktiverBlock && t.runId === aktiverBlock.id && t.tagOffset != null && !t.geloescht)
@@ -834,7 +841,7 @@ function App() {
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer}/>` : null}
     </div>` : null}
-    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onClick=${() => { vibriere(15); gehe(k); }}>
+    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
       ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
@@ -845,7 +852,7 @@ function App() {
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
     ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
-    ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)}/>` : null}
+    ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)} zuProgrammen=${aktiverBlock ? null : () => gehe('programme')}/>` : null}
   </div>`;
 }
 

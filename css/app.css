@@ -723,15 +723,16 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 #startbild .sb-ebene { transform: translateZ(0); backface-visibility: hidden; }
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
-#startbild .sb-l { animation: sb-links 1.6s cubic-bezier(.25, .85, .3, 1) .1s both; }   /* PRÜFLAUF (108): langsam, danach wieder ~.42s */   /* kein Überschwingen: Scheiben stoppen am Kragen */
-#startbild .sb-r { animation: sb-rechts 1.6s cubic-bezier(.25, .85, .3, 1) .1s both; }
+/* Startlogo (116): Stange blendet ein, Scheiben springen auf (scaleY, nur Grafikkarte), dann der Schriftzug – kurz, kein Gleiten */
+#startbild .sb-hantel { animation: sb-auf .3s ease-out both; }
+#startbild .sb-l, #startbild .sb-r { transform-origin: 50% 50%; animation: sb-scheiben .42s cubic-bezier(.2, 1.35, .4, 1) .12s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
-  animation: sb-logo .6s ease 1.4s both; }
+  animation: sb-logo .35s ease-out .38s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
-@keyframes sb-links { from { transform: translate3d(-40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
-@keyframes sb-rechts { from { transform: translate3d(40%, 0, 0); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
 /* nur transform/opacity: letter-spacing und blur liessen das Logo ruckeln */
-@keyframes sb-logo { from { opacity: 0; transform: scale(1.35); } to { opacity: 1; transform: none; } }
+@keyframes sb-logo { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+@keyframes sb-auf { from { opacity: 0; transform: scale(.92); } }
+@keyframes sb-scheiben { from { opacity: 0; transform: scale3d(.6, 0, 1); } to { opacity: 1; transform: none; } }
 #startbild .sb-l, #startbild .sb-r, #startbild .sb-logo { will-change: transform, opacity; }
 @media (prefers-reduced-motion: reduce) { #startbild * { animation: none !important; } }
 
@@ -1128,3 +1129,41 @@ html.durchsichtig .live { background: color-mix(in srgb, var(--acc) 30%, var(--f
 :root { --rot: #E5384B; }
 .btn-gefahr { color: var(--rot); border-color: color-mix(in srgb, var(--rot) 55%, transparent); }
 .loeschen-knopf { color: var(--rot); border-color: color-mix(in srgb, var(--rot) 45%, transparent); background: color-mix(in srgb, var(--rot) 10%, transparent); }
+
+.einf-weiter { font-size: 12.5px; font-weight: 800; color: var(--ok); text-transform: uppercase; letter-spacing: .06em; margin-top: -2px; }
+
+/* Feed-Kalender (95): Zeile je Person, Spalte je Tag; ✓ erledigt, Ring geplant, Zeile „Zusammen“ */
+.kal-raster { display: grid; gap: 6px 4px; align-items: center; justify-items: center; }
+.kal-kopf { display: grid; justify-items: center; font-size: 11px; color: var(--muted); line-height: 1.15; }
+.kal-kopf b { font-size: 11.5px; color: var(--ink); }
+.kal-kopf.heute b, .kal-kopf.heute { color: var(--acc-text, var(--acc)); }
+.kal-name { justify-self: start; display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.kal-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kal-zelle { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 900 13px/1 var(--f); background: var(--raised); color: transparent; }
+.kal-zelle.erledigt { background: var(--ok); color: #fff; }
+.kal-zelle.geplant { background: transparent; border: 2px solid var(--acc); }
+.kal-zelle.ruhe { opacity: .45; }
+.kal-zus { color: var(--muted); font-size: 12.5px; }
+.kal-zus-zelle { width: 26px; height: 22px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; color: var(--muted); }
+.kal-zus-zelle.alle { background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.kal-zus-zelle.frei { background: var(--raised); }
+.kal-woche { font-size: 12.5px; min-width: 92px; text-align: center; }
+.iconbtn.klein { width: 30px; height: 30px; }
+.iconbtn.klein svg { width: 16px; height: 16px; }
+
+/* Monatskalender im Feed (95): 7 Spalten, je Tag Nummer und Punkte je Person */
+.kal-monatsraster { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.kal-wt { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+.kal-tag { min-height: 44px; border-radius: 10px; background: var(--raised); display: grid; grid-template-rows: auto 1fr; justify-items: center; padding: 4px 2px; gap: 3px; }
+.kal-tag.aussen { opacity: .35; }
+.kal-tag.heute { box-shadow: inset 0 0 0 2px var(--acc); }
+.kal-tag.alle { background: color-mix(in srgb, var(--ok) 24%, var(--raised)); }
+.kal-tag.frei { background: transparent; border: 1px dashed var(--line); }
+.kal-nr { font: 800 12.5px/1 var(--f); }
+.kal-punkte { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; align-content: start; }
+.kal-punkte i { width: 8px; height: 8px; border-radius: 50%; background: var(--f); }
+.kal-punkte i.geplant { background: transparent; box-shadow: inset 0 0 0 1.6px var(--f); }
+.kal-monat { min-width: 112px; text-align: center; font-size: 14px; }
+.kal-legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; font-weight: 700; }
+.kal-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.kal-legende i { width: 10px; height: 10px; border-radius: 50%; }

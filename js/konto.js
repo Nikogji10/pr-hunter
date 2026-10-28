@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton'];
+const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -43,7 +43,7 @@ export const profilAusEinst = (e) => ({
   ...(e.name ? { display_name: e.name } : {}), ...(e.vergleichGeaendert ? { share_stats: !!e.vergleich } : {}),
   ...(e.feedSpalte ? { share_feed: e.feedTeilen !== false } : {}),
   // Update 11 bringt app_settings und avatar gemeinsam
-  ...(e.appSettings ? { app_settings: Object.fromEntries(APP_SETTINGS.map((k) => [k, e[k] ?? STANDARD_EINSTELLUNGEN[k]])), avatar: e.avatar ?? null } : {}),
+  ...(e.appSettings ? { app_settings: Object.fromEntries(APP_SETTINGS.map((k) => [k, e[k] ?? STANDARD_EINSTELLUNGEN[k]]).filter(([, v]) => v !== undefined)), avatar: e.avatar ?? null } : {}),
 });
 
 export const ladeProfil = async (sb, uid) => pruefe(await sb.from('profiles').select('*').eq('id', uid).single());
@@ -239,6 +239,18 @@ export async function ladeFeed(sb, tage = 30) {
   const r = await sb.rpc('feed', { p_tage: tage });
   if (r.error) { if (/feed|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
   return feedAusZeilen(r.data ?? []);
+}
+/** Eigene geplante Trainingstage für den Kalender der Freunde (Update 18); ohne Update 18 still. */
+export async function speicherePlanTage(sb, uid, tage) {
+  const r = await sb.from('profiles').update({ plan_tage: tage }).eq('id', uid);
+  if (r.error && !/plan_tage/i.test(r.error.message)) throw new Error(r.error.message);
+  return !r.error;                                                // false: Update 18 fehlt noch, beim nächsten Abgleich wieder versuchen
+}
+/** Kalender: je Person und Tag erledigt/geplant (Update 18); null, solange es fehlt. */
+export async function ladeKalender(sb, von, bis) {
+  const r = await sb.rpc('feed_kalender', { p_von: von, p_bis: bis });
+  if (r.error) { if (/feed_kalender|function/i.test(r.error.message)) return null; throw new Error(r.error.message); }
+  return (r.data ?? []).map((z) => ({ nutzer: z.user_id, name: z.display_name ?? 'Ohne Namen', avatar: z.avatar ?? null, datum: z.datum, art: z.art, ich: !!z.ich }));
 }
 /** Konto mit allen eigenen Daten löschen (Update 08). Selbst angelegte Übungen bleiben im gemeinsamen Katalog. */
 export const kontoLoeschen = async (sb) => pruefe(await sb.rpc('delete_my_account'));

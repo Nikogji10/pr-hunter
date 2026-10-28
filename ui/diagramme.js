@@ -136,7 +136,7 @@ export function StapelSaeulen({ titel, unter, daten, serien, einheit = null }) {
   const slot = (W - L - R) / daten.length, b = Math.min(18, slot - 4);
   const py = (v) => T + ((hi - v) * (H - T - U)) / hi;
   const tabelle = html`<table class="rec"><thead><tr><th>Woche</th>${serien.map((s) => html`<th key=${s.id}>${s.name}</th>`)}<th>Summe</th></tr></thead>
-    <tbody>${daten.map((d, k) => html`<tr key=${d.label}><td>${datumKurz(d.label)}</td>${serien.map((s) => html`<td key=${s.id}>${wert(d.teile[s.id])}</td>`)}<td>${wert(summen[k])}</td></tr>`)}</tbody></table>`;
+    <tbody>${daten.map((d, k) => html`<tr key=${d.label}><td>${datumKurz(d.label)}${d.label.slice(0, 4)}</td>${serien.map((s) => html`<td key=${s.id}>${wert(d.teile[s.id])}</td>`)}<td>${wert(summen[k])}</td></tr>`)}</tbody></table>`;
   return html`<${Rahmen} titel=${titel} unter=${unter} tabelle=${tabelle} legende=${serien.length > 1 ? html`<${Legende} serien=${serien} art="flaeche"/>` : null}
     kinder=${html`<div class="viz-plot" onPointerLeave=${() => setI(null)}>
       <svg viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${titel}>
@@ -156,7 +156,12 @@ export function StapelSaeulen({ titel, unter, daten, serien, einheit = null }) {
             })}
           </g>`;
         })}
-        ${daten.map((d, k) => k % Math.ceil(52 / slot) === 0 ? html`<text key=${d.label} class="ax" x=${L + k * slot + slot / 2} y=${H - 7} text-anchor="middle">${datumKurz(d.label)}</text>` : null)}
+        ${(() => {
+          // über einen Jahreswechsel: Monat mit Jahr (wie die Liniendiagramme), sonst Tag.Monat
+          const schritt = Math.ceil(52 / slot), jahre = daten.length > 1 && daten[0].label.slice(0, 4) !== daten.at(-1).label.slice(0, 4);
+          return daten.map((d, k) => k % schritt === 0 ? html`<text key=${d.label} class="ax" x=${L + k * slot + slot / 2} y=${H - 7} text-anchor="middle">${
+            jahre ? monatsText(d.label, k >= schritt ? daten[k - schritt].label : null, true) : datumKurz(d.label)}</text>` : null);
+        })()}
       </svg>
       ${i != null ? html`<div class="tip" style=${`left:${Math.min(62, Math.max(2, ((L + i * slot) / W) * 100 - 14))}%`}>
         <div class="tip-d">Woche ab ${datumKurz(daten[i].label)} · ${wert(summen[i])}</div>

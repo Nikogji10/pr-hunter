@@ -95,7 +95,8 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     koerper: ['Körper', 'Gewicht heute und Ziel', I.statistik, `${einst.koerpergewicht ? `${fmt(inAnzeige(einst.koerpergewicht), 1)} ${einheit()}` : 'kein Gewicht'}${einst.gewichtZiel ? ` · Ziel ${fmt(inAnzeige(einst.gewichtZiel), 1)}` : ''}`],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
-    ...(DEMO ? {} : { konto: ['Konto und Daten', 'Profilbild, Name, Vergleich, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
+    ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
+      konto: ['Konto und Daten', 'Profilbild, Name, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
   };
   const titel = bereich ? bereiche[bereich][0] : 'Einstellungen';
   return html`<div class="screen einstellungen">
@@ -115,6 +116,19 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       ${DEMO ? html`<section class="card pad stack"><span class="viz-t">Demo</span>
         <p style="margin:0;font-size:14px">Alles hier sind Beispieldaten, nichts wird gespeichert.</p>
         <a class="btn btn-chalk btn-block" href="./">Zur Anmeldung</a></section>` : null}`
+    : bereich === 'sozial' ? html`
+      <section class="card pad stack">
+        <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
+          <span class="muted" style="font-size:12.5px">Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
+          <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
+        <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
+          <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'
+            : 'Braucht Datenbank-Update 15 (db/15_feed.sql).'}</span></span>
+          <input type="checkbox" id="e-feed" disabled=${!einst.feedSpalte} checked=${einst.feedTeilen !== false} onChange=${(e) => setEinst({ ...einst, feedTeilen: e.currentTarget.checked })}/></label>
+        <label class="schalter" for="e-kalender"><span><b>Kalender im Feed</b><br/>
+          <span class="muted" style="font-size:12.5px">Monatskalender, wer wann trainiert – deine geplanten Trainingstage sehen Freunde, die auch teilen. Aus: kein Kalender, deine Pläne bleiben privat.</span></span>
+          <input type="checkbox" id="e-kalender" checked=${einst.kalender !== false} onChange=${(e) => setEinst({ ...einst, kalender: e.currentTarget.checked })}/></label>
+      </section>`
     : bereich === 'training' ? html`
     <section class="card pad stack">
       <span class="viz-t">Standard-Pausen</span>
@@ -244,13 +258,6 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         ${einst.appSettings ? null : html`<span class="muted" style="font-size:12px">Profilbild und Schriftgröße gelten nach Update 11 auf allen Geräten, bis dahin nur auf diesem.</span>`}
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
-        <label class="schalter" for="e-vergleich"><span><b>Mit Freunden vergleichen</b><br/>
-          <span class="muted" style="font-size:12.5px">Zeigt Freunden deine e1RM in Kniebeuge, Bankdrücken und Kreuzheben und dein Körpergewicht. Standardmäßig an; wer abschaltet, sieht auch die anderen nicht. Keine Trainings, keine Sätze. Der Anzeigename ist dein Name im Vergleich.</span></span>
-          <input type="checkbox" id="e-vergleich" checked=${!!einst.vergleich} onChange=${(e) => setEinst({ ...einst, vergleich: e.currentTarget.checked })}/></label>
-        <label class="schalter" for="e-feed"><span><b>Trainings im Feed zeigen</b><br/>
-          <span class="muted" style="font-size:12.5px">${einst.feedSpalte ? 'Freunde sehen Datum, Dauer, Übungen, besten Satz je Übung und Rekorde – keine Notizen, kein Körpergewicht. Wer nicht teilt, sieht auch den Feed der anderen nicht.'
-            : 'Braucht Datenbank-Update 15 (db/15_feed.sql).'}</span></span>
-          <input type="checkbox" id="e-feed" disabled=${!einst.feedSpalte} checked=${einst.feedTeilen !== false} onChange=${(e) => setEinst({ ...einst, feedTeilen: e.currentTarget.checked })}/></label>
       </section>
       <section class="card pad stack">
         <div class="row between"><span class="viz-t">Abgleich</span><${SyncPunkt} sync=${sync} offen=${offen}/></div>
