@@ -1250,6 +1250,7 @@ export const EN = new Map([
   ["Advanced Bench", "Advanced Bench"],
   ["Advanced Bench braucht mindestens 4 Wochen.", "Advanced Bench needs at least 4 weeks."],
   ["Bankdrücken und Oberkörper-Zubehör nach Advanced Bench (letzte Woche = Deload, davor AMRAP-Test; längere Blöcke mit Aufbauwochen, Variationen RPE 8 → 9); das neue Bank-Max kommt aus dem AMRAP.", "Bench press and upper-body accessories follow Advanced Bench (last week = deload, AMRAP test before; longer blocks get build-up weeks with variations RPE 8 → 9); the new bench max comes from the AMRAP."],
+  ["eigene", "custom"],
 ]);
 
 export const EN_MUSTER = [
@@ -1443,4 +1444,8 @@ export const EN_MUSTER = [
   ["Isolation · {0}", "Isolation · {0}"],
   ["{0} Treffer", "{0} results"],
   ["{0}/2 gewählt", "{0}/2 selected"],
+  ["{0} Wo.", "{0} wk"],
+  ["{0} Übungen", "{0} exercises"],
+  ["{0} Übungen passend zum Platz", "{0} exercises fit this slot"],
+  ["zuletzt {0}", "last {0}"],
 ];

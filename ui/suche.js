@@ -93,7 +93,7 @@ export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung
         value=${q} onFocus=${() => setOffen(true)} onInput=${(e) => { setQ(e.currentTarget.value); setAktiv(0); setOffen(true); }} onKeyDown=${taste}/>
     </div>
     <div class="row between wrap" style="gap:6px">
-      <span class="muted" style="font-size:12.5px">${anzahl} Übungen${fam ? ' passend zum Platz' : ''}${q || zone || equipment ? ` · ${treffer.length} Treffer` : ''}</span>
+      <span class="muted" style="font-size:12.5px"><span>${fam ? `${anzahl} Übungen passend zum Platz` : `${anzahl} Übungen`}</span>${q || zone || equipment ? html` · <span>${`${treffer.length} Treffer`}</span>` : null}</span>
       <span class="row" style="gap:6px">
         <button class="chip" aria-pressed=${String(filter || !!zone || !!equipment)} aria-expanded=${String(filter)} onClick=${() => { setFilter(!filter); setOffen(true); }}>${zone || equipment ? `Muskel/Gerät (${[zone, equipment].filter(Boolean).length})` : 'Muskel/Gerät'}</button>
         ${familien ? html`<button class="chip" aria-pressed=${String(alle)} onClick=${() => { setAlle(!alle); setOffen(true); }}>Alle Übungen</button>` : null}
@@ -112,7 +112,7 @@ export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung
             onMouseDown=${(ev) => ev.preventDefault()} onClick=${() => waehle(e.k)}>
             <${UebungsBild} schluessel=${e.k} groesse=${40}/>
             <span class="treffer-text"><b>${fav ? html`<span class="stern" aria-label="Favorit">★</span> ` : null}${nameVon(e.k)}</b>
-            <small>${andereSprache(e)}${e.eq ? ` · ${EQUIPMENT[e.eq] ?? e.eq}` : ''}${zul ? ` · zuletzt ${datumKurz(zul)}` : ''}${e.eigen ? ' · eigene' : ''}</small></span>
+            <small><span translate="no">${andereSprache(e)}</span>${e.eq ? html` · <span>${EQUIPMENT[e.eq] ?? e.eq}</span>` : null}${zul ? html` · <span>${`zuletzt ${datumKurz(zul)}`}</span>` : null}${e.eigen ? html` · <span>eigene</span>` : null}</small></span>
             <span class="tag row" style="gap:5px">${liftVon(e.k) !== 'andere' ? html`<i class="dot" style=${`background:${LIFT[liftVon(e.k)].farbe}`}></i>` : null}${FAMILIE[e.f] ?? e.f}</span></button>`;
         };
         if (!zone) return treffer.map(zeile);

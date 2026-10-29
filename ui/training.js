@@ -2,7 +2,7 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild, useEffect, leseZahl } from './basis.js';
+import { UebungsBild, useEffect, leseZahl, deEn } from './basis.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -343,7 +343,7 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
     ${koerper ? html`<p class="muted" style="margin:0;font-size:13.5px">Gesamtlast ${koerperKg ? gwE(koerperKg + kg) : '–'} (Körpergewicht ${koerperKg ? gwE(koerperKg) : 'fehlt – in den Einstellungen eintragen'}). Negativ = Unterstützung.</p>` : null}
     ${stangeVon(k.key) ? html`<div class="stack" style="gap:8px"><${Hantel} kg=${kg}/><div class="row between"><span class="eyebrow">Pro Seite</span><${Scheiben} kg=${kg}/></div></div>` : null}
     ${best && !koerper && lastFuerWeit(best, s.wdh, zielRpe) ? html`<p class="muted" style="margin:0;font-size:13.5px">Bestes e1RM ${gwE(best, 1)}. Das entspricht etwa <b style="color:var(--ink)">${gwE(lastFuerWeit(best, s.wdh, zielRpe, inc))} × ${s.wdh} @ RPE ${fmt(zielRpe)}</b>, darüber wird es ein Rekord.</p>` : null}
-    ${!koerper && kg > 0 && s.wdh > 0 ? html`<p class="muted" style="margin:0;font-size:13.5px">Mit ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: errechnetes 1RM etwa <b style="color:var(--ink)">${gwE(e1rmWeit(kg, s.wdh, s.rpe, formel()), 1)}</b>.</p>` : null}
+    ${!koerper && kg > 0 && s.wdh > 0 ? html`<p class="muted" style="margin:0;font-size:13.5px">${deEn(`Mit ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: errechnetes 1RM etwa `, `With ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: estimated 1RM about `)}<b style="color:var(--ink)">${gwE(e1rmWeit(kg, s.wdh, s.rpe, formel()), 1)}</b>.</p>` : null}
     ${g.saetze.length > z.si + 1 ? html`<label class="schalter" for="kg-alle"><span>Auch für die folgenden Sätze</span>
       <input type="checkbox" id="kg-alle" checked=${alle} onChange=${(e) => setAlle(e.currentTarget.checked)}/></label>` : null}
     <button class="btn btn-chalk btn-block" onClick=${ok}>Übernehmen</button>

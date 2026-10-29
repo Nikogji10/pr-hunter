@@ -1344,3 +1344,19 @@ button.kal-tag { width: 100%; color: var(--ink); border: 0; }
 .tabs button .lauf { top: 7px; right: calc(50% - 24px); }
 .tabs .anfrage-punkt { top: 3px; left: calc(50% + 10px); }
 @media (prefers-reduced-motion: reduce) { .tabs button svg { transition: none; } }
+/* Lupe: beide Bilder passen immer auf den Bildschirm (vorher ragten sie oben/unten hinaus, Titel und Schließen-Hinweis verschwanden) */
+.bild-lupe { overflow-y: auto; overscroll-behavior: contain; padding: max(16px, env(safe-area-inset-top, 0px)) 14px max(16px, env(safe-area-inset-bottom, 0px)); }
+.bild-lupe-bilder { justify-items: center; }
+.bild-lupe-bilder img { width: auto; max-width: 100%; max-height: calc((100dvh - 150px) / 2); object-fit: contain; }
+
+/* Eingabefelder (147): alle Textfelder wie im Editor – dunkel, rund, Akzent beim Fokus (vorher außerhalb von .field graues Browserfeld) */
+input.text { height: 46px; width: 100%; min-width: 0; border-radius: 12px; border: 1px solid var(--line); background: var(--sunken); color: var(--ink);
+  box-shadow: var(--shadow-tief); padding: 0 14px; font: 600 16px/1.2 var(--f); transition: border-color .15s ease, box-shadow .15s ease; -webkit-appearance: none; appearance: none; }
+input.text::placeholder { color: var(--muted); opacity: 1; }
+input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+/* Eigener Plan (144/146): Tagesnamen mit Abstand, Sätze/Wdh/RPE passen in die Karte */
+.eigen-uebung { grid-template-columns: repeat(3, minmax(0, 1fr)) 34px; }
+.eigen-uebung input.text { height: 42px; padding: 0 10px; font-size: 15px; }
+/* Übungssuche im Training (150): Trefferliste deckend über dem Hintergrundbild, auch in blassen Platzhalter-Karten */
+.treffer { background: var(--flaeche-2, var(--surface)); }
+.card.ex.gedimmt:focus-within { opacity: 1; }   /* Platzhalter-Karte, in der gerade gesucht wird, nicht abdunkeln */

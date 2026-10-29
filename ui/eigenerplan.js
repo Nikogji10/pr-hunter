@@ -1,6 +1,6 @@
 // PR Hunter · Eigener Plan (einfach): Trainingstage benennen, Übungen selbst auswählen, Sätze × Wdh und RPE eintragen;
 // die Woche wiederholt sich über die gewählte Zahl an Wochen. Gewichte schlägt die App beim Training aus RPE + e1RM vor.
-import { html, useState, useEffect, I, nameVon } from './basis.js';
+import { html, useState, useEffect, I, nameVon, deEn } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { Schritte, useSchritte } from './bbgenerator.js';
 
@@ -8,7 +8,7 @@ import { Schritte, useSchritte } from './bbgenerator.js';
 const WOCHENTAGE = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5], 7: [0, 1, 2, 3, 4, 5, 6] };
 const BUCHSTABE = 'ABCDEFG';
 const FORTLAUFEND = 52;                                     // „fortlaufend“ = ein Jahr, die Woche wiederholt sich
-const neuerTag = (i) => ({ name: `Tag ${BUCHSTABE[i]}`, uebungen: [] });
+const neuerTag = (i) => ({ name: deEn(`Tag ${BUCHSTABE[i]}`, `Day ${BUCHSTABE[i]}`), uebungen: [] });
 
 /** Programm im App-Format aus dem Formular (ohne Maxe). */
 export function eigenerPlanAus({ name, wochen, tage }) {
