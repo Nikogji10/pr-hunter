@@ -1360,3 +1360,14 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 /* Übungssuche im Training (150): Trefferliste deckend über dem Hintergrundbild, auch in blassen Platzhalter-Karten */
 .treffer { background: var(--flaeche-2, var(--surface)); }
 .card.ex.gedimmt:focus-within { opacity: 1; }   /* Platzhalter-Karte, in der gerade gesucht wird, nicht abdunkeln */
+/* 159 (Teil): andere Übungen im Training nicht mehr durchsichtig */
+.card.ex.gedimmt { opacity: 1; }
+
+/* Import: Übungen zuordnen (168) */
+.zuordnen-name { font: 800 22px/1.25 var(--f); overflow-wrap: anywhere; }
+.zuordnen-liste { display: grid; gap: 8px; }
+.zuordnen-treffer { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px;
+  background: var(--raised); border: 2px solid transparent; color: var(--ink); text-align: left; font-weight: 700; transition: transform .12s ease, border-color .15s ease; }
+.zuordnen-treffer:active { transform: scale(.98); }
+.zuordnen-treffer.gewaehlt { border-color: var(--acc); }
+.zuordnen-treffer svg { width: 18px; height: 18px; color: var(--muted); }

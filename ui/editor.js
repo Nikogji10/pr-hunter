@@ -137,7 +137,7 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
 
     ${sheet?.art === 'tausch' || sheet?.art === 'neu' ? html`<${Sheet} zu=${() => setSheet(null)} label=${sheet.art === 'neu' ? 'Übung hinzufügen' : 'Übung tauschen'}>
       <h2 class="h2">${sheet.art === 'neu' ? 'Übung hinzufügen' : 'Übung tauschen'}</h2>
-      <${UebungSuche} id="ed-suche" autofokus=${true} onWahl=${(key) => {
+      <${UebungSuche} id="ed-suche" onWahl=${(key) => {
         aendere((n) => {
           const items = n.weeks[wIndex].days[sheet.di].items;
           const name = (sprache() === 'en' ? katalogListe().find((e) => e.k === key)?.en : katalogListe().find((e) => e.k === key)?.de) ?? key;

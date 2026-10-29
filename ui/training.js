@@ -158,7 +158,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     ${sheet?.art === 'unotiz' && html`<${UebungNotizSheet} t=${t} ki=${sheet.ki} zu=${() => setSheet(null)} aendere=${aendere}/>`}
     ${sheet?.art === 'tausch' && html`<${Sheet} zu=${() => setSheet(null)} label="Übung tauschen">
       <div><div class="eyebrow">Übung tauschen</div><h2 class="h2">${nameVon(t.karten[sheet.ki].key)}</h2></div>
-      <${UebungSuche} id="tausch" autofokus=${true} familien=${[uebung(t.karten[sheet.ki].key)?.f].filter(Boolean)}
+      <${UebungSuche} id="tausch" familien=${[uebung(t.karten[sheet.ki].key)?.f].filter(Boolean)}
         onWahl=${(key) => { aendere((ks) => setzeUebung(ks[sheet.ki], key, kg)); setSheet(null); toast({ titel: 'Übung getauscht', text: nameVon(key) }); }}/>
     <//>`}
     ${sheet?.art === 'ende' && html`<${EndeSheet} t=${t} zu=${() => setSheet(null)} beenden=${beenden}/>`}
@@ -236,7 +236,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     ${k.supersatz ? html`<div class="ss-marke">Supersatz ${String.fromCharCode(64 + k.supersatz)}</div>` : null}
     <div class="ex-head">
       <button class="bild-knopf" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung" style=${lift === 'andere' ? '' : `--c:${LIFT[lift].farbe}`}><${UebungsBild} schluessel=${k.key} groesse=${48}/></button>
-      <div style="min-width:0;flex:1"><button class="ex-title titel-knopf" onClick=${() => zuVerlauf(k.key)}>${nameVon(k.key)}</button>
+      <div style="min-width:0;flex:1"><button class="ex-title titel-knopf" onClick=${() => aendere((ks) => { ks[ki].zu = true; })} aria-label=${`${nameVon(k.key)} zuklappen`}>${nameVon(k.key)}</button>
         <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[2] ? `${gw(letzte[2].kg ?? 0)} × ${letzte[2].wdh}${letzte[2].rpe != null ? ` @ ${fmt(letzte[2].rpe)}` : ''}` : letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}${BEST_E1RM[k.key] ? html` · <span class="best-1rm">1RM ${gwE(BEST_E1RM[k.key], 1)}</span>` : ''}${heute1rm ? html` · <span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : ''}</div>
         ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
@@ -307,10 +307,9 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
 
 // Eingabeart im Gewichts-/Wdh-Fenster: Tippen (Tastatur) oder Knöpfe; die zuletzt genutzte bleibt auf dem Gerät gemerkt
 const EINGABE = 'prh-eingabe';
-const eingabeTippen = () => { try { return localStorage.getItem(EINGABE) === 'tippen'; } catch { return false; } };
 const merkeEingabe = (tippen) => { try { localStorage.setItem(EINGABE, tippen ? 'tippen' : 'knoepfe'); } catch { /* egal */ } };
 
-/** Große Zahl: Tippen öffnet die Tastatur; wer danach die Knöpfe nimmt, bekommt wieder die große Anzeige. */
+/** Große Zahl: startet immer als Anzeige (keine Tastatur beim Öffnen), erst Antippen der Zahl öffnet die Tastatur. */
 function GrossZahl({ id, text, setze, einheitText, ganz = false, tippen, setTippen, fertig }) {
   const feld = useRef(null);
   const [eingabe, setEingabe] = useState(text);
@@ -325,7 +324,7 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
   const k = t.karten[z.ki], g = k.gruppen[z.gi], s = g.saetze[z.si], inc = incVon(k.key), koerper = koerperUebung(k.key);
   const [kg, setKg] = useState(s.kg ?? vorschlag(k.key, s.wdh ?? (parseInt(g.wdhText, 10) || 5), g.rpe?.max ?? 8, koerperKg) ?? 0);
   const [alle, setAlle] = useState(true);
-  const [tippen, setTippen] = useState(eingabeTippen);
+  const [tippen, setTippen] = useState(false);
   const knopf = (f) => { setTippen(false); merkeEingabe(false); f(); };
   const best = BEST_E1RM[k.key];
   const zielRpe = s.rpe ?? g.rpe?.max ?? 9;
@@ -353,7 +352,7 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
 function WdhSheet({ t, s: z, zu, satz }) {
   const g = t.karten[z.ki].gruppen[z.gi], s = g.saetze[z.si];
   const [wdh, setWdh] = useState(Number.isFinite(s.wdh) ? s.wdh : parseInt(g.wdhText, 10) || 5);
-  const [tippen, setTippen] = useState(eingabeTippen);
+  const [tippen, setTippen] = useState(false);
   const ok = () => { satz(z.ki, z.gi, z.si, (x) => { x.wdh = wdh; x.geaendert = true; }); zu(); };
   return html`<${Sheet} zu=${zu} label="Wiederholungen">
     <div class="eyebrow">Wiederholungen · Satz ${z.si + 1}</div>

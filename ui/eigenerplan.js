@@ -54,7 +54,7 @@ export function EigenerPlan({ zurueck, speichern }) {
         <label>Sätze<input class="text" type="text" inputmode="numeric" value=${u.saetze} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].saetze = v; return x; }); }}/></label>
         <label>Wdh<input class="text" type="text" value=${u.wdh} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].wdh = v; return x; }); }}/></label>
         <label>RPE<input class="text" type="text" inputmode="decimal" value=${u.rpe} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].rpe = v; return x; }); }}/></label></div>`)}
-      ${suche === i ? html`<${UebungSuche} id=${`eigen-${i}`} autofokus=${true} onWahl=${(key) => { aendere(i, (x) => ({ ...x, uebungen: [...x.uebungen, { key, saetze: '3', wdh: '8-12', rpe: '8' }] })); setSuche(null); }}/>`
+      ${suche === i ? html`<${UebungSuche} id=${`eigen-${i}`} onWahl=${(key) => { aendere(i, (x) => ({ ...x, uebungen: [...x.uebungen, { key, saetze: '3', wdh: '8-12', rpe: '8' }] })); setSuche(null); }}/>`
         : html`<button class="btn btn-soft btn-sm" onClick=${() => setSuche(i)}>+ Übung hinzufügen</button>`}
     </section>`)}` : null}
 

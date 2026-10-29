@@ -216,7 +216,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
     ${sheet === 'zusammen' && e ? html`<${Sheet} zu=${() => !laeuft && setSheet(null)} label="Zusammenführen">
       <h2 class="h2">Zusammenführen</h2>
       ${!ziel ? html`<p class="muted" style="margin:0;font-size:14px">In welcher Übung soll „${nameVon(schluessel)}“ aufgehen?</p>
-        <${UebungSuche} id="zusammen-ziel" autofokus=${true} familien=${[e.f]} onWahl=${(k) => k !== e.k && setZiel(k)}/>`
+        <${UebungSuche} id="zusammen-ziel" familien=${[e.f]} onWahl=${(k) => k !== e.k && setZiel(k)}/>`
       : html`<p style="margin:0">„${nameVon(schluessel)}“ geht in <b>„${nameVon(ziel)}“</b> auf.</p>
         <ul style="margin:0;padding-left:18px;font-size:14px"><li>Alle Sätze aller Nutzer, Maxe, Anpassungen und Programme zeigen danach auf „${nameVon(ziel)}“.</li>
           <li>Der alte Name wird Suchbegriff (auch für den Jefit-Import).</li><li>Lässt sich nicht rückgängig machen.</li></ul>

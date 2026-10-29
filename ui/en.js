@@ -1251,6 +1251,13 @@ export const EN = new Map([
   ["Advanced Bench braucht mindestens 4 Wochen.", "Advanced Bench needs at least 4 weeks."],
   ["Bankdrücken und Oberkörper-Zubehör nach Advanced Bench (letzte Woche = Deload, davor AMRAP-Test; längere Blöcke mit Aufbauwochen, Variationen RPE 8 → 9); das neue Bank-Max kommt aus dem AMRAP.", "Bench press and upper-body accessories follow Advanced Bench (last week = deload, AMRAP test before; longer blocks get build-up weeks with variations RPE 8 → 9); the new bench max comes from the AMRAP."],
   ["eigene", "custom"],
+  ["Übungen zuordnen", "Match exercises"],
+  ["Aus deiner Datei:", "From your file:"],
+  ["Deine Wahl wird für spätere Importe gemerkt.", "Your choice is remembered for future imports."],
+  ["Vorschläge", "Suggestions"],
+  ["Andere Übung suchen", "Search another exercise"],
+  ["Import", "Import"],
+  ["Als frei wählbaren Platz übernehmen (Übung erst im Training wählen)", "Keep as a free slot (choose the exercise during training)"],
 ]);
 
 export const EN_MUSTER = [
@@ -1448,4 +1455,8 @@ export const EN_MUSTER = [
   ["{0} Übungen", "{0} exercises"],
   ["{0} Übungen passend zum Platz", "{0} exercises fit this slot"],
   ["zuletzt {0}", "last {0}"],
+  ["{0} zuklappen", "Collapse {0}"],
+  ["{0} aufklappen", "Expand {0}"],
+  ["Übung {0} von {1}", "Exercise {0} of {1}"],
+  ["Kommt {0}× vor – deine Wahl gilt für alle und wird für spätere Importe gemerkt.", "Appears {0}× – your choice applies to all of them and is remembered for future imports."],
 ];

@@ -1,10 +1,16 @@
 // PR Hunter · Programme – aktiver Block (Soll-Ist, neue Maxe aus dem Test), Vorlagen und eigene Programme, Detail mit
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
-import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld } from './basis.js';
+import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild } from './basis.js';
+import { UebungSuche } from './suche.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan } from './eigenerplan.js';
 import { useRef } from '../vendor/htm-preact.js';
 import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson } from '../js/import.js';
+
+// Import-Zuordnungen (Name aus der Datei → Katalogschlüssel), auf dem Gerät gemerkt: beim nächsten Import automatisch
+const ZUORDNUNG = 'prh-import-zuordnung';
+const ladeZuordnung = () => { try { return JSON.parse(localStorage.getItem(ZUORDNUNG) ?? '{}') ?? {}; } catch { return {}; } };
+const merkeZuordnung = (z) => { try { localStorage.setItem(ZUORDNUNG, JSON.stringify(z)); } catch { /* nur diese Sitzung */ } };
 import { pruefePana } from '../js/generator.js';
 import { HEUTE, DEMO, DIENSTE, plusTage } from './stand.js';
 import { INFO, BEISPIEL_MAXE, MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
@@ -264,6 +270,39 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
 
 const BEISPIEL_CSV = KI_ANLEITUNG.split('Beispiel:\n')[1].split('\n\nHier ist')[0];
 
+/** Unbekannte Übungen aus dem Import Schritt für Schritt zuordnen – jeder Name nur einmal, gilt für alle Zeilen damit. */
+function UebungenZuordnen({ liste, fertig, abbrechen }) {
+  const [i, setI] = useState(0);
+  const [wahl, setWahl] = useState({});
+  const [suchen, setSuchen] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); setSuchen(false); }, [i]);
+  const u = liste[i], n = liste.length;
+  const waehle = (key) => {
+    const neu = { ...wahl, [u.schluessel]: key };
+    setWahl(neu);
+    if (i + 1 < n) setI(i + 1); else fertig(neu);
+  };
+  return html`<div class="screen">
+    <header class="topbar unter">
+      <button class="iconbtn" onClick=${() => (i ? setI(i - 1) : abbrechen())} aria-label="Zurück">${I.zurueck}</button>
+      <div style="flex:1;min-width:0"><div class="eyebrow">Import</div><h1 class="h1" style="font-size:26px">Übungen zuordnen</h1></div>
+    </header>
+    <section class="card pad stack zuordnen">
+      <div class="row between"><span class="eyebrow">${`Übung ${i + 1} von ${n}`}</span><span class="muted" style="font-size:12.5px">${`noch ${n - i}`}</span></div>
+      <div class="ab-fortschritt" role="progressbar" aria-valuemin="0" aria-valuemax=${n} aria-valuenow=${i}><i style=${`width:${Math.round((i / n) * 100)}%`}></i></div>
+      <span class="muted" style="font-size:13px">Aus deiner Datei:</span>
+      <b class="zuordnen-name" translate="no">${`„${u.name}“`}</b>
+      <span class="muted" style="font-size:13px">${u.anzahl > 1 ? `Kommt ${u.anzahl}× vor – deine Wahl gilt für alle und wird für spätere Importe gemerkt.` : 'Deine Wahl wird für spätere Importe gemerkt.'}</span>
+      ${u.vorschlaege.length ? html`<span class="eyebrow" style="margin-top:6px">Vorschläge</span>
+        <div class="zuordnen-liste">${u.vorschlaege.map((k) => html`<button key=${k} class=${`zuordnen-treffer ${wahl[u.schluessel] === k ? 'gewaehlt' : ''}`} onClick=${() => waehle(k)}>
+          <${UebungsBild} schluessel=${k} groesse=${44} zoom=${false}/><span>${nameVon(k)}</span>${I.weiter ?? '›'}</button>`)}</div>` : null}
+      ${suchen ? html`<${UebungSuche} id="zuordnen-suche" onWahl=${waehle}/>`
+        : html`<button class="btn btn-soft btn-block" onClick=${() => setSuchen(true)}>${I.suche} Andere Übung suchen</button>`}
+      <button class="link" style="justify-self:start" onClick=${() => waehle('platz')}>Als frei wählbaren Platz übernehmen (Übung erst im Training wählen)</button>
+    </section>
+  </div>`;
+}
+
 /** Programm importieren: per KI als CSV (Anleitung kopieren, Antwort einfügen) oder direkt als JSON im App-Format. */
 function Import({ zurueck, speichern }) {
   const [art, setArt] = useState('csv');
@@ -271,7 +310,12 @@ function Import({ zurueck, speichern }) {
   const [ergebnis, setErgebnis] = useState(null);
   const [kopiert, setKopiert] = useState(null);
   const anleitung = useRef(null);
-  const pruefe = () => setErgebnis(art === 'csv' ? leseProgrammCsv(text, katalogListe()) : { ...pruefeProgrammJson(text, katalogListe()), zeilen: null });
+  const pruefe = (zu = ladeZuordnung()) => setErgebnis(art === 'csv' ? leseProgrammCsv(text, katalogListe(), zu) : { ...pruefeProgrammJson(text, katalogListe(), zu), zeilen: null });
+  const zuordnen = ergebnis?.unbekannt?.length ? ergebnis.unbekannt : null;
+  if (zuordnen) {
+    return html`<${UebungenZuordnen} liste=${zuordnen} abbrechen=${() => setErgebnis(null)}
+      fertig=${(wahl) => { const zu = { ...ladeZuordnung(), ...wahl }; merkeZuordnung(zu); pruefe(zu); }}/>`;
+  }
   const p = ergebnis?.programm;
   let tage = [];
   try { tage = p ? blockTage(p, { start: HEUTE, werte: { ...BEISPIEL_MAXE } }) : []; } catch { tage = []; }
@@ -300,7 +344,7 @@ function Import({ zurueck, speichern }) {
       <textarea id="import-feld" class="code" rows="9" placeholder=${art === 'csv' ? 'woche;tag;uebung;rolle;saetze;wdh;last;rpe;cut;notiz' : '{ "name": "…", "weeks": [ … ] }'} value=${text}
         onInput=${(e) => { setText(e.currentTarget.value); setErgebnis(null); }}></textarea>
       <div class="row">${art === 'csv' ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => { setText(BEISPIEL_CSV); setErgebnis(null); }}>Beispiel einsetzen</button>` : null}
-        <button class="btn btn-chalk" style="flex:1" disabled=${!text.trim()} onClick=${pruefe}>Prüfen</button></div>
+        <button class="btn btn-chalk" style="flex:1" disabled=${!text.trim()} onClick=${() => pruefe()}>Prüfen</button></div>
     </section>
     ${ergebnis?.fehler.length ? html`<section class="hint">${I.warn}<span class="t">${ergebnis.fehler.length} ${ergebnis.fehler.length === 1 ? 'Problem' : 'Probleme'} – nichts importiert</span><span></span>
       <ul style="margin:0;padding-left:18px">${ergebnis.fehler.slice(0, 12).map((f) => html`<li key=${f}>${f}</li>`)}</ul></section>` : null}
