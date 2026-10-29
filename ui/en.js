@@ -1258,6 +1258,19 @@ export const EN = new Map([
   ["Andere Übung suchen", "Search another exercise"],
   ["Import", "Import"],
   ["Als frei wählbaren Platz übernehmen (Übung erst im Training wählen)", "Keep as a free slot (choose the exercise during training)"],
+  ["1 Übung", "1 exercise"],
+  ["Kniebeuge-Max", "squat max"],
+  ["Bankdrück-Max", "bench max"],
+  ["Kreuzheb-Max", "deadlift max"],
+  ["Bank-Zielmax", "bench goal max"],
+  ["Last als 84 % (vom Max der Übung), 80%B+2,5 (anderer Max) oder 100kg", "Load as 84 % (of the exercise's max), 80%B+2.5 (other max) or 100kg"],
+  ["Training noch offen", "Training still open"],
+  ["Trainierst du noch?", "Are you still training?"],
+  ["Ja, ich trainiere noch", "Yes, I'm still training"],
+  ["Nein – Ende eintragen", "No – enter the end time"],
+  ["Wann hast du aufgehört?", "When did you stop?"],
+  ["Die Zeit muss zwischen Start und jetzt liegen.", "The time must be between the start and now."],
+  ["Speichern und beenden", "Save and finish"],
 ]);
 
 export const EN_MUSTER = [
@@ -1459,4 +1472,8 @@ export const EN_MUSTER = [
   ["{0} aufklappen", "Expand {0}"],
   ["Übung {0} von {1}", "Exercise {0} of {1}"],
   ["Kommt {0}× vor – deine Wahl gilt für alle und wird für spätere Importe gemerkt.", "Appears {0}× – your choice applies to all of them and is remembered for future imports."],
+  ["% = Prozent vom {0}", "% = percent of {0}"],
+  ["Dein Training läuft seit {0} h {1} min. Vielleicht hast du vergessen, es zu beenden.", "Your training has been running for {0} h {1} min. Maybe you forgot to finish it."],
+  ["Ende (Start {0})", "End (start {0})"],
+  ["Dauer {0} h {1} min", "Duration {0} h {1} min"],
 ];

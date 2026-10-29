@@ -1,7 +1,7 @@
 // PR Hunter · Programm-Editor (Funktionskatalog „Bearbeiten“): Wochen und Tage, Übungen tauschen, hinzufügen,
 // entfernen und umsortieren, Sätze/Wdh/Last/RPE ändern, Tage verschieben, Wochen duplizieren. Speichern überschreibt
 // das Programm (keine Versionen, Nikos Entscheidung 23.10.2026); bei Pana-Warnungen vorher nachfragen.
-import { html, useState, I, Sheet, nameVon, datumKurz, katalogListe, rollenText, sprache } from './basis.js';
+import { html, useState, I, Sheet, nameVon, datumKurz, katalogListe, rollenText, sprache, liftVon } from './basis.js';
 import { leseSaetze, leseWdh, formelNamen } from '../js/programm.js';
 import { lastText, textZuLast, leseRpeFeld, pruefeProgrammJson } from '../js/import.js';
 import { pruefePana } from '../js/generator.js';
@@ -28,18 +28,25 @@ const liesWdh = (t) => {
   const s = t.trim().replace(/^amrap\s*/i, 'MR');
   return !s ? { fehler: true } : leseWdh(s)?.text ? { fehler: true } : { wert: s };
 };
-const liesLast = (namen) => (t) => { const r = textZuLast(t, namen); return r.fehler ? { fehler: true } : { wert: r.load }; };
+// 158: Prozent ohne Kürzel gelten für den Max des eigenen Lifts (Kniebeuge → S …); andere Bezüge behalten ihr Kürzel
+const KUERZEL = { squat: 'S', bench: 'B', dead: 'D' };
+const MAX_TEXT = { S: 'Kniebeuge-Max', B: 'Bankdrück-Max', D: 'Kreuzheb-Max', G: 'Bank-Zielmax' };
+const ohneKuerzel = (text, std) => (std ? text.replace(new RegExp(`%${std}(?![A-Z])`), ' %') : text);
+const mitKuerzel = (text, std) => (std ? text.replace(/%(?!\s*[SBDG])/i, `%${std}`) : text);
+const liesLast = (namen, std) => (t) => { const r = textZuLast(mitKuerzel(t, std), namen); return r.fehler ? { fehler: true } : { wert: r.load }; };
 const liesRpe = (t) => { const r = leseRpeFeld(t); return r.fehler ? { fehler: true } : { wert: r.rpe }; };
 const liesZahl = (t) => { const n = Number(t.trim().replace(',', '.')); return t.trim() && Number.isFinite(n) && n >= 0 ? { wert: n } : { fehler: true }; };
 
-function Gruppe({ g, setze, entfernen, namen }) {
+function Gruppe({ g, setze, entfernen, namen, std = null }) {
+  const bezug = (lastText(g.load).match(/%([SBDG])/) ?? [])[1];
   return html`<div class="ed-gruppe">
     <${Feld} label="Sätze" wert=${g.sets ?? ''} lies=${liesSaetze} setze=${(v) => setze({ sets: v })}/>
     <${Feld} label="Wdh" wert=${g.reps ?? ''} lies=${liesWdh} setze=${(v) => setze({ reps: v })}/>
-    <${Feld} label="Last" wert=${lastText(g.load)} lies=${liesLast(namen)} platzhalter="frei" setze=${(v) => setze({ load: v })}/>
+    <${Feld} label="Last" wert=${ohneKuerzel(lastText(g.load), std)} lies=${liesLast(namen, std)} platzhalter="frei" setze=${(v) => setze({ load: v })}/>
     <button class="mini-btn" aria-label="Satzgruppe entfernen" onClick=${entfernen}>×</button>
     <${Feld} label="RPE" halb=${true} wert=${rpeEingabe(g.rpe)} lies=${liesRpe} platzhalter="–" setze=${(v) => setze({ rpe: v })}/>
     <${Feld} label="Notiz" halb=${true} wert=${g.note ?? ''} lies=${(t) => ({ wert: t.trim() || null })} setze=${(v) => setze({ note: v })}/>
+    ${bezug ? html`<span class="ed-bezug">${`% = Prozent vom ${MAX_TEXT[bezug]}`}</span>` : null}
   </div>`;
 }
 
@@ -49,7 +56,8 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
   const [geaendert, setGeaendert] = useState(false);
   const [sheet, setSheet] = useState(null);       // { art: 'tausch' | 'neu', di, ii } | { art: 'speichern' | 'verwerfen' | 'woche-weg' }
   const [speichert, setSpeichert] = useState(false);
-  const [stand, setStand] = useState(0);          // erzwingt neue Eingabefelder nach Umbauten (Feld hält eigenen Text)
+  const [stand, setStand] = useState(0);
+  const [offenTag, setOffenTag] = useState(null);   // 157: nur ein Tag aufgeklappt (Woche-Index + Tag-Index)          // erzwingt neue Eingabefelder nach Umbauten (Feld hält eigenen Text)
   const aendere = (fn, neuAufbauen = false) => {
     setDef((d) => { const n = structuredClone(d); fn(n); return n; });
     setGeaendert(true);
@@ -106,13 +114,14 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
         ${def.weeks.length > 1 ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setSheet({ art: 'woche-weg' })}>Woche löschen</button>` : null}
         <button class="btn btn-soft btn-sm" onClick=${neuerTag}>＋ Tag</button>
       </div>
-      ${w.days.map((d, di) => html`<div class="ed-tag" key=${`${d.offset}-${di}`}>
-        <div class="row between"><b>${tagName(d.offset)}</b>
+      ${w.days.map((d, di) => { const auf = offenTag === `${wIndex}-${di}`; return html`<div class=${`ed-tag ${auf ? 'auf' : 'zu'}`} key=${`${d.offset}-${di}`}>
+        <div class="row between"><button class="ed-tag-kopf" aria-expanded=${String(auf)} onClick=${() => setOffenTag(auf ? null : `${wIndex}-${di}`)}>
+          <b>${tagName(d.offset)}</b><span class="muted">${d.items.length === 1 ? '1 Übung' : `${d.items.length} Übungen`}</span><span class="ed-pfeil">${auf ? '▾' : '▸'}</span></button>
           <span class="row" style="gap:4px">
             <button class="mini-btn" aria-label="Einen Tag früher" disabled=${d.offset === 0 || belegt.has(d.offset - 1)} onClick=${() => verschiebe(di, -1)}>‹</button>
             <button class="mini-btn" aria-label="Einen Tag später" disabled=${belegt.has(d.offset + 1)} onClick=${() => verschiebe(di, 1)}>›</button>
             <button class="mini-btn" aria-label="Tag entfernen" onClick=${() => aendere((n) => { n.weeks[wIndex].days.splice(di, 1); }, true)}>×</button></span></div>
-        ${d.items.map((it, ii) => html`<div class="ed-item" key=${`${ii}-${it.exercise_key ?? it.slot?.label}`}>
+        ${auf ? d.items.map((it, ii) => html`<div class="ed-item" key=${`${ii}-${it.exercise_key ?? it.slot?.label}`}>
           <div class="row between" style="align-items:flex-start;gap:8px">
             <button class="ed-name" onClick=${() => setSheet({ art: 'tausch', di, ii })}>${it.exercise_key ? nameVon(it.exercise_key, it.exercise) : `${it.slot?.label ?? it.exercise} (frei)`} <span class="muted">⇄</span></button>
             <span class="row" style="gap:4px;flex:none">
@@ -121,18 +130,18 @@ export function Editor({ datei, programm, start = null, zurueck, toast }) {
               <button class="mini-btn" aria-label="Übung entfernen" onClick=${() => aendere((n) => { n.weeks[wIndex].days[di].items.splice(ii, 1); }, true)}>×</button></span></div>
           <label class="ed-feld"><span>Rolle</span><select value=${it.role ?? ''} onChange=${(e) => aendere((n) => { const v = e.currentTarget.value; const x = n.weeks[wIndex].days[di].items[ii]; if (v) x.role = v; else delete x.role; })}>
             <option value="">–</option>${Object.entries(rollenText).map(([k, t]) => html`<option key=${k} value=${k}>${t}</option>`)}</select></label>
-          ${it.groups.map((g, gi) => html`<${Gruppe} key=${gi} g=${g} namen=${formelNamen(def)}
+          ${it.groups.map((g, gi) => html`<${Gruppe} key=${gi} g=${g} namen=${formelNamen(def)} std=${it.exercise_key ? KUERZEL[liftVon(it.exercise_key)] ?? null : null}
             setze=${(teil) => aendere((n) => { const x = n.weeks[wIndex].days[di].items[ii].groups[gi]; for (const [k, v] of Object.entries(teil)) { if (v == null) delete x[k]; else x[k] = v; } })}
             entfernen=${() => aendere((n) => { n.weeks[wIndex].days[di].items[ii].groups.splice(gi, 1); }, true)}/>`)}
           <button class="link" style="align-self:flex-start" onClick=${() => aendere((n) => { const l = n.weeks[wIndex].days[di].items[ii].groups; l.push({ ...structuredClone(l.at(-1) ?? { sets: '3', reps: '5' }) }); }, true)}>＋ Satzgruppe</button>
-        </div>`)}
-        <button class="btn btn-soft btn-sm" onClick=${() => setSheet({ art: 'neu', di })}>＋ Übung</button>
-      </div>`)}
+        </div>`) : null}
+        ${auf ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet({ art: 'neu', di })}>＋ Übung</button>` : null}
+      </div>`; })}
     </section>
     ${pana.fehler.length ? html`<section class="hint">${I.warn}<span class="t">Pana-Prüfung: ${pana.fehler.length} ${pana.fehler.length === 1 ? 'Warnung' : 'Warnungen'}</span><span></span>
       <ul style="margin:0;padding-left:18px;font-size:13.5px">${pana.fehler.slice(0, 8).map((f) => html`<li key=${f}>${f}</li>`)}</ul></section>` : null}
     <button class="btn btn-chalk btn-block" disabled=${!geaendert || speichert} onClick=${() => (pana.fehler.length ? setSheet({ art: 'speichern' }) : speichern())}>${speichert ? 'Speichert …' : 'Speichern'}</button>
-    <span class="muted" style="font-size:12.5px;text-align:center">Last als 84%S, 80%B+2,5 oder 100kg · Wdh 5, 8-12 oder AMRAP · RPE 8, 7-8 oder 2 RIR${def.rules?.generator
+    <span class="muted" style="font-size:12.5px;text-align:center">Last als 84 % (vom Max der Übung), 80%B+2,5 (anderer Max) oder 100kg · Wdh 5, 8-12 oder AMRAP · RPE 8, 7-8 oder 2 RIR${def.rules?.generator
       ? ` · Prozent vom echten 1RM, das Trainingsmax (${Math.round(def.rules.generator.tm * 100)} %) ist schon eingerechnet` : ''}</span>
 
     ${sheet?.art === 'tausch' || sheet?.art === 'neu' ? html`<${Sheet} zu=${() => setSheet(null)} label=${sheet.art === 'neu' ? 'Übung hinzufügen' : 'Übung tauschen'}>

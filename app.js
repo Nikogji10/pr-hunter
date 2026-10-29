@@ -17,6 +17,7 @@ import { Feed } from './ui/feed.js';
 import { Einfuehrung, einfuehrungOffen } from './ui/einfuehrung.js';
 import { Abschluss, abschlussAus } from './ui/abschluss.js';
 import { BereitschaftSheet } from './ui/bereitschaft.js';
+import { LangeOffenSheet, langeOffen } from './ui/langeoffen.js';
 import { GewichtKarte } from './ui/gewicht.js';
 import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung } from './ui/hintergrund.js';
 import { setzeSprache } from './ui/sprache.js';
@@ -304,6 +305,7 @@ function App() {
   const [bereit, setBereit] = useState(null);                   // Readiness-Check vor dem Start: { tag } oder { frei: true }
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
   const [abschluss, setAbschluss] = useState(null);
+  const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
   const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
   const sp = useRef(null);
@@ -635,6 +637,14 @@ function App() {
     });
   }
 
+  // Training > 4 h offen: beim Öffnen, bei Rückkehr in die App und jede Minute prüfen (153); Hooks vor den frühen returns
+  useEffect(() => {
+    const pruefe = () => { if (langeOffen(training)) setLange(true); };
+    pruefe();
+    const iv = setInterval(pruefe, 60000);
+    addEventListener('visibilitychange', pruefe);
+    return () => { clearInterval(iv); removeEventListener('visibilitychange', pruefe); };
+  }, [training?.id, training?.nachgefragt]);
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
   if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="muted">Lade …</p></div>`;
   if (phase === 'anmelden') return html`<${Anmeldung} angemeldet=${(s) => starte({ id: s.user.id, email: s.user.email })}
@@ -704,8 +714,8 @@ function App() {
   const starten = (tag) => { if (training) gehe('training'); else if (mitCheck) setBereit({ tag }); else startePlan(tag); };
   const freiStarten = () => { if (mitCheck) setBereit({ frei: true }); else starteFrei(); };
   const startenAm = (d) => { const t = tage.find((x) => x.datum === d); if (t) starten(t); };
-  const beenden = async ({ sessionRpe = null, notiz = null, verwerfen = false } = {}) => {
-    const t = training;
+  const beenden = async ({ sessionRpe = null, notiz = null, verwerfen = false, ende = null } = {}) => {
+    const t = ende ? { ...training, ende } : training;     // ende: von Hand eingetragen (vergessenes Training)
     const fertig = alleSaetze(t).filter((s) => s.erledigt).length;
     setTraining(null); setTimer(null);
     try { sperre.current?.release(); } catch { /* egal */ }
@@ -715,10 +725,10 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
-    if (!t.bearbeiten) { setAbschluss(abschlussAus(t)); vibriere([120, 80, 160]); }   // gespeichert: doppelt
+    if (!t.bearbeiten) { setAbschluss(abschlussAus(t, ende ? Date.parse(ende) : Date.now())); vibriere([120, 80, 160]); }   // gespeichert: doppelt
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
     // Beim Bearbeiten bleiben Ende und Körpergewicht des Originals, sonst gelten jetzt und das aktuelle Körpergewicht
-    const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.bearbeiten && t.ende ? { ende: t.ende } : {}),
+    const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.ende && (t.bearbeiten || ende) ? { ende: t.ende } : {}),
       koerpergewicht: (t.bearbeiten ? t.koerpergewicht : null) ?? einstUi.koerpergewicht ?? null });
     await sp.current.schreibe(w);
     setTrainings((alt) => [...alt.filter((x) => x.id !== w.id), w]);
@@ -874,6 +884,8 @@ function App() {
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
     ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
+    ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
+      beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
     <${BildLupe}/>
     ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)} zuProgrammen=${aktiverBlock ? null : () => gehe('programme')}/>` : null}
   </div>`;

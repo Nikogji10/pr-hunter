@@ -223,14 +223,16 @@ export function Sheet({ zu, children, label = 'Dialog' }) {
   zuRef.current = zu;
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && zuRef.current();
+    // eigene Kennung je Sheet: Zurück aus der Bildlupe (Zustand mit derselben Kennung) lässt das Sheet offen (156)
+    const id = (Number(history.state?.sheet) || 0) + 1;
     let perZurueck = false;
-    const pop = () => { perZurueck = true; zuRef.current(); };
-    history.pushState({ ...(history.state ?? {}), sheet: true }, '');
+    const pop = (e) => { if (e.state?.sheet === id) return; perZurueck = true; zuRef.current(); };
+    history.pushState({ ...(history.state ?? {}), sheet: id }, '');
     addEventListener('keydown', k);
     addEventListener('popstate', pop);
     return () => {
       removeEventListener('keydown', k); removeEventListener('popstate', pop);
-      if (!perZurueck && history.state?.sheet) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
+      if (!perZurueck && history.state?.sheet === id) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
     };
   }, []);
   // Nach unten wegziehen: nur wenn der Inhalt ganz oben steht und die Geste eindeutig nach unten geht

@@ -1371,3 +1371,12 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .zuordnen-treffer:active { transform: scale(.98); }
 .zuordnen-treffer.gewaehlt { border-color: var(--acc); }
 .zuordnen-treffer svg { width: 18px; height: 18px; color: var(--muted); }
+
+/* 157/162: Tage zugeklappt, Kopf antippbar */
+.ed-tag-kopf, .eigen-tag-kopf { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; text-align: left; color: var(--ink); padding: 4px 0; }
+.ed-tag-kopf b { font-size: 16px; }
+.ed-tag-kopf .muted { font-size: 12.5px; }
+.ed-pfeil { margin-left: auto; color: var(--muted); font-size: 14px; }
+.ed-tag.zu { padding-bottom: 6px; }
+.ed-tag .row.between:first-child { flex-wrap: nowrap; gap: 6px; }
+.ed-bezug { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }

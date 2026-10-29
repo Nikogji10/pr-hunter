@@ -208,12 +208,15 @@ function useWischen(links, rechts) {
   return { ref: el, onTouchStart: start, onTouchMove: zug, onTouchEnd: ende, onTouchCancel: ende };
 }
 
+// Akkordeon (159): eine Übung aufklappen klappt alle anderen zu
+const nurOffen = (ki) => (ks) => { ks.forEach((x, j) => { if (x.key) x.zu = j !== ki; }); };
+
 function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
-  const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere((ks) => { ks[ki].zu = !ks[ki].zu; }));
+  const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere(k.zu ? nurOffen(ki) : (ks) => { ks[ki].zu = true; }));
   if (k.zu) {
     const alle = k.gruppen.flatMap((g) => g.saetze), fertig = alle.filter((s) => s.erledigt).length;
     return html`<section class=${`card ex eingeklappt ${gedimmt ? 'gedimmt' : ''}`} ...${wisch}>
-      <button class="ex-zu" onClick=${() => aendere((ks) => { ks[ki].zu = false; })} aria-label=${`${nameVon(k.key)} aufklappen`}>
+      <button class="ex-zu" onClick=${() => aendere(nurOffen(ki))} aria-label=${`${nameVon(k.key)} aufklappen`}>
         <${UebungsBild} schluessel=${k.key} groesse=${32}/><b>${nameVon(k.key)}</b>
         <span class=${fertig === alle.length ? 'ok' : 'muted'}>${fertig}/${alle.length} ${fertig === alle.length ? '✓' : 'Sätze'}</span></button>
     </section>`;

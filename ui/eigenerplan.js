@@ -28,6 +28,7 @@ export function EigenerPlan({ zurueck, speichern }) {
   const [wochen, setWochen] = useState(6);
   const [tage, setTage] = useState([neuerTag(0), neuerTag(1), neuerTag(2)]);
   const [suche, setSuche] = useState(null);                  // Tag, für den gerade eine Übung gesucht wird
+  const [offen, setOffen] = useState(null);                  // 162: nur ein Tag aufgeklappt
   useEffect(() => window.scrollTo(0, 0), [schritt]);
   const aendere = (i, f) => setTage((alt) => alt.map((t, j) => (j === i ? f(structuredClone(t)) : t)));
   const anzahl = (n) => setTage((alt) => Array.from({ length: n }, (_, i) => alt[i] ?? neuerTag(i)));
@@ -48,13 +49,16 @@ export function EigenerPlan({ zurueck, speichern }) {
       <span class="muted" style="font-size:12.5px">Zum Beispiel „Push“, „Pull“, „Beine“ oder „Oberkörper“. Die Woche wiederholt sich – steigern kannst du beim Training über Gewicht und Wdh.</span>
     </section>` : null}
 
-    ${schritt === 2 ? html`${tage.map((t, i) => html`<section key=${i} class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">${BUCHSTABE[i]}</span><span class="viz-t">${t.name}</span></div>
-      ${t.uebungen.map((u, j) => html`<div key=${j} class="eigen-uebung"><b>${nameVon(u.key, u.key)}</b>
+    ${schritt === 2 ? html`${tage.map((t, i) => html`<section key=${i} class=${`card pad stack eigen-tag ${offen === i ? 'auf' : ''}`}>
+      <button class="schritt-kopf eigen-tag-kopf" aria-expanded=${String(offen === i)} onClick=${() => { setOffen(offen === i ? null : i); setSuche(null); }}>
+        <span class="rechner-nr">${BUCHSTABE[i]}</span><span class="viz-t">${t.name}</span>
+        <span class="muted" style="margin-left:auto;font-size:12.5px">${t.uebungen.length === 1 ? '1 Übung' : `${t.uebungen.length} Übungen`}</span><span class="ed-pfeil">${offen === i ? '▾' : '▸'}</span></button>
+      ${offen !== i ? null : t.uebungen.map((u, j) => html`<div key=${j} class="eigen-uebung"><b>${nameVon(u.key, u.key)}</b>
         <button class="iconbtn klein" aria-label="Übung entfernen" onClick=${() => aendere(i, (x) => ({ ...x, uebungen: x.uebungen.filter((_, k) => k !== j) }))}>${I.zu}</button>
         <label>Sätze<input class="text" type="text" inputmode="numeric" value=${u.saetze} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].saetze = v; return x; }); }}/></label>
         <label>Wdh<input class="text" type="text" value=${u.wdh} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].wdh = v; return x; }); }}/></label>
         <label>RPE<input class="text" type="text" inputmode="decimal" value=${u.rpe} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].rpe = v; return x; }); }}/></label></div>`)}
-      ${suche === i ? html`<${UebungSuche} id=${`eigen-${i}`} onWahl=${(key) => { aendere(i, (x) => ({ ...x, uebungen: [...x.uebungen, { key, saetze: '3', wdh: '8-12', rpe: '8' }] })); setSuche(null); }}/>`
+      ${offen !== i ? null : suche === i ? html`<${UebungSuche} id=${`eigen-${i}`} onWahl=${(key) => { aendere(i, (x) => ({ ...x, uebungen: [...x.uebungen, { key, saetze: '3', wdh: '8-12', rpe: '8' }] })); setSuche(null); }}/>`
         : html`<button class="btn btn-soft btn-sm" onClick=${() => setSuche(i)}>+ Übung hinzufügen</button>`}
     </section>`)}` : null}
 
