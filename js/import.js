@@ -363,7 +363,34 @@ export function leseDatum(text) {
  * CSV → { trainings: [{ datum, uebungen: [{ key, saetze: [{ kg, wdh, rpe, notiz }] }] }], unbekannt, fehler, zeilen }.
  * Unbekannte Übungen kommen gesammelt (je Name einmal) zurück; die Zuordnung (Name → Schlüssel) gilt für alle Zeilen.
  */
+/**
+ * Jefit-Gesamtexport (Abschnitte „### EXERCISE LOGS ###“): je Eintrag Datum, Übungsname und logs „kg x wdh, …“ (kg).
+ * Zeitübungen (Fünfergruppen ohne Gewicht, z. B. Plank) und leere Sätze fallen weg. Ergebnis im eigenen CSV-Format.
+ */
+export function jefitZuCsv(text) {
+  const teil = String(text).split(/^###\s*EXERCISE LOGS\s*#+\s*$/m)[1];
+  if (teil == null) return null;
+  const zeilen = teil.split(/\r?\n/).map((z) => z.trim()).filter(Boolean);
+  const ende = zeilen.findIndex((z) => z.startsWith('######'));
+  const block = ende >= 0 ? zeilen.slice(0, ende) : zeilen;
+  const kopf = zerlegeZeile(block[0] ?? '', ',').map((s) => s.toLowerCase());
+  const iD = kopf.indexOf('mydate'), iN = kopf.indexOf('ename'), iL = kopf.indexOf('logs');
+  if (iD < 0 || iN < 0 || iL < 0) return null;
+  const aus = ['datum;uebung;kg;wdh'];
+  for (const z of block.slice(1)) {
+    const f = zerlegeZeile(z, ',');
+    const saetze = (f[iL] ?? '').split(',').map((s) => s.split('x').map(Number)).filter((s) => s.length === 2 && s.every(Number.isFinite));
+    const zeitform = saetze.length % 5 === 0 && saetze.every(([kg]) => kg === 0);
+    if (!saetze.length || zeitform) continue;
+    const name = (f[iN] ?? '').replace(/;/g, ',');
+    for (const [kg, wdh] of saetze) if (wdh > 0) aus.push(`${f[iD]};${name};${Math.round(kg * 100) / 100};${wdh}`);
+  }
+  return aus.join('\n');
+}
+
 export function leseTrainingsCsv(text, katalog, zuordnung = {}) {
+  const jefit = /^###\s*EXERCISE LOGS/m.test(String(text)) ? jefitZuCsv(text) : null;
+  if (jefit) return leseTrainingsCsv(jefit, katalog, zuordnung);
   const fehler = [], unbekannt = sammler(katalog), index = katalogIndex(katalog);
   const zeilen = String(text).replace(/^﻿/, '').split(/\r?\n/);
   let kopf = null, trenner = ';', gelesen = 0;

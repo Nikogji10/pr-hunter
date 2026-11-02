@@ -38,7 +38,7 @@ export function TrainingsImport({ zurueck, vorhandene, importieren }) {
       <p>${`${fertig.saetze} Sätze sind jetzt im Verlauf und in der Statistik. Sie werden mit dem Konto abgeglichen.`}</p></section>` : null}
     <section class="card pad stack">
       <span class="viz-t">1 · In der alten App exportieren</span>
-      <p class="muted" style="margin:0;font-size:14px">JEFIT, Strong, Hevy, Fitbod & Co. bieten in den Einstellungen einen Export als CSV- oder Textdatei. Strong- und Hevy-Dateien gehen direkt, alles andere über die KI.</p>
+      <p class="muted" style="margin:0;font-size:14px">JEFIT, Strong, Hevy, Fitbod & Co. bieten in den Einstellungen einen Export als CSV- oder Textdatei. JEFIT-, Strong- und Hevy-Dateien gehen direkt, alles andere über die KI.</p>
     </section>
     <section class="card pad stack">
       <span class="viz-t">2 · Datei hochladen oder per KI umwandeln</span>

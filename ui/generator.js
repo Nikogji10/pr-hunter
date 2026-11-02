@@ -1,6 +1,6 @@
 // PR Hunter · Block-Generator (Funktionskatalog „Block-Generator“): Eingaben, Prüfung gegen die Pana-Grenzen,
 // Wochenübersicht in kg und Speichern als eigenes Programm. Die Rechnung steckt in js/generator.js.
-import { html, useState, useEffect, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz } from './basis.js';
+import { html, useState, useEffect, fmt, I, datumKurz, katalogListe, nameVon, gw, einheit, ZahlFeld, LIFT, liftVon, wtKurz, useSitzung } from './basis.js';
 import { generiere, wochenBis, STANDARD_VARIANTEN, haeufigkeiten } from '../js/generator.js';
 import { Schritte, useSchritte } from './bbgenerator.js';
 import { HEUTE, plusTage } from './stand.js';
@@ -46,11 +46,11 @@ function satzText(tag, key, rolle) {
 }
 
 export function GeneratorAnsicht({ zurueck, einst, speichern, vorlagen = {}, vorgabe = null }) {
-  const [f, setF] = useState(() => startFormular(einst, vorgabe));
-  const [werte, setWerte] = useState(() => { const s = startMaxe(); return { S: s.S, D: s.D, B: s.B, G: s.G }; });
+  const [f, setF] = useSitzung('prh-gen-pl-formular', () => startFormular(einst, vorgabe));
+  const [werte, setWerte] = useSitzung('prh-gen-pl-werte', () => { const s = startMaxe(); return { S: s.S, D: s.D, B: s.B, G: s.G }; });
   const setze = (k, v) => setF((alt) => ({ ...alt, [k]: v }));
   // Schritt für Schritt statt alles auf einmal; jeder Schritt beginnt oben
-  const [schritt, weiter, zurueckSchritt] = useSchritte();
+  const [schritt, weiter, zurueckSchritt] = useSchritte('prh-gen-pl-schritt');
   const wochen = f.dauer === 'datum' ? (f.ende ? wochenBis(f.start, f.ende) : null) : f.wochen;
   // Bankdrücken: Advanced Bench ist Standard ab 4 Wochen, sonst ohne Bank; eine Wahl bleibt
   const bank = f.bank ?? (wochen >= 4 && vorlagen.candito_int_adv_bench ? 'candito' : 'keine');

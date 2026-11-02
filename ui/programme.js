@@ -1,6 +1,6 @@
 // PR Hunter · Programme – aktiver Block (Soll-Ist, neue Maxe aus dem Test), Vorlagen und eigene Programme, Detail mit
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
-import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild } from './basis.js';
+import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan, eigenerPlanAus } from './eigenerplan.js';
@@ -55,7 +55,9 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const mitVertrauen = programme[block?.datei]?.rules?.projection?.method === 'rpe10_table';
   const neueMaxe = neueMaxeFuer?.(mitVertrauen ? vertrauen : null) ?? {};
   // { art: 'detail' | 'import' | 'generator' | 'editor', datei, werte, start, ausTest, vorgabe }
-  const [ansicht, setAnsicht] = useState(null);
+  // Unterseite (Generator, Eigener Plan …) übersteht einen Seitenwechsel; „Zurück zur Liste“ oder Speichern setzt sie zurück
+  const [ansicht, setAnsichtRoh] = useSitzung('prh-gen-ansicht', null);
+  const setAnsicht = (a) => { if (a == null) sitzungLeeren('prh-gen-'); setAnsichtRoh(a); };
   useEffect(() => window.scrollTo(0, 0), [ansicht?.art]);           // Unterseiten (Generatoren, Detail) beginnen oben
   const [beenden, setBeenden] = useState(false);
   const [neuOffen, setNeuOffen] = useState(false);         // „Neuen Plan erstellen“ aufgeklappt
@@ -75,6 +77,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
     try {
       const d = await importieren(p, herkunft);
+      sitzungLeeren('prh-gen-');
       oeffne({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start });
       toast({ titel: 'Programm gespeichert', text: p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }

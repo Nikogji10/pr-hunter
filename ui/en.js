@@ -1445,6 +1445,14 @@ export const EN = new Map([
   ["★ Neuer Rekord", "★ New record"],
   ["Körpergewicht fehlt – auf „Heute“ eintragen, dann rechnet die App mit der Gesamtlast.", "Body weight missing – enter it on “Today” so the app can use the total load."],
   ["Empfohlen", "Recommended"],
+  ["Messungen", "Measurements"],
+  ["erreicht", "reached"],
+  ["Trend", "Trend"],
+  ["Tiefster", "Lowest"],
+  ["Höchster", "Highest"],
+  ["Mindestens zwei Werte für einen Verlauf.", "At least two values for a trend."],
+  ["Verlauf Körpergewicht", "Body weight trend"],
+  ["JEFIT, Strong, Hevy, Fitbod & Co. bieten in den Einstellungen einen Export als CSV- oder Textdatei. JEFIT-, Strong- und Hevy-Dateien gehen direkt, alles andere über die KI.", "JEFIT, Strong, Hevy, Fitbod & co. offer an export as CSV or text file in their settings. JEFIT, Strong and Hevy files work directly, everything else via AI."],
 ]);
 
 export const EN_MUSTER = [
@@ -1670,4 +1678,8 @@ export const EN_MUSTER = [
   ["{0} Trainings und {1} Programme ergänzt.", "{0} workouts and {1} programs added."],
   ["{0} anzeigen", "Show {0}"],
   ["{0} (inkl. KG)", "{0} (incl. BW)"],
+  ["seit {0} · {1} Messungen", "since {0} · {1} measurements"],
+  ["seit {0} · {1} Wochen", "since {0} · {1} weeks"],
+  ["noch {0} {1}", "{0} {1} to go"],
+  ["{0} je Woche", "{0} per week"],
 ];

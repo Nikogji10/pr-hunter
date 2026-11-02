@@ -1,6 +1,6 @@
 // PR Hunter · Fachbegriffe einfach erklärt (Wunsch 163 c/d): ein Fenster mit allen Begriffen, ein kleines „?“ öffnet es
 // an der passenden Stelle. Aus dem Seitenmenü („Begriffe erklärt“) und im Training neben RPE/Top-Satz/Back-off erreichbar.
-import { html, useState, useEffect, Sheet, Portal } from './basis.js';
+import { html, useEffect, Sheet, zeigeFenster } from './basis.js';
 
 export const BEGRIFFE = [
   ['rpe', 'RPE', 'Wie schwer ein Satz war, auf einer Skala bis 10. RPE 10 = keine Wiederholung mehr möglich, RPE 8 = noch 2 Wiederholungen im Tank, RPE 7 = noch 3. Wer neu ist: lieber leicht schätzen und sauber bleiben.'],
@@ -28,7 +28,5 @@ export function GlossarSheet({ start = null, zu }) {
 
 /** Kleines „?“: öffnet die Erklärung des Begriffs (Fenster unter <body>, damit Karten es nicht einsperren). */
 export function InfoKnopf({ begriff }) {
-  const [auf, setAuf] = useState(false);
-  return html`<button class="info-knopf" onClick=${(e) => { e.stopPropagation(); setAuf(true); }} aria-label="Begriff erklären">?</button>
-    ${auf ? html`<${Portal}><${GlossarSheet} start=${begriff} zu=${() => setAuf(false)}/><//>` : null}`;
+  return html`<button class="info-knopf" onClick=${(e) => { e.stopPropagation(); zeigeFenster((zu) => html`<${GlossarSheet} start=${begriff} zu=${zu}/>`); }} aria-label="Begriff erklären">?</button>`;
 }

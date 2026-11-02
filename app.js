@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -394,6 +394,16 @@ function App() {
   const [training, setTraining] = useState(null);
   const [timer, setTimer] = useState(null);
   const [toast, setToast] = useState(null);
+  // Meldungen zur Seite oder nach oben wegwischen
+  const toastZug = useRef(null);
+  const toastWisch = {
+    onTouchStart: (e) => { toastZug.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, el: e.currentTarget }; e.currentTarget.style.transition = 'none'; },
+    onTouchMove: (e) => { const z = toastZug.current; if (!z) return; const dx = e.touches[0].clientX - z.x, dy = Math.min(0, e.touches[0].clientY - z.y);
+      z.dx = dx; z.dy = dy; z.el.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`; z.el.style.opacity = String(Math.max(0.2, 1 - Math.max(Math.abs(dx), -dy) / 220)); },
+    onTouchEnd: () => { const z = toastZug.current; toastZug.current = null; if (!z) return; z.el.style.transition = 'transform .18s ease, opacity .18s ease';
+      if (Math.abs(z.dx ?? 0) > 70 || (z.dy ?? 0) < -40) { z.el.style.transform = `translate(calc(-50% + ${Math.sign(z.dx ?? 0) * (Math.abs(z.dx ?? 0) > 70 ? 120 : 0)}vw), ${(z.dy ?? 0) < -40 ? -160 : 0}px)`; z.el.style.opacity = '0'; setTimeout(() => setToast(null), 170); }
+      else { z.el.style.transform = ''; z.el.style.opacity = ''; } },
+  };
   const [menue, setMenue] = useState(false);
   const [glossar, setGlossar] = useState(false);                // 163: Begriffe erklärt
   const [feedback, setFeedback] = useState(null);              // 126: { art, betrifft, name }
@@ -403,7 +413,7 @@ function App() {
   const [nachbar, setNachbar] = useState(null);                  // beim Wischen: { key, art } der Seite, die hereinkommt
   const [menueZug, setMenueZug] = useState(false);               // Seitenmenü wird gerade aufgezogen
   const [menueGezogen, setMenueGezogen] = useState(false);       // per Wischen geöffnet: Einblend-Animation nicht nochmal
-  const hauptRef = useRef(null), nachbarRef = useRef(null);
+  const hauptRef = useRef(null), nachbarRef = useRef(null), zugUnter = useRef(null);
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -776,9 +786,14 @@ function App() {
     seitenWechsel: () => !!wischRef.current.reiter,
     zug: {
       start: (art) => {
+        zugUnter.current = null;
         if (art === 'menue') { setMenueZug(true); return true; }
+        // Seite mit Unterreitern (Statistik, Feed): erst dort blättern
+        const unter = UNTERREITER[jetzt.current.ansicht]?.[art];
+        if (unter) { zugUnter.current = unter; return true; }
         const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
         if (!key) return false;
+        document.documentElement.classList.add('ohne-einblenden');
         setNachbar({ key, art }); return true;
       },
       bewege: (art, dx) => {
@@ -791,6 +806,7 @@ function App() {
           return;
         }
         const d = art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx);
+        if (zugUnter.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
         if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d}px)`;
         if (nachbarRef.current) nachbarRef.current.style.transform = `translateX(${d + (art === 'weiter' ? B : -B)}px)`;
       },
@@ -807,6 +823,13 @@ function App() {
           return;
         }
         const haupt = hauptRef.current, nach = nachbarRef.current;
+        if (zugUnter.current) {
+          const unter = zugUnter.current; zugUnter.current = null;
+          if (erfolg) { if (haupt) haupt.style.transform = ''; unter(); return; }
+          haupt?.classList.add('gleitet'); if (haupt) haupt.style.transform = 'translateX(0)';
+          setTimeout(() => { haupt?.classList.remove('gleitet'); if (haupt) haupt.style.transform = ''; }, 200);
+          return;
+        }
         for (const el of [haupt, nach]) el?.classList.add('gleitet');
         if (erfolg) {
           if (haupt) haupt.style.transform = `translateX(${art === 'weiter' ? -B : B}px)`;
@@ -820,6 +843,7 @@ function App() {
           if (erfolg && key) gehe(key);
           if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
           setNachbar(null);
+          setTimeout(() => document.documentElement.classList.remove('ohne-einblenden'), 400);
         }, 200);
       },
     } });
@@ -1121,7 +1145,7 @@ function App() {
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
         <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}
-    ${toast ? html`<div class="toast" role="status"><div><b>${toast.titel}</b><span class="muted" style="font-size:14px">${toast.text}</span></div></div>` : null}
+    ${toast ? html`<div class="toast" role="status" ...${toastWisch}><div><b>${toast.titel}</b><span class="muted" style="font-size:14px">${toast.text}</span></div></div>` : null}
     ${bereit ? html`<${BereitschaftSheet} mitLeichter=${!bereit.frei} leichter=${!!bereit.tag && bereit.tag.datum === HEUTE && leichter} zu=${() => setBereit(null)}
       los=${(r, l) => { const b = bereit; setBereit(null); if (b.frei) starteFrei(r); else startePlan(b.tag, r, l); }}/>` : null}
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
@@ -1129,6 +1153,7 @@ function App() {
     ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
     ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
       beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
+    <${FensterHost}/>
     <${BildLupe}/>
     <${SeitenMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
       waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); gehe('rechner', k, true); }}/>

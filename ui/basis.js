@@ -1,5 +1,5 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect, useRef, render } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
@@ -225,14 +225,39 @@ export async function kopiere(text, feld) {
   catch { if (feld) { feld.focus(); feld.select(); } return false; }
 }
 
-/** Inhalt direkt unter <body> zeichnen – Fenster aus Karten heraus (backdrop-filter/transform sperren position:fixed sonst ein). */
-export function Portal({ children }) {
-  const ziel = useRef(null);
-  if (!ziel.current) ziel.current = document.createElement('div');
-  useEffect(() => { document.body.append(ziel.current); return () => { render(null, ziel.current); ziel.current.remove(); }; }, []);
-  useEffect(() => { render(html`<div>${children}</div>`, ziel.current); });
-  return null;
+/**
+ * Fensterplatz der App (einmal in app.js): Fenster aus Karten heraus öffnen, deren backdrop-filter position:fixed sonst
+ * einsperren würde. zeigeFenster((zu) => html`<…/>`) zeigt eins; zu() schließt es.
+ */
+/** Zustand, der einen Seitenwechsel übersteht (sessionStorage, nur diese Sitzung) – z. B. halb ausgefüllte Generatoren. */
+export function useSitzung(schluessel, start) {
+  const anfang = () => (typeof start === 'function' ? start() : start);
+  const [w, setW] = useState(() => { try { const s = sessionStorage.getItem(schluessel); return s != null ? JSON.parse(s) : anfang(); } catch { return anfang(); } });
+  const setze = (n) => setW((alt) => {
+    const neu = typeof n === 'function' ? n(alt) : n;
+    try { if (neu == null) sessionStorage.removeItem(schluessel); else sessionStorage.setItem(schluessel, JSON.stringify(neu)); } catch { /* egal */ }
+    return neu;
+  });
+  return [w, setze];
 }
+export const sitzungLeeren = (vorne) => { try { for (const k of Object.keys(sessionStorage)) if (k.startsWith(vorne)) sessionStorage.removeItem(k); } catch { /* egal */ } };
+
+/** Unterreiter der aktuellen Seite (Statistik, Feed): Wischen blättert erst dort, am Ende auf die nächste Seite. */
+export const UNTERREITER = {};
+/** Für Seiten mit Reitern (je Seite gemerkt, auch wenn die Seite beim Wischen als Nachbar kurz mitläuft). */
+export function useUnterReiter(seite, liste, aktiv, waehle) {
+  const i = liste.findIndex(([k]) => k === aktiv);
+  useEffect(() => { UNTERREITER[seite] = { zurueck: i > 0 ? () => waehle(liste[i - 1][0]) : null, weiter: i >= 0 && i < liste.length - 1 ? () => waehle(liste[i + 1][0]) : null }; });
+  useEffect(() => () => { delete UNTERREITER[seite]; }, []);
+}
+
+let fensterSetzen = null;
+export function FensterHost() {
+  const [f, setF] = useState(null);
+  fensterSetzen = setF;
+  return f ? f(() => setF(null)) : null;
+}
+export const zeigeFenster = (f) => fensterSetzen?.(() => f);
 
 /** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
 export function Sheet({ zu, children, label = 'Dialog', voll = false }) {

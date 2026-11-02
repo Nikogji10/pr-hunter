@@ -1,6 +1,6 @@
 // PR Hunter · Bodybuilding-Generator (Wunsch 98): Schritt für Schritt – 1. Split, 2. je Muskelgruppe zwei Übungen,
 // 3. Tage pro Woche und Blocklänge, 4. Vorschau der ersten Woche → als eigenes Programm speichern. Logik in js/bodybuilding.js.
-import { html, useState, useEffect, I, nameVon, UebungsBild, uebung } from './basis.js';
+import { html, useState, useEffect, I, nameVon, UebungsBild, uebung, useSitzung } from './basis.js';
 import { UebungSuche, ISO_FAMILIEN } from './suche.js';
 
 // 145: Muskelgruppe → Zone im Körperdiagramm der großen Übungsauswahl
@@ -12,13 +12,13 @@ import { SPLITS, MUSKELGRUPPEN, standardAuswahl, haeufigkeit, generiereBodybuild
 const TAGE_STANDARD = { ppl: 6, ul: 4, gk: 3, bro: 5 };
 
 export function BodybuildingGenerator({ zurueck, speichern }) {
-  const [split, setSplit] = useState('ppl');
-  const [tage, setTage] = useState(6);
-  const [wochen, setWochen] = useState(4);
-  const [deload, setDeload] = useState(true);
-  const [auswahl, setAuswahl] = useState(standardAuswahl);
-  const [name, setName] = useState('');
-  const [schritt, weiter, zurueckSchritt] = useSchritte();
+  const [split, setSplit] = useSitzung('prh-gen-bb-split', 'ppl');
+  const [tage, setTage] = useSitzung('prh-gen-bb-tage', 6);
+  const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
+  const [deload, setDeload] = useSitzung('prh-gen-bb-deload', true);
+  const [auswahl, setAuswahl] = useSitzung('prh-gen-bb-auswahl', standardAuswahl);
+  const [name, setName] = useSitzung('prh-gen-bb-name', '');
+  const [schritt, weiter, zurueckSchritt] = useSchritte('prh-gen-bb-schritt');
   const gruppen = [...new Set(SPLITS[split].tage.flatMap(([, g]) => g))];
   const h = haeufigkeit(split, tage);
   const arten = Object.fromEntries(Object.values(auswahl).flat().map((k) => [k, artAus(k)]));
@@ -43,7 +43,7 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
     ${schritt === 2 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">2</span><span class="viz-t">Zwei Übungen je Muskelgruppe</span></div>
       <span class="muted" style="font-size:12.5px">Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Tauschen, was dir besser liegt oder was dein Gym hat.</span>
       ${gruppen.map((g) => html`<div key=${g} class="muskel-wahl"><div class="row between"><b>${MUSKELGRUPPEN[g].name}</b><span class="muted" style="font-size:12px">${`${auswahl[g].length}/2 gewählt`}</span></div>
-        <div class="ueb-kacheln">${[...new Set([...MUSKELGRUPPEN[g].uebungen.map(([k]) => k), ...auswahl[g]])].map((k) => { const nr = auswahl[g].indexOf(k);
+        <div class="ueb-kacheln">${[...new Set([...auswahl[g], ...MUSKELGRUPPEN[g].uebungen.map(([k]) => k)])].map((k) => {   // gewählte immer vorne const nr = auswahl[g].indexOf(k);
           return html`<button key=${k} class=${`ueb-kachel ${nr >= 0 ? 'gewaehlt' : ''}`} aria-pressed=${String(nr >= 0)} onClick=${() => tippe(g, k)}>
             ${nr >= 0 ? html`<span class="ueb-nr">${nr + 1}</span>` : null}<${UebungsBild} schluessel=${k} groesse=${64} zoom=${false}/><span>${nameVon(k, k)}</span></button>`; })}</div>
         <${UebungSuche} id=${`bb-${g}`} titel=${`${MUSKELGRUPPEN[g].name}: Übung wählen`} zone=${ZONE_VON[g]} platzhalter="Andere Übung aus dem Katalog …" onWahl=${(k) => tippe(g, k)}/></div>`)}
@@ -85,8 +85,9 @@ export function Schritte({ schritt, namen }) {
 
 /** Schritte eines Assistenten mit eigenem Verlaufseintrag je Schritt: die Zurück-Taste des Handys geht einen Schritt
  *  zurück (erst vor Schritt 1 schließt die Programme-Seite die Einrichtung). Jeder Schritt beginnt oben. */
-export function useSchritte() {
-  const [schritt, setSchritt] = useState(1);
+export function useSchritte(merken = null) {
+  // merken: Schritt übersteht einen Seitenwechsel (sessionStorage)
+  const [schritt, setSchritt] = merken ? useSitzung(merken, 1) : useState(1);
   useEffect(() => window.scrollTo(0, 0), [schritt]);
   useEffect(() => {
     const z = (e) => setSchritt(e.state?.schritt ?? 1);
@@ -94,6 +95,7 @@ export function useSchritte() {
     return () => removeEventListener('popstate', z);
   }, []);
   const weiter = () => { history.pushState({ ...history.state, schritt: schritt + 1 }, ''); setSchritt(schritt + 1); };
-  const zurueck = () => history.back();
+  // nach einem Seitenwechsel fehlen die Verlaufseinträge der Schritte: dann direkt einen Schritt zurück
+  const zurueck = () => (history.state?.schritt === schritt ? history.back() : setSchritt(Math.max(1, schritt - 1)));
   return [schritt, weiter, zurueck];
 }

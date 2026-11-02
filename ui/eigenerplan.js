@@ -1,6 +1,6 @@
 // PR Hunter · Eigener Plan (einfach): Trainingstage benennen, Übungen selbst auswählen, Sätze × Wdh und RPE eintragen;
 // die Woche wiederholt sich über die gewählte Zahl an Wochen. Gewichte schlägt die App beim Training aus RPE + e1RM vor.
-import { html, useState, useEffect, I, nameVon, deEn } from './basis.js';
+import { html, useState, useEffect, I, nameVon, deEn, useSitzung } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { Schritte, useSchritte } from './bbgenerator.js';
 
@@ -23,10 +23,10 @@ export function eigenerPlanAus({ name, wochen, tage }) {
 }
 
 export function EigenerPlan({ zurueck, speichern }) {
-  const [schritt, weiter, zurueckSchritt] = useSchritte();
-  const [name, setName] = useState('');
-  const [wochen, setWochen] = useState(6);
-  const [tage, setTage] = useState([neuerTag(0), neuerTag(1), neuerTag(2)]);
+  const [schritt, weiter, zurueckSchritt] = useSchritte('prh-gen-eigen-schritt');
+  const [name, setName] = useSitzung('prh-gen-eigen-name', '');
+  const [wochen, setWochen] = useSitzung('prh-gen-eigen-wochen', 6);
+  const [tage, setTage] = useSitzung('prh-gen-eigen-tage', () => [neuerTag(0), neuerTag(1), neuerTag(2)]);
   const [suche, setSuche] = useState(null);                  // Tag, für den gerade eine Übung gesucht wird
   const [offen, setOffen] = useState(null);                  // 162: nur ein Tag aufgeklappt
   useEffect(() => window.scrollTo(0, 0), [schritt]);

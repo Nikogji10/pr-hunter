@@ -1,7 +1,7 @@
 // PR Hunter · Übungssuche mit Vorschlagsliste (Combobox). Sucht in Deutsch, Englisch und Jefit-Namen,
 // filtert nach Muskelgruppe und Equipment, zeigt Favoriten und zuletzt trainierte Übungen oben.
 // Passt nichts, lässt sich eine neue Übung anlegen (Formular in ui/uebung.js, über DIENSTE).
-import { html, useState, useEffect, I, katalogListe, LIFT, liftVon, nameVon, anpassung, sprache, MUSKEL_DE, datumKurz, UebungsBild, Sheet, speicher, Portal } from './basis.js';
+import { html, useState, useEffect, I, katalogListe, LIFT, liftVon, nameVon, anpassung, sprache, MUSKEL_DE, datumKurz, UebungsBild, Sheet, speicher, zeigeFenster } from './basis.js';
 import { MuskelWahl, ZONE_NAME } from './koerper.js';
 import { MUSKELGRUPPEN } from '../js/bodybuilding.js';
 import { useRef } from '../vendor/htm-preact.js';
@@ -134,10 +134,11 @@ export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung
   // wiederOeffnen: nach „Zurück“ von der gewählten Übung die Auswahl mit Suche und Filtern wieder zeigen
   const schluessel = `prh-auswahl-${id}`;
   const [gemerkt] = useState(() => { if (!wiederOeffnen) return null; try { const z = JSON.parse(sessionStorage.getItem(schluessel)); sessionStorage.removeItem(schluessel); return z; } catch { return null; } });
-  const [offen, setOffen] = useState(autofokus || !!gemerkt);
   const merken = wiederOeffnen ? (z) => { try { sessionStorage.setItem(schluessel, JSON.stringify(z)); } catch { /* egal */ } } : null;
+  const oeffnen = (zustand = null) => zeigeFenster((zu) => html`<${UebungsAuswahl} titel=${titel ?? (familien ? 'Übung für diesen Platz' : 'Übung wählen')} familien=${familien}
+    zoneStart=${zone} onWahl=${onWahl} zu=${zu} merken=${merken} zustand=${zustand}/>`);
+  useEffect(() => { if (autofokus || gemerkt) oeffnen(gemerkt); }, []);
   return html`<div class="stack" style="gap:6px">
-    <button id=${id} class="suche suche-knopf" onClick=${() => setOffen(true)}>${I.suche}<span>${platzhalter}</span></button>
-    ${offen ? html`<${Portal}><${UebungsAuswahl} titel=${titel ?? (familien ? 'Übung für diesen Platz' : 'Übung wählen')} familien=${familien} zoneStart=${zone} onWahl=${onWahl} zu=${() => setOffen(false)} merken=${merken} zustand=${gemerkt}/><//>` : null}
+    <button id=${id} class="suche suche-knopf" onClick=${() => oeffnen()}>${I.suche}<span>${platzhalter}</span></button>
   </div>`;
 }

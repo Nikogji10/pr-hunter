@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -38,9 +38,10 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
   const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
-  const [reiterRoh, setReiter] = useState(() => speicher.lies('prh-stat-reiter2') ?? 'profil');
+  const [reiterRoh, setReiter] = useState('profil');                // beim Öffnen immer Profil (Niko 02.11.)
   const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
-  const waehleReiter = (k) => { setReiter(k); speicher.schreib('prh-stat-reiter2', k); scrollTo({ top: 0 }); };
+  const waehleReiter = (k) => { setReiter(k); scrollTo({ top: 0 }); };
+  useUnterReiter('statistik', reiterListe, reiter, waehleReiter);
   const [bereich, setBereich] = useState(52);
   const [rekLift, setRekLift] = useState('squat');
   // Zeitraum in Wochen: 0 = alles, -1 = seit Beginn des aktiven Blocks
@@ -298,23 +299,62 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   </div>`;
 }
 
-/** Körpergewicht im Zeitraum: Kacheln (aktuell, Veränderung, Trend je Woche, Spanne) und Verlauf mit Ziellinie. */
+/** Körpergewicht im Zeitraum (02.11. „sieht langweilig aus“): große Zahl mit Veränderung, Flächenverlauf mit Ziellinie,
+ *  Fortschritt zum Ziel, darunter Trend/Spanne/Messungen. */
 function KoerperStatistik({ x, werte, von, ziel }) {
   const g = gewichtImZeitraum(KOERPERVERLAUF, von);
   const [exakt, setExakt] = useState(false);              // jede Messung statt Wochendurchschnitt
   const mess = KOERPERVERLAUF.filter((m) => m.datum >= von);
   const vz = (d, st = 1) => (d == null ? '–' : `${d > 0 ? '+' : d < 0 ? '−' : '±'}${gw(Math.abs(d), st)}`);
-  return html`<section class="stack" style="gap:8px">
-    ${g ? html`<div class="kacheln vier">
-      <div class="kachel"><span class="l">Aktuell</span><b>${gw(g.aktuell, 1)}</b><span class="muted" style="font-size:12px">${einheit()}${ziel ? ` · Ziel ${gw(ziel, 1)}` : ''}</span></div>
-      <div class="kachel"><span class="l">Im Zeitraum</span><b>${vz(g.veraenderung)}</b><span class="muted" style="font-size:12px">${deEn("seit", "since")} ${datumKurz(g.seit)}</span></div>
+  const punkte = (exakt ? mess.map((m) => [m.datum, m.kg]) : x.map((d, k) => [d, werte[k]])).filter(([, w]) => w != null).map(([d, w]) => [d, inAnzeige(w)]);
+  const zielA = ziel ? inAnzeige(ziel) : null;
+  // Fortschritt zum Ziel: vom ersten Wert im Zeitraum bis zum Ziel
+  const start = punkte[0]?.[1], jetzt = punkte.at(-1)?.[1];
+  const anteil = zielA != null && start != null && jetzt != null && start !== zielA ? Math.max(0, Math.min(1, (jetzt - start) / (zielA - start))) : null;
+  return html`<section class="stack" style="gap:10px">
+    <section class="card pad gw-held">
+      <div class="row between"><span class="viz-t">Körpergewicht</span>
+        <div class="seg gw-seg" role="group" aria-label="Darstellung"><button aria-pressed=${String(!exakt)} onClick=${() => setExakt(false)}>Woche</button>
+          <button aria-pressed=${String(exakt)} onClick=${() => setExakt(true)}>Messungen</button></div></div>
+      ${g ? html`<div class="gw-held-zahl"><b class="zahl tab-num">${gw(g.aktuell, 1)}</b><small>${einheit()}</small>
+        <span class=${`gw-badge ${g.veraenderung > 0 ? 'auf' : g.veraenderung < 0 ? 'ab' : ''}`}>${`${g.veraenderung > 0 ? '▲' : g.veraenderung < 0 ? '▼' : '●'} ${vz(g.veraenderung)} ${einheit()}`}</span></div>
+        <span class="muted" style="font-size:12.5px">${deEn(`seit ${datumKurz(g.seit)} · ${punkte.length} ${exakt ? 'Messungen' : 'Wochen'}`, `since ${datumKurz(g.seit)} · ${punkte.length} ${exakt ? 'measurements' : 'weeks'}`)}</span>` : null}
+      <${GewichtFlaeche} punkte=${punkte} ziel=${zielA}/>
+      ${anteil != null ? html`<div class="gw-ziel">
+        <div class="row between"><span class="muted" style="font-size:12.5px">${`Ziel ${gw(ziel, 1)} ${einheit()}`}</span>
+          <b style="font-size:13px">${Math.abs(jetzt - zielA) < 0.05 ? 'erreicht' : `noch ${gw(Math.abs(zielA - jetzt), 1)} ${einheit()}`}</b></div>
+        <div class="gw-ziel-spur"><i style=${`width:${Math.round(anteil * 100)}%`}></i></div></div>` : null}
+    </section>
+    ${g ? html`<div class="kacheln drei">
       <div class="kachel"><span class="l">Trend</span><b>${vz(g.proWoche, 2)}</b><span class="muted" style="font-size:12px">${einheit()} je Woche</span></div>
-      <div class="kachel"><span class="l">Spanne</span><b>${gw(g.max - g.min, 1)}</b><span class="muted" style="font-size:12px">${gw(g.min, 1)}–${gw(g.max, 1)}</span></div>
+      <div class="kachel"><span class="l">Tiefster</span><b>${gw(g.min, 1)}</b><span class="muted" style="font-size:12px">${einheit()}</span></div>
+      <div class="kachel"><span class="l">Höchster</span><b>${gw(g.max, 1)}</b><span class="muted" style="font-size:12px">${einheit()}</span></div>
     </div>` : null}
-    <div class="filter einreihig" role="group" aria-label="Darstellung"><button class="chip" aria-pressed=${String(!exakt)} onClick=${() => setExakt(false)}>Wochendurchschnitt</button>
-      <button class="chip" aria-pressed=${String(exakt)} onClick=${() => setExakt(true)}>Jede Messung</button></div>
-    <${LinienChart} titel="Körpergewicht" unter=${exakt ? `${mess.length} Messungen im Zeitraum` : `Durchschnitt je Woche · ${g?.anzahl ?? 0} Messungen im Zeitraum`} x=${exakt ? mess.map((m) => m.datum) : x}
-      serien=${[{ id: 'kg', name: 'Körpergewicht', farbe: 'var(--acc)', werte: (exakt ? mess.map((m) => m.kg) : werte).map(inAnzeige) }]} einheit=${einheit()} hoehe=${180}
-      referenz=${ziel ? { wert: inAnzeige(ziel), text: `Ziel ${gw(ziel, 1)}` } : null}/>
   </section>`;
+}
+
+/** Flächendiagramm: Verlauf mit Farbverlauf darunter, letzter Punkt leuchtet, Ziellinie gestrichelt. */
+function GewichtFlaeche({ punkte, ziel }) {
+  if (punkte.length < 2) return html`<p class="muted" style="margin:0;font-size:13px">Mindestens zwei Werte für einen Verlauf.</p>`;
+  const B = 320, H = 150, oben = 14, unten = 22;
+  const ws = punkte.map(([, w]) => w).concat(ziel != null ? [ziel] : []);
+  let lo = Math.min(...ws), hi = Math.max(...ws);
+  const rand = Math.max(0.5, (hi - lo) * 0.15); lo -= rand; hi += rand;
+  const px = (k) => (k / (punkte.length - 1)) * B, py = (w) => oben + (1 - (w - lo) / (hi - lo)) * (H - oben - unten);
+  const linie = punkte.map(([, w], k) => `${k ? 'L' : 'M'}${px(k).toFixed(1)} ${py(w).toFixed(1)}`).join(' ');
+  const flaeche = `${linie} L${B} ${H - unten} L0 ${H - unten} Z`;
+  const [ld, lw] = punkte.at(-1);
+  const mi = punkte.reduce((m, p) => (p[1] < m[1] ? p : m)), ma = punkte.reduce((m, p) => (p[1] > m[1] ? p : m));
+  return html`<svg class="gw-flaeche" viewBox=${`0 0 ${B} ${H}`} preserveAspectRatio="none" role="img" aria-label="Verlauf Körpergewicht">
+    <defs><linearGradient id="gw-verlauf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".45"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs>
+    ${[0.25, 0.5, 0.75].map((f) => html`<line key=${f} x1="0" x2=${B} y1=${oben + f * (H - oben - unten)} y2=${oben + f * (H - oben - unten)} class="gw-gitter"/>`)}
+    <path d=${flaeche} fill="url(#gw-verlauf)"/>
+    <path d=${linie} class="gw-linie"/>
+    ${ziel != null ? html`<line x1="0" x2=${B} y1=${py(ziel)} y2=${py(ziel)} class="gw-ziellinie"/>` : null}
+    <circle cx=${px(punkte.length - 1)} cy=${py(lw)} r="5" class="gw-punkt"/>
+    <text x="2" y=${H - 6} class="gw-achse">${datumKurz(punkte[0][0])}</text>
+    <text x=${B - 2} y=${H - 6} class="gw-achse" text-anchor="end">${datumKurz(ld)}</text>
+    <text x=${Math.min(B - 30, Math.max(20, px(punkte.indexOf(ma))))} y=${py(ma[1]) - 6} class="gw-wert" text-anchor="middle">${gw(ma[1], 1)}</text>
+    ${mi !== ma ? html`<text x=${Math.min(B - 30, Math.max(20, px(punkte.indexOf(mi))))} y=${py(mi[1]) + 14} class="gw-wert" text-anchor="middle">${gw(mi[1], 1)}</text>` : null}
+  </svg>`;
 }

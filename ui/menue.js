@@ -11,7 +11,7 @@ const MAX_ZEIT = 700;       // ms
 /** true, wenn ein Vorfahr waagrecht scrollt oder eine Eingabe/ein Regler ist – dort gehört das Wischen dem Element. */
 function eigenesWischen(el) {
   for (let e = el; e && e !== document.body; e = e.parentElement) {
-    if (e.matches?.('input, textarea, select, [role="slider"], .sheet, .lupe, .zuschnitt, .ex, .kein-wisch')) return true;
+    if (e.matches?.('input, textarea, select, [role="slider"], .sheet, .lupe, .zuschnitt, .ex, .kein-wisch, .toast')) return true;
     const s = getComputedStyle(e);
     if (/(auto|scroll)/.test(s.overflowX) && e.scrollWidth > e.clientWidth + 2) return true;
   }

@@ -1,9 +1,10 @@
 // PR Hunter · Feed: Trainings der Freunde (und die eigenen), wie der Feed in Jefit – Dauer, Übungen, Sätze, Volumen,
 // Rekorde und je Übung der beste Satz. Sichtbar nur, was die anderen freigeben (Einstellungen → Konto, Standard an);
 // wer selbst nicht teilt, sieht auch nichts. Daten: public.feed() aus db/15_feed.sql. In der Demo die eigenen Tage.
-import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, gw, gwE, tonnage, minutenText, sprache, nameVon } from './basis.js';
+import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter } from './basis.js';
 import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
+import { useLayoutEffect } from '../vendor/htm-preact.js';
 import { rekordChronik } from '../js/auswertung.js';
 
 /** Demo: die letzten Trainingstage als eigener Feed (Rekorde wie in der Statistik gezählt). */
@@ -66,11 +67,18 @@ function Kalender({ eintraege = [], einst = {} }) {
   const erster = (() => { const d = new Date(`${HEUTE.slice(0, 7)}-01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + monat); return d.toISOString().slice(0, 10); })();
   const naechster = (() => { const d = new Date(`${erster}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); })();
   const von = montagVon(erster), bis = plusTage(montagVon(plusTage(naechster, -1)), 6);
-  useEffect(() => {
-    setDaten(null);
+  // Kalender zuerst aus dem Gerätespeicher (letzter Stand), dann still aktualisieren – die Kachel springt nicht
+  const merkKey = `prh-kal-${von}`;
+  useLayoutEffect(() => {                                    // vor dem Zeichnen, damit kein leerer Kalender aufblitzt
     if (DEMO) { setDaten(demoKalender(von, bis)); return; }
+    let gemerkt = null;
+    try { gemerkt = JSON.parse(localStorage.getItem(merkKey)); } catch { /* egal */ }
+    setDaten(gemerkt);
     if (!DIENSTE.ladeKalender) return;
-    DIENSTE.ladeKalender(von, bis).then((k) => setDaten(k ?? { fehlt: true })).catch(() => setDaten([]));
+    DIENSTE.ladeKalender(von, bis).then((k) => {
+      setDaten(k ?? { fehlt: true });
+      if (Array.isArray(k)) try { localStorage.setItem(merkKey, JSON.stringify(k)); } catch { /* voll: egal */ }
+    }).catch(() => { if (!gemerkt) setDaten([]); });
   }, [monat]);
   const tage = []; for (let d = von; d <= bis; d = plusTage(d, 1)) tage.push(d);
   // Ausgeblendete Freunde (Freunde → je Freund „Kalender zeigen“) fallen weg
@@ -99,7 +107,7 @@ function Kalender({ eintraege = [], einst = {} }) {
             <span class="kal-punkte">${da.map(([p, a]) => html`<i key=${p.nutzer} class=${a} style=${`--f:${farbe[p.nutzer]}`}></i>`)}</span></button>`;
         })}
       </div>
-      ${daten == null ? html`<p class="muted" style="margin:0">Lade …</p>` : null}
+
       ${tag ? html`<div class="kal-detail"><b>${datumLang(tag)}</b>
         ${personen.filter((p) => art(p.nutzer, tag)).length ? personen.filter((p) => art(p.nutzer, tag)).map((p) => {
           const z = zeileVon(p.nutzer, tag), a = z.art;
@@ -212,6 +220,7 @@ const inCache = (f) => { try { localStorage.setItem(CACHE, JSON.stringify(f)); }
 
 export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen }) {
   const [reiter, setReiter] = useState('feed');
+  useUnterReiter('feed', [['feed'], ['freunde']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);
   const [uebAuf, setUebAuf] = useState(() => new Set());       // aufgeklappte Übungen (Feed-Eintrag-Id + Index)
