@@ -27,7 +27,7 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
   const fn = useRef({});
   fn.current = { zurueck, weiter, menueAuf, seitenWechsel, zug };
   useEffect(() => {
-    let s = null;
+    let s = null, wache = null;
     const an = (e) => {
       const t = e.touches[0];
       const rand = t.clientX <= RAND;
@@ -47,12 +47,17 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
         const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
         if (!art || !f.zug?.start(art)) { s = null; return; }
         s.art = art;
+        // Sicherheitsnetz: kommt kein Loslassen an (Browser hat die Geste übernommen), nach 1,2 s ohne Bewegung beenden
+        clearInterval(wache);
+        wache = setInterval(() => { if (s?.art && Date.now() - s.letzte > 1200) ende(); }, 300);
       }
+      s.letzte = Date.now();
       if (e.cancelable) e.preventDefault();
       s.dx = dx;
       fn.current.zug.bewege(s.art, dx);
     };
     const ende = () => {
+      clearInterval(wache);
       if (!s?.art) { s = null; return; }
       const dauer = Math.max(1, Date.now() - s.zeit), weg = Math.abs(s.dx);
       const richtig = s.art === 'weiter' ? s.dx < 0 : s.dx > 0;
@@ -95,7 +100,7 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
     const an = (e) => { x0 = e.touches[0].clientX; dx = 0; leiste()?.classList.add('zieht'); hinter()?.classList.add('zieht'); };
     const zieh = (e) => {
       if (x0 == null) return;
-      dx = Math.min(0, e.touches[0].clientX - x0);
+      dx = Math.min(0, e.touches[0].clientX - x0) / (parseFloat(getComputedStyle(document.documentElement).zoom) || 1);
       const l = leiste(); if (!l) return;
       l.style.transform = `translateX(${dx}px)`;
       hinter().style.opacity = String(Math.max(0, 1 + dx / l.offsetWidth));

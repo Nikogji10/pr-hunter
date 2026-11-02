@@ -413,7 +413,7 @@ function App() {
   const [nachbar, setNachbar] = useState(null);                  // beim Wischen: { key, art } der Seite, die hereinkommt
   const [menueZug, setMenueZug] = useState(false);               // Seitenmenü wird gerade aufgezogen
   const [menueGezogen, setMenueGezogen] = useState(false);       // per Wischen geöffnet: Einblend-Animation nicht nochmal
-  const hauptRef = useRef(null), nachbarRef = useRef(null), zugUnter = useRef(null);
+  const hauptRef = useRef(null), nachbarRef = useRef(null), zugUnter = useRef(null), zugLaeuft = useRef(false);
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -786,6 +786,7 @@ function App() {
     seitenWechsel: () => !!wischRef.current.reiter,
     zug: {
       start: (art) => {
+        if (zugLaeuft.current) return false;                  // vorige Wisch-Animation läuft noch
         zugUnter.current = null;
         if (art === 'menue') { setMenueZug(true); return true; }
         // Seite mit Unterreitern (Statistik, Feed): erst dort blättern
@@ -794,24 +795,25 @@ function App() {
         const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
         if (!key) return false;
         document.documentElement.classList.add('ohne-einblenden');
+        zugLaeuft.current = true;
         setNachbar({ key, art }); return true;
       },
       bewege: (art, dx) => {
-        const B = innerWidth;
+        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, B = innerWidth / z;   // Schriftgröße skaliert die App (zoom)
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (!l) return;
-          const w = l.offsetWidth, x = Math.min(0, Math.max(-w, dx - w));
+          const w = l.offsetWidth, x = Math.min(0, Math.max(-w, dx / z - w));
           l.style.transform = `translateX(${x}px)`; h.style.opacity = String(1 + x / w);
           return;
         }
-        const d = art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx);
+        const d = (art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx)) / z;
         if (zugUnter.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
         if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d}px)`;
         if (nachbarRef.current) nachbarRef.current.style.transform = `translateX(${d + (art === 'weiter' ? B : -B)}px)`;
       },
       ende: (art, erfolg) => {
-        const B = innerWidth;
+        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, B = innerWidth / z;   // Schriftgröße skaliert die App (zoom)
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (l) { l.classList.add('gleitet'); h.classList.add('gleitet'); l.style.transform = erfolg ? 'translateX(0)' : 'translateX(-100%)'; h.style.opacity = erfolg ? '1' : '0'; }
@@ -840,10 +842,19 @@ function App() {
         }
         setTimeout(() => {
           const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
-          if (erfolg && key) gehe(key);
+          const fertig = () => {
+            if (haupt) { haupt.style.visibility = ''; }
+            setNachbar(null);
+            zugLaeuft.current = false;
+            setTimeout(() => document.documentElement.classList.remove('ohne-einblenden'), 400);
+          };
           if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
-          setNachbar(null);
-          setTimeout(() => document.documentElement.classList.remove('ohne-einblenden'), 400);
+          if (erfolg && key) {
+            // Die Nachbarseite deckt alles ab, bis die neue Seite gezeichnet ist – erst dann tauschen (kein Springen)
+            if (haupt) haupt.style.visibility = 'hidden';
+            gehe(key);
+            requestAnimationFrame(() => requestAnimationFrame(fertig));
+          } else fertig();
         }, 200);
       },
     } });

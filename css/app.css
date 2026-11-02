@@ -1621,3 +1621,117 @@ html.ohne-einblenden .screen > :not(.topbar), html.ohne-einblenden .reiter-inhal
 .gw-held > .row:first-child { flex-wrap: nowrap; gap: 8px; }
 .gw-held > .row:first-child .viz-t { white-space: nowrap; }
 .gw-seg { flex: none; }
+
+/* 181: Insights (Analyse-Karten wie Jefit) */
+.ins { gap: 12px; }
+.ins-kopf b { font-size: 17px; }
+.ins-analyse { font-size: 17px; color: var(--muted); font-weight: 500; }
+.ins-unter { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.ins-text { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; }
+.ins-text.klein { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.ins-text.akzent { color: #8E86FF; font-size: 14px; }
+.ins-titel { font-size: 14.5px; }
+.ins-titel .muted { font-weight: 500; }
+.ins-serie { display: flex; align-items: center; gap: 8px; }
+.ins-flamme { font-size: 44px; line-height: 1; filter: drop-shadow(0 0 10px rgba(255, 120, 40, .5)); }
+.ins-serie b { font: 900 54px/1 var(--f); font-stretch: 70%; }
+.ins-serie span { font-size: 22px; font-weight: 800; }
+.ins-zwei { display: grid; grid-template-columns: 1fr 1fr; }
+.ins-zwei > div { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; }
+.ins-zwei > div + div { border-left: 1px solid var(--line); }
+.ins-zwei > div:first-child { padding-left: 0; }
+.ins-zwei b { font-size: 24px; }
+.ins-zwei .muted { font-size: 12.5px; }
+.ins-raster { display: grid; grid-template-columns: 34px repeat(7, 1fr); gap: 6px; align-items: center; }
+.ins-wt { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; }
+.ins-monat { font-size: 11px; color: var(--muted); }
+.ins-tag { aspect-ratio: 1; border-radius: 9px; background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.ins-tag.s1 { background: #F6B89A; }
+.ins-tag.s2 { background: #EF8A5A; }
+.ins-tag.s3 { background: #D86B3D; }
+.ins-tag.s4 { background: #A9472A; }
+.ins-tag.zukunft { opacity: .25; }
+.ins-trenner { height: 1px; background: var(--line); margin: 4px 0; }
+.ins-balken14, .ins-1rm, .ins-muskeln { width: 100%; height: auto; display: block; }
+.ins-achse { font-size: 9px; fill: var(--muted); }
+.ins-wert { font-size: 10px; font-weight: 800; fill: var(--ink-2); }
+.ins-bar { fill: #EF8A5A; }
+.ins-bar.leer { fill: var(--line); }
+.ins-bar.ab { fill: #E0786A; opacity: .8; }
+.ins-muskeln .ins-bar { fill: #5E6AD2; }
+.ins-muskeln .ins-bar.gut { fill: #7B61FF; }
+.ins-muskeln .ins-bar.viel { fill: #B59CFF; }
+.ins-1rm .ins-bar { fill: #7B61FF; }
+.ins-null { stroke: var(--line); stroke-width: 1; }
+.ins-punkt-leer { fill: var(--line); }
+.ins-ideal { fill: color-mix(in srgb, #34C77B 16%, transparent); }
+.ins-ideal-text { font-size: 10px; font-weight: 800; fill: #34C77B; }
+.ins-top { display: flex; flex-direction: column; gap: 10px; }
+.ins-top-zeile, .ins-gewinn { display: grid; grid-template-columns: 26px 40px 1fr; gap: 10px; align-items: center; }
+.ins-top-zeile span:last-child, .ins-gewinn > div { display: flex; flex-direction: column; min-width: 0; }
+.ins-top-zeile b, .ins-link { color: #EF8A5A; font-size: 14.5px; }
+.ins-gewinn .ins-link { color: #8E86FF; }
+.ins-rang { font: 900 26px/1 var(--f); color: #EF8A5A; text-align: center; }
+.ins-medaille { font-size: 22px; text-align: center; }
+.ins-prozent { font-size: 13px; font-weight: 800; color: #34C77B; white-space: nowrap; }
+.ins-gewinn small { font-size: 12.5px; }
+.ins-muskel { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.ins-gross { font: 900 34px/1.05 var(--f); letter-spacing: -.01em; background: linear-gradient(90deg, #7B61FF, #8FB6FF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ins-muskel-zeile { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; }
+.mini-figur { width: 56px; height: 64px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; display: grid; place-items: center; }
+.mini-figur svg { width: 100%; height: 100%; }
+.mini-figur span, .mini-figur figcaption { display: none; }
+.ins-vier { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.ins-vier span { display: block; font-size: 11.5px; color: var(--muted); }
+.ins-vier b { font-size: 20px; }
+.ins-halbkreis { width: 200px; height: auto; align-self: center; }
+.ins-bogen-grund { fill: none; stroke: color-mix(in srgb, var(--ink) 10%, transparent); stroke-width: 12; }
+.ins-bogen { fill: none; stroke-width: 10; stroke-linecap: round; }
+.ins-bogen.b1 { stroke: #FF8A5C; }
+.ins-bogen.b2 { stroke: #8DE6A0; }
+.ins-bogen.b3 { stroke: #3BA7F0; }
+.ins-zeiger { fill: #fff; stroke: var(--karte); stroke-width: 3; }
+.ins-score { font: 800 28px var(--f); fill: var(--ink); }
+.ins-score-name { font-size: 12px; font-weight: 700; fill: #8E86FF; }
+.ins-regler { display: flex; flex-direction: column; gap: 8px; }
+.ins-regler .ins-stufe { color: var(--rf); font-weight: 800; font-size: 18px; }
+.ins-regler p { margin: 0; font-size: 13.5px; }
+.ins-spur { position: relative; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); margin: 6px 10px; }
+.ins-spur i { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--rf); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rf) 30%, transparent); }
+.ins-gross-zahl { font: 900 40px/1 var(--f); font-stretch: 72%; background: linear-gradient(90deg, #7B61FF, #8FB6FF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ins-gross-zahl small { font-size: 18px; margin-left: 4px; }
+.ins-gross-zahl.ab { background: linear-gradient(90deg, #E0786A, #F2A38E); -webkit-background-clip: text; background-clip: text; }
+.ins-prozent-gross { font: 900 40px/1 var(--f); font-stretch: 72%; color: #8FB6FF; }
+.ins-prozent-gross small { font-size: 18px; }
+.ins-ring-zeile { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: center; }
+.ins-ring { width: 150px; height: 150px; }
+.ins-ring-zeit { font: 800 15px var(--f); fill: var(--ink); }
+.ins-legende { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.ins-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+.ins-stapel { display: flex; flex-direction: column; gap: 4px; }
+.ins-stapel-balken { display: flex; height: 22px; border-radius: 999px; overflow: hidden; }
+.ins-stapel-balken i { display: block; height: 100%; }
+.ins-woche { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.ins-woche:last-child { border-bottom: 0; }
+.ins-pfeil { font-size: 14px; padding: 4px 12px; border-radius: 10px; font-weight: 900; }
+.ins-pfeil.auf { background: color-mix(in srgb, #34C77B 25%, transparent); color: #34C77B; }
+.ins-pfeil.ab { background: color-mix(in srgb, #E0786A 25%, transparent); color: #E0786A; }
+.ins-vergleich { display: flex; flex-direction: column; gap: 6px; }
+.ins-vergleich span { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; border-radius: 10px; font-size: 13.5px; white-space: nowrap; overflow: hidden; }
+.ins-vergleich .diese { background: linear-gradient(90deg, #7B61FF, #6AB0FF); color: #fff; }
+.ins-vergleich .letzte { background: color-mix(in srgb, #AEB4FF 30%, transparent); color: var(--ink-2); }
+.ins-satz { color: #8E86FF; font-size: 13px; }
+.ins-raster { max-width: 290px; width: 100%; margin: 0 auto; gap: 5px; grid-template-columns: 30px repeat(7, 1fr); }
+.ins-tag { border-radius: 7px; }
+/* Wochenvergleich: volle Breite als Spur, Füllung nach Wert (Text bleibt lesbar) */
+.ins-vergleich span { position: relative; isolation: isolate; width: 100%; }
+.ins-vergleich span::before { content: ""; position: absolute; inset: 0 auto 0 0; width: max(var(--w, 0%), 0%); border-radius: inherit; z-index: -1; }
+.ins-vergleich .diese { background: color-mix(in srgb, #7B61FF 22%, transparent); color: var(--ink); }
+.ins-vergleich .diese::before { background: linear-gradient(90deg, #7B61FF, #6AB0FF); }
+.ins-vergleich .letzte { background: color-mix(in srgb, #AEB4FF 12%, transparent); }
+.ins-vergleich .letzte::before { background: color-mix(in srgb, #AEB4FF 35%, transparent); }
+.ins-pfeil { background: var(--raised); color: var(--muted); }
+
+/* Beim Wischen darf die verschobene Seite keinen waagrechten Scrollbereich erzeugen – sonst übernimmt der Browser die Geste */
+body { overflow-x: hidden; }
+#app { overflow-x: clip; }

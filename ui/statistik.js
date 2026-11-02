@@ -13,6 +13,7 @@ import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR
 import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
+import { Insights } from './insights.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
@@ -31,7 +32,7 @@ function wochenDaten(x) {
 
 // Reiter: Kraft (Total, Lifts, Verläufe, Ziele, Rekorde) · Profil (Muskeln, Vergleich) · Belastung · Training · Körper
 // Statistik startet mit dem Profil (Erholung + Kraftprofil), dann Kraft, Belastung … (Niko 02.11.)
-const STAT_REITER = [['profil', 'Profil'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
+const STAT_REITER = [['profil', 'Profil'], ['analyse', 'Analyse'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
 export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [] }) {
   // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
@@ -182,10 +183,14 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
       <nav class="reiter" role="tablist" aria-label="Bereich">${reiterListe.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
       ${/* Zeitraum im feststehenden Kopf: bleibt beim Scrollen sichtbar und filtert alles darunter (Wunsch 123) */ ''}
-      ${reiter === 'profil' ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
+      ${['profil', 'analyse'].includes(reiter) ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 
     <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
-    ${reiter === 'kraft' ? html`
+    ${reiter === 'analyse' ? html`<${Insights} einst=${einst} heute=${HEUTE} trainings=${DEMO
+        // Beispieldaten: Tage mit fester Uhrzeit, damit Dauer und Zeitnutzung etwas zeigen
+        ? Object.keys(trainingsTage).map((d) => { const t = trainingAm(d); return t && { datum: d, start: `${d}T17:00:00Z`, ende: new Date(Date.parse(`${d}T17:00:00Z`) + (60 + (Number(d.slice(8)) % 5) * 12) * 60000).toISOString(), uebungen: t.uebungen }; }).filter(Boolean)
+        : trainings}/>`
+    : reiter === 'kraft' ? html`
     <section class="card total wichtig">
       <div><div class="eyebrow total-kopf">Total · bestes e1RM, ${FORM_WOCHEN} Wochen</div><div class="wert">${gw(total, 1)}<small>${einheit()}</small></div>
         ${totalVorher != null ? html`<div class=${`delta ${total >= totalVorher ? 'auf' : 'ab'}`}>${pfeil(total - totalVorher)} ${einheit()} ${deEn("seit", "since")} ${datumKurz(x[0])}${x[0].slice(0, 4)}</div>`

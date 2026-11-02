@@ -159,3 +159,10 @@ export function ZielMuskeln({ zonen, neben = [] }) {
     <div class="ziel-namen">${zonen.map((z) => html`<span key=${z} class="tag">${ZONE_NAME[z]}</span>`)}${neben.map((z) => html`<span key=${z} class="tag neben">${ZONE_NAME[z]}</span>`)}</div>
   </div>`;
 }
+
+/** 181: kleine Figur (vorne oder hinten, je nachdem wo die Zonen liegen) für die Insights. */
+export function MiniFigur({ zonen }) {
+  const vorne = zonen.some((z) => SUCH_VORNE[z]);
+  const farbe = (g) => (zonen.includes(g) ? 'var(--acc)' : 'var(--muskel-leer)');
+  return html`<div class="mini-figur"><${Figur} teile=${vorne ? SUCH_VORNE : SUCH_HINTEN} linien=${vorne ? LINIEN_VORNE : LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="" farbe=${farbe}/></div>`;
+}
