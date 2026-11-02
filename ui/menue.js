@@ -18,33 +18,53 @@ function eigenesWischen(el) {
   return false;
 }
 
-/** Wischgesten: links/rechts zum Seitenwechsel (wenn erlaubt), vom linken Rand zum Öffnen des Menüs. */
-export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true }) {
+/**
+ * Wischgesten, die dem Finger folgen (wie Jefit): waagrechtes Ziehen verschiebt die Seite, die Nachbarseite schiebt sich
+ * schon mit herein; vom linken Rand (oder auf der ersten Seite nach rechts) zieht sich das Seitenmenü mit auf.
+ * zug: { start(art) → bool, bewege(art, dx), ende(art, erfolg) } mit art 'weiter' | 'zurueck' | 'menue'.
+ */
+export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zug = null }) {
   const fn = useRef({});
-  fn.current = { zurueck, weiter, menueAuf, seitenWechsel };
+  fn.current = { zurueck, weiter, menueAuf, seitenWechsel, zug };
   useEffect(() => {
-    let start = null;
+    let s = null;
     const an = (e) => {
       const t = e.touches[0];
       const rand = t.clientX <= RAND;
       // vom Rand immer (außer in Fenstern/Eingaben), sonst nur, wo das Element nicht selbst wischt (Satzkarten, Chip-Leisten …)
-      start = e.touches.length === 1 && !document.querySelector('.sheet, .lupe, .seitenmenue.auf')
+      s = e.touches.length === 1 && !document.querySelector('.sheet, .lupe, .seitenmenue.auf')
         && !(rand ? e.target.closest?.('input, textarea, select, [role="slider"]') : eigenesWischen(e.target))
-        ? { x: t.clientX, y: t.clientY, zeit: Date.now(), rand } : null;
+        ? { x: t.clientX, y: t.clientY, zeit: Date.now(), rand, art: null, dx: 0 } : null;
     };
-    const ende = (e) => {
-      if (!start) return;
-      const t = e.changedTouches[0], dx = t.clientX - start.x, dy = t.clientY - start.y;
-      const s = start; start = null;
-      if (Date.now() - s.zeit > MAX_ZEIT || Math.abs(dx) < MIN_WEG || Math.abs(dx) < 2 * Math.abs(dy)) return;
-      const f = fn.current;
-      if (s.rand && dx > 0) { f.menueAuf(); return; }
-      if (!(typeof f.seitenWechsel === 'function' ? f.seitenWechsel() : f.seitenWechsel)) return;
-      if (dx < 0) f.weiter?.(); else if (f.zurueck) f.zurueck(); else f.menueAuf();
+    const zieh = (e) => {
+      if (!s) return;
+      const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (!s.art) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s = null; return; }      // senkrecht: normal scrollen
+        if (Math.abs(dx) < 12 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
+        const f = fn.current;
+        const wechsel = typeof f.seitenWechsel === 'function' ? f.seitenWechsel() : f.seitenWechsel;
+        const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
+        if (!art || !f.zug?.start(art)) { s = null; return; }
+        s.art = art;
+      }
+      if (e.cancelable) e.preventDefault();
+      s.dx = dx;
+      fn.current.zug.bewege(s.art, dx);
+    };
+    const ende = () => {
+      if (!s?.art) { s = null; return; }
+      const dauer = Math.max(1, Date.now() - s.zeit), weg = Math.abs(s.dx);
+      const richtig = s.art === 'weiter' ? s.dx < 0 : s.dx > 0;
+      const erfolg = richtig && (weg > innerWidth * 0.33 || (weg > 40 && weg / dauer > 0.45));
+      fn.current.zug.ende(s.art, erfolg);
+      s = null;
     };
     addEventListener('touchstart', an, { passive: true });
+    addEventListener('touchmove', zieh, { passive: false });
     addEventListener('touchend', ende, { passive: true });
-    return () => { removeEventListener('touchstart', an); removeEventListener('touchend', ende); };
+    addEventListener('touchcancel', ende, { passive: true });
+    return () => { removeEventListener('touchstart', an); removeEventListener('touchmove', zieh); removeEventListener('touchend', ende); removeEventListener('touchcancel', ende); };
   }, []);
 }
 
@@ -60,25 +80,44 @@ const WERKZEUG_TEXT = {
 };
 
 /** Seitenmenü links: Werkzeuge (Rechner) – zieht sich nach links zu, Tipp daneben schließt. */
-export function SeitenMenue({ auf, zu, waehle, einfach = false }) {
+export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false, ohneEinblenden = false }) {
   const ref = useRef(null);
+  const offen = auf && !vorschau;
   useEffect(() => {
-    if (!auf) return;
+    if (!offen) return;
     const st = { ...(history.state ?? {}), menue: true };
     history.pushState(st, '');
     const pop = () => zu(true);
     addEventListener('popstate', pop);
-    // nach links wischen schließt
-    let x0 = null;
-    const an = (e) => { x0 = e.touches[0].clientX; };
-    const ende = (e) => { if (x0 != null && e.changedTouches[0].clientX - x0 < -60) history.back(); x0 = null; };
-    const el = ref.current;
-    el?.addEventListener('touchstart', an, { passive: true }); el?.addEventListener('touchend', ende, { passive: true });
-    return () => { removeEventListener('popstate', pop); el?.removeEventListener('touchstart', an); el?.removeEventListener('touchend', ende); };
-  }, [auf]);
+    // nach links ziehen schließt – die Leiste folgt dem Finger
+    const el = ref.current, leiste = () => el?.querySelector('.sm-leiste'), hinter = () => el?.querySelector('.sm-hinter');
+    let x0 = null, dx = 0;
+    const an = (e) => { x0 = e.touches[0].clientX; dx = 0; leiste()?.classList.add('zieht'); hinter()?.classList.add('zieht'); };
+    const zieh = (e) => {
+      if (x0 == null) return;
+      dx = Math.min(0, e.touches[0].clientX - x0);
+      const l = leiste(); if (!l) return;
+      l.style.transform = `translateX(${dx}px)`;
+      hinter().style.opacity = String(Math.max(0, 1 + dx / l.offsetWidth));
+    };
+    const ende = () => {
+      if (x0 == null) return;
+      x0 = null;
+      const l = leiste(), h = hinter();
+      l?.classList.remove('zieht'); h?.classList.remove('zieht');
+      if (l && dx < -Math.min(90, l.offsetWidth * 0.3)) { l.style.transform = 'translateX(-100%)'; h.style.opacity = '0'; setTimeout(() => history.back(), 180); }
+      else if (l) { l.style.transform = ''; h.style.opacity = ''; }
+    };
+    el?.addEventListener('touchstart', an, { passive: true }); el?.addEventListener('touchmove', zieh, { passive: true });
+    el?.addEventListener('touchend', ende, { passive: true }); el?.addEventListener('touchcancel', ende, { passive: true });
+    return () => {
+      removeEventListener('popstate', pop);
+      for (const [n, f] of [['touchstart', an], ['touchmove', zieh], ['touchend', ende], ['touchcancel', ende]]) el?.removeEventListener(n, f);
+    };
+  }, [offen]);
   if (!auf) return null;
   const schliessen = () => history.back();
-  return html`<div class="seitenmenue auf" ref=${ref}>
+  return html`<div class=${`seitenmenue auf ${vorschau ? 'vorschau' : ''} ${ohneEinblenden ? 'ohne-ein' : ''}`} ref=${ref}>
     <div class="sm-hinter" onClick=${schliessen}></div>
     <nav class="sm-leiste" aria-label="Werkzeuge">
       <div class="sm-kopf"><span class="logo"><b>PR</b> Hunter</span><button class="iconbtn" onClick=${schliessen} aria-label="Menü schließen">${I.zu}</button></div>

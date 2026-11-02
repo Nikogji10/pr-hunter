@@ -1441,6 +1441,10 @@ export const EN = new Map([
   ["Feedback ist erst nach Update 24 möglich.", "Feedback requires update 24."],
   ["Termine in den Kalender (.ics)", "Dates to your calendar (.ics)"],
   ["Aus deinen Übungen abgeleitet (Näherung)", "Derived from your exercises (approximation)"],
+  ["1RM Bestwert", "Best 1RM"],
+  ["★ Neuer Rekord", "★ New record"],
+  ["Körpergewicht fehlt – auf „Heute“ eintragen, dann rechnet die App mit der Gesamtlast.", "Body weight missing – enter it on “Today” so the app can use the total load."],
+  ["Empfohlen", "Recommended"],
 ]);
 
 export const EN_MUSTER = [
@@ -1665,4 +1669,5 @@ export const EN_MUSTER = [
   ["{0} oder in der App über „Feedback senden“.", "{0} or in the app via “Send feedback”."],
   ["{0} Trainings und {1} Programme ergänzt.", "{0} workouts and {1} programs added."],
   ["{0} anzeigen", "Show {0}"],
+  ["{0} (inkl. KG)", "{0} (incl. BW)"],
 ];

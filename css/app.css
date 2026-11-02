@@ -1563,3 +1563,28 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .aw-kopf > .suche { position: sticky; top: 0; z-index: 2; }
 .aw-koerper { max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 10px; }
 .aw-koerper .figuren { max-width: 300px; margin: 0 auto; }
+
+/* Wischen folgt dem Finger: Nachbarseite läuft mit, Seitenmenü zieht sich mit auf (02.11.) */
+/* .seite-haupt bekommt nur während des Wischens ein transform – sonst wären Fenster (position: fixed) darin gefangen */
+.seite-nachbar { position: fixed; inset: 0; z-index: 6; overflow: hidden; pointer-events: none; will-change: transform; }
+.seite-nachbar.weiter { transform: translateX(100%); }
+.seite-nachbar.zurueck { transform: translateX(-100%); }
+.seite-haupt.gleitet, .seite-nachbar.gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+.seitenmenue.vorschau .sm-leiste { animation: none; transform: translateX(-100%); }
+.seitenmenue.vorschau .sm-hinter { animation: none; opacity: 0; }
+.sm-leiste.zieht, .sm-hinter.zieht { transition: none; }
+.sm-leiste.gleitet { transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+.sm-hinter.gleitet { transition: opacity .18s ease; }
+.sm-leiste { transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+.seitenmenue.ohne-ein .sm-leiste, .seitenmenue.ohne-ein .sm-hinter { animation: none; }
+
+/* Gewicht-Fenster: 1RM kurz als Liste (Bestwert, Eingabe ohne RPE, mit RPE) */
+.kg-werte { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 14px; background: var(--sunken); border: 1px solid var(--line); }
+.kgw-zeile { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 14px; color: var(--muted); }
+.kgw-zeile + .kgw-zeile { border-top: 1px solid var(--line); }
+.kgw-zeile b { color: var(--ink); font-size: 16px; white-space: nowrap; }
+.kgw-zeile.fett span { color: var(--ink-2); font-weight: 700; }
+.kgw-zeile.fett b { font-size: 20px; color: var(--acc-text); }
+.kgw-rekord { align-self: flex-end; font-size: 12px; font-weight: 800; color: var(--gold); }
+.kgw-empfehlung { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #34C77B 14%, transparent); border: 1px solid color-mix(in srgb, #34C77B 40%, transparent); color: #34C77B; font-size: 13.5px; font-weight: 700; text-align: left; }
+.kgw-empfehlung b { font-size: 16px; color: var(--ink); white-space: nowrap; }

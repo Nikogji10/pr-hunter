@@ -400,6 +400,10 @@ function App() {
   const [neueVersion, setNeueVersion] = useState(false);        // 126 g                     // 172: Seitenmenü mit Werkzeugen
   const [rechnerArt, setRechnerArt] = useState(() => { const a = ausAdresse(); return a.ansicht === 'rechner' ? a.key : null; });
   const wischRef = useRef({});
+  const [nachbar, setNachbar] = useState(null);                  // beim Wischen: { key, art } der Seite, die hereinkommt
+  const [menueZug, setMenueZug] = useState(false);               // Seitenmenü wird gerade aufgezogen
+  const [menueGezogen, setMenueGezogen] = useState(false);       // per Wischen geöffnet: Einblend-Animation nicht nochmal
+  const hauptRef = useRef(null), nachbarRef = useRef(null);
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -769,7 +773,56 @@ function App() {
   }, []);
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
-    seitenWechsel: () => !!wischRef.current.reiter });
+    seitenWechsel: () => !!wischRef.current.reiter,
+    zug: {
+      start: (art) => {
+        if (art === 'menue') { setMenueZug(true); return true; }
+        const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
+        if (!key) return false;
+        setNachbar({ key, art }); return true;
+      },
+      bewege: (art, dx) => {
+        const B = innerWidth;
+        if (art === 'menue') {
+          const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
+          if (!l) return;
+          const w = l.offsetWidth, x = Math.min(0, Math.max(-w, dx - w));
+          l.style.transform = `translateX(${x}px)`; h.style.opacity = String(1 + x / w);
+          return;
+        }
+        const d = art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx);
+        if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d}px)`;
+        if (nachbarRef.current) nachbarRef.current.style.transform = `translateX(${d + (art === 'weiter' ? B : -B)}px)`;
+      },
+      ende: (art, erfolg) => {
+        const B = innerWidth;
+        if (art === 'menue') {
+          const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
+          if (l) { l.classList.add('gleitet'); h.classList.add('gleitet'); l.style.transform = erfolg ? 'translateX(0)' : 'translateX(-100%)'; h.style.opacity = erfolg ? '1' : '0'; }
+          setTimeout(() => {
+            if (l) { l.classList.remove('gleitet'); h.classList.remove('gleitet'); l.style.transform = ''; h.style.opacity = ''; }
+            if (erfolg) { setMenueGezogen(true); setMenue(true); }
+            setMenueZug(false);
+          }, 190);
+          return;
+        }
+        const haupt = hauptRef.current, nach = nachbarRef.current;
+        for (const el of [haupt, nach]) el?.classList.add('gleitet');
+        if (erfolg) {
+          if (haupt) haupt.style.transform = `translateX(${art === 'weiter' ? -B : B}px)`;
+          if (nach) nach.style.transform = 'translateX(0)';
+        } else {
+          if (haupt) haupt.style.transform = 'translateX(0)';
+          if (nach) nach.style.transform = `translateX(${art === 'weiter' ? B : -B}px)`;
+        }
+        setTimeout(() => {
+          const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
+          if (erfolg && key) gehe(key);
+          if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
+          setNachbar(null);
+        }, 200);
+      },
+    } });
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
   if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="muted">Lade …</p></div>`;
   if (phase === 'anmelden') return html`<${Anmeldung} angemeldet=${(s) => starte({ id: s.user.id, email: s.user.email })}
@@ -1008,15 +1061,14 @@ function App() {
   jetzt.current = { ansicht, key: ansicht === 'uebung' ? uebungAnsicht?.key ?? null : ansicht === 'rechner' ? rechnerArt : null };
   {
     const i = TABS.findIndex(([k]) => k === ansicht);
-    wischRef.current = { reiter: i >= 0, zurueck: i > 0 ? () => gehe(TABS[i - 1][0]) : null, weiter: i >= 0 && i < TABS.length - 1 ? () => gehe(TABS[i + 1][0]) : null };
+    wischRef.current = { reiter: i >= 0, zurueck: i > 0 ? () => gehe(TABS[i - 1][0]) : null, weiter: i >= 0 && i < TABS.length - 1 ? () => gehe(TABS[i + 1][0]) : null,
+      zurueckKey: i > 0 ? TABS[i - 1][0] : null, weiterKey: i >= 0 && i < TABS.length - 1 ? TABS[i + 1][0] : null };
   }
   const imTraining = ansicht === 'training' && training;
-  const leiste = training && ansicht !== 'training';
-  const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
-  const aktiverTab = ansicht === 'training' || ansicht === 'rechner' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
-  return html`<div>
-    <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
-    ${imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
+  // Inhalt einer Ansicht – für die aktuelle Seite und beim Wischen für die Nachbarseite, die schon mitläuft
+  const seiteFuer = (ansicht) => {
+    const imTraining = ansicht === 'training' && training;
+    return imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
         minimieren=${() => gehe('heute')} beenden=${beenden} zuVerlauf=${(key) => zuUebung(key, 'training')}/>`
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
           zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
@@ -1050,7 +1102,15 @@ function App() {
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
-          zuImport=${DEMO ? null : () => gehe('import')}/>`}
+          zuImport=${DEMO ? null : () => gehe('import')}/>`;
+  };
+  const leiste = training && ansicht !== 'training';
+  const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
+  const aktiverTab = ansicht === 'training' || ansicht === 'rechner' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
+  return html`<div>
+    <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
+    <div class="seite-haupt" ref=${hauptRef}>${seiteFuer(ansicht)}</div>
+    ${nachbar ? html`<div class=${`seite-nachbar ${nachbar.art}`} ref=${nachbarRef} aria-hidden="true">${seiteFuer(nachbar.key)}</div>` : null}
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
@@ -1070,8 +1130,8 @@ function App() {
     ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
       beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
     <${BildLupe}/>
-    <${SeitenMenue} auf=${menue} zu=${() => setMenue(false)} einfach=${einst.trainingsart === 'einfach'}
-      waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); gehe('rechner', k, true); }}/>
+    <${SeitenMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
+      waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); gehe('rechner', k, true); }}/>
     ${glossar ? html`<${GlossarSheet} zu=${() => setGlossar(false)}/>` : null}
     ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} zu=${() => setFeedback(null)}
       senden=${(f) => konto.feedbackSenden(supabase(), f)}/>` : null}

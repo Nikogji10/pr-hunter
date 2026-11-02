@@ -363,10 +363,33 @@ function KgSheet({ t, s: z, zu, satz, koerperKg }) {
     <${GrossZahl} id="kg-zahl" text=${`${koerper && kg > 0 ? '+' : ''}${gw(kg)}`} einheitText=${einheit()} tippen=${tippen} setTippen=${setTippen} fertig=${ok}
       setze=${(n) => setKg(koerper ? inKg(n) : Math.max(0, inKg(n)))}/>
     <div class="stepper">${[-2 * inc, -inc, inc, 2 * inc].map((d) => html`<button key=${d} onClick=${() => knopf(() => setKg(koerper ? +(kg + d).toFixed(4) : Math.max(0, +(kg + d).toFixed(4))))}>${d > 0 ? '+' : '−'}${gw(Math.abs(d))}</button>`)}</div>
-    ${koerper ? html`<p class="muted" style="margin:0;font-size:13.5px">Gesamtlast ${koerperKg ? gwE(koerperKg + kg) : '–'} (Körpergewicht ${koerperKg ? gwE(koerperKg) : 'fehlt – in den Einstellungen eintragen'}). Negativ = Unterstützung.</p>` : null}
+    ${koerper && !koerperKg ? html`<p class="muted" style="margin:0;font-size:13px">Körpergewicht fehlt – auf „Heute“ eintragen, dann rechnet die App mit der Gesamtlast.</p>` : null}
     ${stangeVon(k.key) ? html`<div class="stack" style="gap:8px"><${Hantel} kg=${kg}/><div class="row between"><span class="eyebrow">Pro Seite</span><${Scheiben} kg=${kg}/></div></div>` : null}
-    ${best && !koerper && lastFuerWeit(best, s.wdh, zielRpe) ? html`<p class="muted" style="margin:0;font-size:13.5px">Bestes e1RM ${gwE(best, 1)}. Das entspricht etwa <b style="color:var(--ink)">${gwE(lastFuerWeit(best, s.wdh, zielRpe, inc))} × ${s.wdh} @ RPE ${fmt(zielRpe)}</b>, darüber wird es ein Rekord.</p>` : null}
-    ${!koerper && kg > 0 && s.wdh > 0 ? html`<p class="muted" style="margin:0;font-size:13.5px">${deEn(`Mit ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: errechnetes 1RM etwa `, `With ${gwE(kg)} × ${s.wdh}${s.rpe != null ? ` @ RPE ${fmt(s.rpe)}` : ''}: estimated 1RM about `)}<b style="color:var(--ink)">${gwE(e1rmWeit(kg, s.wdh, s.rpe, formel()), 1)}</b>.</p>` : null}
+    ${(() => {
+      // Kurz und klar (Niko 02.11.): oben das beste 1RM aller Zeiten, darunter das 1RM aus der Eingabe ohne RPE, dann mit RPE.
+      // Klimmzug/Dips: gerechnet mit der Gesamtlast, angezeigt nur als Zusatzgewicht (Niko 02.11.)
+      const last = koerper ? (koerperKg ? koerperKg + kg : null) : kg;
+      const zeig = (w) => (w == null ? null : koerper ? w - koerperKg : w);
+      const zus = (w) => (w == null ? '–' : koerper ? `${w > 0 ? '+' : ''}${gwE(w, 1)}` : gwE(w, 1));
+      const rpe = s.rpe ?? g.rpe?.max ?? null;
+      const ohne = last > 0 && s.wdh > 0 ? e1rmWeit(last, s.wdh, null, formel()) : null;
+      const mit = last > 0 && s.wdh > 0 && rpe != null ? e1rmWeit(last, s.wdh, rpe, formel()) : null;
+      if ((koerper && !koerperKg) || (!best && ohne == null)) return null;
+      const zeile = (titel, wert, fett = false) => html`<div class=${`kgw-zeile ${fett ? 'fett' : ''}`}><span>${titel}</span><b>${zus(zeig(wert))}</b></div>`;
+      return html`<div class="kg-werte">
+        ${zeile('1RM Bestwert', best, true)}
+        ${ohne != null ? zeile(`${koerper && kg > 0 ? '+' : ''}${gw(kg)} × ${s.wdh}`, ohne) : null}
+        ${mit != null ? zeile(`${koerper && kg > 0 ? '+' : ''}${gw(kg)} × ${s.wdh} @ RPE ${fmt(rpe)}`, mit) : null}
+        ${best && Math.max(ohne ?? 0, mit ?? 0) > best ? html`<span class="kgw-rekord">★ Neuer Rekord</span>` : null}
+        ${(() => {
+          // Empfehlung für Wdh × Ziel-RPE aus der aktuellen Form (wie der RPE-Rechner); Antippen übernimmt das Gewicht
+          const zRpe = s.rpe, empf = zRpe != null && s.wdh > 0 ? vorschlag(k.key, s.wdh, zRpe, koerperKg) : null;   // nur mit eingetragener RPE
+          if (empf == null) return null;
+          return html`<button class="kgw-empfehlung" onClick=${() => knopf(() => setKg(empf))}><span>Empfohlen</span>
+            <b>${`${koerper && empf > 0 ? '+' : ''}${gw(empf)} × ${s.wdh} @ RPE ${fmt(zRpe)}`}</b></button>`;
+        })()}
+      </div>`;
+    })()}
     ${g.saetze.length > z.si + 1 ? html`<label class="schalter" for="kg-alle"><span>Auch für die folgenden Sätze</span>
       <input type="checkbox" id="kg-alle" checked=${alle} onChange=${(e) => setAlle(e.currentTarget.checked)}/></label>` : null}
     <button class="btn btn-chalk btn-block" onClick=${ok}>Übernehmen</button>
