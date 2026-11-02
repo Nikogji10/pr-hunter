@@ -1500,6 +1500,11 @@ export const EN = new Map([
   ["Gleich wie letzte Woche", "Same as last week"],
   ["Oberschenkel", "Upper legs"],
   ["Noch keine Trainings – nach dem ersten Training stehen hier deine Analysen.", "No workouts yet – your analyses appear here after your first workout."],
+  ["Trainingstage", "Training days"],
+  ["Stunden", "Hours"],
+  ["insgesamt", "all time"],
+  ["am Stück", "in a row"],
+  ["Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge du trainiert hast (mindestens ein Training pro Woche).", "“Today” shows how many workouts you've done this week and how many weeks in a row you trained (at least one workout per week)."],
 ]);
 
 export const EN_MUSTER = [

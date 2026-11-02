@@ -50,8 +50,9 @@ function SerieKarte({ s }) {
         `On average active ${fmt(s.tageProWoche, 1)} days a week${s.minutenSchnitt ? `, ${Math.round(s.minutenSchnitt)} minutes per workout` : ''} and ${fmt(s.rekordeProWoche, 1)} records a week.`)}</p>`
       : html`<p class="ins-text">Diese Woche trainieren und eine neue Serie starten.</p>`}
     <div class="ins-serie"><span class="ins-flamme" aria-hidden="true">🔥</span><b class="zahl">${s.wochen}</b><span>${deEn(s.wochen === 1 ? 'Woche Serie' : 'Wochen Serie', s.wochen === 1 ? 'week streak' : 'week streak')}</span></div>
-    <div class="ins-zwei"><div><span class="muted">Abgeschlossen</span><b>${deEn(`${s.tage} Tage`, `${s.tage} days`)}</b></div>
-      <div><span class="muted">Längste Serie</span><b>${deEn(`${s.laengste} Wochen`, `${s.laengste} weeks`)}</b></div></div>
+    <div class="ins-zwei drei"><div><span class="muted">Trainingstage</span><b>${s.gesamt.tage}</b><small class="muted">insgesamt</small></div>
+      <div><span class="muted">Stunden</span><b>${`${s.gesamt.geschaetzt ? '≈' : ''}${fmt(s.gesamt.stunden, 0)}`}</b><small class="muted">insgesamt</small></div>
+      <div><span class="muted">Längste Serie</span><b>${deEn(`${s.laengste} Wo.`, `${s.laengste} wk`)}</b><small class="muted">am Stück</small></div></div>
     <div class="ins-raster">
       <span></span>${(en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S']).map((t, i) => html`<span key=${i} class="ins-wt">${t}</span>`)}
       ${s.raster.map((wo, i) => {

@@ -145,7 +145,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
       <span class="viz-t unterteil">Wochenziel</span>
       <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
-      <span class="muted" style="font-size:12.5px">Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge das Ziel erreicht wurde.</span>
+      <span class="muted" style="font-size:12.5px">Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge du trainiert hast (mindestens ein Training pro Woche).</span>
     </section>
     <section class="card pad stack">
       <span class="viz-t">Standard-Pausen</span>

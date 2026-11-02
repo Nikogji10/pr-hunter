@@ -50,14 +50,29 @@ export function rekorde(einheiten) {
 // #################################################################
 // a) Trainings-Serie: Wochen in Folge mit mindestens einem Training
 // #################################################################
-export function serie(einheiten, heute) {
-  const wochen = new Set(einheiten.map((e) => montagVon(e.datum)));
+/** Wochen in Folge mit mindestens einem Training (laufende Woche darf noch leer sein) – gleiche Zahl auf Heute und in der Analyse. */
+export function wochenSerie(daten, heute) {
+  const wochen = new Set(daten.map((d) => montagVon(d)));
   let w = montagVon(heute);
-  if (!wochen.has(w)) w = plusTage(w, -7);                     // laufende Woche darf noch leer sein
+  if (!wochen.has(w)) w = plusTage(w, -7);
   let aktuell = 0, beginn = null;
   while (wochen.has(w)) { aktuell += 1; beginn = w; w = plusTage(w, -7); }
   let laengste = 0, lauf = 0, vor = null;
   for (const x of [...wochen].sort()) { lauf = vor && tageZwischen(vor, x) === 7 ? lauf + 1 : 1; laengste = Math.max(laengste, lauf); vor = x; }
+  return { aktuell, beginn, laengste };
+}
+
+/** Alle Trainingstage und -stunden seit Beginn. Trainings ohne Start/Ende (z. B. Import) zählen mit der mittleren Dauer der übrigen. */
+export function gesamt(einheiten) {
+  const tage = new Set(einheiten.map((e) => e.datum)).size;
+  const mins = einheiten.map(minuten).filter((m) => m != null && m < 600);
+  const ohne = einheiten.length - mins.length;
+  const sortiert = [...mins].sort((a, b) => a - b), mitte = sortiert.length ? sortiert[Math.floor(sortiert.length / 2)] : 60;
+  return { tage, stunden: (mins.reduce((a, b) => a + b, 0) + ohne * mitte) / 60, geschaetzt: ohne > 0 };
+}
+
+export function serie(einheiten, heute) {
+  const { aktuell, beginn, laengste } = wochenSerie(einheiten.map((e) => e.datum), heute);
   const inSerie = beginn ? einheiten.filter((e) => e.datum >= beginn) : [];
   const tage = [...new Set(inSerie.map((e) => e.datum))];
   const mins = inSerie.map(minuten).filter((m) => m != null);
@@ -79,7 +94,7 @@ export function serie(einheiten, heute) {
   const zaehler = new Map();
   for (const e of inSerie) for (const u of e.uebungen) zaehler.set(u.key, (zaehler.get(u.key) ?? 0) + 1);
   const top = [...zaehler].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([key, n]) => ({ key, n }));
-  return { wochen: aktuell, laengste, beginn, tage: tage.length, tageProWoche: aktuell ? tage.length / aktuell : 0,
+  return { wochen: aktuell, laengste, beginn, tage: tage.length, gesamt: gesamt(einheiten), tageProWoche: aktuell ? tage.length / aktuell : 0,
     minutenSchnitt: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : null, rekordeProWoche: aktuell ? rek / aktuell : 0, raster, zeit14, top };
 }
 

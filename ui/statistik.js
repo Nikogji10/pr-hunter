@@ -43,10 +43,13 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
   const waehleReiter = (k) => { setReiter(k); scrollTo({ top: 0 }); };
   useUnterReiter('statistik', reiterListe, reiter, waehleReiter);
-  const [bereich, setBereich] = useState(52);
+  // Zeitraum bleibt fürs nächste Mal gespeichert (Gerät); ungültig oder „Block“ ohne aktiven Block → 1 Jahr
+  const [bereichRoh, setBereichRoh] = useState(() => { const v = Number(speicher.lies('prh-stat-zeitraum')); return Number.isFinite(v) && speicher.lies('prh-stat-zeitraum') != null ? v : 52; });
+  const setBereich = (w) => { setBereichRoh(w); speicher.schreib('prh-stat-zeitraum', String(w)); };
   const [rekLift, setRekLift] = useState('squat');
   // Zeitraum in Wochen: 0 = alles, -1 = seit Beginn des aktiven Blocks
   const blockWochen = blockStart && blockStart <= HEUTE ? Math.floor(tageZwischen(montagVon(blockStart), montagVon(HEUTE)) / 7) + 1 : null;
+  const bereich = bereichRoh === -1 ? (blockWochen ? -1 : 52) : [...BEREICHE.map(([, w]) => w)].includes(bereichRoh) ? bereichRoh : 52;
   const n = bereich === 0 ? wochen.length : bereich === -1 ? Math.min(blockWochen ?? 1, wochen.length) : Math.min(bereich, wochen.length);
   const kg = einst.koerpergewicht;
   const bereiche = [...BEREICHE, ...(blockWochen ? [['Block', -1]] : [])];

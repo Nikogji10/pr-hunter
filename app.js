@@ -36,6 +36,7 @@ import { ausTraining, zuTraining, abgleichen, neueId, setzeUmbenannt } from './j
 import { speicherFuer, dauerhaft } from './js/lokal.js';
 import { supabase, codeSenden, codePruefen, sitzung, abmelden, emailAendern } from './js/supabase.js';
 import * as konto from './js/konto.js';
+import { normiere, wochenSerie } from './js/insights.js';
 
 const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
@@ -198,17 +199,14 @@ function TrainingsartKarte({ waehle }) {
   </section>`;
 }
 
-/** 163 i: Wochenziel und Serie (Wochen in Folge mit erreichtem Ziel). */
-function WochenZiel({ ziel }) {
-  const tage = Object.keys(trainingsTage);
-  const proWoche = new Map();
-  for (const d of tage) { const m = montagVon(d); proWoche.set(m, (proWoche.get(m) ?? 0) + 1); }
-  const diese = proWoche.get(montagVon(HEUTE)) ?? 0;
-  let serie = diese >= ziel ? 1 : 0;
-  for (let m = plusTage(montagVon(HEUTE), -7); (proWoche.get(m) ?? 0) >= ziel; m = plusTage(m, -7)) serie++;
+/** 163 i: Wochenziel; Serie wie in der Analyse: Wochen in Folge mit mindestens einem Training (gleiche Zahl auf beiden Seiten). */
+function WochenZiel({ ziel, trainings = [] }) {
+  const daten = useMemo(() => normiere(trainings).map((e) => e.datum), [trainings]);
+  const diese = new Set(daten.filter((d) => montagVon(d) === montagVon(HEUTE))).size;
+  const serie = wochenSerie(daten, HEUTE).aktuell;
   return html`<section class="card wochenziel">
     <div class="wz-punkte" aria-hidden="true">${Array.from({ length: ziel }, (_, i) => html`<i key=${i} class=${i < diese ? 'voll' : ''}></i>`)}</div>
-    <span class="wz-text"><b>${`${Math.min(diese, ziel)}/${ziel} diese Woche`}</b><small>${serie ? `Serie: ${serie} ${serie === 1 ? 'Woche' : 'Wochen'} in Folge` : 'Ziel erreichen und eine Serie starten'}</small></span>
+    <span class="wz-text"><b>${`${Math.min(diese, ziel)}/${ziel} diese Woche`}</b><small>${serie ? `Serie: ${serie} ${serie === 1 ? 'Woche' : 'Wochen'} in Folge` : 'Diese Woche trainieren und eine neue Serie starten.'}</small></span>
     ${diese >= ziel ? html`<span class="wz-ok">✓</span>` : null}
   </section>`;
 }
@@ -242,7 +240,7 @@ function MaxListe({ werte, zuUebung }) {
   </section>`;
 }
 
-function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
@@ -261,7 +259,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
   ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
   ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
   ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3}/>`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3} trainings=${trainings}/>`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
@@ -1189,7 +1187,7 @@ function App() {
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           zuImport=${DEMO ? null : () => gehe('import')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
-      : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
+      : html`<${Heute} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}

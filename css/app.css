@@ -1636,6 +1636,8 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .ins-serie b { font: 900 54px/1 var(--f); font-stretch: 70%; }
 .ins-serie span { font-size: 22px; font-weight: 800; }
 .ins-zwei { display: grid; grid-template-columns: 1fr 1fr; }
+.ins-zwei.drei { grid-template-columns: 1fr 1fr 1fr; }
+.ins-zwei small { font-size: 11.5px; }
 .ins-zwei > div { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; }
 .ins-zwei > div + div { border-left: 1px solid var(--line); }
 .ins-zwei > div:first-child { padding-left: 0; }
