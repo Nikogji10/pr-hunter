@@ -1,5 +1,5 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef, render } from '../vendor/htm-preact.js';
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
@@ -194,17 +194,19 @@ export const I = {
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
-export function PausenTimer({ timer, setTimer, kopf = false }) {
+export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null }) {
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000;
   useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
   const C = 2 * Math.PI * 16, anteil = Math.max(0, Math.min(1, rest / timer.dauer));
+  // 169: außerhalb des Trainings öffnet ein Tipp auf Ring oder Zeit das laufende Training
+  const auf = oeffnen ? { onClick: oeffnen, role: 'button', tabIndex: 0, style: 'cursor:pointer', 'aria-label': 'Zum laufenden Training' } : {};
   return html`<div class=${`timer ${rest <= 0 ? 'over' : ''} ${kopf ? 'im-kopf' : ''}`} role="timer" aria-live="off">
-    <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor;opacity:.2" stroke-width="4"/>
+    <div class="timer-auf" ...${auf}><svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor;opacity:.2" stroke-width="4"/>
       <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/></svg>
     <div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
       <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
-        : `Pause · nächster: ${timer.naechster}`}</div></div>
+        : `Pause · nächster: ${timer.naechster}`}</div></div></div>
     <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
     <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
     <button onClick=${() => setTimer(null)} aria-label="Pause beenden" style="min-width:40px">${I.zu}</button>
@@ -217,8 +219,17 @@ export async function kopiere(text, feld) {
   catch { if (feld) { feld.focus(); feld.select(); } return false; }
 }
 
+/** Inhalt direkt unter <body> zeichnen – Fenster aus Karten heraus (backdrop-filter/transform sperren position:fixed sonst ein). */
+export function Portal({ children }) {
+  const ziel = useRef(null);
+  if (!ziel.current) ziel.current = document.createElement('div');
+  useEffect(() => { document.body.append(ziel.current); return () => { render(null, ziel.current); ziel.current.remove(); }; }, []);
+  useEffect(() => { render(html`<div>${children}</div>`, ziel.current); });
+  return null;
+}
+
 /** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
-export function Sheet({ zu, children, label = 'Dialog' }) {
+export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   const zuRef = useRef(zu);
   zuRef.current = zu;
   useEffect(() => {
@@ -275,7 +286,7 @@ export function Sheet({ zu, children, label = 'Dialog' }) {
     return () => { for (const [typ, f] of plan) s.removeEventListener(typ, f); };
   }, []);
   return html`<div class="backdrop" onClick=${(e) => e.target === e.currentTarget && zu()}>
-    <div class="sheet" ref=${ref} role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
+    <div class=${`sheet ${voll ? 'voll' : ''}`} ref=${ref} role="dialog" aria-modal="true" aria-label=${label}><div class="grab"></div>${children}</div>
   </div>`;
 }
 

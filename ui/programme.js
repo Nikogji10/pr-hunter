@@ -3,14 +3,15 @@
 import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
-import { EigenerPlan } from './eigenerplan.js';
+import { EigenerPlan, eigenerPlanAus } from './eigenerplan.js';
+import { EINSTEIGER } from './einsteiger.js';
 import { useRef } from '../vendor/htm-preact.js';
 import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson } from '../js/import.js';
 
 // Import-Zuordnungen (Name aus der Datei → Katalogschlüssel), auf dem Gerät gemerkt: beim nächsten Import automatisch
 const ZUORDNUNG = 'prh-import-zuordnung';
-const ladeZuordnung = () => { try { return JSON.parse(localStorage.getItem(ZUORDNUNG) ?? '{}') ?? {}; } catch { return {}; } };
-const merkeZuordnung = (z) => { try { localStorage.setItem(ZUORDNUNG, JSON.stringify(z)); } catch { /* nur diese Sitzung */ } };
+export const ladeZuordnung = () => { try { return JSON.parse(localStorage.getItem(ZUORDNUNG) ?? '{}') ?? {}; } catch { return {}; } };
+export const merkeZuordnung = (z) => { try { localStorage.setItem(ZUORDNUNG, JSON.stringify(z)); } catch { /* nur diese Sitzung */ } };
 import { pruefePana } from '../js/generator.js';
 import { HEUTE, DEMO, DIENSTE, plusTage } from './stand.js';
 import { INFO, BEISPIEL_MAXE, MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
@@ -134,12 +135,15 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       : html`<section class="card pad stack neu-frage"><div class="row between"><span class="viz-t">Wie willst du planen?</span>
           <button class="iconbtn klein" aria-label="Schließen" onClick=${() => setNeuOffen(false)}>${I.zu}</button></div>
         <div class="neu-wege">
+          ${/* 163 a: fertige Einsteigerpläne mit einem Tipp (ohne Maxe; Gewichte aus dem Vorschlag im Training) */ ''}
+          ${EINSTEIGER.map((e) => html`<button key=${e.id} class="weg-karte einsteiger" onClick=${() => speichernNeu(eigenerPlanAus({ name: e.name, wochen: 8, tage: e.tage }))}>
+            <span class="tag gut">Einsteiger · 1 Tipp</span><b>${e.name}</b><span>${e.text}</span></button>`)}
           <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
             <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
           <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding</b>
             <span>Muskelaufbau: Split wählen, zwei Übungen je Muskel, Tage pro Woche – die App baut den Block.</span></button>
-          <button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting</b>
-            <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, deine Maxe, Test am Ende – die App baut den Block.</span></button>
+          ${einst.trainingsart === 'einfach' ? null : html`<button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting</b>
+            <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, deine Maxe, Test am Ende – die App baut den Block.</span></button>`}
         </div>
         <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button></section>`}
     ${(() => {
@@ -271,7 +275,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
 const BEISPIEL_CSV = KI_ANLEITUNG.split('Beispiel:\n')[1].split('\n\nHier ist')[0];
 
 /** Unbekannte Übungen aus dem Import Schritt für Schritt zuordnen – jeder Name nur einmal, gilt für alle Zeilen damit. */
-function UebungenZuordnen({ liste, fertig, abbrechen }) {
+export function UebungenZuordnen({ liste, fertig, abbrechen, platz = true }) {
   const [i, setI] = useState(0);
   const [wahl, setWahl] = useState({});
   const [suchen, setSuchen] = useState(false);
@@ -296,9 +300,10 @@ function UebungenZuordnen({ liste, fertig, abbrechen }) {
       ${u.vorschlaege.length ? html`<span class="eyebrow" style="margin-top:6px">Vorschläge</span>
         <div class="zuordnen-liste">${u.vorschlaege.map((k) => html`<button key=${k} class=${`zuordnen-treffer ${wahl[u.schluessel] === k ? 'gewaehlt' : ''}`} onClick=${() => waehle(k)}>
           <${UebungsBild} schluessel=${k} groesse=${44} zoom=${false}/><span>${nameVon(k)}</span>${I.weiter ?? '›'}</button>`)}</div>` : null}
-      ${suchen ? html`<${UebungSuche} id="zuordnen-suche" onWahl=${waehle}/>`
+      ${suchen ? html`<${UebungSuche} id="zuordnen-suche" autofokus=${true} onWahl=${waehle}/>`
         : html`<button class="btn btn-soft btn-block" onClick=${() => setSuchen(true)}>${I.suche} Andere Übung suchen</button>`}
-      <button class="link" style="justify-self:start" onClick=${() => waehle('platz')}>Als frei wählbaren Platz übernehmen (Übung erst im Training wählen)</button>
+      ${DIENSTE.neueUebungStarten ? html`<button class="link" style="justify-self:start" onClick=${() => DIENSTE.neueUebungStarten(u.name, waehle)}>${`„${u.name}“ als eigene Übung anlegen`}</button>` : null}
+      ${platz ? html`<button class="link" style="justify-self:start" onClick=${() => waehle('platz')}>Als frei wählbaren Platz übernehmen (Übung erst im Training wählen)</button>` : null}
     </section>
   </div>`;
 }

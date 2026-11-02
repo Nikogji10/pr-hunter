@@ -35,12 +35,24 @@ export function GewichtKarte({ einst, setEinst, kompakt = false }) {
     <//>` : null;
   const zielKnopf = (klasse) => html`<button class=${klasse} onClick=${() => { setZiel(einst.gewichtZiel ?? null); setZielOffen(true); }}>${zielAnzeige != null ? `Ziel ${fmt(zielAnzeige, 1)} ${einheit()}` : 'Ziel setzen'}</button>`;
   if (kompakt) {
-    return html`<section class="card gewicht kompakt">
-      <div class="gw-text"><span class="viz-t">Körpergewicht</span>
-        <span class="muted">${zielText ?? status}</span>${zielKnopf('link')}</div>
-      <button class="rund" onClick=${() => tippe(-0.1)} aria-label=${`0,1 ${einheit()} weniger`}>−</button>
-      <b class="zahl tab-num" aria-live="polite" title=${status}>${wert != null ? fmt(wert, 1) : '–'}<small> ${einheit()}</small></b>
-      <button class="rund" onClick=${() => tippe(0.1)} aria-label=${`0,1 ${einheit()} mehr`}>+</button>
+    // 172: wie Vorlage 6 – große Zahl, Veränderung zur Vorwoche, Verlauf rechts; −/+ bleibt zum schnellen Eintragen
+    const vorwoche = [...KOERPERVERLAUF].reverse().find((m) => m.datum <= plusTage(HEUTE, -7));
+    const delta = wert != null && vorwoche ? runde1(wert - inAnzeige(vorwoche.kg)) : null;
+    // grün, wenn es Richtung Ziel geht (ohne Ziel: neutral)
+    const gut = delta == null || delta === 0 || zielAnzeige == null ? null : (zielAnzeige < wert) === (delta < 0);
+    return html`<section class="card gewicht g6">
+      <div class="g6-links">
+        <span class="viz-t">Körpergewicht</span>
+        <b class="zahl tab-num g6-zahl" aria-live="polite" title=${status}>${wert != null ? fmt(wert, 1) : '–'}<small> ${einheit()}</small></b>
+        ${delta != null ? html`<span class=${`g6-delta ${gut === true ? 'gut' : gut === false ? 'schlecht' : ''}`}>${`${delta < 0 ? '↓' : delta > 0 ? '↑' : '→'} ${delta > 0 ? '+' : ''}${fmt(delta, 1)} ${einheit()}`}
+${' '}<span class="muted">seit letzter Woche</span></span>` : html`<span class="muted g6-status">${status}</span>`}
+        <span class="g6-ziel">${zielText ? html`<span class="muted">${zielText} · </span>` : null}${zielKnopf('link')}</span>
+      </div>
+      <div class="g6-rechts">
+        ${verlauf.length > 2 ? html`<${Sparkline} werte=${verlauf} farbe="var(--acc)"/>` : html`<span></span>`}
+        <div class="g6-knoepfe"><button class="rund" onClick=${() => tippe(-0.1)} aria-label=${`0,1 ${einheit()} weniger`}>−</button>
+          <button class="rund" onClick=${() => tippe(0.1)} aria-label=${`0,1 ${einheit()} mehr`}>+</button></div>
+      </div>
     </section>${zielSheet}`;      // Fenster außerhalb der Karte: deren backdrop-filter würde es sonst einsperren
   }
   return html`<section class="card pad gewicht">

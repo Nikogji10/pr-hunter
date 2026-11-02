@@ -33,7 +33,10 @@ function wochenDaten(x) {
 const STAT_REITER = [['kraft', 'Kraft'], ['profil', 'Profil'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
 export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [] }) {
-  const [reiter, setReiter] = useState(() => speicher.lies('prh-stat-reiter') ?? 'kraft');
+  // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
+  const reiterListe = einst.trainingsart === 'einfach' ? STAT_REITER.filter(([k]) => !['kraft', 'profil'].includes(k)) : STAT_REITER;
+  const [reiterRoh, setReiter] = useState(() => speicher.lies('prh-stat-reiter') ?? 'kraft');
+  const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
   const waehleReiter = (k) => { setReiter(k); speicher.schreib('prh-stat-reiter', k); scrollTo({ top: 0 }); };
   const [bereich, setBereich] = useState(52);
   const [rekLift, setRekLift] = useState('squat');
@@ -173,7 +176,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
-      <nav class="reiter" role="tablist" aria-label="Bereich">${STAT_REITER.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
+      <nav class="reiter" role="tablist" aria-label="Bereich">${reiterListe.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
       ${/* Zeitraum im feststehenden Kopf: bleibt beim Scrollen sichtbar und filtert alles darunter (Wunsch 123) */ ''}
       ${reiter === 'profil' ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 

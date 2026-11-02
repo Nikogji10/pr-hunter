@@ -149,3 +149,13 @@ export function MuskelWahl({ zone, waehle }) {
     <span class="muted" style="font-size:12.5px;text-align:center">${zone ? ZONE_NAME[zone] : 'Muskel antippen'}</span>
   </div>`;
 }
+
+/** 165: Zielmuskeln einer Übung auf der Figur (feine Zonen der Übungssuche), nur Anzeige. */
+export function ZielMuskeln({ zonen, neben = [] }) {
+  const farbe = (g) => (zonen.includes(g) ? 'var(--acc)' : neben.includes(g) ? 'color-mix(in srgb, var(--acc) 40%, var(--muskel-leer))' : 'var(--muskel-leer)');
+  return html`<div class="ziel-muskeln">
+    <div class="figuren"><${Figur} teile=${SUCH_VORNE} linien=${LINIEN_VORNE} werte=${{}} aktiv=${null} waehle=${() => {}} titel="Vorne" farbe=${farbe}/>
+      <${Figur} teile=${SUCH_HINTEN} linien=${LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="Hinten" farbe=${farbe}/></div>
+    <div class="ziel-namen">${zonen.map((z) => html`<span key=${z} class="tag">${ZONE_NAME[z]}</span>`)}${neben.map((z) => html`<span key=${z} class="tag neben">${ZONE_NAME[z]}</span>`)}</div>
+  </div>`;
+}

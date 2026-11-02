@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -50,7 +50,11 @@ export const profilAusEinst = (e) => ({
 });
 
 export const ladeProfil = async (sb, uid) => pruefe(await sb.from('profiles').select('*').eq('id', uid).single());
-export const speichereProfil = async (sb, uid, einst) => pruefe(await sb.from('profiles').update(profilAusEinst(einst)).eq('id', uid));
+export const speichereProfil = async (sb, uid, einst) => {
+  const { error } = await sb.from('profiles').update(profilAusEinst(einst)).eq('id', uid);
+  // 126 c: Anzeigename eindeutig (Update 24) – verständliche Meldung statt Datenbankfehler
+  if (error) throw new Error(error.code === '23505' && /display_name/.test(error.message) ? 'Dieser Anzeigename ist schon vergeben – bitte einen anderen wählen.' : error.message);
+};
 
 // #################################################################
 // Übungen: in der App angelegte (für alle sichtbar) und persönliche Anpassungen
@@ -349,4 +353,10 @@ export function exportCsv(trainings, nameVon) {
     }
   }
   return `\uFEFF${zeilen.join('\r\n')}\r\n`;
+}
+
+/** 126 d/e: Feedback, Fehler oder Meldung (Tabelle feedback, Update 24). */
+export async function feedbackSenden(sb, { art, text, betrifft = null, version = null, geraet = null }) {
+  const { error } = await sb.from('feedback').insert({ art, text, betrifft, version, geraet });
+  if (error) throw new Error(/feedback/.test(error.message) && /exist|find/.test(error.message) ? 'Feedback ist erst nach Update 24 möglich.' : error.message);
 }

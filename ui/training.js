@@ -2,11 +2,22 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild, useEffect, leseZahl, deEn } from './basis.js';
+import { UebungsBild, useEffect, leseZahl, deEn, datumKurz } from './basis.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
-import { BEST_E1RM, E1RM_AKTUELL, LETZTES } from './stand.js';
+import { BEST_E1RM, E1RM_AKTUELL, LETZTES, E1RM_QUELLE } from './stand.js';
+import { InfoKnopf } from './glossar.js';
+// 163 f: Vorschlag aus dem letzten Mal – obere Wdh-Zahl geschafft → mehr Gewicht, sonst eine Wdh mehr
+function naechstesMal(letzter, wdhText, inc) {
+  if (!(letzter?.kg > 0) || !(letzter.wdh > 0)) return null;
+  const z = String(wdhText ?? '').match(/(\d+)\D+(\d+)/) ?? String(wdhText ?? '').match(/(\d+)/);
+  if (!z) return null;
+  const unten = Number(z[1]), oben = Number(z[2] ?? z[1]);
+  return letzter.wdh >= oben ? { kg: letzter.kg + inc, wdh: unten, text: `+${gw(inc)} ${einheit()}` } : { kg: letzter.kg, wdh: letzter.wdh + 1, text: '1 Wdh mehr' };
+}
+// 170: Satz, aus dem ein e1RM stammt („ (160 × 6)“)
+const quelleText = (q) => (q?.satz?.kg > 0 && q.satz.wdh > 0 ? ` (${gw(q.satz.kg)} × ${q.satz.wdh}${q.satz.rpe != null ? ` @ ${fmt(q.satz.rpe)}` : ''})` : '');
 
 const e1rmFuer = (key) => E1RM_AKTUELL[key] ?? BEST_E1RM[key] ?? null;   // aktuelle Form, sonst Bestwert
 const wdhText = (w) => !w ? '1' : w.amrap ? (w.ziel ? `max (Ziel ${w.ziel})` : 'max') : w.text ? w.text : w.plus ? `${w.min}+` : w.min !== w.max ? `${w.min}–${w.max}` : String(w.min);
@@ -240,7 +251,16 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     <div class="ex-head">
       <button class="bild-knopf" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung" style=${lift === 'andere' ? '' : `--c:${LIFT[lift].farbe}`}><${UebungsBild} schluessel=${k.key} groesse=${48}/></button>
       <div style="min-width:0;flex:1"><button class="ex-title titel-knopf" onClick=${() => aendere((ks) => { ks[ki].zu = true; })} aria-label=${`${nameVon(k.key)} zuklappen`}>${nameVon(k.key)}</button>
-        <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[2] ? `${gw(letzte[2].kg ?? 0)} × ${letzte[2].wdh}${letzte[2].rpe != null ? ` @ ${fmt(letzte[2].rpe)}` : ''}` : letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}${BEST_E1RM[k.key] ? html` · <span class="best-1rm">1RM ${gwE(BEST_E1RM[k.key], 1)}</span>` : ''}${heute1rm ? html` · <span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : ''}</div>
+        <div class="ex-meta">${letzte ? html`Letztes Mal <b>${letzte[2] ? `${gw(letzte[2].kg ?? 0)} × ${letzte[2].wdh}${letzte[2].rpe != null ? ` @ ${fmt(letzte[2].rpe)}` : ''}` : letzte[0]}</b> · ${letzte[1]}` : 'Noch kein Eintrag'}</div>
+        ${/* 175: Bestwert und heutiger Wert als eigene Zeile mit Pillen statt einer langen Textzeile */ ''}
+        ${einst.trainingsart === 'einfach' ? (() => {
+          // 151/163: einfache Ansicht – statt 1RM-Werten ein klarer Vorschlag bzw. beim ersten Mal ein Starthinweis
+          const m = !letzte?.[2] && String(letzte?.[0] ?? '').match(/([\d.,]+) × (\d+)/);     // Demo/alte Daten: nur Text
+          const v = naechstesMal(letzte?.[2] ?? (m ? { kg: Number(m[1].replace(',', '.')), wdh: Number(m[2]) } : null), g0?.wdhText, incVon(k.key));
+          return v ? html`<div class="ex-werte"><span class="vorschlag">${`Heute: ${gw(v.kg)} × ${v.wdh} (${v.text})`}</span></div>`
+            : !letzte ? html`<div class="ex-werte"><span class="erstes-mal">Erstes Mal: leicht anfangen – ein Gewicht, mit dem alle Wdh sauber gehen</span></div>` : null;
+        })()
+        : BEST_E1RM[k.key] || heute1rm ? html`<div class="ex-werte">${BEST_E1RM[k.key] ? html`<span class="best-1rm" title=${E1RM_QUELLE[k.key]?.best ? datumKurz(E1RM_QUELLE[k.key].best.datum) : ''}>1RM ${gwE(BEST_E1RM[k.key], 1)}${quelleText(E1RM_QUELLE[k.key]?.best)}</span>` : null}${heute1rm ? html`<span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : null}</div>` : null}
         ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">
@@ -250,7 +270,8 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     </div>
     ${k.gruppen.map((g, gi) => html`<div key=${gi}>
       <div class="group-h">
-        <span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (programmText(g.saetzeText) ?? 'Arbeitssätze')}</span>
+        <span class="row" style="gap:6px"><span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (programmText(g.saetzeText) ?? 'Arbeitssätze')}</span>
+          ${g.rpe || g.rolle ? html`<${InfoKnopf} begriff=${g.rolle === 'backoff' ? 'backoff' : g.rolle === 'top' ? 'top' : 'rpe'}/>` : null}</span>
         <span class="target">${g.wdhText ? `${g.saetze.length} × ${g.wdhText}` : `${g.saetze.length} ${g.saetze.length === 1 ? 'Satz' : 'Sätze'}`}${g.rpe ? ` · ${rpeText(g.rpe)}` : ''}${g.vorschlag ? ' · kg aus e1RM' : ''}${g.gekuerzt ? ' · Cut −1' : ''}</span>
       </div>
       ${g.kgBis && g.saetze.some((s) => !s.erledigt) ? html`<div class="spanne">

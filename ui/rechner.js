@@ -1,28 +1,31 @@
 // PR Hunter · Rechner: Scheiben, RPE, 1RM, Klimmzug, Aufwärmen, Prozent, Punkte, Versuche – mit dem getesteten Rechenkern.
 // Eingaben und Ergebnisse in der gewählten Einheit (kg/lb); Scheiben und Hantelbild rechnen intern in kg.
-import { deEn, html, useState, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
+import { deEn, html, useState, I, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
 import { e1rm, wdhTabelle, rpeRechner, aufwaermen, e1rmKoerper, zusatzFuer, lastFuer } from '../js/rechnen.js';
 import { dots, ipfGl, wilksPunkte, versuche } from '../js/punkte.js';
 import { E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
 import { HAUPT } from '../js/daten.js';
+import { Timer } from './timer.js';
 
 // Werte im Rechner sind schon in der Anzeigeeinheit; das Zahlenfeld rechnet deshalb nicht um
 const Zahl = ({ id, label, wert, setze }) => html`<${ZahlFeld} id=${id} label=${label} wert=${wert} setze=${setze}/>`;
-const RECHNER = [['1rm', '1RM'], ['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
+export const RECHNER = [['1rm', '1RM'], ['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
   ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche']];
 const runde1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
-export function Rechner({ einst, vorlage = null }) {
+export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck = null }) {
   const E = einheit(), lb = E === 'lb', inc = einst.inc ?? (lb ? 5 : 2.5);
   const start = (kg) => runde1(inAnzeige(kg));
-  const [art, setArt] = useState('1rm');
+  // 180: im Training mit Klimmzug/Dips gleich den Klimmzug-Rechner mit dem aktuellen Satz öffnen
+  const [art, setArt] = useState(startArt ?? (vorlage?.koerper ? 'koerper' : '1rm'));
   const [ziel, setZiel] = useState(() => start(182.5));
   // Läuft ein Training: Gewicht und Wdh des aktuellen Satzes; RPE 10 als Standard (Satz bis Versagen)
-  const [b, setB] = useState(() => ({ kg: start(vorlage?.kg ?? 180), wdh: vorlage?.wdh ?? 3, rpe: 10 }));
+  const [b, setB] = useState(() => ({ kg: start(!vorlage?.koerper && vorlage?.kg || 180), wdh: !vorlage?.koerper && vorlage?.wdh || 3, rpe: !vorlage?.koerper && vorlage?.rpe || 10 }));
   const [z, setZ] = useState({ wdh: 5, rpe: 8 });
   const [top, setTop] = useState(() => start(200));
   const [max, setMax] = useState(() => start(E1RM_AKTUELL[HAUPT.squat] ?? 200));
-  const [kz, setKz] = useState(() => ({ koerper: start(einst.koerpergewicht ?? KOERPERGEWICHT ?? 85), zusatz: start(20), wdh: 8, rpe: 8, zielWdh: 5, zielRpe: 8 }));
+  const [kz, setKz] = useState(() => ({ koerper: start(einst.koerpergewicht ?? KOERPERGEWICHT ?? 85), zusatz: start(vorlage?.koerper ? vorlage.kg ?? 0 : 20),
+    wdh: vorlage?.koerper && vorlage.wdh || 8, rpe: vorlage?.koerper ? vorlage.rpe ?? 10 : 8, zielWdh: 5, zielRpe: 8 }));
   const [p, setP] = useState(() => ({ total: start(Object.values(HAUPT).reduce((s, k) => s + (E1RM_AKTUELL[k] ?? 0), 0) || 600), koerper: start(einst.koerpergewicht ?? KOERPERGEWICHT ?? 85), geschlecht: 'm' }));
   const [v, setV] = useState(() => ({ squat: start(E1RM_AKTUELL[HAUPT.squat] ?? 200), bench: start(E1RM_AKTUELL[HAUPT.bench] ?? 140), dead: start(E1RM_AKTUELL[HAUPT.dead] ?? 220) }));
   const r = rpeRechner(b, z, inc);
@@ -32,8 +35,9 @@ export function Rechner({ einst, vorlage = null }) {
   const totalKg = inKg(p.total), koerperKg = inKg(p.koerper);
   const aufw = aufwaermen(inKg(top ?? 0), { stange: stangeKg(), inventar: scheibenKg(), inc: lb ? inKg(5) : 2.5 });
   return html`<div class="screen">
-    <header class="topbar"><div><div class="eyebrow">Werkzeuge</div><h1 class="h1">Rechner</h1></div></header>
-    <div class="filter" role="group" aria-label="Rechner wählen">${RECHNER.map(([key, t]) =>
+    <header class="topbar unter">${zurueck ? html`<button class="iconbtn" onClick=${zurueck} aria-label="Zurück">${I.zurueck}</button>` : null}
+      <div style="flex:1;min-width:0"><div class="eyebrow">Werkzeuge</div><h1 class="h1">${art === 'timer' ? 'Timer' : 'Rechner'}</h1></div></header>
+    <div class="filter" role="group" aria-label="Rechner wählen">${[...RECHNER, ['timer', 'Timer']].filter(([key]) => einst.trainingsart !== 'einfach' || !['punkte', 'versuche'].includes(key)).map(([key, t]) =>
       html`<button key=${key} class="chip" aria-pressed=${String(art === key)} onClick=${() => setArt(key)}>${t}</button>`)}</div>
 
     ${art === 'scheiben' && html`<section class="card pad stack">
@@ -54,6 +58,8 @@ export function Rechner({ einst, vorlage = null }) {
       <div class="result rechner-ergebnis"><div class="big">${r.kg != null ? fmt(r.kg) : '–'}<small>${E}</small></div>
         <p class="muted" style="margin:6px 0 0">${r.kg != null ? `für ${z.wdh} Wdh @ RPE ${fmt(z.rpe)} · e1RM ${fmt(r.e1rm, 1)} ${E}` : 'Wdh 1–12 und RPE 6–10 eingeben'}</p></div>
     </section>`}
+
+    ${art === 'timer' && html`<${Timer}/>`}
 
     ${art === '1rm' && html`<section class="card pad stack">
       <div class="fields drei"><${Zahl} id="r-1kg" label=${E} wert=${b.kg} schritt=${inc} setze=${(x) => setB({ ...b, kg: x })}/>
@@ -81,6 +87,12 @@ export function Rechner({ einst, vorlage = null }) {
       <div class="kv"><div><span class="eyebrow">e1RM gesamt</span><b>${k ? fmt(k.gesamt, 1) : '–'}</b></div>
         <div><span class="eyebrow">Zusatz-1RM</span><b>${k ? `${k.zusatz > 0 ? '+' : ''}${fmt(k.zusatz, 1)}` : '–'}</b></div>
         <div><span class="eyebrow">nur Zusatz</span><b class="muted">${fmt(e1rm(kz.zusatz, kz.wdh, kz.rpe), 1)}</b></div></div>
+      ${/* 180: wie beim 1RM-Rechner alle drei Formeln und die Wdh-Tabelle – hier als Zusatzgewicht */ ''}
+      <div class="kv">${[['rpe', 'RTS'], ['epley', 'Epley'], ['brzycki', 'Brzycki']].map(([f, t]) => { const x = e1rmKoerper(kz.zusatz, kz.wdh, kz.rpe, kz.koerper, f);
+        return html`<div key=${f}><span class="eyebrow">${t}${formel() === f ? ' ✓' : ''}</span><b>${x ? `${x.zusatz > 0 ? '+' : ''}${fmt(x.zusatz, 1)}` : '–'}</b></div>`; })}</div>
+      ${k ? html`<table class="rec"><thead><tr><th>Wdh @ RPE 10</th><th>Gesamt</th><th>Zusatz</th></tr></thead>
+        <tbody>${wdhTabelle(k.gesamt, formel(), lb ? 2.5 : 1.25).map((w) => { const zus = Math.round((w.kg - kz.koerper) / (lb ? 2.5 : 1.25)) * (lb ? 2.5 : 1.25);
+          return html`<tr key=${w.wdh}><td>${w.wdh}</td><td class="muted">${fmt(w.kg, 1)}</td><td class="k">${zus > 0 ? '+' : ''}${fmt(zus)}</td></tr>`; })}</tbody></table>` : null}
       <span class="eyebrow">Ziel</span>
       <div class="fields"><${Zahl} id="k-zwdh" label="Wdh" schritt="1" wert=${kz.zielWdh} setze=${(x) => setKz({ ...kz, zielWdh: x })}/>
         <${Zahl} id="k-zrpe" label="RPE" schritt="0.5" wert=${kz.zielRpe} setze=${(x) => setKz({ ...kz, zielRpe: x })}/></div>

@@ -4,7 +4,8 @@
 import { html, useState, useEffect, fmt, gw, gwE, einheit, inAnzeige, I, Sheet, LIFT, liftVon, nameVon, katalogName, uebung, anpassung, MUSKEL_DE,
   datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild } from './basis.js';
 import { DEMO, DIENSTE, HEUTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, kanon, rekordeVon } from './stand.js';
-import { FAMILIE, EQUIPMENT, UebungSuche } from './suche.js';
+import { FAMILIE, EQUIPMENT, UebungSuche, zonePasst } from './suche.js';
+import { ZielMuskeln, ZONE_NAME } from './koerper.js';
 import { LinienChart } from './diagramme.js';
 import { vergleichsLinks } from '../js/verweise.js';
 import { plateau, zielprognose } from '../js/auswertung.js';
@@ -182,8 +183,14 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
         ${(() => {
           // Bilder aus den Details, sonst aus dem Katalog (Varianten ohne eigenes Foto: Bild der Grundübung); antippen vergrößert
           const bilder = details?.bilder?.length ? details.bilder.slice(0, 2) : bilderVon(schluessel);
-          return bilder.length ? html`<div class="bilder">${bilder.map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy" class="zoombar"
-            onClick=${() => zeigeBild(bilder, nameVon(schluessel))} onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null;
+          // 165: beide Fotos im Wechsel als Mini-Animation (Start → Ende), darunter die Zielmuskeln auf der Figur
+          const zonen = e ? Object.keys(ZONE_NAME).filter((z) => zonePasst(e, z)) : [];
+          const neben = e ? Object.keys(ZONE_NAME).filter((z) => !zonen.includes(z) && zonePasst({ ...e, m: details?.m2 ?? e.m2 ?? [] }, z)) : [];
+          return html`${bilder.length === 2 ? html`<button class="bewegung" onClick=${() => zeigeBild(bilder, nameVon(schluessel))} aria-label="Bilder vergrößern">
+              <img src=${bilder[0]} alt="" loading="lazy"/><img src=${bilder[1]} alt="" loading="lazy" class="b2"/><span class="bewegung-marke">Bewegung</span></button>`
+            : bilder.length ? html`<div class="bilder">${bilder.map((b, i) => html`<img key=${i} src=${b} alt=${`${nameVon(schluessel)}, Bild ${i + 1}`} loading="lazy" class="zoombar"
+            onClick=${() => zeigeBild(bilder, nameVon(schluessel))} onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>` : null}
+            ${zonen.length ? html`<div class="stack" style="gap:6px"><span class="eyebrow">Zielmuskeln</span><${ZielMuskeln} zonen=${zonen} neben=${neben}/></div>` : null}`;
         })()}
         <div class="steckbrief">
           ${a.name ? html`<div><span class="eyebrow">Katalogname</span><b>${katalogName(schluessel)}</b></div>` : null}

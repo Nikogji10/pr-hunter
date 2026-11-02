@@ -716,7 +716,7 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 /* Startbild (index.html): sofort sichtbar, Scheiben fliegen auf die Stange, Logo leuchtet auf, dann Übergang in die App */
 #startbild { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 22px;
   background: radial-gradient(60% 45% at 50% 45%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 70%), var(--flaeche-2, #101116);
-  transition: opacity .3s ease, transform .3s ease; }
+  transition: opacity .22s ease, transform .22s ease; }
 #startbild.weg { opacity: 0; transform: scale(1.06); pointer-events: none; }
 #startbild .sb-hantel { position: relative; width: min(80vw, 340px); aspect-ratio: 340 / 90; }
 #startbild .sb-hantel svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -724,10 +724,10 @@ input[type="range"].regler { width: 100%; accent-color: var(--acc); height: 28px
 #startbild .sb-stange { fill: #9AA1AB; }
 #startbild .sb-kragen { fill: #C9CED6; }
 /* Startlogo (116): Stange blendet ein, Scheiben springen auf (scaleY, nur Grafikkarte), dann der Schriftzug – kurz, kein Gleiten */
-#startbild .sb-hantel { animation: sb-auf .22s ease-out both; }
-#startbild .sb-l, #startbild .sb-r { transform-origin: 50% 50%; animation: sb-scheiben .3s cubic-bezier(.2, 1.35, .4, 1) .08s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
+#startbild .sb-hantel { animation: sb-auf .18s ease-out both; }   /* 177: etwas schneller */
+#startbild .sb-l, #startbild .sb-r { transform-origin: 50% 50%; animation: sb-scheiben .24s cubic-bezier(.2, 1.35, .4, 1) .05s both; }   /* kein Überschwingen: Scheiben stoppen am Kragen */
 #startbild .sb-logo { font: 900 34px/1 var(--f-logo, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--ink, #F4F2EE);
-  animation: sb-logo .25s ease-out .26s both; }
+  animation: sb-logo .2s ease-out .18s both; }
 #startbild .sb-logo b { color: var(--acc, #D7263D); text-shadow: 0 0 22px var(--acc-glow, rgba(215, 38, 61, .6)); font-weight: inherit; }
 /* nur transform/opacity: letter-spacing und blur liessen das Logo ruckeln */
 @keyframes sb-logo { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
@@ -1380,3 +1380,173 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .ed-tag.zu { padding-bottom: 6px; }
 .ed-tag .row.between:first-child { flex-wrap: nowrap; gap: 6px; }
 .ed-bezug { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+
+/* 169: Ring + Zeit als Klickfläche, Raster bleibt (display: contents) */
+.timer-auf { display: contents; }
+
+/* 164: Timer im Rechner – großer Ring, Farbe je Phase */
+.timer-seite { align-items: stretch; }
+.t-ring { position: relative; width: min(78vw, 300px); aspect-ratio: 1; margin: 6px auto 2px; color: var(--ink); }
+.t-ring svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--pc) 35%, transparent)); }
+.t-mitte { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.t-mitte b { font: 900 64px/1 var(--f); font-stretch: 70%; color: var(--ink); }
+.t-mitte span { font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--pc); }
+.timer-seite.phase-pause .t-mitte b, .timer-seite.phase-bereit .t-mitte b { color: var(--pc); }
+
+/* 172: Heute im Stil von Vorlage 6 – Kopf ohne Banner, Begrüßung, Gewicht groß, Kraftwerte als Liste */
+.kopf6 { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top, 0px)) 2px 0; }
+.kopf6 .menue-knopf { width: 42px; height: 42px; color: var(--ink); }
+.logo6 { font-size: 24px; letter-spacing: .02em; font-style: italic; font-stretch: 80%; }
+.logo6 b { margin-right: 2px; }
+.kopf6-rechts { gap: 8px; justify-self: end; }
+.gruss { padding: 4px 4px 2px; }
+.gruss-t { font: 800 25px/1.15 var(--f); margin: 0; letter-spacing: -.01em; }
+.gruss-s { margin: 4px 0 0; color: var(--ink-2); font-size: 14.5px; }
+.gewicht.g6 { display: grid; grid-template-columns: 1fr 46%; gap: 10px; padding: 14px 14px 12px 16px; align-items: stretch; }
+.g6-links { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.g6-zahl { font: 900 44px/1 var(--f); font-stretch: 72%; margin-top: 4px; white-space: nowrap; }
+.g6-zahl small { font-size: 17px; color: var(--muted); font-weight: 700; font-stretch: 100%; }
+.g6-delta { font-size: 12.5px; font-weight: 800; color: var(--acc-text); }
+.g6-delta.gut { color: #34C77B; }
+.g6-delta.schlecht { color: #FF8A5C; }
+.g6-delta .muted { font-weight: 600; }
+.g6-status, .g6-ziel { font-size: 11.5px; }
+.g6-ziel .link { padding: 0; font-size: 11.5px; color: var(--acc-text); }
+.g6-rechts { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0; }
+.g6-rechts .spark { height: 52px; width: 100%; }
+.g6-knoepfe { display: flex; justify-content: flex-end; gap: 8px; }
+.g6-knoepfe .rund { width: 38px; height: 38px; font-size: 20px; }
+.max-liste { padding: 6px 6px 4px; }
+.ml-kopf { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 6px; }
+.ml-kopf .muted { font-size: 11.5px; }
+.ml-zeile { display: grid; grid-template-columns: 34px 1fr auto 14px; align-items: center; gap: 10px; width: 100%; padding: 10px; border-top: 1px solid var(--kante); text-align: left; color: var(--ink); }
+.ml-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; overflow: hidden; box-shadow: inset 3px 0 0 var(--c); background: var(--raised); }
+.ml-text { display: flex; flex-direction: column; min-width: 0; }
+.ml-text b { font-size: 15px; }
+.ml-text small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ml-wert { font: 900 22px/1 var(--f); font-stretch: 72%; white-space: nowrap; }
+.ml-wert small { font-size: 12px; color: var(--muted); font-weight: 700; font-stretch: 100%; }
+.ml-pfeil { color: var(--muted); font-size: 18px; }
+
+/* 172: Seitenmenü */
+.seitenmenue { position: fixed; inset: 0; z-index: 90; }
+.sm-hinter { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); animation: sm-ein .2s ease; }
+.sm-leiste { position: absolute; top: 0; bottom: 0; left: 0; width: min(84vw, 340px); overflow-y: auto; background: var(--flaeche-2, #121214);
+  border-right: 1px solid var(--kante); padding: calc(14px + env(safe-area-inset-top, 0px)) 12px 24px; display: flex; flex-direction: column; gap: 4px;
+  box-shadow: 20px 0 50px rgba(0, 0, 0, .5); animation: sm-rein .22s cubic-bezier(.2, .8, .2, 1); }
+.sm-kopf { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 10px; }
+.sm-titel { padding: 8px 6px 4px; }
+.sm-punkt { display: grid; grid-template-columns: 36px 1fr 14px; gap: 10px; align-items: center; padding: 10px 6px; border-radius: 12px; text-align: left; color: var(--ink); }
+.sm-punkt:active { background: var(--raised); }
+.sm-icon { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--acc) 18%, transparent); color: var(--acc-text); }
+.sm-icon svg { width: 18px; height: 18px; }
+.sm-text { display: flex; flex-direction: column; min-width: 0; }
+.sm-text b { font-size: 15px; }
+.sm-text small { font-size: 12px; color: var(--muted); }
+.sm-pfeil { color: var(--muted); }
+.sm-tipp { font-size: 12px; padding: 14px 6px 0; }
+@keyframes sm-rein { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes sm-ein { from { opacity: 0; } to { opacity: 1; } }
+.vorname-karte { gap: 8px; }
+
+/* 171: Trainingstag wechseln */
+.wechsel-liste { display: flex; flex-direction: column; gap: 6px; }
+.wechsel-tag { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); text-align: left; color: var(--ink); }
+.wechsel-tag.heute { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+.wechsel-tag:disabled { opacity: .5; }
+.wt-datum, .wt-text { display: flex; flex-direction: column; min-width: 0; }
+.wt-datum small, .wt-text small { font-size: 11.5px; color: var(--muted); }
+.wt-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wt-stand { font-weight: 800; color: var(--muted); }
+.wt-stand.heute { color: var(--acc-text); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tag-wechsel { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px; padding: 9px 4px 2px; color: var(--acc-text); font-weight: 700; font-size: 14px; text-align: left; border-top: 1px solid var(--kante); }
+.tag-wechsel svg { width: 16px; height: 16px; }
+.heute-knoepfe { flex-wrap: wrap; }
+
+/* 175: Training etwas übersichtlicher – Kennwerte als Pillen, mehr Luft zwischen den Gruppen */
+.ex-werte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ex-werte span { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--raised); border: 1px solid var(--kante); white-space: nowrap; }
+.ex-werte .best-1rm { color: var(--acc-text); border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
+.ex-werte .heute-1rm { color: var(--ink); }
+.ex .group-h { margin-top: 6px; }
+
+/* 161: Übungsauswahl als Vollbild-Fenster */
+.sheet.voll { height: 100dvh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+.aw-kopf { display: flex; flex-direction: column; gap: 10px; position: sticky; top: calc(-10px - env(safe-area-inset-top, 0px)); z-index: 2; background: var(--karte); padding: 6px 0 8px; }
+.aw-leiste { display: flex; gap: 8px; flex-wrap: wrap; }
+.aw-seg { flex: 1 1 auto; }
+.aw-seg button { font-size: 12.5px; padding: 0 10px; }
+.aw-koerper { max-height: 42vh; overflow: auto; }
+.aw-zahl { font-size: 12.5px; }
+.aw-liste { display: flex; flex-direction: column; gap: 6px; padding-bottom: 20px; }
+.aw-treffer { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 8px 10px 8px 8px; border-radius: 16px;
+  background: var(--raised); border: 1px solid var(--kante); color: var(--ink); }
+.aw-treffer:active { transform: scale(.99); }
+.aw-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aw-text b { font-size: 15.5px; line-height: 1.2; }
+.aw-text small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aw-familie { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-size: 11.5px; font-weight: 700; color: var(--ink-2); text-align: right; }
+.aw-familie .dot { display: inline-block; margin-bottom: 2px; }
+.aw-art { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+.aw-neu { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 16px; border: 1px dashed var(--kante); text-align: left; color: var(--acc-text); }
+.aw-neu small { color: var(--muted); }
+.suche-knopf { display: flex; align-items: center; gap: 10px; width: 100%; height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--sunken); padding: 0 14px; color: var(--muted); font-size: 16px; text-align: left; }
+.suche-knopf > svg { position: static; width: 20px; height: 20px; flex: none; }
+
+/* 151/163: einfache Ansicht, Begriffe, Wochenziel, Einsteiger */
+.info-knopf { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--kante); color: var(--muted); font-size: 12px; font-weight: 800; display: inline-grid; place-items: center; background: var(--raised); flex: none; }
+.glossar { display: flex; flex-direction: column; gap: 10px; }
+.begriff { padding: 10px 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); }
+.begriff.aktiv { border-color: var(--acc); }
+.begriff p { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.ex-werte .vorschlag { color: #34C77B; border-color: color-mix(in srgb, #34C77B 40%, transparent); }
+.ex-werte .erstes-mal { white-space: normal; color: var(--ink-2); }
+.wochenziel { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; }
+.wz-punkte { display: flex; gap: 5px; }
+.wz-punkte i { width: 12px; height: 12px; border-radius: 50%; background: var(--raised); border: 1px solid var(--kante); }
+.wz-punkte i.voll { background: var(--acc); border-color: var(--acc); box-shadow: 0 0 8px var(--acc-glow); }
+.wz-text { display: flex; flex-direction: column; min-width: 0; }
+.wz-text b { font-size: 14px; }
+.wz-text small { font-size: 12px; color: var(--muted); }
+.wz-ok { color: #34C77B; font-weight: 900; font-size: 18px; }
+.weg-karte.einsteiger { border-color: color-mix(in srgb, #34C77B 45%, var(--kante)); }
+.trainingsart-karte .neu-wege { display: grid; gap: 8px; }
+
+/* 166: Trainings-Import */
+.datei-knopf { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.datei-knopf input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.ki-weg summary { cursor: pointer; font-weight: 700; color: var(--acc-text); font-size: 14px; }
+.ti-vorschau { display: flex; flex-direction: column; gap: 6px; }
+.ti-vorschau div { display: grid; grid-template-columns: 54px 1fr; gap: 8px; font-size: 13px; }
+.ti-vorschau span { color: var(--muted); }
+.import-hinweis { border-color: color-mix(in srgb, var(--acc) 35%, var(--kante)); }
+
+/* 165: Mini-Animation aus den zwei Katalogfotos, Zielmuskeln */
+.bewegung { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: var(--raised); padding: 0; }
+.bewegung img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.bewegung .b2 { animation: bewegung 2.4s ease-in-out infinite; }
+@keyframes bewegung { 0%, 30% { opacity: 0; } 50%, 80% { opacity: 1; } 100% { opacity: 0; } }
+.bewegung-marke { position: absolute; left: 10px; top: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, .65); color: #fff; }
+@media (prefers-reduced-motion: reduce) { .bewegung .b2 { animation: none; opacity: 0; } }
+.ziel-muskeln .figuren { max-width: 320px; margin: 0 auto; }
+.ziel-namen { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
+.ziel-namen .tag.neben { opacity: .65; }
+
+/* 160: mehrere Stapel nebeneinander, 3D-Optik (Säule mit Licht, Deckel, Bodenschatten, Perspektive) */
+.st-szene { perspective: 600px; gap: 8px; border-bottom: 0; }
+.st-boden { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: radial-gradient(60% 100% at 50% 0%, rgba(255, 255, 255, .08), transparent 70%);
+  border-top: 1px solid var(--line); transform: rotateX(55deg); transform-origin: top; }
+.st-saeule { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; z-index: 1; margin-bottom: 8px; }
+.st-saeule .st-turm { width: var(--b); position: relative; animation-delay: var(--d, .3s);
+  background: repeating-linear-gradient(to top, transparent 0 calc(var(--scheibe) - 1px), rgba(0, 0, 0, .45) calc(var(--scheibe) - 1px) var(--scheibe)),
+    linear-gradient(90deg, #F0485C 0%, #D7263D 35%, #9E1B2C 75%, #6E0D1B 100%);
+  border-radius: 3px 3px 2px 2px; }
+.st-deckel { position: absolute; left: 0; right: 0; top: calc(var(--b) * -0.11); height: calc(var(--b) * 0.22); border-radius: 50%; background: radial-gradient(70% 70% at 40% 40%, #FF8090, #D7263D); box-shadow: 0 0 10px -2px rgba(255, 80, 100, .7); }
+.st-schatten { position: absolute; bottom: -6px; left: 50%; width: 140%; height: 8px; transform: translateX(-45%); border-radius: 50%; background: rgba(0, 0, 0, .55); filter: blur(3px); z-index: -1; }
+.st-saeule.mensch .st-schatten { width: 70%; }
+
+/* 126 g: Hinweis auf neue Version */
+.neue-version { position: fixed; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 95; display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: 999px; background: var(--acc); color: var(--on-acc, #fff); font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.neue-version svg { width: 18px; height: 18px; }
+.datenschutz p { font-size: 14px; line-height: 1.5; }

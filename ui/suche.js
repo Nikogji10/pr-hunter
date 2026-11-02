@@ -1,7 +1,7 @@
 // PR Hunter · Übungssuche mit Vorschlagsliste (Combobox). Sucht in Deutsch, Englisch und Jefit-Namen,
 // filtert nach Muskelgruppe und Equipment, zeigt Favoriten und zuletzt trainierte Übungen oben.
 // Passt nichts, lässt sich eine neue Übung anlegen (Formular in ui/uebung.js, über DIENSTE).
-import { html, useState, useEffect, I, katalogListe, LIFT, liftVon, nameVon, anpassung, sprache, MUSKEL_DE, datumKurz, UebungsBild } from './basis.js';
+import { html, useState, useEffect, I, katalogListe, LIFT, liftVon, nameVon, anpassung, sprache, MUSKEL_DE, datumKurz, UebungsBild, Sheet, speicher, Portal } from './basis.js';
 import { MuskelWahl, ZONE_NAME } from './koerper.js';
 import { MUSKELGRUPPEN } from '../js/bodybuilding.js';
 import { useRef } from '../vendor/htm-preact.js';
@@ -50,79 +50,88 @@ function rang(e, q, w0) {
 }
 
 /** Treffer für Suchtext und Filter; dann Favoriten, zuletzt trainierte (neueste zuerst), kürzere Namen. */
-export function suche(liste, { q = '', familien = null, muskel = '', equipment = '', zone = null, mitVersteckten = false, max = 60 } = {}) {
+export function suche(liste, { q = '', familien = null, muskel = '', equipment = '', zone = null, mitVersteckten = false, max = 60, sortierung = null, art = '' } = {}) {
   const woerter = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const eingabe = woerter.join(' ');
+  const name = (e) => nameVon(e.k);
+  // 154: Sortierung „beliebt“ (trainiert, Favorit, Standardübung …) oder „name“ (A–Z); ohne Angabe wie bisher
+  const nachName = sortierung === 'name', nachBeliebt = sortierung === 'beliebt' || (!sortierung && zone);
   return liste
     .filter((e) => (!familien || familien.includes(e.f)) && (!muskel || e.m.includes(muskel)) && (!zone || zonePasst(e, zone)) && passtEquipment(e, equipment)
+      && (!art || (art === 'iso') === ISO_FAMILIEN.has(e.f))
       && (mitVersteckten || !anpassung(e.k)?.versteckt)
       && woerter.every((w) => e.s.includes(w) || anpassung(e.k)?.name?.toLowerCase().includes(w)))
-    .map((e) => [e, rang(e, eingabe, woerter[0]), anpassung(e.k)?.favorit ? 0 : 1, ZULETZT[e.k] ?? '', zone ? -beliebt(e) : 0])
-    .sort((a, b) => a[1] - b[1] || a[4] - b[4] || a[2] - b[2] || b[3].localeCompare(a[3]) || (eingabe ? a[0].de.length - b[0].de.length : a[0].de.localeCompare(b[0].de, 'de')))
+    .map((e) => [e, rang(e, eingabe, woerter[0]), anpassung(e.k)?.favorit ? 0 : 1, ZULETZT[e.k] ?? '', nachBeliebt ? -beliebt(e) : 0])
+    .sort((a, b) => a[1] - b[1] || (nachName ? name(a[0]).localeCompare(name(b[0]), sprache()) : 0) || a[4] - b[4] || a[2] - b[2] || b[3].localeCompare(a[3])
+      || (eingabe ? a[0].de.length - b[0].de.length : name(a[0]).localeCompare(name(b[0]), sprache())))
     .slice(0, max).map(([e]) => e);
 }
 
-/** familien: Vorauswahl (z. B. Slot „Zusatz Beine“); „Alle Übungen“ hebt sie auf. */
-export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung suchen …', autofokus = false }) {
+/** Ein Treffer: großes Bild, Name, andere Sprache · Gerät · zuletzt, Familie. */
+function TrefferZeile({ e, waehle }) {
+  const fav = anpassung(e.k)?.favorit, zul = ZULETZT[e.k], lift = liftVon(e.k);
+  return html`<button class="aw-treffer" onClick=${() => waehle(e.k)}>
+    <${UebungsBild} schluessel=${e.k} groesse=${56}/>
+    <span class="aw-text"><b>${fav ? html`<span class="stern" aria-label="Favorit">★</span> ` : null}${nameVon(e.k)}</b>
+      <small><span translate="no">${sprache() === 'en' ? e.de : e.en}</span></small>
+      <small>${e.eq ? html`<span>${EQUIPMENT[e.eq] ?? e.eq}</span>` : null}${zul ? html` · <span>${`zuletzt ${datumKurz(zul)}`}</span>` : null}${e.eigen ? html` · <span>eigene</span>` : null}</small></span>
+    <span class="aw-familie">${lift !== 'andere' ? html`<i class="dot" style=${`background:${LIFT[lift].farbe}`}></i>` : null}<span>${FAMILIE[e.f] ?? e.f}</span>
+      <span class="aw-art">${ISO_FAMILIEN.has(e.f) ? 'Isolation' : 'Grundübung'}</span></span>
+  </button>`;
+}
+
+/**
+ * 161/145/154: Übungsauswahl als Vollbild-Fenster – überall dieselbe (Training, Tauschen, Eigener Plan, Editor,
+ * Generatoren, Verlauf, Import). Suche, Muskel über das Körperdiagramm (feine Zonen), Grund-/Isolationsübung,
+ * Gerät, Sortierung nach Beliebtheit oder Name; familien = Vorauswahl eines Platzes („Alle Übungen“ hebt sie auf).
+ */
+export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zoneStart = null, onWahl, zu }) {
   const [q, setQ] = useState('');
   const [alle, setAlle] = useState(!familien);
-  const [aktiv, setAktiv] = useState(0);
-  const [offen, setOffen] = useState(autofokus);
-  const [filter, setFilter] = useState(false);
-  const [zone, setZone] = useState(null);                    // Muskel aus dem Diagramm (ersetzt das Auswahlmenü, das im Fenster zitterte)
+  const [zone, setZone] = useState(zoneStart);
+  const [koerper, setKoerper] = useState(!!zoneStart);
   const [equipment, setEquipment] = useState('');
-  const feld = useRef(null);
-  useEffect(() => { if (autofokus) feld.current?.focus(); }, []);
+  const [art, setArt] = useState('');
+  const [sortierung, setSortierung] = useState(() => speicher.lies('prh-sortierung') ?? 'beliebt');
+  const [max, setMax] = useState(80);
   const fam = alle ? null : familien;
-  const treffer = suche(katalogListe(), { q, familien: fam, zone, equipment, max: zone ? 120 : 60 });
-  const anzahl = katalogListe().filter((e) => !fam || fam.includes(e.f)).length;
-  const waehle = (key) => { onWahl(key); setQ(''); setOffen(false); };
-  const neu = DIENSTE.neueUebungStarten ? () => { setOffen(false); DIENSTE.neueUebungStarten(q.trim(), waehle); } : null;
-  const taste = (ev) => {
-    if (ev.key === 'ArrowDown') { ev.preventDefault(); setOffen(true); setAktiv((a) => Math.min(treffer.length - 1, a + 1)); }
-    else if (ev.key === 'ArrowUp') { ev.preventDefault(); setAktiv((a) => Math.max(0, a - 1)); }
-    else if (ev.key === 'Enter' && treffer[aktiv]) { ev.preventDefault(); waehle(treffer[aktiv].k); }
-    else if (ev.key === 'Escape') setOffen(false);
-  };
-  const andereSprache = (e) => (sprache() === 'en' ? e.de : e.en);
-  return html`<div class="stack" style="gap:8px">
-    <div class="suche">
-      ${I.suche}
-      <input id=${id} ref=${feld} type="search" role="combobox" aria-expanded=${String(offen)} aria-controls=${`${id}-liste`}
-        aria-activedescendant=${offen && treffer[aktiv] ? `${id}-${treffer[aktiv].k}` : ''} autocomplete="off" placeholder=${platzhalter}
-        value=${q} onFocus=${() => setOffen(true)} onInput=${(e) => { setQ(e.currentTarget.value); setAktiv(0); setOffen(true); }} onKeyDown=${taste}/>
+  const treffer = suche(katalogListe(), { q, familien: fam, zone, equipment, art, sortierung, max: max + 1 });
+  const mehr = treffer.length > max;
+  // erst schließen, dann melden: so räumt das Fenster seinen Verlaufseintrag auf, bevor ein Elternfenster zugeht
+  const waehle = (k) => { zu(); setTimeout(() => onWahl(k), 60); };
+  const neu = DIENSTE.neueUebungStarten ? () => { const text = q.trim(); zu(); setTimeout(() => DIENSTE.neueUebungStarten(text, onWahl), 60); } : null;
+  const sortieren = (s) => { setSortierung(s); speicher.schreib('prh-sortierung', s); };
+  const filterZahl = [zone, equipment, art].filter(Boolean).length;
+  return html`<${Sheet} zu=${zu} label=${titel} voll=${true}>
+    <div class="aw-kopf">
+      <div class="row between"><h2 class="h2" style="margin:0">${titel}</h2><button class="iconbtn" onClick=${zu} aria-label="Schließen">${I.zu}</button></div>
+      <div class="suche">${I.suche}<input type="search" autocomplete="off" placeholder="Übung suchen …" value=${q} onInput=${(e) => { setQ(e.currentTarget.value); setMax(80); }}/></div>
+      <div class="aw-leiste">
+        <div class="seg aw-seg" role="group" aria-label="Sortierung">${[['beliebt', 'Beliebt'], ['name', 'A–Z']].map(([k, n]) => html`<button key=${k} aria-pressed=${String(sortierung === k)} onClick=${() => sortieren(k)}>${n}</button>`)}</div>
+        <div class="seg aw-seg" role="group" aria-label="Art">${[['', 'Alle'], ['grund', 'Grundübung'], ['iso', 'Isolation']].map(([k, n]) => html`<button key=${k || 'alle'} aria-pressed=${String(art === k)} onClick=${() => setArt(k)}>${n}</button>`)}</div>
+      </div>
+      <div class="chips-zeile">
+        <button class="chip" aria-pressed=${String(koerper || !!zone)} aria-expanded=${String(koerper)} onClick=${() => setKoerper(!koerper)}>${zone ? ZONE_NAME[zone] : 'Muskel wählen'}</button>
+        ${familien ? html`<button class="chip" aria-pressed=${String(alle)} onClick=${() => setAlle(!alle)}>Alle Übungen</button>` : null}
+        ${['', ...EQUIPMENT_FILTER].map((k) => html`<button key=${k || 'alle'} class="chip" aria-pressed=${String(equipment === k)} onClick=${() => setEquipment(k)}>${k ? EQUIPMENT[k] : 'Alle Geräte'}</button>`)}
+      </div>
+      ${koerper ? html`<div class="aw-koerper"><${MuskelWahl} zone=${zone} waehle=${(z) => { setZone(z); setMax(80); }}/></div>` : null}
+      <span class="muted aw-zahl">${`${Math.min(treffer.length, max)}${mehr ? '+' : ''} Treffer`}${fam ? ' · passend zum Platz' : ''}${filterZahl ? ` · ${filterZahl} Filter` : ''}</span>
     </div>
-    <div class="row between wrap" style="gap:6px">
-      <span class="muted" style="font-size:12.5px"><span>${fam ? `${anzahl} Übungen passend zum Platz` : `${anzahl} Übungen`}</span>${q || zone || equipment ? html` · <span>${`${treffer.length} Treffer`}</span>` : null}</span>
-      <span class="row" style="gap:6px">
-        <button class="chip" aria-pressed=${String(filter || !!zone || !!equipment)} aria-expanded=${String(filter)} onClick=${() => { setFilter(!filter); setOffen(true); }}>${zone || equipment ? `Muskel/Gerät (${[zone, equipment].filter(Boolean).length})` : 'Muskel/Gerät'}</button>
-        ${familien ? html`<button class="chip" aria-pressed=${String(alle)} onClick=${() => { setAlle(!alle); setOffen(true); }}>Alle Übungen</button>` : null}
-      </span>
+    <div class="aw-liste">
+      ${treffer.slice(0, max).map((e) => html`<${TrefferZeile} key=${e.k} e=${e} waehle=${waehle}/>`)}
+      ${mehr ? html`<button class="btn btn-soft btn-block" onClick=${() => setMax(max + 120)}>Mehr zeigen</button>` : null}
+      ${!treffer.length ? html`<p class="muted" style="margin:0;padding:14px 4px">Nichts gefunden. Anderes Wort, Filter lösen${fam ? ' oder „Alle Übungen“ einschalten' : ''}.</p>` : null}
+      ${neu ? html`<button class="aw-neu" onClick=${neu}><b>+ ${q.trim() ? `„${q.trim()}“ als neue Übung anlegen` : 'Neue Übung anlegen'}</b><small>Mit Duplikatprüfung, danach für alle verfügbar</small></button>` : null}
     </div>
-    ${filter ? html`<div class="stack such-filter" style="gap:8px">
-      <${MuskelWahl} zone=${zone} waehle=${(z) => { setZone(z); setOffen(true); }}/>
-      <div class="chips-zeile" role="group" aria-label="Equipment">${['', ...EQUIPMENT_FILTER].map((k) => html`<button key=${k || 'alle'} class="chip" aria-pressed=${String(equipment === k)}
-        onClick=${() => { setEquipment(k); setOffen(true); }}>${k ? EQUIPMENT[k] : 'Alle Geräte'}</button>`)}</div>
-    </div>` : null}
-    ${offen ? html`<div class="treffer" id=${`${id}-liste`} role="listbox">
-      ${(() => {
-        const zeile = (e, k) => {
-          const fav = anpassung(e.k)?.favorit, zul = ZULETZT[e.k];
-          return html`<button key=${e.k} id=${`${id}-${e.k}`} role="option" aria-selected=${String(k === aktiv)} class="treffer-mit-bild"
-            onMouseDown=${(ev) => ev.preventDefault()} onClick=${() => waehle(e.k)}>
-            <${UebungsBild} schluessel=${e.k} groesse=${40}/>
-            <span class="treffer-text"><b>${fav ? html`<span class="stern" aria-label="Favorit">★</span> ` : null}${nameVon(e.k)}</b>
-            <small><span translate="no">${andereSprache(e)}</span>${e.eq ? html` · <span>${EQUIPMENT[e.eq] ?? e.eq}</span>` : null}${zul ? html` · <span>${`zuletzt ${datumKurz(zul)}`}</span>` : null}${e.eigen ? html` · <span>eigene</span>` : null}</small></span>
-            <span class="tag row" style="gap:5px">${liftVon(e.k) !== 'andere' ? html`<i class="dot" style=${`background:${LIFT[liftVon(e.k)].farbe}`}></i>` : null}${FAMILIE[e.f] ?? e.f}</span></button>`;
-        };
-        if (!zone) return treffer.map(zeile);
-        const grund = treffer.filter((e) => !ISO_FAMILIEN.has(e.f)), iso = treffer.filter((e) => ISO_FAMILIEN.has(e.f));
-        return html`${grund.length ? html`<span class="treffer-gruppe">${`Grundübungen · ${ZONE_NAME[zone]}`}</span>${grund.map(zeile)}` : null}
-          ${iso.length ? html`<span class="treffer-gruppe">${`Isolation · ${ZONE_NAME[zone]}`}</span>${iso.map((e, k) => zeile(e, k + grund.length))}` : null}`;
-      })()}
-      ${!treffer.length ? html`<p class="muted" style="margin:0;padding:14px">Nichts gefunden. Anderes Wort, Filter lösen${fam ? ' oder „Alle Übungen“ einschalten' : ''}.</p>` : null}
-      ${neu && (q.trim().length >= 3 || !treffer.length) ? html`<button class="neu" onMouseDown=${(ev) => ev.preventDefault()} onClick=${neu}>
-        <b>+ ${q.trim() ? `„${q.trim()}“ als neue Übung anlegen` : 'Neue Übung anlegen'}</b><small>Mit Duplikatprüfung, danach für alle verfügbar</small></button>` : null}
-    </div>` : null}
+  <//>`;
+}
+
+/** Auslöser in Karten und Fenstern: sieht aus wie ein Suchfeld, öffnet die große Auswahl. */
+export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung suchen …', autofokus = false, titel = null, zone = null }) {
+  const [offen, setOffen] = useState(autofokus);
+  return html`<div class="stack" style="gap:6px">
+    <button id=${id} class="suche suche-knopf" onClick=${() => setOffen(true)}>${I.suche}<span>${platzhalter}</span></button>
+    ${offen ? html`<${Portal}><${UebungsAuswahl} titel=${titel ?? (familien ? 'Übung für diesen Platz' : 'Übung wählen')} familien=${familien} zoneStart=${zone} onWahl=${onWahl} zu=${() => setOffen(false)}/><//>` : null}
   </div>`;
 }

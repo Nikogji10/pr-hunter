@@ -1,6 +1,12 @@
 // PR Hunter · Bodybuilding-Generator (Wunsch 98): Schritt für Schritt – 1. Split, 2. je Muskelgruppe zwei Übungen,
 // 3. Tage pro Woche und Blocklänge, 4. Vorschau der ersten Woche → als eigenes Programm speichern. Logik in js/bodybuilding.js.
-import { html, useState, useEffect, I, nameVon, UebungsBild } from './basis.js';
+import { html, useState, useEffect, I, nameVon, UebungsBild, uebung } from './basis.js';
+import { UebungSuche, ISO_FAMILIEN } from './suche.js';
+
+// 145: Muskelgruppe → Zone im Körperdiagramm der großen Übungsauswahl
+const ZONE_VON = { brust: 'brust', ruecken: 'latissimus', schulter: 'schulter_vorn', hintere_schulter: 'schulter_hinten', bizeps: 'bizeps', trizeps: 'trizeps',
+  quads: 'quadrizeps', beinbeuger: 'beinbeuger', gesaess: 'gesaess', waden: 'waden', bauch: 'bauch' };
+const artAus = (key) => { const e = uebung(key); if (!e) return ''; return `${ISO_FAMILIEN.has(e.f) ? '' : 'g'}${['machine', 'cable'].includes(e.eq) ? 'm' : ''}`; };
 import { SPLITS, MUSKELGRUPPEN, standardAuswahl, haeufigkeit, generiereBodybuilding } from '../js/bodybuilding.js';
 
 const TAGE_STANDARD = { ppl: 6, ul: 4, gk: 3, bro: 5 };
@@ -15,7 +21,8 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
   const [schritt, weiter, zurueckSchritt] = useSchritte();
   const gruppen = [...new Set(SPLITS[split].tage.flatMap(([, g]) => g))];
   const h = haeufigkeit(split, tage);
-  const p = generiereBodybuilding({ name: name.trim(), split, tage, wochen, deload, auswahl });
+  const arten = Object.fromEntries(Object.values(auswahl).flat().map((k) => [k, artAus(k)]));
+  const p = generiereBodybuilding({ name: name.trim(), split, tage, wochen, deload, auswahl, arten });
   const woche1 = p.weeks[0];
   // Kachel antippen: gewählte abwählen (mindestens eine bleibt), sonst hinzufügen – bei schon zwei ersetzt sie die zweite
   const tippe = (g, key) => {
@@ -36,9 +43,10 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
     ${schritt === 2 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">2</span><span class="viz-t">Zwei Übungen je Muskelgruppe</span></div>
       <span class="muted" style="font-size:12.5px">Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Tauschen, was dir besser liegt oder was dein Gym hat.</span>
       ${gruppen.map((g) => html`<div key=${g} class="muskel-wahl"><div class="row between"><b>${MUSKELGRUPPEN[g].name}</b><span class="muted" style="font-size:12px">${`${auswahl[g].length}/2 gewählt`}</span></div>
-        <div class="ueb-kacheln">${MUSKELGRUPPEN[g].uebungen.map(([k]) => { const nr = auswahl[g].indexOf(k);
+        <div class="ueb-kacheln">${[...new Set([...MUSKELGRUPPEN[g].uebungen.map(([k]) => k), ...auswahl[g]])].map((k) => { const nr = auswahl[g].indexOf(k);
           return html`<button key=${k} class=${`ueb-kachel ${nr >= 0 ? 'gewaehlt' : ''}`} aria-pressed=${String(nr >= 0)} onClick=${() => tippe(g, k)}>
-            ${nr >= 0 ? html`<span class="ueb-nr">${nr + 1}</span>` : null}<${UebungsBild} schluessel=${k} groesse=${64} zoom=${false}/><span>${nameVon(k, k)}</span></button>`; })}</div></div>`)}
+            ${nr >= 0 ? html`<span class="ueb-nr">${nr + 1}</span>` : null}<${UebungsBild} schluessel=${k} groesse=${64} zoom=${false}/><span>${nameVon(k, k)}</span></button>`; })}</div>
+        <${UebungSuche} id=${`bb-${g}`} titel=${`${MUSKELGRUPPEN[g].name}: Übung wählen`} zone=${ZONE_VON[g]} platzhalter="Andere Übung aus dem Katalog …" onWahl=${(k) => tippe(g, k)}/></div>`)}
     </section>` : null}
 
     ${schritt === 3 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">3</span><span class="viz-t">Wie oft und wie lange</span></div>

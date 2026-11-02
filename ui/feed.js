@@ -195,7 +195,8 @@ function Freunde({ einst, setEinst }) {
           </div>
           <span class="muted" style="font-size:12px">${`„Ich teile“: was ${x.name} von dir sieht. „Ich sehe“: was du von ${x.name} angezeigt bekommst.`}</span>
           <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => aktion('entfernen', x.id)}>Entfernen</button>
-            <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => aktion('blockieren', x.id)}>Blockieren</button></div></div>` : null}</div>`)}
+            <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => aktion('blockieren', x.id)}>Blockieren</button></div>
+          ${DIENSTE.melden ? html`<button class="link" style="justify-self:start;font-size:13px" onClick=${() => DIENSTE.melden(x.id, x.name)}>Melden</button>` : null}</div>` : null}</div>`)}
     </section>
     ${raus.length ? html`<section class="card pad stack"><span class="viz-t">Gesendete Anfragen</span>
       ${raus.map((x) => zeile(x, html`<button class="btn btn-soft btn-sm" onClick=${() => aktion('entfernen', x.id)}>Zurückziehen</button>`))}</section>` : null}

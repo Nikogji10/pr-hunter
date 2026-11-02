@@ -40,13 +40,14 @@ export const STIL_WAHL = [
 export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
   ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
-export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null }) {
+export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null, zuImport = null, hilfe = {} }) {
   const [mail, setMail] = useState(null);                   // null = zu, sonst { text, laeuft, fehler, gesendet }
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
   const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
   const [zielText, setZielText] = useState(einst.gewichtZiel ? String(inAnzeige(einst.gewichtZiel)).replace('.', ',') : '');
   const [stangeText, setStangeText] = useState(String(inAnzeige(einst.stange)).replace('.', ','));
   const [name, setName] = useState(einst.name ?? '');
+  const [vorname, setVorname] = useState(einst.vorname ?? '');
   const [bild, setBild] = useState(hintergrund);
   const [bildFehler, setBildFehler] = useState(null);
   const [zuschnitt, setZuschnitt] = useState(null);      // { img, url } während des Zuschneidens
@@ -93,7 +94,6 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
   }, []);
   const bereiche = {
     training: ['Training', 'Pausen, Ton, Benachrichtigungen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Ton ${(TOENE[einst.ton] ?? TOENE.piep).name} · Cut ${einst.cut ? 'an' : 'aus'}`],
-    koerper: ['Körper', 'Gewicht heute und Ziel', I.statistik, `${einst.koerpergewicht ? `${fmt(inAnzeige(einst.koerpergewicht), 1)} ${einheit()}` : 'kein Gewicht'}${einst.gewichtZiel ? ` · Ziel ${fmt(inAnzeige(einst.gewichtZiel), 1)}` : ''}`],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
     ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
@@ -139,6 +139,15 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       </section>`
     : bereich === 'training' ? html`
     <section class="card pad stack">
+      <span class="viz-t">Trainingsart</span>
+      <${Seg} label="Trainingsart" werte=${[['einfach', 'Einfach / Bodybuilding'], ['powerlifting', 'Powerlifting']]} wert=${einst.trainingsart ?? 'powerlifting'} setze=${(v) => setEinst({ ...einst, trainingsart: v })}/>
+      <span class="muted" style="font-size:12.5px">${einst.trainingsart === 'einfach' ? 'Einfache Ansicht: Vorschläge statt 1RM-Zahlen, keine Kraftwerte für Kniebeuge/Bank/Kreuzheben, kein Kraftprofil, keine Punkte.' : 'Alles sichtbar: Trainingsmax, e1RM, Kraftprofil, Punkte, Powerlifting-Generator.'}</span>
+      ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
+      <span class="viz-t unterteil">Wochenziel</span>
+      <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
+      <span class="muted" style="font-size:12.5px">Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge das Ziel erreicht wurde.</span>
+    </section>
+    <section class="card pad stack">
       <span class="viz-t">Standard-Pausen</span>
       <p class="muted" style="margin:0;font-size:13px">Der Timer startet nach jedem abgehakten Satz mit der Pause dieser Satzart. Eigene Pausen je Übung gehen vor (Übungsseite → Für mich anpassen).</p>
       ${[['top', 'Top-Sätze und Tests'], ['backoff', 'Back-offs und Arbeitssätze'], ['isolation', 'Isolationsübungen']].map(([art, text]) => html`<div key=${art} class="pause-zeile">
@@ -171,20 +180,6 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">e1RM-Formel</span>
         <${Seg} label="e1RM-Formel" werte=${[['rpe', 'RPE (RTS)'], ['epley', 'Epley'], ['brzycki', 'Brzycki']]} wert=${einst.formel} setze=${(v) => setEinst({ ...einst, formel: v })}/>
         <span class="muted" style="font-size:12.5px">${einst.formel === 'rpe' ? 'Mit RPE über die Tabelle nach Tuchscherer, ohne RPE nach Epley.' : 'Ohne RPE-Tabelle; ein angegebenes RPE zählt als Wiederholungen in Reserve.'}</span></div>
-    </section>
-
-`
-    : bereich === 'koerper' ? html`
-    <section class="card pad stack">
-      <div class="fields">
-        <label class="field" for="e-kg"><span class="label">Gewicht heute (${einheit()})</span>
-          <input id="e-kg" type="text" inputmode="decimal" value=${kgText} onInput=${(e) => setKgText(e.currentTarget.value)}
-            onChange=${() => { const v = zahl(kgText); const kg = v != null ? inKg(v) : null; if (kg >= 30 && kg <= 250) setEinst({ ...einst, koerpergewicht: kg }); }}/></label>
-        <label class="field" for="e-ziel"><span class="label">Ziel (${einheit()})</span>
-          <input id="e-ziel" type="text" inputmode="decimal" value=${zielText} placeholder="–" onInput=${(e) => setZielText(e.currentTarget.value)}
-            onChange=${() => { const v = zahl(zielText); const kg = v != null ? inKg(v) : null; setEinst({ ...einst, gewichtZiel: kg >= 30 && kg <= 250 ? Math.round(kg * 10) / 10 : null }); }}/></label>
-      </div>
-      <span class="muted" style="font-size:12.5px">Täglich am schnellsten auf „Heute“ mit −/+. Zählt für Klimmzüge und Dips (Gesamtlast), DOTS und das Kraftprofil; den Verlauf zeigt die Statistik.</span>
     </section>
 
 `
@@ -267,6 +262,14 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           ${einst.avatar ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setEinst({ ...einst, avatar: null })}>Entfernen</button>` : null}
         </div>
         ${einst.appSettings ? null : html`<span class="muted" style="font-size:12px">Profilbild und Schriftgröße gelten nach Update 11 auf allen Geräten, bis dahin nur auf diesem.</span>`}
+        ${zuImport ? html`<button class="btn btn-soft btn-block" onClick=${zuImport}>${I.import} Trainings aus einer anderen App importieren</button>` : null}
+        ${hilfe.sichern ? html`<div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${hilfe.sichern}>Alles sichern (JSON)</button>
+          <label class="btn btn-soft btn-sm datei-knopf" style="flex:1">Sicherung einspielen<input type="file" accept=".json,application/json" onChange=${(e) => hilfe.einspielen(e.currentTarget.files?.[0])}/></label></div>
+          <span class="muted" style="font-size:12px">Sicherung = alle Trainings, eigenen Programme, Körperwerte und Einstellungen in einer Datei. Einspielen ergänzt nur, was fehlt.</span>` : null}
+        <div class="row" style="gap:8px">${hilfe.feedback ? html`<button class="btn btn-soft btn-sm" style="flex:1" onClick=${hilfe.feedback}>Feedback / Fehler melden</button>` : null}
+          ${hilfe.datenschutz ? html`<button class="btn btn-soft btn-sm" style="flex:1" onClick=${hilfe.datenschutz}>Datenschutz & Impressum</button>` : null}</div>
+        <label class="field" for="e-vorname"><span class="label">Vorname (für die Begrüßung)</span>
+          <input id="e-vorname" class="text" type="text" autocomplete="given-name" value=${vorname} onInput=${(e) => setVorname(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, vorname: vorname.trim() || null })}/></label>
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
         ${emailAendern ? mail == null ? html`<button class="link" style="justify-self:start" onClick=${() => setMail({ text: '' })}>E-Mail-Adresse ändern</button>`

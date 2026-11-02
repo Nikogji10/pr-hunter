@@ -41,7 +41,8 @@ const RPE_GRUND = { 4: ['7-8', '8', '8.5-9', '9-9.5'], 5: ['7-8', '8', '8.5', '9
 /** Vorgeschlagene Auswahl: je Gruppe die ersten zwei Übungen. */
 export const standardAuswahl = () => Object.fromEntries(Object.entries(MUSKELGRUPPEN).map(([g, m]) => [g, m.uebungen.slice(0, 2).map(([k]) => k)]));
 
-const art = (gruppe, key) => MUSKELGRUPPEN[gruppe].uebungen.find(([k]) => k === key)?.[1] ?? '';
+// 145: frei gewählte Katalogübungen bringen ihre Art in e.arten mit (g = Grundübung, m = Maschine/Kabel)
+const art = (gruppe, key, arten = {}) => MUSKELGRUPPEN[gruppe].uebungen.find(([k]) => k === key)?.[1] ?? arten[key] ?? '';
 
 /** Wie oft jede Muskelgruppe pro Woche drankommt (bei gegebenem Split und Tagen). */
 export function haeufigkeit(split, tageProWoche) {
@@ -74,7 +75,7 @@ export function generiereBodybuilding(e) {
         const ziel = MUSKELGRUPPEN[g].saetze + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
         const jeUebung = Math.max(2, Math.min(5, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
         return keys.map((key) => {
-          const a = art(g, key), grund = a.includes('g'), maschine = a.includes('m');
+          const a = art(g, key, e.arten), grund = a.includes('g'), maschine = a.includes('m');
           const saetze = deload ? Math.max(1, Math.ceil(jeUebung / 2)) : jeUebung;
           const rpe = deload ? 'RPE 6-7' : grund ? `RPE ${spitze && maschine ? '9.5-10' : RPE_GRUND[wochen][w]}` : `RPE ${spitze ? '10' : '9'}`;
           const note = deload ? 'Deload – locker, Technik' : !grund && !spitze ? 'Letzter Satz bis RPE 10' : null;

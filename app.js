@@ -1,11 +1,17 @@
 // PR Hunter · App-Hülle: Anmeldung, lokale Daten (IndexedDB), Abgleich mit Supabase, Navigation.
-// Mit ?demo laufen alle Ansichten mit Beispieldaten und ohne Anmeldung (Rendertests, Vorführen).
+// Alle melden sich an (Nikos Vorgabe 02.11.). Nur für lokale Rendertests: ?demo auf 127.0.0.1/localhost mit Beispieldaten –
+// ui/beispiel.js steckt nicht im veröffentlichten Build (tools/app_bereitstellen.py, nur mit --test).
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
   PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe } from './ui/basis.js';
-import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT } from './ui/stand.js';
-import { beispielStand } from './ui/beispiel.js';
+import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
+import { Gruss } from './ui/gruss.js';
+import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
+import { GlossarSheet } from './ui/glossar.js';
+import { TrainingsImport, ImportHinweis, importHinweisOffen } from './ui/trainingsimport.js';
+import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
+import { trainingsSchluessel } from './js/import.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
 import { Verlauf, TagSheet } from './ui/verlauf.js';
@@ -23,7 +29,7 @@ import { ladeHintergrund, hintergrundAbgleichen as hgAbgleichen, setzeAbdunklung
 import { setzeSprache } from './ui/sprache.js';
 import * as mitteilung from './ui/mitteilung.js';
 import { KG_PRO_LB } from './js/rechnen.js';
-import { erstelleStand, plusTage, tageZwischen } from './js/daten.js';
+import { erstelleStand, plusTage, tageZwischen, HAUPT, montagVon } from './js/daten.js';
 import { sollIst, neueMaxe, tageMitOptionen } from './js/block.js';
 import { projiziere } from './js/programm.js';
 import { ausTraining, zuTraining, abgleichen, neueId, setzeUmbenannt } from './js/sync.js';
@@ -31,10 +37,11 @@ import { speicherFuer, dauerhaft } from './js/lokal.js';
 import { supabase, codeSenden, codePruefen, sitzung, abmelden, emailAendern } from './js/supabase.js';
 import * as konto from './js/konto.js';
 
-const DEMO = new URLSearchParams(location.search).has('demo');
+const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
 const { STANDARD_EINSTELLUNGEN } = konto;
-const TABS = [['heute', 'Heute'], ['programme', 'Programme'], ['verlauf', 'Verlauf'], ['feed', 'Feed'], ['statistik', 'Statistik'], ['rechner', 'Rechner']];
+// Rechner und Timer liegen seit 172 im Seitenmenü (☰ oder Wischen vom linken Rand)
+const TABS = [['heute', 'Heute'], ['programme', 'Programme'], ['verlauf', 'Verlauf'], ['feed', 'Feed'], ['statistik', 'Statistik']];
 const PAUSE_HINWEIS_TAGE = 10;          // ab so vielen Tagen ohne Training: vorsichtig einsteigen (Verletzungen nach Urlaub)
 const ABGLEICH_ALLE_MS = 5 * 60 * 1000;
 const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))];
@@ -43,14 +50,14 @@ const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).fi
 // Navigation über die Browser-Historie: jede Ansicht ist ein Eintrag mit Adresse (#statistik, #uebung/<key>).
 // Zurück bleibt in der App (auf der ersten Ansicht passiert nichts), Neuladen öffnet dieselbe Ansicht an derselben Stelle.
 // #################################################################
-const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung']);
+const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung', 'import', 'datenschutz']);
 function ausAdresse() {
   const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
   return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
 }
 const adresse = (a, key) => `#${a}${key ? `/${encodeURIComponent(key)}` : ''}`;
 
-if (DEMO) setzeStand(beispielStand());
+if (DEMO) setzeStand((await import('./ui/beispiel.js')).beispielStand());
 
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
@@ -116,8 +123,7 @@ function Anmeldung({ angemeldet, zurueck = null }) {
           <button type="button" class="link" disabled=${laeuft} onClick=${senden}>Code neu senden</button></div>
       </form>`}
     ${fehler ? html`<p class="fehler" role="alert">${fehler}</p>` : null}
-    ${zurueck ? html`<button class="link" style="justify-self:start" onClick=${zurueck}>Zurück zur App</button>`
-      : html`<a class="link" href="?demo" style="justify-self:start">Ohne Anmeldung ansehen (Beispieldaten)</a>`}
+    ${zurueck ? html`<button class="link" style="justify-self:start" onClick=${zurueck}>Zurück zur App</button>` : null}
   </main>`;
 }
 
@@ -155,32 +161,122 @@ function PlanAnsicht({ tage, erledigt, wochen, akt, prog, oeffne }) {
   </section>`;
 }
 
+/** 171: anderen Trainingstag wählen – Woche + Tag (Powerlifting/Bodybuilding) oder nur Tag (eigener Plan); heute geplant ist markiert. */
+function TagWechselSheet({ tage, erledigt, wochen, akt, prog, einfach, starten, zu }) {
+  const [w, setW] = useState(akt || 1);
+  const woche = wochen[w - 1];
+  const liste = tage.filter((t) => t.woche === woche);
+  return html`<${Sheet} zu=${zu} label="Trainingstag wechseln">
+    <span class="eyebrow">Trainingstag wechseln</span>
+    <h2 class="h2" style="margin:0">${einfach ? 'Welchen Tag trainierst du heute?' : 'Welche Einheit trainierst du heute?'}</h2>
+    <p class="muted" style="margin:0;font-size:13px">Die gewählte Einheit wird heute trainiert und im Plan abgehakt. Geplant für heute ist mit „heute“ markiert.</p>
+    ${einfach ? null : html`<div class="filter einreihig" role="group" aria-label="Woche">${wochen.map((_, i) => html`<button key=${i} class="chip" aria-pressed=${String(w === i + 1)} onClick=${() => setW(i + 1)}>W${i + 1}</button>`)}</div>
+      <span class="muted" style="font-size:12.5px">${kurzTitel(prog.weeks.find((x) => x.week === woche)?.title) || `Woche ${w}`}</span>`}
+    <div class="wechsel-liste">${liste.map((t) => {
+      const fertig = erledigt.has(t.datum), heute = t.datum === HEUTE;
+      // Namen der Tage nur bei eigenen/Bodybuilding-Plänen (Powerlifting-Vorlagen haben englische Quell-Labels)
+      const name = (prog.kategorie && prog.kategorie !== 'powerlifting' && t.label) || liftsDes(t).map((l) => LIFT[l].name).join(' · ') || t.label || 'Zubehör';
+      return html`<button key=${t.offset} class=${`wechsel-tag ${heute ? 'heute' : ''}`} disabled=${fertig || t.uebersprungen} onClick=${() => { zu(); starten(t); }}>
+        <span class="wt-datum"><b>${wtKurz(t.datum)}</b><small>${datumKurz(t.datum)}</small></span>
+        <span class="wt-text"><b>${name}</b><small>${t.uebungen.length === 1 ? '1 Übung' : `${t.uebungen.length} Übungen`}</small></span>
+        <span class=${`wt-stand ${heute ? 'heute' : ''}`}>${fertig ? '✓' : t.uebersprungen ? '–' : heute ? 'heute' : '›'}</span></button>`;
+    })}</div>
+  <//>`;
+}
+
+/** 151: beim ersten Start die Trainingsart wählen (später in Einstellungen → Training). */
+function TrainingsartKarte({ waehle }) {
+  return html`<section class="card pad stack trainingsart-karte">
+    <b>Wie trainierst du?</b>
+    <span class="muted" style="font-size:13px">Damit die App nur zeigt, was du brauchst. Später in Einstellungen → Training umstellbar.</span>
+    <div class="neu-wege">
+      <button class="weg-karte" onClick=${() => waehle('einfach')}><span class="tag gut">Einfach</span><b>Bodybuilding / Krafttraining</b>
+        <span>Muskelaufbau und fit werden: klare Vorschläge fürs nächste Mal, weniger Zahlen.</span></button>
+      <button class="weg-karte" onClick=${() => waehle('powerlifting')}><span class="tag">Alles</span><b>Powerlifting</b>
+        <span>Kniebeuge, Bank, Kreuzheben: Trainingsmax, e1RM, Kraftprofil, Wettkampf-Werkzeuge.</span></button>
+    </div>
+  </section>`;
+}
+
+/** 163 i: Wochenziel und Serie (Wochen in Folge mit erreichtem Ziel). */
+function WochenZiel({ ziel }) {
+  const tage = Object.keys(trainingsTage);
+  const proWoche = new Map();
+  for (const d of tage) { const m = montagVon(d); proWoche.set(m, (proWoche.get(m) ?? 0) + 1); }
+  const diese = proWoche.get(montagVon(HEUTE)) ?? 0;
+  let serie = diese >= ziel ? 1 : 0;
+  for (let m = plusTage(montagVon(HEUTE), -7); (proWoche.get(m) ?? 0) >= ziel; m = plusTage(m, -7)) serie++;
+  return html`<section class="card wochenziel">
+    <div class="wz-punkte" aria-hidden="true">${Array.from({ length: ziel }, (_, i) => html`<i key=${i} class=${i < diese ? 'voll' : ''}></i>`)}</div>
+    <span class="wz-text"><b>${`${Math.min(diese, ziel)}/${ziel} diese Woche`}</b><small>${serie ? `Serie: ${serie} ${serie === 1 ? 'Woche' : 'Wochen'} in Folge` : 'Ziel erreichen und eine Serie starten'}</small></span>
+    ${diese >= ziel ? html`<span class="wz-ok">✓</span>` : null}
+  </section>`;
+}
+
+/** 173: einmal nach dem Vornamen fragen (für „Guten Morgen, …“); „Später“ fragt erst morgen wieder. */
+function VornameKarte({ speichern }) {
+  const [v, setV] = useState('');
+  const [weg, setWeg] = useState(false);
+  if (weg) return null;
+  return html`<section class="card pad stack vorname-karte">
+    <b>Wie heißt du?</b>
+    <span class="muted" style="font-size:13px">Dein Vorname für die Begrüßung – steht später in Einstellungen → Konto.</span>
+    <div class="row" style="gap:8px"><input class="text" style="flex:1" type="text" autocomplete="given-name" placeholder="Vorname" value=${v} onInput=${(e) => setV(e.currentTarget.value)}
+      onKeyDown=${(e) => { if (e.key === 'Enter' && v.trim()) speichern(v.trim()); }}/>
+      <button class="btn btn-chalk" disabled=${!v.trim()} onClick=${() => speichern(v.trim())}>Speichern</button></div>
+    <button class="link" style="justify-self:start" onClick=${() => { speicher.schreib('prh-vorname-spaeter', HEUTE); setWeg(true); }}>Später</button>
+  </section>`;
+}
+
+/** 172: Kraftwerte als Liste ganz unten (statt Kacheln): Trainingsmax des Blocks, darunter e1RM und aus welchem Satz (170). */
+function MaxListe({ werte, zuUebung }) {
+  const zeilen = [['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => ({ l, tm: werte?.[k] > 0 ? werte[k] : null, e1rm: E1RM_AKTUELL[HAUPT[l]] ?? null, q: E1RM_QUELLE[HAUPT[l]]?.aktuell }))
+    .filter((z) => z.tm || z.e1rm);
+  if (!zeilen.length) return null;
+  return html`<section class="card max-liste">
+    <div class="ml-kopf"><span class="viz-t">${zeilen.some((z) => z.tm) ? 'Trainingsmax' : 'Aktuelle Maxe'}</span><span class="muted">e1RM aus dem besten Satz der letzten 12 Wochen</span></div>
+    ${zeilen.map((z) => html`<button key=${z.l} class="ml-zeile" style=${`--c:${LIFT[z.l].farbe}`} onClick=${() => zuUebung(HAUPT[z.l])}>
+      <span class="ml-icon"><${UebungsBild} schluessel=${HAUPT[z.l]} groesse=${30}/></span>
+      <span class="ml-text"><b>${LIFT[z.l].name}</b>${z.e1rm ? html`<small>${`e1RM ${gw(z.e1rm)} ${einheit()}`}${z.q?.satz ? ` · ${gw(z.q.satz.kg)} × ${z.q.satz.wdh}${z.q.satz.rpe != null ? ` @ ${fmt(z.q.satz.rpe)}` : ''} · ${datumKurz(z.q.datum)}` : ''}</small>` : null}</span>
+      <span class="ml-wert zahl">${gw(z.tm ?? z.e1rm)}<small> ${einheit()}</small></span><span class="ml-pfeil">›</span></button>`)}
+  </section>`;
+}
+
 function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
-  startenAm, bearbeiten, loeschen, zuUebung }) {
+  startenAm, bearbeiten, loeschen, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
   const [planOffen, setPlanOffen] = useState(false);
   const [tagOffen, setTagOffen] = useState(null);       // Datum aus „Plan ansehen“
   const stand = block ? blockStand(tage, erledigt) : null;
-  const kopf = html`<header class="topbar duenn">
-    <span class="logo"><b>PR</b> Hunter</span>
-    <span></span>
-    <div class="row"><${SyncPunkt} sync=${sync} offen=${offen}/>
-      <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${30}/><span class="zahnrad">${I.zahnrad}</span></button></div>
-  </header>`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/>`;
+  // 172/173: Kopf wie Vorlage 6 (☰ · Logo · Profil), darunter Begrüßung mit Spruch des Tages
+  const planHeute = block ? tage.some((t) => t.datum === HEUTE && !t.uebersprungen) : null;
+  const kopf = html`<header class="kopf6">
+    <${MenueKnopf} auf=${menueAuf}/>
+    <span class="logo logo6"><b>PR</b> Hunter</span>
+    <div class="row kopf6-rechts"><${SyncPunkt} sync=${sync} offen=${offen}/>
+      <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${34}/></button></div>
+  </header>
+  <${Gruss} vorname=${einst.vorname} datum=${HEUTE} trainingstag=${planHeute && !erledigt.has(HEUTE) ? true : planHeute === false ? false : null}/>
+  ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
+  ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
+  ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3}/>`;
+  const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
     : training && !training.planDatum ? 'Freies Training fortsetzen' : 'Ohne Plan trainieren'}</button>`;
   if (!block) {
     const t = letztes ? trainingsTage[letztes] : null;
     return html`<div class="screen">${kopf}${gewicht}
-      <section class="card pad stack wichtig"><h2 class="h2">Kein aktiver Block</h2>
-        <p class="muted" style="margin:0">Starte eine Vorlage mit deinen Maxen, dann steht hier jeden Tag dein Training. Oder trainiere frei und wähle die Übungen selbst.</p>
-        <button class="btn btn-chalk btn-block" onClick=${zuProgrammen}>Programm wählen</button>
+      <section class="card pad stack wichtig"><h2 class="h2">${einst.trainingsart === 'einfach' ? 'Noch kein Plan' : 'Kein aktiver Block'}</h2>
+        <p class="muted" style="margin:0">${einst.trainingsart === 'einfach' ? 'Einsteigerplan mit einem Tipp oder eigenen Plan in einer Minute – dann steht hier jeden Tag dein Training.'
+          : 'Starte eine Vorlage mit deinen Maxen, dann steht hier jeden Tag dein Training. Oder trainiere frei und wähle die Übungen selbst.'}</p>
+        <button class="btn btn-chalk btn-block" onClick=${zuProgrammen}>${einst.trainingsart === 'einfach' ? 'Plan in 1 Minute' : 'Programm wählen'}</button>
         ${ohnePlan}</section>
       ${t ? html`<section class="card pad stack"><span class="eyebrow">Zuletzt trainiert · ${datumLang(letztes)}</span>
         <div class="row between"><b>${t.lifts.map((l) => LIFT[l].name).join(' · ') || 'Zubehör'}</b><span class="muted">${tonnage(t.tonnage)}</span></div></section>` : null}
+      ${maxe}
     </div>`;
   }
   const offenerTag = (t) => !erledigt.has(t.datum) && !t.uebersprungen;
@@ -204,9 +300,6 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
     ${kopf}
     ${gewicht}
     ${/* SBD-Maxe nur bei einem Powerlifting-Programm (Bodybuilding/eigene Pläne haben keine Maxe) und wenn nicht abgeschaltet */ ''}
-    ${einst.sbdHeute !== false && (prog.kategorie ?? 'powerlifting') === 'powerlifting' && ['S', 'B', 'D'].some((k) => block.werte?.[k] > 0)
-      ? html`<div class="maxes kompakt">${[['squat', 'S'], ['bench', 'B'], ['dead', 'D']].map(([l, k]) => html`<div class="max" key=${l} style=${`--c:${LIFT[l].farbe}`} title="Trainingsmax">
-      <span class="eyebrow">${LIFT[l].name}</span><b>${gw(block.werte[k])}<small> ${einheit()}</small></b></div>`)}</div>` : null}
     <div class="heute-trenner" aria-hidden="true"><i></i></div>
     ${planOffen ? html`<${PlanAnsicht} tage=${tage} erledigt=${erledigt} wochen=${wochen} akt=${akt} prog=${prog} oeffne=${setTagOffen}/>` : null}
 
@@ -241,11 +334,14 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
         <button class="btn btn-soft btn-sm" onClick=${() => setSheet('ueberspringen')}>Überspringen</button>` : null}
         <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
           : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
+      ${tagOption && training?.planDatum !== tag.datum ? html`<button class="tag-wechsel" onClick=${() => setSheet('wechseln')}>${I.tausch}<span>Anderen Trainingstag wählen</span><span class="ml-pfeil">›</span></button>` : null}
       ${tag.verschoben ? html`<span class="muted" style="font-size:13px">Verschoben – ursprünglich am ${datumKurz(plusTage(block.start, tag.offset))}.</span>` : null}
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}
     ${tag ? null : html`${ohnePlan}<button class="btn btn-soft btn-block" onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan schließen' : 'Plan ansehen'}</button>`}
     ${tagOffen ? html`<${TagSheet} d=${tagOffen} plan=${tage.find((x) => x.datum === tagOffen)} erledigt=${erledigt.has(tagOffen)} zu=${() => setTagOffen(null)}
       startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
+    ${sheet === 'wechseln' ? html`<${TagWechselSheet} tage=${tage} erledigt=${erledigt} wochen=${wochen} akt=${akt} prog=${prog} einfach=${prog.kategorie === 'eigen'}
+      starten=${starten} zu=${() => setSheet(null)}/>` : null}
     ${sheet === 'verschieben' && tag ? html`<${Sheet} zu=${() => setSheet(null)} label="Training verschieben">
       <h2 class="h2">Training verschieben</h2>
       <label class="schalter" for="v-rest"><span>Restlichen Block mitverschieben</span>
@@ -260,7 +356,7 @@ function Heute({ block, prog, tage, erledigt, leichter, setLeichter, training, s
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Abbrechen</button>
         <button class="btn btn-chalk" style="flex:1" onClick=${() => { tagOption(tag.offset, { weg: true }); setSheet(null); }}>Überspringen</button></div>
     <//>` : null}
-
+    ${maxe}
   </div>`;
 }
 
@@ -298,6 +394,12 @@ function App() {
   const [training, setTraining] = useState(null);
   const [timer, setTimer] = useState(null);
   const [toast, setToast] = useState(null);
+  const [menue, setMenue] = useState(false);
+  const [glossar, setGlossar] = useState(false);                // 163: Begriffe erklärt
+  const [feedback, setFeedback] = useState(null);              // 126: { art, betrifft, name }
+  const [neueVersion, setNeueVersion] = useState(false);        // 126 g                     // 172: Seitenmenü mit Werkzeugen
+  const [rechnerArt, setRechnerArt] = useState(() => { const a = ausAdresse(); return a.ansicht === 'rechner' ? a.key : null; });
+  const wischRef = useRef({});
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -422,7 +524,15 @@ function App() {
       // Änderung (Stand vor dem Schreiben neu lesen) – sonst ginge sie beim Neuladen verloren
       const ei = await s.meta('einst');
       if (ei?.offen) {
-        await konto.speichereProfil(sb, uid, ei);
+        try { await konto.speichereProfil(sb, uid, ei); }
+        catch (x) {
+          // 126 c: Anzeigename vergeben – Rest trotzdem speichern, Name vom Server behalten, Bescheid geben
+          if (!/schon vergeben/.test(x.message)) throw x;
+          await konto.speichereProfil(sb, uid, { ...ei, name: null });
+          const serverName = (await konto.ladeProfil(sb, uid)).display_name ?? null;
+          await s.setzeMeta('einst', { ...ei, name: serverName }); setEinstRoh({ ...ei, name: serverName });
+          setToast({ titel: 'Name schon vergeben', text: x.message });
+        }
         if (JSON.stringify(await s.meta('einst')) === JSON.stringify(ei)) await s.setzeMeta('einst', { ...ei, offen: false });
       } else {
         const e = konto.einstAusProfil(await konto.ladeProfil(sb, uid), ei ?? {});
@@ -486,7 +596,8 @@ function App() {
       setAnsicht(st.ansicht);
       const y = scrollPos.current[st.ansicht] ?? 0;
       setTimeout(() => scrollTo(0, y), 30);
-      if (st.key) setUebungAnsicht((u) => (u?.key === st.key ? u : { key: st.key, zurueck: 'verlauf' }));
+      if (st.ansicht === 'rechner') setRechnerArt(st.key ?? null);
+      else if (st.key) setUebungAnsicht((u) => (u?.key === st.key ? u : { key: st.key, zurueck: 'verlauf' }));
     };
     addEventListener('popstate', zurueck);
     // Neuladen/Herunterziehen: Ansicht steht in der Adresse, die Scrollposition merken wir uns hier
@@ -494,12 +605,12 @@ function App() {
     addEventListener('pagehide', merken);
     return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); };
   }, []);
-  // Startbild aus index.html ausblenden, sobald die App steht (mindestens 1,2 s nach dem Öffnen, damit die Animation durchläuft)
+  // Startbild aus index.html ausblenden, sobald die App steht (mindestens 0,48 s nach dem Öffnen, damit die Animation durchläuft; 177)
   useEffect(() => {
     if (phase === 'laden') return;
     const sb = document.getElementById('startbild');
     if (!sb) return;
-    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 350); }, Math.max(0, 650 - performance.now()));
+    const id = setTimeout(() => { sb.classList.add('weg'); setTimeout(() => sb.remove(), 260); }, Math.max(0, 480 - performance.now()));
     return () => clearTimeout(id);
   }, [phase]);
   useEffect(() => {
@@ -645,6 +756,20 @@ function App() {
     addEventListener('visibilitychange', pruefe);
     return () => { clearInterval(iv); removeEventListener('visibilitychange', pruefe); };
   }, [training?.id, training?.nachgefragt]);
+  // 126 g: neue App-Version – übernimmt der Service Worker, während die Seite offen ist, Hinweis zum Neu laden;
+  // beim Zurückkehren in die App nach Updates schauen
+  useEffect(() => {
+    const sw = navigator.serviceWorker;
+    if (!sw?.controller) return;
+    const neu = () => setNeueVersion(true);
+    const pruefen = () => { if (!document.hidden) sw.getRegistration().then((r) => r?.update()).catch(() => {}); };
+    sw.addEventListener('controllerchange', neu);
+    addEventListener('visibilitychange', pruefen);
+    return () => { sw.removeEventListener('controllerchange', neu); removeEventListener('visibilitychange', pruefen); };
+  }, []);
+  // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
+  useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
+    seitenWechsel: () => !!wischRef.current.reiter });
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
   if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="muted">Lade …</p></div>`;
   if (phase === 'anmelden') return html`<${Anmeldung} angemeldet=${(s) => starte({ id: s.user.id, email: s.user.email })}
@@ -667,14 +792,15 @@ function App() {
   const offen = trainings.filter((t) => t.offen).length;
   const einstUi = { ...einst, koerpergewicht: DEMO ? demoKg ?? KOERPERGEWICHT : KOERPERGEWICHT };
 
-  const gehe = (a, key = null) => {
+  const gehe = (a, key = null, ersetzen = false) => {
     scrollPos.current[jetzt.current.ansicht] = scrollY;
+    if (a === 'rechner') setRechnerArt(key);
     setAnsicht(a);
     // Ins laufende Training an die gleiche Stelle zurück, sonst nach oben
     const y = a === 'training' ? scrollPos.current.training ?? 0 : 0;
     scrollTo(0, 0); if (y) setTimeout(() => scrollTo(0, y), 30);
     const st = { ansicht: a, key };
-    if (history.state?.ansicht === a && history.state?.key === key) history.replaceState(st, '', adresse(a, key));
+    if (ersetzen || (history.state?.ansicht === a && history.state?.key === key)) history.replaceState(st, '', adresse(a, key));
     else history.pushState(st, '', adresse(a, key));
   };
   const zuUebung = (key, zurueck) => { setUebungAnsicht({ key, zurueck }); gehe('uebung', key); };
@@ -743,6 +869,21 @@ function App() {
     setTraining({ ...zuTraining(w), titel: `Korrektur · ${datumLang(w.datum)}` });
     gehe('training');
   };
+  // 166: importierte Trainings (je Datum eines, Quelle „manual“) speichern und abgleichen
+  const trainingsImportieren = async (liste) => {
+    if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Import speichert im Konto.' }); return; }
+    const neu = liste.map((t) => {
+      const id = neueId();
+      return { id, clientId: id, datum: t.datum, start: null, ende: null, sessionRpe: null, koerpergewicht: null, notiz: 'Import', quelle: 'manual',
+        runId: null, woche: null, tagOffset: null, bereitschaft: null, offen: true, geloescht: false,
+        uebungen: t.uebungen.map((u) => ({ id: neueId(), key: u.key, notiz: null,
+          saetze: u.saetze.map((s) => ({ id: neueId(), typ: 'working', kg: s.kg, wdh: s.wdh, rpe: s.rpe, fertig: true, zeit: null, geplant: null, ...(s.notiz ? { notiz: s.notiz } : {}) })) })) };
+    });
+    for (const w of neu) await sp.current.schreibe(w);
+    setTrainings((alt) => [...alt, ...neu]);
+    setToast({ titel: 'Import gespeichert', text: `${neu.length} Trainings – Upload läuft.` });
+    abgleich();
+  };
   const loeschen = async (id) => {
     const w = trainings.find((x) => x.id === id);
     if (!w) return;
@@ -793,6 +934,7 @@ function App() {
   const infoSetzen = async (inf) => { setInfo(inf); if (!DEMO) await sp.current.setzeMeta('programme', inf); };
   setzeDienste({
     meldung: setToast,
+    melden: DEMO ? null : (id, name) => setFeedback({ art: 'meldung', betrifft: id, name }),
     programmSpeichern: async (datei, def) => {
       const p = info[datei];
       if (!DEMO && !navigator.onLine) throw new Error('Zum Speichern braucht das Handy Netz.');
@@ -810,6 +952,33 @@ function App() {
       await infoSetzen(rest);
     },
   });
+  // 126 b: vollständige Sicherung (JSON) und Einspielen – ergänzt nur fehlende Trainings und eigene Programme
+  const sichern = () => herunterladen(JSON.stringify({ format: 'pr-hunter-sicherung', version: 1, exportiert: new Date().toISOString(),
+    einst: (({ offen: _o, ...e }) => e)(einst), messwerte, block, programme: Object.fromEntries(Object.entries(info).filter(([, p]) => !p.vorlage)),
+    trainings: trainings.filter((t) => !t.geloescht) }, null, 1), `pr-hunter-sicherung_${heuteLokal()}.json`, 'application/json');
+  const einspielen = async (datei) => {
+    if (!datei) return;
+    try {
+      const d = JSON.parse(await datei.text());
+      if (d.format !== 'pr-hunter-sicherung') throw new Error('Das ist keine PR-Hunter-Sicherung.');
+      const fp = (w) => (w.uebungen ?? []).map((u) => trainingsSchluessel(w.datum, u.key, (u.saetze ?? []).filter((s) => s.fertig !== false && s.typ !== 'warmup'))).join('#');
+      const ids = new Set(trainings.map((t) => t.id)), da = new Set(trainings.filter((t) => !t.geloescht).map(fp));
+      const neu = (d.trainings ?? []).filter((w) => !w.geloescht && !ids.has(w.id) && !da.has(fp(w))).map((w) => ({ ...w, offen: true }));
+      if (!DEMO) for (const w of neu) await sp.current.schreibe(w);
+      setTrainings((alt) => [...alt, ...neu]);
+      let progs = 0;
+      for (const e of Object.values(d.programme ?? {})) {
+        if (e.vorlage || Object.values(info).some((x) => x.name === e.name)) continue;
+        const def = e.versionen?.[e.version] ?? Object.values(e.versionen ?? {}).at(-1);
+        if (def) { await importieren({ ...def, name: e.name }, { quelle: 'import' }); progs++; }
+      }
+      setToast({ titel: 'Sicherung eingespielt', text: `${neu.length} Trainings und ${progs} Programme ergänzt.` });
+      abgleich();
+    } catch (e) { setToast({ titel: 'Nicht eingespielt', text: e.message }); }
+  };
+  const kalender = () => herunterladen(kalenderDatei(tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen && !erledigt.has(t.datum)).slice(0, 60),
+    (t) => `PR Hunter: ${t.label || [...new Set(t.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))].map((l) => LIFT[l].name).join(' · ') || 'Training'}`),
+  'pr-hunter-plan.ics', 'text/calendar');
   const exportieren = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([konto.exportCsv(trainings, nameVon)], { type: 'text/csv;charset=utf-8' }));
@@ -836,11 +1005,15 @@ function App() {
     location.reload();
   };
 
-  jetzt.current = { ansicht, key: ansicht === 'uebung' ? uebungAnsicht?.key ?? null : null };
+  jetzt.current = { ansicht, key: ansicht === 'uebung' ? uebungAnsicht?.key ?? null : ansicht === 'rechner' ? rechnerArt : null };
+  {
+    const i = TABS.findIndex(([k]) => k === ansicht);
+    wischRef.current = { reiter: i >= 0, zurueck: i > 0 ? () => gehe(TABS[i - 1][0]) : null, weiter: i >= 0 && i < TABS.length - 1 ? () => gehe(TABS[i + 1][0]) : null };
+  }
   const imTraining = ansicht === 'training' && training;
   const leiste = training && ansicht !== 'training';
   const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
-  const aktiverTab = ansicht === 'training' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
+  const aktiverTab = ansicht === 'training' || ansicht === 'rechner' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     ${imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
@@ -854,24 +1027,34 @@ function App() {
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
+      : ansicht === 'import' ? html`<${TrainingsImport} zurueck=${() => history.back()} vorhandene=${trainings} importieren=${trainingsImportieren}/>`
+      : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
       : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
-      : ansicht === 'rechner' ? html`<${Rechner} einst=${einstUi} vorlage=${(() => {
-          const s = training?.karten.flatMap((k) => (k.key && !koerperUebung(k.key) ? k.gruppen.flatMap((g) => g.saetze) : [])).find((x) => !x.erledigt && x.kg > 0);
-          return s ? { kg: s.kg, wdh: s.wdh } : null;
+      : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
+          // 180: aktueller Satz des Trainings (offene Übung zuerst); bei Klimmzug/Dips als Zusatzgewicht für den Klimmzug-Rechner
+          const ks = training ? [...training.karten.filter((k) => k.key && !k.zu), ...training.karten.filter((k) => k.key && k.zu)] : [];
+          for (const k of ks) {
+            const koerper = koerperUebung(k.key);
+            const s = k.gruppen.flatMap((g) => g.saetze).find((x) => !x.erledigt && (koerper || x.kg > 0));
+            if (s) return { kg: s.kg ?? 0, wdh: s.wdh, rpe: s.rpe ?? null, koerper };
+          }
+          return null;
         })()}/>`
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
+          zuImport=${DEMO ? null : () => gehe('import')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
       : html`<${Heute} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
-          startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')}/>`}
+          startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
+          zuImport=${DEMO ? null : () => gehe('import')}/>`}
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
-      ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer}/>` : null}
+      ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}/>` : null}
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
       ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</nav></div>
@@ -887,6 +1070,12 @@ function App() {
     ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
       beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
     <${BildLupe}/>
+    <${SeitenMenue} auf=${menue} zu=${() => setMenue(false)} einfach=${einst.trainingsart === 'einfach'}
+      waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); gehe('rechner', k, true); }}/>
+    ${glossar ? html`<${GlossarSheet} zu=${() => setGlossar(false)}/>` : null}
+    ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} zu=${() => setFeedback(null)}
+      senden=${(f) => konto.feedbackSenden(supabase(), f)}/>` : null}
+    ${neueVersion ? html`<${NeueVersion}/>` : null}
     ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)} zuProgrammen=${aktiverBlock ? null : () => gehe('programme')}/>` : null}
   </div>`;
 }

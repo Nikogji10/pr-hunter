@@ -307,3 +307,115 @@ export function pruefeProgrammJson(text, katalog, zuordnung = {}) {
   return { programm: { ...roh, name: roh.name || 'Importiertes Programm', weeks,
     inputs: roh.inputs?.length ? roh.inputs : reihenfolge.filter((v) => variablen.has(v)) }, fehler: [], unbekannt: [] };
 }
+
+// #################################################################
+// Trainingsverlauf aus anderen Apps (Wunsch 166): eigenes CSV-Format, das die KI erzeugt, oder direkt die
+// Exporte von Strong und Hevy. Je Datum ein Training, je Übung die Sätze in Dateireihenfolge.
+// #################################################################
+export const TRAININGS_SPALTEN = ['datum', 'uebung', 'kg', 'wdh', 'rpe', 'notiz'];
+
+export const KI_ANLEITUNG_TRAININGS = `Wandle den Trainingsverlauf unten (Export aus einer anderen Fitness-App, z. B. JEFIT, Strong, Hevy, Fitbod, Excel) in eine CSV-Tabelle für die App „PR Hunter“ um.
+
+Regeln:
+- Trennzeichen Semikolon. Erste Zeile genau: datum;uebung;kg;wdh;rpe;notiz
+- Eine Zeile je Satz, in der Reihenfolge, in der die Sätze gemacht wurden.
+- datum: JJJJ-MM-TT (z. B. 2026-03-14)
+- uebung: gängiger deutscher oder englischer Übungsname. Kniebeuge, Bankdrücken und Kreuzheben mit der Langhantel genau so: Wettkampf-Kniebeuge, Wettkampf-Bankdrücken, Wettkampf-Kreuzheben.
+- kg: Gewicht in Kilogramm mit Punkt oder Komma (Pfund × 0,4536). Körpergewicht ohne Zusatz: 0. Leer, wenn unbekannt.
+- wdh: Wiederholungen als Zahl
+- rpe: falls angegeben (z. B. 8 oder 7,5), sonst leer
+- notiz: kurzer Hinweis ohne Semikolon, sonst leer
+- Aufwärmsätze weglassen, wenn sie als solche markiert sind. Erfinde nichts.
+- Gib nur die CSV in einem Codeblock aus, ohne weitere Erklärung.
+
+Beispiel:
+datum;uebung;kg;wdh;rpe;notiz
+2026-03-14;Wettkampf-Kniebeuge;140;5;8;
+2026-03-14;Wettkampf-Kniebeuge;140;5;8,5;
+2026-03-14;Beinpresse;200;10;;
+
+Hier ist der Verlauf:
+`;
+
+// Spaltennamen von Strong (Date, Exercise Name, Weight, Reps, RPE, Notes) und Hevy (start_time, exercise_title, weight_kg, reps, rpe, set_type)
+const TRAININGS_KOPF = { datum: 'datum', date: 'datum', start_time: 'datum', starttime: 'datum', uebung: 'uebung', ubung: 'uebung', exercise: 'uebung',
+  exercisename: 'uebung', exercise_title: 'uebung', exercisetitle: 'uebung', kg: 'kg', gewicht: 'kg', weight: 'kg', weight_kg: 'kg', weightkg: 'kg', last: 'kg',
+  weight_lbs: 'lb', weightlbs: 'lb', lbs: 'lb', wdh: 'wdh', reps: 'wdh', wiederholungen: 'wdh', rpe: 'rpe', notiz: 'notiz', notes: 'notiz', note: 'notiz',
+  exercise_notes: 'notiz', set_type: 'typ', settype: 'typ', satztyp: 'typ' };
+// Kürzel anderer Apps vor dem Abgleich ausschreiben (166: DB/BB/KH/LH, Klammerzusätze)
+const KUERZEL = [[/\bdb\b/gi, 'dumbbell'], [/\bbb\b/gi, 'barbell'], [/\bkh\b/gi, 'kurzhantel'], [/\blh\b/gi, 'langhantel'], [/\bez\b/gi, 'ez-bar']];
+const ausgeschrieben = (n) => KUERZEL.reduce((s, [re, ersatz]) => s.replace(re, ersatz), String(n)).replace(/[()]/g, ' ');
+
+const MONATE = { jan: 1, feb: 2, mar: 3, mär: 3, apr: 4, may: 5, mai: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, okt: 10, nov: 11, dec: 12, dez: 12 };
+/** Datum aus verschiedenen Exporten → JJJJ-MM-TT oder null. */
+export function leseDatum(text) {
+  const t = String(text).trim();
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = t.match(/^(\d{1,2}) ([A-Za-zä]{3})[a-z]* (\d{4})/);                       // Hevy: „5 Jan 2023, 18:30“
+  if (m && MONATE[m[2].toLowerCase()]) return `${m[3]}-${String(MONATE[m[2].toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+
+/**
+ * CSV → { trainings: [{ datum, uebungen: [{ key, saetze: [{ kg, wdh, rpe, notiz }] }] }], unbekannt, fehler, zeilen }.
+ * Unbekannte Übungen kommen gesammelt (je Name einmal) zurück; die Zuordnung (Name → Schlüssel) gilt für alle Zeilen.
+ */
+export function leseTrainingsCsv(text, katalog, zuordnung = {}) {
+  const fehler = [], unbekannt = sammler(katalog), index = katalogIndex(katalog);
+  const zeilen = String(text).replace(/^﻿/, '').split(/\r?\n/);
+  let kopf = null, trenner = ';', gelesen = 0;
+  const tage = new Map();
+  zeilen.forEach((roh, i) => {
+    const nr = i + 1, zeile = roh.trim();
+    if (!zeile || zeile.startsWith('```') || zeile.startsWith('#') || fehler.length > 50) return;
+    if (!kopf) {
+      trenner = [';', '\t', ','].sort((a, b) => zeile.split(b).length - zeile.split(a).length)[0];
+      kopf = zerlegeZeile(zeile, trenner).map((s) => s.toLowerCase().replace(/["\s]/g, '')).map((s) => TRAININGS_KOPF[s] ?? s);
+      const fehlt = ['datum', 'uebung', 'wdh'].filter((s) => !kopf.includes(s));
+      if (fehlt.length) fehler.push(`Zeile ${nr}: Kopfzeile ohne ${fehlt.join(', ')} (erwartet: ${TRAININGS_SPALTEN.join(';')})`);
+      return;
+    }
+    const w = zerlegeZeile(zeile, trenner);
+    const f = Object.fromEntries(kopf.map((k, j) => [k, w[j] ?? '']));
+    if (/warm/i.test(f.typ ?? '')) return;                                           // Hevy: Aufwärmsätze weglassen
+    const datum = leseDatum(f.datum ?? '');
+    if (!datum) { fehler.push(`Zeile ${nr}: Datum „${f.datum ?? ''}“ nicht lesbar (JJJJ-MM-TT)`); return; }
+    const name = (f.uebung ?? '').trim();
+    if (!name) { fehler.push(`Zeile ${nr}: Übung fehlt`); return; }
+    const e = zugeordnet(name, zuordnung, katalog) ?? findeUebung(name, index) ?? findeUebung(ausgeschrieben(name), index);
+    if (!e) { unbekannt.merke(name); return; }
+    const zahlAus = (x) => { const s = String(x ?? '').trim().replace(',', '.'); return s === '' ? null : Number(s); };
+    let kg = zahlAus(f.kg);
+    if (kg == null && f.lb != null) { const lb = zahlAus(f.lb); kg = lb == null ? null : Math.round(lb * 0.45359237 * 100) / 100; }
+    const wdh = zahlAus(f.wdh), rpe = zahlAus(f.rpe);
+    if (kg != null && !(kg >= 0 && kg < 1000)) { fehler.push(`Zeile ${nr}: Gewicht „${f.kg}“ unplausibel`); return; }
+    if (wdh === 0) return;                                                           // leere Sätze (0 Wdh) überspringen
+    if (!(wdh > 0 && wdh < 200)) { fehler.push(`Zeile ${nr}: Wdh „${f.wdh ?? ''}“ fehlt oder unplausibel`); return; }
+    const tag = tage.get(datum) ?? new Map();
+    const u = tag.get(e.k) ?? { key: e.k, saetze: [] };
+    u.saetze.push({ kg, wdh: Math.round(wdh), rpe: rpe >= 1 && rpe <= 10 ? rpe : null, notiz: (f.notiz ?? '').trim() || null });
+    tag.set(e.k, u); tage.set(datum, tag);
+    gelesen++;
+  });
+  const trainings = [...tage].sort(([a], [b]) => a.localeCompare(b)).map(([datum, m]) => ({ datum, uebungen: [...m.values()] }));
+  return { trainings, unbekannt: [...unbekannt.liste.values()], fehler, zeilen: gelesen };
+}
+
+/** Fingerabdruck für die Duplikatprüfung: Datum + Übung + Sätze (kg × wdh). */
+export const trainingsSchluessel = (datum, key, saetze) => `${datum}|${key}|${saetze.map((s) => `${s.kg ?? '-'}x${s.wdh}`).join(',')}`;
+
+/** Neue Trainings gegen vorhandene prüfen: Übungen, die es am selben Tag mit denselben Sätzen schon gibt, fallen weg. */
+export function ohneDuplikate(trainings, vorhandene) {
+  const da = new Set();
+  for (const w of vorhandene) {
+    if (w.geloescht) continue;
+    for (const u of w.uebungen ?? []) da.add(trainingsSchluessel(w.datum, u.key, (u.saetze ?? []).filter((s) => s.fertig !== false && s.typ !== 'warmup')));
+  }
+  let doppelt = 0;
+  const neu = trainings.map((t) => ({ ...t, uebungen: t.uebungen.filter((u) => { const d = da.has(trainingsSchluessel(t.datum, u.key, u.saetze)); if (d) doppelt++; return !d; }) }))
+    .filter((t) => t.uebungen.length);
+  return { neu, doppelt };
+}

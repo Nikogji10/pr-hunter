@@ -176,13 +176,16 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
   }
   const PR_FEED = feed.sort((a, b) => b.datum.localeCompare(a.datum) || b.e1rm - a.e1rm).slice(0, 5);
 
-  const LETZTES = {}, BEST_E1RM = {}, E1RM_AKTUELL = {}, ZULETZT = {};
+  const LETZTES = {}, BEST_E1RM = {}, E1RM_AKTUELL = {}, ZULETZT = {}, E1RM_QUELLE = {};
   for (const tag of tagListe) for (const u of tag.uebungen) ZULETZT[u.key] = tag.datum;     // aufsteigend: am Ende steht das letzte Datum
   for (const [key, l] of verlauf) {
     const [d, , s] = l.at(-1);
     LETZTES[key] = [satzText(s), datumKurz(d), s];      // Text für Tests/Export, Satz für die Anzeige in der App-Sprache
     BEST_E1RM[key] = Math.max(...l.map(([, w]) => w));
     E1RM_AKTUELL[key] = referenz(key, heute) ?? l.at(-1)[1];   // länger nicht trainiert: letzter bekannter Wert
+    // 170: aus welchem Satz der Wert stammt ({ datum, satz } für Bestwert und aktuelle Form)
+    const satzVon = (w) => { const x = l.find(([, v]) => v === w); return x ? { datum: x[0], satz: x[2] } : null; };
+    E1RM_QUELLE[key] = { best: satzVon(BEST_E1RM[key]), aktuell: satzVon(E1RM_AKTUELL[key]) };
   }
   // Übungen ohne e1RM (Zeit, Körpergewicht ohne Messwert) trotzdem mit letzter Leistung
   for (const tag of tagListe) {
@@ -193,7 +196,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
     }
   }
   for (const [alt, neu] of Object.entries(GLEICH)) {
-    for (const ziel of [LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT]) if (ziel[neu] != null) ziel[alt] = ziel[neu];
+    for (const ziel of [LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT, E1RM_QUELLE]) if (ziel[neu] != null) ziel[alt] = ziel[neu];
   }
 
   /** Rekordtafel einer Übung: schwerstes Gewicht mit mindestens r Wdh (1–10) samt Datum, dazu bestes e1RM. */
@@ -215,7 +218,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
   const gewichte = [...messwerte, ...sortiert.filter((t) => t.koerpergewicht > 0).map((t) => ({ datum: t.datum, kg: t.koerpergewicht }))]
     .filter((m) => m.kg > 0 && m.datum <= heute).sort((a, b) => a.datum.localeCompare(b.datum));
   return {
-    HEUTE: heute, URLAUB: urlaub, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT,
+    HEUTE: heute, URLAUB: urlaub, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT, E1RM_QUELLE,
     KOERPERGEWICHT: gewichte.at(-1)?.kg ?? koerpergewicht, KOERPERVERLAUF: gewichte,
     trainingAm: (d) => tage.get(d) ?? null,
     verlaufUebung: (key) => reihe(kanon(key)),
