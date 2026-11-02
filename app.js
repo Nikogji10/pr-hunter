@@ -410,10 +410,13 @@ function App() {
   const [neueVersion, setNeueVersion] = useState(false);        // 126 g                     // 172: Seitenmenü mit Werkzeugen
   const [rechnerArt, setRechnerArt] = useState(() => { const a = ausAdresse(); return a.ansicht === 'rechner' ? a.key : null; });
   const wischRef = useRef({});
-  const [nachbar, setNachbar] = useState(null);                  // beim Wischen: { key, art } der Seite, die hereinkommt
+  const bilder = useRef({});                                     // Reiter → { el, fuer }: Bild der Seite (DOM-Kopie ihres ersten Aufbaus, ohne Programmlogik)
+  const vorbereitung = useRef(0);                                // Nummer der laufenden Bild-Vorbereitung im Leerlauf
+  const ebeneRef = useRef(null);                                 // beim Wischen: Ebene mit dem Bild der hereinkommenden Seite
+  const seiteRef = useRef(null);                                 // seiteFuer der letzten Darstellung (für Bilder noch nie besuchter Reiter)
   const [menueZug, setMenueZug] = useState(false);               // Seitenmenü wird gerade aufgezogen
   const [menueGezogen, setMenueGezogen] = useState(false);       // per Wischen geöffnet: Einblend-Animation nicht nochmal
-  const hauptRef = useRef(null), nachbarRef = useRef(null), zugUnter = useRef(null), zugLaeuft = useRef(false);
+  const hauptRef = useRef(null), zugUnter = useRef(null), zugLaeuft = useRef(false);
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -781,10 +784,50 @@ function App() {
     addEventListener('visibilitychange', pruefen);
     return () => { sw.removeEventListener('controllerchange', neu); removeEventListener('visibilitychange', pruefen); };
   }, []);
+  // Bild einer Seite für das Wischen: ihr erster Aufbau, unsichtbar gerendert, abgebildet und sofort wieder abgebaut.
+  // Das ist genau das, was nach dem Wechsel als Erstes erscheint (die Seite startet frisch) – beim Tausch springt nichts.
+  // Effekte laufen dabei nicht (abgebaut, bevor sie dran sind); der Sitzungsspeicher wird wiederhergestellt.
+  const bildVon = (key, neu = false) => {
+    let b = bilder.current[key];
+    if ((neu || !b) && seiteRef.current) {
+      const fuer = seiteRef.current, tmp = document.createElement('div'), sitzung = {};
+      try { for (let n = 0; n < sessionStorage.length; n++) { const s = sessionStorage.key(n); sitzung[s] = sessionStorage.getItem(s); } } catch { /* egal */ }
+      try {
+        render(fuer(key), tmp);
+        const el = document.createElement('div'); el.className = 'seite-haupt';
+        el.append(...[...tmp.childNodes].map((n) => n.cloneNode(true)));
+        el.querySelectorAll('.backdrop, .toast').forEach((x) => x.remove());
+        b = bilder.current[key] = { el, fuer };
+      } catch { /* dann eben ohne Bild */ }
+      finally {
+        try { render(null, tmp); } catch { /* egal */ }
+        try { for (const [s, w] of Object.entries(sitzung)) if (sessionStorage.getItem(s) !== w) sessionStorage.setItem(s, w); } catch { /* egal */ }
+      }
+    }
+    return b ? b.el.cloneNode(true) : null;
+  };
+  // Bilder der anderen Reiter im Leerlauf vorbereiten (nach jeder Änderung neu, Nachbarn zuerst) – der Wischbeginn baut dann nichts
+  useEffect(() => {
+    const nr = ++vorbereitung.current;
+    const i = TABS.findIndex(([k]) => k === ansicht);
+    if (phase !== 'bereit' || i < 0) return;
+    const reihe = TABS.map(([k], n) => [k, Math.abs(n - i)]).filter(([, d]) => d > 0).sort((x, y) => x[1] - y[1]).map(([k]) => k);
+    const leer = window.requestIdleCallback ?? ((f) => setTimeout(f, 60));
+    const weiter = () => {
+      if (nr !== vorbereitung.current) return;
+      if (zugLaeuft.current) { setTimeout(weiter, 500); return; }
+      const k = reihe.find((x) => bilder.current[x]?.fuer !== seiteRef.current);
+      if (k) leer(() => { if (nr !== vorbereitung.current) return; bildVon(k, true); setTimeout(weiter, 40); }, { timeout: 2500 });
+    };
+    setTimeout(weiter, 350);
+  });
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
     seitenWechsel: () => !!wischRef.current.reiter,
     zug: {
+      // Seitenwechsel per Wischen (Jefit-artig): Die hereinkommende Seite ist ein Bild (DOM-Kopie) – kein Aufbau, keine
+      // Nebenwirkungen während des Ziehens. Gebaut wird die echte Seite erst nach dem Einschieben, verdeckt vom Bild.
+      // Beide Ebenen bewegen sich in Prozent der eigenen Breite – unabhängig von Schriftgröße (zoom) und Bildschirmbreite.
       start: (art) => {
         if (zugLaeuft.current) return false;                  // vorige Wisch-Animation läuft noch
         zugUnter.current = null;
@@ -793,13 +836,24 @@ function App() {
         const unter = UNTERREITER[jetzt.current.ansicht]?.[art];
         if (unter) { zugUnter.current = unter; return true; }
         const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
-        if (!key) return false;
-        document.documentElement.classList.add('ohne-einblenden');
+        const bild = key ? bildVon(key) : null;
+        if (!bild) return false;
+        // Rahmen mit genau der Fläche der echten Seite (#app: Rand des body, höchstens 520 px breit) – sonst Spalt
+        // beim Ziehen und ein Sprung um den Rand beim Tausch. Darin gleitet das Bild, durchsichtig wie die echte Seite.
+        const app = document.getElementById('app'), rahmen = document.createElement('div');
+        rahmen.className = 'seite-nachbar';
+        rahmen.setAttribute('aria-hidden', 'true');
+        rahmen.style.left = `${app.offsetLeft}px`; rahmen.style.width = `${app.offsetWidth}px`;
+        bild.style.paddingTop = `${app.offsetTop}px`;
+        bild.style.transform = `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
+        rahmen.append(bild);
+        document.body.append(rahmen);
+        ebeneRef.current = bild;
         zugLaeuft.current = true;
-        setNachbar({ key, art }); return true;
+        return true;
       },
       bewege: (art, dx) => {
-        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, B = innerWidth / z;   // Schriftgröße skaliert die App (zoom)
+        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;   // Schriftgröße skaliert die App (zoom)
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (!l) return;
@@ -810,10 +864,9 @@ function App() {
         const d = (art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx)) / z;
         if (zugUnter.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
         if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d}px)`;
-        if (nachbarRef.current) nachbarRef.current.style.transform = `translateX(${d + (art === 'weiter' ? B : -B)}px)`;
+        if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100%' : '-100%'} + ${d}px))`;
       },
       ende: (art, erfolg) => {
-        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, B = innerWidth / z;   // Schriftgröße skaliert die App (zoom)
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (l) { l.classList.add('gleitet'); h.classList.add('gleitet'); l.style.transform = erfolg ? 'translateX(0)' : 'translateX(-100%)'; h.style.opacity = erfolg ? '1' : '0'; }
@@ -824,7 +877,7 @@ function App() {
           }, 190);
           return;
         }
-        const haupt = hauptRef.current, nach = nachbarRef.current;
+        const haupt = hauptRef.current, ebene = ebeneRef.current;
         if (zugUnter.current) {
           const unter = zugUnter.current; zugUnter.current = null;
           if (erfolg) { if (haupt) haupt.style.transform = ''; unter(); return; }
@@ -832,30 +885,33 @@ function App() {
           setTimeout(() => { haupt?.classList.remove('gleitet'); if (haupt) haupt.style.transform = ''; }, 200);
           return;
         }
-        for (const el of [haupt, nach]) el?.classList.add('gleitet');
-        if (erfolg) {
-          if (haupt) haupt.style.transform = `translateX(${art === 'weiter' ? -B : B}px)`;
-          if (nach) nach.style.transform = 'translateX(0)';
-        } else {
-          if (haupt) haupt.style.transform = 'translateX(0)';
-          if (nach) nach.style.transform = `translateX(${art === 'weiter' ? B : -B}px)`;
-        }
+        for (const el of [haupt, ebene]) el?.classList.add('gleitet');
+        if (haupt) haupt.style.transform = erfolg ? `translateX(${art === 'weiter' ? '-100%' : '100%'})` : 'translateX(0)';
+        if (ebene) ebene.style.transform = erfolg ? 'translateX(0)' : `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
         setTimeout(() => {
           const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
           const fertig = () => {
-            if (haupt) { haupt.style.visibility = ''; }
-            setNachbar(null);
+            if (haupt) haupt.style.visibility = '';
+            ebene?.parentElement?.remove(); ebeneRef.current = null;
             zugLaeuft.current = false;
-            setTimeout(() => document.documentElement.classList.remove('ohne-einblenden'), 400);
           };
-          if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
           if (erfolg && key) {
-            // Die Nachbarseite deckt alles ab, bis die neue Seite gezeichnet ist – erst dann tauschen (kein Springen)
-            if (haupt) haupt.style.visibility = 'hidden';
+            // Das Bild deckt alles ab, bis die neue Seite gebaut ist. Ihre Einblend-Animationen werden verdeckt sofort zu Ende
+            // gespult (das Bild zeigte schon den Endstand) – früher: Klasse aus und nach 0,4 s wieder an, das startete die
+            // Animation neu und alle Kacheln sprangen.
+            if (haupt) { haupt.style.visibility = 'hidden'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
             gehe(key);
-            requestAnimationFrame(() => requestAnimationFrame(fertig));
-          } else fertig();
-        }, 200);
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              for (const a of haupt?.getAnimations?.({ subtree: true }) ?? []) {
+                try { if (a.effect?.getComputedTiming?.().iterations !== Infinity) a.finish(); } catch { /* egal */ }
+              }
+              fertig();
+            }));
+          } else {
+            if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
+            fertig();
+          }
+        }, 210);
       },
     } });
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
@@ -1139,13 +1195,13 @@ function App() {
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
           zuImport=${DEMO ? null : () => gehe('import')}/>`;
   };
+  seiteRef.current = seiteFuer;
   const leiste = training && ansicht !== 'training';
   const unten = 84 + (timer && !imTraining ? 76 : 0) + (leiste ? 70 : 0);   // Platz für Tabs und Dock
   const aktiverTab = ansicht === 'training' || ansicht === 'rechner' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     <div class="seite-haupt" ref=${hauptRef}>${seiteFuer(ansicht)}</div>
-    ${nachbar ? html`<div class=${`seite-nachbar ${nachbar.art}`} ref=${nachbarRef} aria-hidden="true">${seiteFuer(nachbar.key)}</div>` : null}
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}

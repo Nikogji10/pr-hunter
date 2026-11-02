@@ -1,6 +1,6 @@
 // PR Hunter · Rechner: Scheiben, RPE, 1RM, Klimmzug, Aufwärmen, Prozent, Punkte, Versuche – mit dem getesteten Rechenkern.
 // Eingaben und Ergebnisse in der gewählten Einheit (kg/lb); Scheiben und Hantelbild rechnen intern in kg.
-import { deEn, html, useState, I, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
+import { deEn, html, useState, I, werkzeugIcon, fmt, Scheiben, Hantel, einheit, inKg, inAnzeige, stangeKg, scheibenKg, formel, ZahlFeld } from './basis.js';
 import { e1rm, wdhTabelle, rpeRechner, aufwaermen, e1rmKoerper, zusatzFuer, lastFuer } from '../js/rechnen.js';
 import { dots, ipfGl, wilksPunkte, versuche } from '../js/punkte.js';
 import { E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
@@ -38,7 +38,7 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
     <header class="topbar unter">${zurueck ? html`<button class="iconbtn" onClick=${zurueck} aria-label="Zurück">${I.zurueck}</button>` : null}
       <div style="flex:1;min-width:0"><div class="eyebrow">Werkzeuge</div><h1 class="h1">${art === 'timer' ? 'Timer' : 'Rechner'}</h1></div></header>
     <div class="filter" role="group" aria-label="Rechner wählen">${[...RECHNER, ['timer', 'Timer']].filter(([key]) => einst.trainingsart !== 'einfach' || !['punkte', 'versuche'].includes(key)).map(([key, t]) =>
-      html`<button key=${key} class="chip" aria-pressed=${String(art === key)} onClick=${() => setArt(key)}>${t}</button>`)}</div>
+      html`<button key=${key} class="chip" aria-pressed=${String(art === key)} onClick=${() => setArt(key)}>${werkzeugIcon(key)}${t}</button>`)}</div>
 
     ${art === 'scheiben' && html`<section class="card pad stack">
       <${Zahl} id="r-ziel" label=${`Zielgewicht (${E})`} wert=${ziel} schritt=${inc} setze=${setZiel}/>

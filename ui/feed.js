@@ -4,7 +4,7 @@
 import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter } from './basis.js';
 import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
-import { useLayoutEffect } from '../vendor/htm-preact.js';
+import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
 import { rekordChronik } from '../js/auswertung.js';
 
 /** Demo: die letzten Trainingstage als eigener Feed (Rekorde wie in der Statistik gezählt). */
@@ -63,17 +63,21 @@ function Kalender({ eintraege = [], einst = {} }) {
   const [monat, setMonat] = useState(0);
   const [tag, setTag] = useState(null);                       // angetippter Tag
   const [auf, setAuf] = useState(null);                       // aufgeklappte Person an diesem Tag
-  const [daten, setDaten] = useState(null);                  // null = lädt, { fehlt } = Update 18 fehlt
   const erster = (() => { const d = new Date(`${HEUTE.slice(0, 7)}-01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + monat); return d.toISOString().slice(0, 10); })();
   const naechster = (() => { const d = new Date(`${erster}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 10); })();
   const von = montagVon(erster), bis = plusTage(montagVon(plusTage(naechster, -1)), 6);
-  // Kalender zuerst aus dem Gerätespeicher (letzter Stand), dann still aktualisieren – die Kachel springt nicht
+  // Kalender zuerst aus dem Gerätespeicher (letzter Stand), dann still aktualisieren – die Kachel springt nicht.
+  // Schon der erste Aufbau ist gefüllt (auch das Bild der Seite beim Wischen).
   const merkKey = `prh-kal-${von}`;
+  const ausSpeicher = () => { try { return JSON.parse(localStorage.getItem(merkKey)); } catch { return null; } };
+  const [daten, setDaten] = useState(() => (DEMO ? demoKalender(von, bis) : ausSpeicher()));   // null = lädt, { fehlt } = Update 18 fehlt
+  const kachel = useRef(null), erstes = useRef(true);
   useLayoutEffect(() => {                                    // vor dem Zeichnen, damit kein leerer Kalender aufblitzt
-    if (DEMO) { setDaten(demoKalender(von, bis)); return; }
-    let gemerkt = null;
-    try { gemerkt = JSON.parse(localStorage.getItem(merkKey)); } catch { /* egal */ }
-    setDaten(gemerkt);
+    const anfang = erstes.current; erstes.current = false;
+    if (!kachel.current?.isConnected) return;               // unsichtbarer Aufbau (Bild fürs Wischen): nichts laden
+    if (DEMO) { if (!anfang) setDaten(demoKalender(von, bis)); return; }
+    const gemerkt = anfang ? daten : ausSpeicher();
+    if (!anfang) setDaten(gemerkt);
     if (!DIENSTE.ladeKalender) return;
     DIENSTE.ladeKalender(von, bis).then((k) => {
       setDaten(k ?? { fehlt: true });
@@ -89,7 +93,7 @@ function Kalender({ eintraege = [], einst = {} }) {
   const art = (n, d) => zeileVon(n, d)?.art ?? null;
   const en = sprache() === 'en';
   const titel = `${(en ? MONAT_EN : MONAT)[Number(erster.slice(5, 7)) - 1]} ${erster.slice(0, 4)}`;
-  return html`<section class="card pad stack kalender">
+  return html`<section class="card pad stack kalender" ref=${kachel}>
     <div class="row between"><span class="viz-t">Wer trainiert wann</span>
       <span class="row" style="gap:4px"><button class="iconbtn klein" disabled=${monat <= -2} onClick=${() => setMonat(monat - 1)} aria-label="Monat zurück"><span style="display:inline-block;transform:rotate(180deg)">${I.weiter}</span></button>
         <b class="kal-monat" translate="no">${titel}</b>

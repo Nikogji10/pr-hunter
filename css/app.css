@@ -1566,10 +1566,9 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 
 /* Wischen folgt dem Finger: Nachbarseite läuft mit, Seitenmenü zieht sich mit auf (02.11.) */
 /* .seite-haupt bekommt nur während des Wischens ein transform – sonst wären Fenster (position: fixed) darin gefangen */
-.seite-nachbar { position: fixed; inset: 0; z-index: 6; overflow: hidden; pointer-events: none; will-change: transform; }
-.seite-nachbar.weiter { transform: translateX(100%); }
-.seite-nachbar.zurueck { transform: translateX(-100%); }
-.seite-haupt.gleitet, .seite-nachbar.gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+.seite-nachbar { position: fixed; top: 0; bottom: 0; z-index: 6; overflow: hidden; pointer-events: none; }   /* left/width = #app (app.js) */
+.seite-nachbar > .seite-haupt { min-height: 100%; will-change: transform; }
+.seite-haupt.gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
 .seitenmenue.vorschau .sm-leiste { animation: none; transform: translateX(-100%); }
 .seitenmenue.vorschau .sm-hinter { animation: none; opacity: 0; }
 .sm-leiste.zieht, .sm-hinter.zieht { transition: none; }
@@ -1595,8 +1594,8 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .sheet > .row:last-child { background: var(--karte); }
 
 /* Seitenwechsel per Wischen: neue Seite ohne Einblend-Animation (sonst springen die Karten kurz) */
-html.ohne-einblenden .screen > :not(.topbar), html.ohne-einblenden .reiter-inhalt { animation: none !important; }
-.seite-nachbar { background: var(--grund), var(--bg); background-attachment: fixed; box-shadow: 0 0 24px rgba(0, 0, 0, .45); }
+/* Bild der hereinkommenden Seite: Endstand, nichts läuft darin */
+.seite-nachbar *, .seite-nachbar *::before, .seite-nachbar *::after { animation: none !important; transition: none !important; }
 
 /* Körpergewicht-Statistik */
 .gw-held { gap: 8px; }
@@ -1735,3 +1734,6 @@ html.ohne-einblenden .screen > :not(.topbar), html.ohne-einblenden .reiter-inhal
 /* Beim Wischen darf die verschobene Seite keinen waagrechten Scrollbereich erzeugen – sonst übernimmt der Browser die Geste */
 body { overflow-x: hidden; }
 #app { overflow-x: clip; }
+
+/* Rechner-Auswahl: Zeichen je Werkzeug im Chip */
+.filter .chip > svg { width: 15px; height: 15px; margin-left: -2px; flex: none; }

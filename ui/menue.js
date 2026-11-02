@@ -1,7 +1,7 @@
 // PR Hunter · Seitenmenü (☰, Wunsch 172) mit den Werkzeugen und Wischgesten (172/178):
 // vom linken Rand nach rechts wischen öffnet das Menü (überall, auch im Training), sonst wechselt
 // waagrechtes Wischen die Seite der unteren Leiste. Nicht in Fenstern, Eingaben und waagrecht scrollbaren Bereichen.
-import { html, useEffect, useRef, I } from './basis.js';
+import { html, useEffect, useRef, I, werkzeugIcon } from './basis.js';
 import { RECHNER } from './rechner.js';
 
 const RAND = 28;            // px vom linken Rand, ab denen ein Wisch das Menü öffnet
@@ -39,20 +39,26 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
     const zieh = (e) => {
       if (!s) return;
       const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+      // Richtung früh festlegen (vor der Scroll-Schwelle des Browsers): waagrecht → senkrechtes Scrollen für diese Geste aus
+      if (!s.waagrecht) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 6) return;
+        if (Math.abs(dy) * 1.25 >= Math.abs(dx)) { s = null; return; }                  // eher senkrecht: Browser scrollt
+        s.waagrecht = true;
+      }
+      if (e.cancelable) e.preventDefault();
+      if (s.keine) return;                                                                // waagrecht, aber nichts zu wischen
       if (!s.art) {
-        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s = null; return; }      // senkrecht: normal scrollen
-        if (Math.abs(dx) < 12 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
+        if (Math.abs(dx) < 12) return;
         const f = fn.current;
         const wechsel = typeof f.seitenWechsel === 'function' ? f.seitenWechsel() : f.seitenWechsel;
         const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
-        if (!art || !f.zug?.start(art)) { s = null; return; }
+        if (!art || !f.zug?.start(art)) { s.keine = true; return; }
         s.art = art;
         // Sicherheitsnetz: kommt kein Loslassen an (Browser hat die Geste übernommen), nach 1,2 s ohne Bewegung beenden
         clearInterval(wache);
         wache = setInterval(() => { if (s?.art && Date.now() - s.letzte > 1200) ende(); }, 300);
       }
       s.letzte = Date.now();
-      if (e.cancelable) e.preventDefault();
       s.dx = dx;
       fn.current.zug.bewege(s.art, dx);
     };
@@ -128,7 +134,7 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
       <div class="sm-kopf"><span class="logo"><b>PR</b> Hunter</span><button class="iconbtn" onClick=${schliessen} aria-label="Menü schließen">${I.zu}</button></div>
       <span class="eyebrow sm-titel">Werkzeuge</span>
       ${[...RECHNER, ['timer', 'Timer']].filter(([k]) => !einfach || !['punkte', 'versuche'].includes(k)).map(([k, t]) => html`<button key=${k} class="sm-punkt" onClick=${() => waehle(k)}>
-        <span class="sm-icon">${I.rechner}</span><span class="sm-text"><b>${t}</b><small>${WERKZEUG_TEXT[k]}</small></span><span class="sm-pfeil">›</span></button>`)}
+        <span class="sm-icon">${werkzeugIcon(k)}</span><span class="sm-text"><b>${t}</b><small>${WERKZEUG_TEXT[k]}</small></span><span class="sm-pfeil">›</span></button>`)}
       <span class="eyebrow sm-titel">Hilfe</span>
       <button class="sm-punkt" onClick=${() => waehle('begriffe')}><span class="sm-icon">?</span><span class="sm-text"><b>Begriffe erklärt</b><small>RPE, e1RM, Back-off, Deload …</small></span><span class="sm-pfeil">›</span></button>
       <span class="muted sm-tipp">Tipp: vom linken Rand nach rechts wischen öffnet dieses Menü überall.</span>
