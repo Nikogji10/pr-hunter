@@ -1531,6 +1531,8 @@ export const EN = new Map([
   ["Letzte Woche gegen die Woche davor", "Last week vs. the week before"],
   ["Woche davor", "Week before"],
   ["Gleich wie die Woche davor", "Same as the week before"],
+  ["Fortschritt! Deine 1RM-Veränderung der letzten Woche:", "Progress! Your 1RM change last week:"],
+  ["Fortschritt ist nicht immer gerade. Deine 1RM-Veränderung der letzten Woche:", "Progress isn't always linear. Your 1RM change last week:"],
 ]);
 
 export const EN_MUSTER = [

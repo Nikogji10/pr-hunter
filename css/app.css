@@ -1760,3 +1760,4 @@ body { overflow-x: hidden; }
 .ins-hilfslinie { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
 .ins-grundlinie { stroke: var(--seq-2); stroke-width: 1; }
 .ins-heute { fill: #8E86FF !important; font-weight: 800; }
+.ins-wert.klein { font-size: 9.5px; }

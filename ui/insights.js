@@ -29,14 +29,16 @@ export function Insights({ trainings, einst, heute }) {
   const muskelnVon = (k) => uebung(k)?.m ?? [];
   const pause = (k) => pauseVon(k, null, einst.pausen);
   if (!E.length) return html`<section class="card pad"><p class="muted" style="margin:0">Noch keine Trainings – nach dem ersten Training stehen hier deine Analysen.</p></section>`;
-  const s = serie(E, heute), a = einheitAnalyse(E, heute, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, heute),
-    m = saetzeJeMuskel(E, heute, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
+  // Wochen-Analysen gelten für die letzte volle Woche (Mo–So); die laufende kommt erst dran, wenn sie vorbei ist
+  const sonntag = plusTage(montagVon(heute), -1), letzteWoche = deEn(`Letzte Woche · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`, `Last week · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`);
+  const s = serie(E, heute), a = einheitAnalyse(E, sonntag, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, sonntag),
+    m = saetzeJeMuskel(E, sonntag, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
   const letzte5 = E.filter((e) => minuten(e) != null).slice(-5).reverse().map((e) => ({ e, z: zeitAnalyse(e, pause) }));
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
     ${a ? html`<${EinheitKarte} a=${a}/>` : null}
-    ${r.anzahl ? html`<${EinsRmKarte} r=${r}/>` : null}
-    ${m.liste.length ? html`<${MuskelKarte} m=${m}/>` : null}
+    ${r.anzahl ? html`<${EinsRmKarte} r=${r} unter=${letzteWoche}/>` : null}
+    ${m.liste.length ? html`<${MuskelKarte} m=${m} unter=${letzteWoche}/>` : null}
     <${MusterKarte} E=${E} heute=${heute}/>
     ${a?.zeit ? html`<${ZeitKarte} z=${a.zeit} e=${a.einheit} letzte=${letzte5}/>` : null}
     <${WocheKarte} w=${w}/>
@@ -109,7 +111,7 @@ function EinheitKarte({ a }) {
     `About ${fmt(a.zeit.mehrPauseJeSatz / 60, 1)} min more planned rest per set or ${hm(a.zeit.ungenutzt / 60)} less idle time would use the time better.`) : 'Die Trainingszeit war gut genutzt.') : null;
   return html`<section class="card pad stack ins">
     <${Kopf} titel="Trainingseinheit" unter=${deEn(`Training vom ${datumKurz(a.einheit.datum)}`, `Workout of ${datumKurz(a.einheit.datum)}`)}/>
-    <p class="ins-text akzent">${deEn(`Diese Woche ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'Training' : 'Trainings'}, zusammen ${hm(a.woche.minuten)}.`, `This week ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'workout' : 'workouts'}, ${hm(a.woche.minuten)} in total.`)}</p>
+    <p class="ins-text akzent">${deEn(`Letzte Woche ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'Training' : 'Trainings'}, zusammen ${hm(a.woche.minuten)}.`, `Last week ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'workout' : 'workouts'}, ${hm(a.woche.minuten)} in total.`)}</p>
     <b class="ins-titel">Im Fokus</b>
     ${a.muskeln.slice(0, 5).map((x) => html`<div key=${x.gruppe} class="ins-muskel">
       <b class="ins-gross">${GRUPPE_NAME[x.gruppe]}</b>
@@ -125,12 +127,12 @@ function EinheitKarte({ a }) {
 }
 
 // ---------- c) 1RM ----------
-function EinsRmKarte({ r }) {
+function EinsRmKarte({ r, unter }) {
   const max = Math.max(1, ...r.proTag.map((x) => Math.abs(x.diff)));
   const medaille = ['🥇', '🥈', '🥉'];
   return html`<section class="card pad stack ins">
-    <${Kopf} titel="1RM" unter="Letzte 7 Tage"/>
-    <p class="ins-text">${r.summe >= 0 ? 'Fortschritt! Deine 1RM-Veränderung der letzten 7 Tage:' : 'Fortschritt ist nicht immer gerade. Deine 1RM-Veränderung der letzten 7 Tage:'}</p>
+    <${Kopf} titel="1RM" unter=${unter}/>
+    <p class="ins-text">${r.summe >= 0 ? 'Fortschritt! Deine 1RM-Veränderung der letzten Woche:' : 'Fortschritt ist nicht immer gerade. Deine 1RM-Veränderung der letzten Woche:'}</p>
     <b class=${`ins-gross-zahl ${r.summe >= 0 ? 'auf' : 'ab'}`}>${`${r.summe > 0 ? '+' : r.summe < 0 ? '−' : ''}${gw(Math.abs(r.summe), 1)}`}<small>${einheit()}</small></b>
     <svg class="ins-1rm" viewBox="0 0 280 100" role="img" aria-label="1RM-Veränderung je Tag">
       <line x1="0" x2="280" y1="50" y2="50" class="ins-null"/>
@@ -147,15 +149,15 @@ function EinsRmKarte({ r }) {
 }
 
 // ---------- d) Sätze je Muskel ----------
-function MuskelKarte({ m }) {
+function MuskelKarte({ m, unter }) {
   const max = Math.max(IDEAL[1] + 6, ...m.liste.map((x) => x.saetze));
   const y = (v) => 110 - (v / max) * 100, n = m.liste.length, bw = Math.min(30, 230 / n - 8);
   return html`<section class="card pad stack ins">
-    <${Kopf} titel="Sätze je Muskel" unter="Letzte 7 Tage"/>
+    <${Kopf} titel="Sätze je Muskel" unter=${unter}/>
     <p class="ins-text">${m.erreicht.length ? deEn(`Gut! Idealbereich bei ${m.erreicht.length} ${m.erreicht.length === 1 ? 'Muskelgruppe' : 'Muskelgruppen'} erreicht.`, `Well done! Ideal range reached for ${m.erreicht.length} ${m.erreicht.length === 1 ? 'muscle group' : 'muscle groups'}.`)
       : 'Noch keine Muskelgruppe im Idealbereich.'}${m.unter.length ? deEn(' Bring noch', ' Work on getting your') : ''}</p>
     ${m.unter.length ? html`<b class="ins-gross verlauf">${namen(m.unter.slice(0, 3))}</b><p class="ins-text klein">${deEn(`auf ${IDEAL[0]}–${IDEAL[1]} harte Sätze pro Woche, um sie wirksam zu trainieren.`, `to ${IDEAL[0]}–${IDEAL[1]} hard sets a week to train them effectively.`)}</p>` : null}
-    <svg class="ins-muskeln" viewBox="0 0 280 150" role="img" aria-label="Sätze je Muskelgruppe">
+    <svg class="ins-muskeln" viewBox="-16 0 296 182" role="img" aria-label="Sätze je Muskelgruppe">
       <rect x="30" y=${y(IDEAL[1])} width="250" height=${y(IDEAL[0]) - y(IDEAL[1])} class="ins-ideal"/>
       <text x="278" y=${y(IDEAL[1]) - 4} text-anchor="end" class="ins-ideal-text">Ideal</text>
       ${[0, IDEAL[0], IDEAL[1]].map((v) => html`<text key=${v} x="0" y=${y(v) + 3} class="ins-achse">${v}</text>`)}
@@ -171,6 +173,7 @@ function MuskelKarte({ m }) {
 const MUSTER_NAME = { squat: ['Kniebeuge', 'Squat'], vPush: ['Drücken vert.', 'V. Push'], hPull: ['Ziehen horiz.', 'H. Pull'],
   hinge: ['Hip Hinge', 'Hinge'], vPull: ['Ziehen vert.', 'V. Pull'], hPush: ['Drücken horiz.', 'H. Push'] };
 const DRUECKEN = '#7B61FF', ZIEHEN = '#AEB4FF';
+const SKALA = [2, 4, 5, 6, 8, 10, 12, 15, 16, 20, 25, 30, 40, 50];             // Achsen-Maximum: nächster runder Wert über dem größten Balken
 const verhaeltnis = (a, b) => (a + b ? `${a} : ${b}` : '–');
 
 function MusterKarte({ E, heute }) {
@@ -182,7 +185,7 @@ function MusterKarte({ E, heute }) {
   const b = art === 'schnitt' ? bewegungsmusterSchnitt(E, artVon) : bewegungsmuster(E, montag, artVon);
   const titel = zurueck === 0 ? deEn('Diese Woche (läuft)', 'This week (ongoing)') : zurueck === 1 ? deEn('Letzte Woche', 'Last week') : `${datumKurz(montag)}–${datumKurz(plusTage(montag, 6))}`;
   const z = (x) => (art === 'schnitt' ? fmt(x, 1) : String(x));
-  const verh = (a, c) => (a + c ? `${z(a)} : ${z(c)}` : '–');
+  const verh = (a, c) => (a + c ? `${Math.round(a)} : ${Math.round(c)}` : '–');   // Verhältnis ganzzahlig, passt in die Spalte
   return html`<section class="card pad stack ins">
     <${Kopf} titel="Bewegungsmuster" unter=${art === 'schnitt' ? 'Ø Sätze je Trainingswoche' : 'Sätze je Muster'}/>
     <div class="filter" role="group" aria-label="Zeitraum">
@@ -198,14 +201,14 @@ function MusterKarte({ E, heute }) {
       <div><span class="muted">Sätze</span><b>${b.gesamt ? z(b.gesamt) : '–'}</b></div></div>
     ${art === 'woche' && !b.gesamt ? html`<p class="muted" style="margin:0;font-size:13px">${zurueck === 0 ? 'Diese Woche noch keine Sätze.' : 'In dieser Woche keine Sätze.'}</p>` : null}
     <${Sechseck} summe=${b.summe} z=${z}/>
-    <${PaarBalken} titel="Vertikal: Drücken vs. Ziehen" tage=${b.tage} a="vPush" b="vPull" heute=${art === 'woche' ? heute : null}/>
-    <${PaarBalken} titel="Horizontal: Drücken vs. Ziehen" tage=${b.tage} a="hPush" b="hPull" heute=${art === 'woche' ? heute : null}/>
+    <${PaarBalken} titel="Vertikal: Drücken vs. Ziehen" tage=${b.tage} a="vPush" b="vPull" heute=${art === 'woche' ? heute : null} zahlen=${art === 'woche'}/>
+    <${PaarBalken} titel="Horizontal: Drücken vs. Ziehen" tage=${b.tage} a="hPush" b="hPull" heute=${art === 'woche' ? heute : null} zahlen=${art === 'woche'}/>
   </section>`;
 }
 
 /** Netzdiagramm: Achsen je Muster, Fläche = Sätze (am größten Wert gemessen, mindestens 10). */
 function Sechseck({ summe, z = String }) {
-  const en = sprache() === 'en', M = 150, r = 66, max = Math.max(10, ...MUSTER.map((m) => summe[m]));
+  const en = sprache() === 'en', M = 150, r = 66, max = Math.max(...MUSTER.map((m) => summe[m])) || 1;   // größter Wert = Außenring
   const punkt = (i, f) => { const w = (-90 + i * 60) * Math.PI / 180; return [M + Math.cos(w) * r * f, 118 + Math.sin(w) * r * f]; };
   const ring = (f) => MUSTER.map((_, i) => punkt(i, f).join(',')).join(' ');
   const flaeche = MUSTER.map((m, i) => punkt(i, summe[m] / max).join(',')).join(' ');
@@ -222,15 +225,16 @@ function Sechseck({ summe, z = String }) {
 }
 
 /** Zwei Balken je Wochentag (Drücken, Ziehen) auf grauer Spur, Achse 0 / Mitte / Maximum (mindestens 20). */
-function PaarBalken({ titel, tage, a, b, heute }) {
-  const en = sprache() === 'en', groesst = Math.max(...tage.flatMap((t) => [t[a], t[b]])), max = groesst <= 10 && groesst > 0 && !Number.isInteger(groesst) ? 10 : Math.ceil(Math.max(20, groesst) / 10) * 10;
+function PaarBalken({ titel, tage, a, b, heute, zahlen = true }) {
+  const en = sprache() === 'en', groesst = Math.max(...tage.flatMap((t) => [t[a], t[b]])), max = SKALA.find((s) => s >= groesst) ?? Math.ceil(groesst / 10) * 10;
   const H = 96, y = (v) => 8 + H - (v / max) * H, WT = en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
   return html`<div class="stack" style="gap:6px">
     <b class="ins-paar-titel">${titel}</b>
     <div class="row mu-legende"><span><i style=${`background:${DRUECKEN}`}></i>${deEn('Drücken', 'Push')}</span><span><i style=${`background:${ZIEHEN}`}></i>${deEn('Ziehen', 'Pull')}</span></div>
     <svg class="ins-paar" viewBox="0 0 300 130" role="img" aria-label=${titel}>
       ${[0, max / 2, max].map((v) => html`<g key=${v}><line x1="8" x2="262" y1=${y(v)} y2=${y(v)} class=${v ? 'ins-hilfslinie' : 'ins-grundlinie'}/>
-        <text x="296" y=${y(v) + 4} text-anchor="end" class="ins-achse">${v}</text></g>`)}
+        <text x="296" y=${y(v) + 4} text-anchor="end" class="ins-achse">${fmt(v, 1)}</text></g>`)}
+      ${zahlen && tage.map((t, i) => [[a, 0], [b, 12]].map(([k, d]) => (t[k] ? html`<text key=${`${t.datum}${k}`} x=${20 + i * 35 + d + 4} y=${y(t[k]) - 4} text-anchor="middle" class="ins-wert klein">${fmt(t[k], 1)}</text>` : null)))}
       ${tage.map((t, i) => { const x = 20 + i * 35;
         return html`<g key=${t.datum}>
           ${[[a, DRUECKEN, 0], [b, ZIEHEN, 12]].map(([k, farbe, d]) => html`<rect key=${k} x=${x + d} y="8" width="8" height=${H} rx="4" class="mu-spur"/>
