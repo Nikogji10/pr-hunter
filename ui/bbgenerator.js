@@ -16,7 +16,8 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
   const [tage, setTage] = useSitzung('prh-gen-bb-tage', 6);
   const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
   const [deload, setDeload] = useSitzung('prh-gen-bb-deload', true);
-  const [auswahl, setAuswahl] = useSitzung('prh-gen-bb-auswahl', standardAuswahl);
+  const [auswahlRoh, setAuswahl] = useSitzung('prh-gen-bb-auswahl', standardAuswahl);
+  const auswahl = { ...standardAuswahl(), ...Object.fromEntries(Object.entries(auswahlRoh ?? {}).filter(([, l]) => Array.isArray(l) && l.length)) };
   const [name, setName] = useSitzung('prh-gen-bb-name', '');
   const [schritt, weiter, zurueckSchritt] = useSchritte('prh-gen-bb-schritt');
   const gruppen = [...new Set(SPLITS[split].tage.flatMap(([, g]) => g))];

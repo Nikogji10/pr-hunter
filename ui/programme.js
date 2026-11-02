@@ -3,7 +3,7 @@
 import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
-import { EigenerPlan, eigenerPlanAus } from './eigenerplan.js';
+import { EigenerPlan } from './eigenerplan.js';
 import { EINSTEIGER } from './einsteiger.js';
 import { useRef } from '../vendor/htm-preact.js';
 import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson } from '../js/import.js';
@@ -50,9 +50,13 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
 }
 
 const ERSTELLER = ['bodybuilding', 'eigen', 'generator'];
+const VORLAGE_STAND = 'prh-gen-vorlage-stand';             // Stand einer unveränderten Vorlage (dann nicht warnen)
+const genStand = () => JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !k.endsWith('-schritt'))
+  .sort().map((k) => [k, sessionStorage.getItem(k)]));
 const eingabenDa = () => {
   try {
-    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && k !== 'prh-gen-ansicht' && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1'));
+    if (sessionStorage.getItem(VORLAGE_STAND) === genStand()) return false;
+    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1'));
   } catch { return false; }
 };
 
@@ -91,6 +95,17 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     return () => removeEventListener('popstate', zurueck);
   }, []);
   const schliessen = () => (history.state?.unter ? history.back() : setAnsicht(null));
+  // Einsteigerplan: im „Eigenen Plan“ vorbefüllt öffnen (Überblick) – anpassen oder „Plan speichern“, nichts automatisch
+  const vorlageOeffnen = (e) => {
+    sitzungLeeren('prh-gen-');
+    const werte = { 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
+      'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) };
+    try {
+      for (const [k, v] of Object.entries(werte)) sessionStorage.setItem(k, JSON.stringify(v));
+      sessionStorage.setItem(VORLAGE_STAND, genStand());
+    } catch { /* ohne Sitzungsspeicher startet der Plan leer */ }
+    oeffne({ art: 'eigen' });
+  };
   // Plan-Ersteller (Generatoren, eigener Plan): beim Verlassen warnen, wenn schon etwas eingegeben ist (dann liegt ein
   // prh-gen-*-Eintrag außer der Ansicht im Sitzungsspeicher – Vorgaben allein werden nicht gespeichert)
   const zurListe = () => (ERSTELLER.includes(ansicht?.art) && eingabenDa() ? setVerlassen(true) : schliessen());
@@ -172,8 +187,8 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
           <button class="iconbtn klein" aria-label="Schließen" onClick=${() => setNeuOffen(false)}>${I.zu}</button></div>
         <div class="neu-wege">
           ${/* 163 a: fertige Einsteigerpläne mit einem Tipp (ohne Maxe; Gewichte aus dem Vorschlag im Training) */ ''}
-          ${EINSTEIGER.map((e) => html`<button key=${e.id} class="weg-karte einsteiger" onClick=${() => speichernNeu(eigenerPlanAus({ name: e.name, wochen: 8, tage: e.tage }))}>
-            <span class="tag gut">Einsteiger · 1 Tipp</span><b>${e.name}</b><span>${e.text}</span></button>`)}
+          ${EINSTEIGER.map((e) => html`<button key=${e.id} class="weg-karte einsteiger" onClick=${() => vorlageOeffnen(e)}>
+            <span class="tag gut">Einsteiger · fertige Vorlage</span><b>${e.name}</b><span>${e.text}</span></button>`)}
           <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
             <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
           <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding</b>

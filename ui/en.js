@@ -1546,6 +1546,7 @@ export const EN = new Map([
   ["Was du hier eingegeben hast, geht verloren, wenn du den Plan-Ersteller jetzt verlässt.", "What you entered here will be lost if you leave the plan creator now."],
   ["Hier ist etwas schiefgegangen", "Something went wrong here"],
   ["Eingaben zurücksetzen und neu laden", "Reset input and reload"],
+  ["Einsteiger · fertige Vorlage", "Beginner · ready-made template"],
 ]);
 
 export const EN_MUSTER = [
