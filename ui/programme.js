@@ -49,6 +49,13 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
     <button class="btn btn-chalk btn-sm" onClick=${planen}>Nächsten Block mit diesen Maxen planen</button></div>`;
 }
 
+const ERSTELLER = ['bodybuilding', 'eigen', 'generator'];
+const eingabenDa = () => {
+  try {
+    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && k !== 'prh-gen-ansicht' && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1'));
+  } catch { return false; }
+};
+
 export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null }) {
   // Vertrauensfaktor der v3-Projektion (rpe10_table): 1,0 bei sauberen Wdh, 0,5 bei unsauberen
   const [vertrauen, setVertrauen] = useState(1);
@@ -68,12 +75,25 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     else history.replaceState({ ...history.state, unter: a.art }, '');
     setAnsicht(a);
   };
+  const [verlassen, setVerlassen] = useState(false);
+  // Ersteller zu → Warnung zu (beim Zurückspringen zeichnet Preact die Liste, bevor das Fenster sein popstate bekommt)
+  useEffect(() => { if (!ERSTELLER.includes(ansicht?.art)) setVerlassen(false); }, [ansicht?.art]);
+  const ansichtJetzt = useRef(ansicht); ansichtJetzt.current = ansicht;
   useEffect(() => {
-    const zurueck = (e) => { if (!e.state?.unter) setAnsicht(null); };
+    const zurueck = (e) => {
+      if (e.state?.unter) return;
+      // Zurück-Taste des Handys im Plan-Ersteller: Eintrag wiederherstellen und erst fragen
+      const art = ansichtJetzt.current?.art;
+      if (ERSTELLER.includes(art) && eingabenDa()) { history.pushState({ ...e.state, unter: art }, ''); setVerlassen(true); return; }
+      setAnsicht(null);
+    };
     addEventListener('popstate', zurueck);
     return () => removeEventListener('popstate', zurueck);
   }, []);
-  const zurListe = () => (history.state?.unter ? history.back() : setAnsicht(null));
+  const schliessen = () => (history.state?.unter ? history.back() : setAnsicht(null));
+  // Plan-Ersteller (Generatoren, eigener Plan): beim Verlassen warnen, wenn schon etwas eingegeben ist (dann liegt ein
+  // prh-gen-*-Eintrag außer der Ansicht im Sitzungsspeicher – Vorgaben allein werden nicht gespeichert)
+  const zurListe = () => (ERSTELLER.includes(ansicht?.art) && eingabenDa() ? setVerlassen(true) : schliessen());
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
     try {
       const d = await importieren(p, herkunft);
@@ -83,9 +103,22 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
   if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} speichern=${(p) => speichernNeu(p, { quelle: 'import' })}/>`;
-  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu}/>`;
-  if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>`;
-  if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>`;
+  // Verwerfen: Eingaben löschen, dann alle Verlaufseinträge des Erstellers auf einmal zurück (Fenster + Schritte + Unterseite);
+  // das Zurück schließt das Fenster und – ohne Eingaben – den Ersteller (einzelne back()-Aufrufe kamen sich in die Quere)
+  const verwerfen = () => {
+    const st = history.state ?? {};
+    sitzungLeeren('prh-gen-');
+    history.go(-(st.unter ? (st.schritt ?? 1) + 1 : 1));
+  };
+  const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label="Eingaben verwerfen">
+      <h2 class="h2">Eingaben verwerfen?</h2>
+      <p style="margin:0">Was du hier eingegeben hast, geht verloren, wenn du den Plan-Ersteller jetzt verlässt.</p>
+      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>Weiter bearbeiten</button>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>Verwerfen</button></div>
+    <//>` : null;
+  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
+  if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
+  if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>${warnung}`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
     start=${block?.datei === ansicht.datei ? block.start : null}
     zurueck=${() => oeffne({ art: 'detail', datei: ansicht.datei })} toast=${toast}/>`;

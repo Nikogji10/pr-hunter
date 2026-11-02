@@ -2,7 +2,7 @@
 // Alle melden sich an (Nikos Vorgabe 02.11.). Nur für lokale Rendertests: ?demo auf 127.0.0.1/localhost mit Beispieldaten –
 // ui/beispiel.js steckt nicht im veröffentlichten Build (tools/app_bereitstellen.py, nur mit --test).
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
-import { html, render, useState, useEffect, useRef, useMemo } from './vendor/htm-preact.js';
+import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
   PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
@@ -60,6 +60,21 @@ function ausAdresse() {
 const adresse = (a, key) => `#${a}${key ? `/${encodeURIComponent(key)}` : ''}`;
 
 if (DEMO) setzeStand((await import('./ui/beispiel.js')).beispielStand());
+
+/** Fehlergrenze um die Seite: ein Fehler beim Zeichnen (z. B. 02.11. im Bodybuilding-Generator) friert sonst die
+ *  ganze App ein. Stattdessen Hinweis mit Neu laden; mit key=Ansicht beginnt jede Seite wieder ohne Fehler. */
+class Fehlergrenze extends Component {
+  componentDidCatch(fehler) { console.error(fehler); this.setState({ fehler }); }
+  render() {
+    if (!this.state.fehler) return this.props.children;
+    return html`<div class="screen"><section class="card pad stack" style="margin-top:16px">
+      <h2 class="h2">Hier ist etwas schiefgegangen</h2>
+      <p class="muted" style="margin:0">${`Die Seite konnte nicht angezeigt werden (${this.state.fehler.message ?? this.state.fehler}). Deine Daten sind sicher.`}</p>
+      <button class="btn btn-chalk btn-block" onClick=${() => location.reload()}>Neu laden</button>
+      <button class="btn btn-soft btn-block" onClick=${() => { try { for (const k of Object.keys(sessionStorage)) if (k.startsWith('prh-gen-')) sessionStorage.removeItem(k); } catch { /* egal */ } location.reload(); }}>Eingaben zurücksetzen und neu laden</button>
+    </section></div>`;
+  }
+}
 
 /** Schriftgröße: skaliert die ganze Oberfläche (0,9 … 1,2). */
 const schrift = (z) => document.documentElement.style.setProperty('--zoom', String(z > 0.5 && z < 2 ? z : 1));
@@ -1211,7 +1226,7 @@ function App() {
   const aktiverTab = ansicht === 'training' || ansicht === 'rechner' ? 'heute' : ansicht === 'uebung' ? (['training', 'heute'].includes(uebungAnsicht?.zurueck) ? 'heute' : uebungAnsicht?.zurueck === 'statistik' ? 'statistik' : 'verlauf') : ansicht === 'einstellungen' ? 'heute' : ansicht;
   return html`<div>
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
-    <div class="seite-haupt" ref=${hauptRef}>${seiteFuer(ansicht)}</div>
+    <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
       ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
