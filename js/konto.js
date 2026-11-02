@@ -242,7 +242,9 @@ export const feedAusZeilen = (zeilen) => zeilen.map((z) => ({
     folge: Array.isArray(b.folge) ? b.folge.map((g) => ({ kg: g.kg == null ? null : Number(g.kg), wdh: g.wdh ?? null, n: g.n ?? 1 })) : null })),
 }));
 // 185/186 (Update 27): Likes, Kommentare, Pläne an Freunde
-const ohne27 = (r) => r.error && /feed_reaktionen|geteilte_plaene|feed_likes|feed_kommentare|plan_geteilt|does not exist|schema cache/i.test(r.error.message);
+// nur „gibt es nicht“ heißt Update fehlt; andere Fehler (z. B. Zugriffsregel) mit ihrer eigenen Meldung
+const ohne27 = (r) => r.error && /(feed_reaktionen|geteilte_plaene|feed_likes|feed_kommentare|plan_geteilt)/i.test(r.error.message)
+  && /does not exist|schema cache|could not find/i.test(r.error.message);
 const FEHLT_27 = 'Datenbank-Update 27 fehlt (db/27_likes_plaene.sql).';
 /** Likes und Kommentare je Feed-Eintrag: { id: { likes, ich, kommentare: [{ id, name, text, zeit, ich }] } }; null ohne Update 27. */
 export async function ladeReaktionen(sb, ids) {
@@ -265,6 +267,26 @@ export async function geteiltePlaene(sb) {
   return (r.data ?? []).map((z) => ({ id: z.id, von: z.von_name, name: z.name, definition: z.definition, datum: String(z.created_at ?? '').slice(0, 10) }));
 }
 export const geteiltenEntfernen = async (sb, id) => mit27(await sb.from('plan_geteilt').delete().eq('id', id));
+// 190 (Update 28): neue Likes/Kommentare unter meinen Trainings seit zuletzt gesehen; null ohne Update
+export async function neueReaktionen(sb) {
+  const r = await sb.rpc('neue_reaktionen');
+  if (r.error) { if (/neue_reaktionen|reaktionen_gesehen|feed_likes|feed_kommentare/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message)) return null; throw new Error(r.error.message); }
+  return (r.data ?? []).map((z) => ({ art: z.art, id: z.workout_id, datum: z.datum, name: z.name, text: z.text, zeit: z.zeit }));
+}
+// 191 (Update 29): laufendes Training melden / beenden, Freunde, die gerade trainieren (null ohne Update)
+const ohne29 = (r) => r.error && /training_aktiv|freunde_aktiv/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
+export async function aktivMelden(sb, { seit, titel }) {
+  const r = await sb.from('training_aktiv').upsert({ seit: new Date(seit).toISOString(), titel: titel ?? null, aktualisiert: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (r.error && !ohne29(r)) throw new Error(r.error.message);
+}
+export async function aktivEnde(sb) { const r = await sb.from('training_aktiv').delete().not('user_id', 'is', null); if (r.error && !ohne29(r)) throw new Error(r.error.message); }
+export async function freundeAktiv(sb) {
+  const r = await sb.rpc('freunde_aktiv');
+  if (ohne29(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).map((z) => ({ id: z.user_id, name: z.display_name, avatar: z.avatar ?? null, seit: z.seit, titel: z.titel }));
+}
+export const reaktionenGesehen = async (sb) => { const r = await sb.rpc('reaktionen_gesehen'); if (r.error && !/does not exist|schema cache|could not find/i.test(r.error.message)) throw new Error(r.error.message); };
 
 /** Feed der letzten tage Tage; null, solange Update 15 fehlt. */
 export async function ladeFeed(sb, tage = 30) {

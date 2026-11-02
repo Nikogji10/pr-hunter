@@ -1851,3 +1851,15 @@ body { overflow-x: hidden; }
 .kommentar span { color: var(--ink-2); overflow-wrap: anywhere; }
 /* 186: geschickte Pläne */
 .geteilt-zeile { display: flex; gap: 8px; align-items: center; }
+/* 190: neue Likes/Kommentare */
+.neu-reakt { border-color: color-mix(in srgb, #FF5C7A 45%, var(--kante)); }
+.neu-reakt-zeile { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13.5px; align-items: baseline; }
+.neu-reakt-zeile > span:first-child { color: #FF5C7A; }
+.feed-eintrag.hat-neues { box-shadow: 0 0 0 2px color-mix(in srgb, #FF5C7A 55%, transparent); }
+/* 191: trainiert gerade */
+.trainiert-gerade { border-color: color-mix(in srgb, #34C77B 45%, var(--kante)); }
+.aktiv-zeile { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.aktiv-avatar { position: relative; display: inline-flex; }
+.aktiv-avatar i, .aktiv-punkt { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #34C77B;
+  box-shadow: 0 0 0 2px var(--karte, #111), 0 0 0 0 color-mix(in srgb, #34C77B 60%, transparent); animation: puls 1.8s infinite; }
+.tabs .aktiv-punkt { right: auto; left: 56%; top: 6px; bottom: auto; }

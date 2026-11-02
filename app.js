@@ -3,7 +3,7 @@
 // ui/beispiel.js steckt nicht im veröffentlichten Build (tools/app_bereitstellen.py, nur mit --test).
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
-import { setzeKatalog, setzeAnzeige, katalogListe, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
+import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
   PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
@@ -442,6 +442,8 @@ function App() {
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
   const [abschluss, setAbschluss] = useState(null);
   const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
+  const [aktiveFreunde, setAktiveFreunde] = useState([]);        // 191: Freunde, die gerade trainieren
+  const [neuReakt, setNeuReakt] = useState([]);                  // 190: neue Likes/Kommentare unter meinen Trainings
   const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
   const sp = useRef(null);
@@ -787,6 +789,54 @@ function App() {
     });
   }
 
+  // 190: neue Likes/Kommentare – beim Öffnen, bei Rückkehr in die App und jede Minute; Neues als Hinweis (App offen: Meldung,
+  // im Hintergrund: Benachrichtigung, falls erlaubt) und als Zahl am Feed-Reiter
+  const reaktBekannt = useRef(null);
+  useEffect(() => {
+    if (DEMO || phase !== 'bereit') return;
+    const holen = async () => {
+      if (!navigator.onLine) return;
+      konto.freundeAktiv(supabase()).then((a) => setAktiveFreunde(a ?? [])).catch(() => {});
+      try {
+        const l = await konto.neueReaktionen(supabase());
+        if (l == null) return;
+        const neu = reaktBekannt.current ? l.filter((x) => !reaktBekannt.current.has(`${x.art}${x.id}${x.zeit}`)) : [];
+        reaktBekannt.current = new Set(l.map((x) => `${x.art}${x.id}${x.zeit}`));
+        setNeuReakt(l);
+        if (neu.length) {
+          const x = neu[0], mehr = neu.length > 1 ? deEn(` (+${neu.length - 1} weitere)`, ` (+${neu.length - 1} more)`) : '';
+          const titel = x.art === 'like' ? deEn(`${x.name} gefällt dein Training`, `${x.name} liked your workout`) : deEn(`${x.name} hat kommentiert`, `${x.name} commented`);
+          const text = `${x.text ? `„${x.text}“ · ` : ''}${datumKurz(x.datum)}${mehr}`;
+          if (document.hidden) mitteilung.zeige('prh-reaktion', titel, text, { laut: true });
+          else setToast({ titel, text });
+        }
+      } catch { /* still: nächster Versuch in einer Minute */ }
+    };
+    holen();
+    const iv = setInterval(() => { if (!document.hidden) holen(); }, 60000);
+    addEventListener('visibilitychange', holen);
+    return () => { clearInterval(iv); removeEventListener('visibilitychange', holen); };
+  }, [phase]);
+  // 191: eigenes laufendes Training melden (sofort und alle 5 min, solange die App offen ist), beim Ende löschen
+  const aktivGemeldet = useRef(false);
+  useEffect(() => {
+    if (DEMO || phase !== 'bereit') return;
+    const laeuft = training && !training.bearbeiten;
+    if (!laeuft) {
+      if (aktivGemeldet.current) { aktivGemeldet.current = false; konto.aktivEnde(supabase()).catch(() => {}); }
+      return;
+    }
+    const melden = () => { if (navigator.onLine && !document.hidden) konto.aktivMelden(supabase(), { seit: training.start, titel: training.titel }).then(() => { aktivGemeldet.current = true; }).catch(() => {}); };
+    melden();
+    const iv = setInterval(melden, 5 * 60000);
+    addEventListener('visibilitychange', melden);
+    return () => { clearInterval(iv); removeEventListener('visibilitychange', melden); };
+  }, [training?.id, !!training?.bearbeiten, phase]);
+  const reaktionenGesehen = () => {
+    if (!neuReakt.length) return;
+    setNeuReakt([]);
+    konto.reaktionenGesehen(supabase()).catch(() => {});
+  };
   // Training > 4 h offen: beim Öffnen, bei Rückkehr in die App und jede Minute prüfen (153); Hooks vor den frühen returns
   useEffect(() => {
     const pruefe = () => { if (langeOffen(training)) setLange(true); };
@@ -1252,7 +1302,7 @@ function App() {
       : ansicht === 'import' ? html`<${TrainingsImport} zurueck=${() => history.back()} vorhandene=${trainings} importieren=${trainingsImportieren}/>`
       : ansicht === 'gewicht' ? html`<${GewichtImport} zurueck=${() => history.back()} vorhandene=${messwerte} importieren=${gewichteImportieren}/>`
       : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
-      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} zuEinstellungen=${() => gehe('einstellungen')}/>`
+      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} neuReakt=${neuReakt} gesehen=${reaktionenGesehen} aktiv=${aktiveFreunde} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen}/>`
       : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
           // 180: aktueller Satz des Trainings (offene Übung zuerst); bei Klimmzug/Dips als Zusatzgewicht für den Klimmzug-Rechner
@@ -1288,7 +1338,7 @@ function App() {
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}/>` : null}
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
-      ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</nav></div>
+      ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + neuReakt.length > 9 ? '9+' : anfragen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
         <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}

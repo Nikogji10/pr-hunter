@@ -1,7 +1,7 @@
 // PR Hunter · Feed: Trainings der Freunde (und die eigenen), wie der Feed in Jefit – Dauer, Übungen, Sätze, Volumen,
 // Rekorde und je Übung der beste Satz. Sichtbar nur, was die anderen freigeben (Einstellungen → Konto, Standard an);
 // wer selbst nicht teilt, sieht auch nichts. Daten: public.feed() aus db/15_feed.sql. In der Demo die eigenen Tage.
-import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter } from './basis.js';
+import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, deEn, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter } from './basis.js';
 import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
 import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
@@ -255,7 +255,7 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
   </div>`;
 }
 
-export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen }) {
+export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], gesehen = () => {}, aktiv = [], zuEinstellungen }) {
   const [reiter, setReiter] = useState('feed');
   useUnterReiter('feed', [['feed'], ['freunde']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
@@ -277,6 +277,10 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
     } catch (e) { setStand((s) => ({ ...s, laedt: false, fehler: navigator.onLine ? e.message : 'Kein Netz – der Feed braucht eine Verbindung.' })); }
   };
   useEffect(() => { laden(); }, []);
+  // 190: Neues bleibt sichtbar, solange die Seite offen ist; „gesehen“ geht nach 2 s an den Server (Zahl am Reiter weg)
+  const [neuHier] = useState(() => neuReakt);
+  const neuIds = new Set(neuHier.map((x) => x.id));
+  useEffect(() => { if (neuReakt.length) { const t = setTimeout(gesehen, 2000); return () => clearTimeout(t); } }, [neuReakt.length]);
   const name = (u) => (u.key ? nameVon(u.key, sprache() === 'en' ? u.en : u.de) : '–');
   const geteilt = einst.feedTeilen !== false;
   return html`<div class="screen">
@@ -290,11 +294,20 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
     <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
     ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
+    ${aktiv.length ? html`<section class="card pad stack trainiert-gerade"><span class="viz-t">${deEn('Trainiert gerade', 'Training right now')}</span>
+      ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000));
+        return html`<div key=${a.id} class="aktiv-zeile"><span class="aktiv-avatar"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${34}/><i></i></span>
+          <span><b>${a.name}</b><small class="muted">${` · ${deEn(`seit ${min} min`, `for ${min} min`)}${a.titel ? ` · ${a.titel}` : ''}`}</small></span></div>`; })}
+    </section>` : null}
+    ${neuHier.length ? html`<section class="card pad stack neu-reakt"><span class="viz-t">${deEn(`Neu für dich (${neuHier.length})`, `New for you (${neuHier.length})`)}</span>
+      ${neuHier.slice(0, 6).map((x, i) => html`<div key=${i} class="neu-reakt-zeile"><span aria-hidden="true">${x.art === 'like' ? '♥' : '💬'}</span>
+        <span><b>${x.name}</b> ${x.art === 'like' ? deEn('gefällt dein Training', 'liked your workout') : html`${deEn('kommentiert', 'commented')}: „${x.text}“`}<small class="muted">${` · ${datumKurz(x.datum)}`}</small></span></div>`)}
+    </section>` : null}
     ${einst.kalender !== false ? html`<${Kalender} eintraege=${stand.eintraege} einst=${einst}/>` : null}
     ${stand.fehler ? html`<p class="fehler">${stand.fehler}</p>` : null}
     ${stand.laedt && !stand.eintraege.length ? html`<p class="muted">Lade …</p>` : null}
     ${!stand.laedt && !stand.eintraege.length && !stand.fehlt && geteilt ? html`<section class="card pad"><p class="muted" style="margin:0">In den letzten 30 Tagen noch keine geteilten Trainings.</p></section>` : null}
-    ${stand.eintraege.filter((e) => e.ich || !e.nutzer || sichtbar(einst, e.nutzer, 'feed')).map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''}`}>
+    ${stand.eintraege.filter((e) => e.ich || !e.nutzer || sichtbar(einst, e.nutzer, 'feed')).map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''} ${neuIds.has(e.id) ? 'hat-neues' : ''}`}>
       <div class="feed-kopf"><${Avatar} bild=${e.avatar} name=${e.name} groesse=${40}/>
         <div style="min-width:0;flex:1"><b>${e.ich ? 'Du' : e.name}</b><div class="muted" style="font-size:12.5px">${datumLang(e.datum)}</div></div>
         ${e.prs ? html`<span class="feed-pr"><span class="medaille">PR</span><b>${e.prs}</b></span>` : null}</div>
