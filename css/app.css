@@ -1739,3 +1739,19 @@ body { overflow-x: hidden; }
 
 /* Rechner-Auswahl: Zeichen je Werkzeug im Chip */
 .filter .chip > svg { width: 15px; height: 15px; margin-left: -2px; flex: none; }
+
+/* Analyse: Bewegungsmuster (Sechseck, Drücken/Ziehen je Tag) */
+.ins-woche { gap: 4px; align-items: center; white-space: nowrap; }
+.ins-woche b { font-size: 12.5px; min-width: 84px; text-align: center; }
+.ins-sechseck, .ins-paar { width: 100%; height: auto; display: block; }
+.ins-netz { fill: none; stroke: var(--line); stroke-width: 1; }
+.ins-netz-wert { fill: color-mix(in srgb, #7B61FF 35%, transparent); stroke: #8E86FF; stroke-width: 2; stroke-linejoin: round; }
+.ins-netz-text { fill: var(--ink); font-size: 11.5px; font-weight: 700; }
+.ins-netz-zahl { fill: #8E86FF; font-weight: 800; }
+.ins-paar-titel { font-size: 15px; margin-top: 6px; }
+.mu-legende { gap: 14px; font-size: 13px; color: var(--ink-2); }
+.mu-legende i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.mu-spur { fill: var(--seq-1); opacity: .55; }
+.ins-hilfslinie { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+.ins-grundlinie { stroke: var(--seq-2); stroke-width: 1; }
+.ins-heute { fill: #8E86FF !important; font-weight: 800; }

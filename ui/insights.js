@@ -1,7 +1,8 @@
 // PR Hunter · Insights wie in Jefit (Wunsch 181): Analyse-Karten in der Statistik. Rechnungen in js/insights.js.
-import { html, useMemo } from '../vendor/htm-preact.js';
+import { html, useMemo, useState } from '../vendor/htm-preact.js';
 import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebung, pauseVon, I } from './basis.js';
-import { normiere, serie, einheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL } from '../js/insights.js';
+import { normiere, serie, einheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, montagVon } from '../js/insights.js';
+import { kanon, plusTage } from '../js/daten.js';
 import { MiniFigur } from './koerper.js';
 
 const GRUPPE_NAME = { brust: 'Brust', ruecken: 'Rücken', schultern: 'Schultern', bizeps: 'Bizeps', trizeps: 'Trizeps', unterarme: 'Unterarme',
@@ -34,6 +35,7 @@ export function Insights({ trainings, einst, heute }) {
     ${a ? html`<${EinheitKarte} a=${a}/>` : null}
     ${r.anzahl ? html`<${EinsRmKarte} r=${r}/>` : null}
     ${m.liste.length ? html`<${MuskelKarte} m=${m}/>` : null}
+    <${MusterKarte} E=${E} heute=${heute}/>
     ${a?.zeit ? html`<${ZeitKarte} z=${a.zeit} e=${a.einheit} letzte=${letzte5}/>` : null}
     <${WocheKarte} w=${w}/>
   </div>`;
@@ -161,6 +163,68 @@ function MuskelKarte({ m }) {
           <text x=${bx + bw / 2} y="126" text-anchor="end" transform=${`rotate(-40 ${bx + bw / 2} 126)`} class="ins-achse">${GRUPPE_NAME[x.gruppe]}</text></g>`; })}
     </svg>
   </section>`;
+}
+
+// ---------- g) Bewegungsmuster (Sechseck + Drücken/Ziehen je Tag) ----------
+const MUSTER_NAME = { squat: ['Kniebeuge', 'Squat'], vPush: ['Drücken vert.', 'V. Push'], hPull: ['Ziehen horiz.', 'H. Pull'],
+  hinge: ['Hip Hinge', 'Hinge'], vPull: ['Ziehen vert.', 'V. Pull'], hPush: ['Drücken horiz.', 'H. Push'] };
+const DRUECKEN = '#7B61FF', ZIEHEN = '#AEB4FF';
+const verhaeltnis = (a, b) => (a + b ? `${a} : ${b}` : '–');
+
+function MusterKarte({ E, heute }) {
+  const [zurueck, setZurueck] = useState(0);                               // 0 = diese Woche, 1 = letzte …
+  const erste = E.length ? montagVon(E[0].datum) : montagVon(heute);
+  const montag = plusTage(montagVon(heute), -7 * zurueck);
+  const b = bewegungsmuster(E, montag, (k) => uebung(k)?.f ?? uebung(kanon(k))?.f);
+  const titel = zurueck === 0 ? deEn('Diese Woche', 'This week') : zurueck === 1 ? deEn('Letzte Woche', 'Last week') : `${datumKurz(montag)}–${datumKurz(plusTage(montag, 6))}`;
+  return html`<section class="card pad stack ins">
+    <div class="row between"><${Kopf} titel="Bewegungsmuster" unter="Sätze je Muster"/>
+      <span class="row ins-woche"><button class="iconbtn klein" disabled=${montag <= erste} onClick=${() => setZurueck(zurueck + 1)} aria-label="Woche zurück"><span style="display:inline-block;transform:rotate(180deg)">${I.weiter}</span></button>
+        <b>${titel}</b><button class="iconbtn klein" disabled=${zurueck === 0} onClick=${() => setZurueck(zurueck - 1)} aria-label="Woche vor">${I.weiter}</button></span></div>
+    <div class="ins-zwei drei"><div><span class="muted">Drücken : Ziehen</span><b>${verhaeltnis(b.push, b.pull)}</b></div>
+      <div><span class="muted">Ober : Unter</span><b>${verhaeltnis(b.ober, b.unter)}</b></div>
+      <div><span class="muted">Sätze</span><b>${b.gesamt || '–'}</b></div></div>
+    <${Sechseck} summe=${b.summe}/>
+    <${PaarBalken} titel="Vertikal: Drücken vs. Ziehen" tage=${b.tage} a="vPush" b="vPull" heute=${heute}/>
+    <${PaarBalken} titel="Horizontal: Drücken vs. Ziehen" tage=${b.tage} a="hPush" b="hPull" heute=${heute}/>
+  </section>`;
+}
+
+/** Netzdiagramm: Achsen je Muster, Fläche = Sätze (am größten Wert gemessen, mindestens 10). */
+function Sechseck({ summe }) {
+  const en = sprache() === 'en', M = 150, r = 66, max = Math.max(10, ...MUSTER.map((m) => summe[m]));
+  const punkt = (i, f) => { const w = (-90 + i * 60) * Math.PI / 180; return [M + Math.cos(w) * r * f, 118 + Math.sin(w) * r * f]; };
+  const ring = (f) => MUSTER.map((_, i) => punkt(i, f).join(',')).join(' ');
+  const flaeche = MUSTER.map((m, i) => punkt(i, summe[m] / max).join(',')).join(' ');
+  const hat = MUSTER.some((m) => summe[m] > 0);
+  return html`<svg class="ins-sechseck" viewBox="0 0 300 236" role="img" aria-label="Bewegungsmuster">
+    ${[1 / 3, 2 / 3, 1].map((f) => html`<polygon key=${f} points=${ring(f)} class="ins-netz"/>`)}
+    ${MUSTER.map((_, i) => { const [x, y] = punkt(i, 1); return html`<line key=${i} x1=${M} y1="118" x2=${x} y2=${y} class="ins-netz"/>`; })}
+    ${hat ? html`<polygon points=${flaeche} class="ins-netz-wert"/>` : null}
+    ${MUSTER.map((m, i) => { const [x, y] = punkt(i, 1.13), anker = Math.abs(x - M) < 5 ? 'middle' : x > M ? 'start' : 'end';
+      const oben = i === 0 ? -14 : i === 3 ? 6 : -3;
+      return html`<text key=${m} x=${x} y=${y + oben} text-anchor=${anker} class="ins-netz-text" translate="no">${MUSTER_NAME[m][en ? 1 : 0]}
+        <tspan x=${x} dy="14" class="ins-netz-zahl">${summe[m] || '–'}</tspan></text>`; })}
+  </svg>`;
+}
+
+/** Zwei Balken je Wochentag (Drücken, Ziehen) auf grauer Spur, Achse 0 / Mitte / Maximum (mindestens 20). */
+function PaarBalken({ titel, tage, a, b, heute }) {
+  const en = sprache() === 'en', max = Math.ceil(Math.max(20, ...tage.flatMap((t) => [t[a], t[b]])) / 10) * 10;
+  const H = 96, y = (v) => 8 + H - (v / max) * H, WT = en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
+  return html`<div class="stack" style="gap:6px">
+    <b class="ins-paar-titel">${titel}</b>
+    <div class="row mu-legende"><span><i style=${`background:${DRUECKEN}`}></i>Drücken</span><span><i style=${`background:${ZIEHEN}`}></i>Ziehen</span></div>
+    <svg class="ins-paar" viewBox="0 0 300 130" role="img" aria-label=${titel}>
+      ${[0, max / 2, max].map((v) => html`<g key=${v}><line x1="8" x2="262" y1=${y(v)} y2=${y(v)} class=${v ? 'ins-hilfslinie' : 'ins-grundlinie'}/>
+        <text x="296" y=${y(v) + 4} text-anchor="end" class="ins-achse">${v}</text></g>`)}
+      ${tage.map((t, i) => { const x = 20 + i * 35;
+        return html`<g key=${t.datum}>
+          ${[[a, DRUECKEN, 0], [b, ZIEHEN, 12]].map(([k, farbe, d]) => html`<rect key=${k} x=${x + d} y="8" width="8" height=${H} rx="4" class="mu-spur"/>
+            ${t[k] ? html`<rect x=${x + d} y=${y(t[k])} width="8" height=${8 + H - y(t[k])} rx="4" style=${`fill:${farbe}`}/>` : null}`)}
+          <text x=${x + 10} y="126" text-anchor="middle" class=${`ins-achse ${t.datum === heute ? 'ins-heute' : ''}`}>${WT[i]}</text></g>`; })}
+    </svg>
+  </div>`;
 }
 
 // ---------- e) Trainingszeit ----------

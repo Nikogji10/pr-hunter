@@ -40,7 +40,7 @@ export const STIL_WAHL = [
 export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Archivo"'], ['saira', 'Saira', 'Technisch, eckig', '"Saira"'],
   ['encode', 'Encode Sans', 'Klar und offen', '"Encode Sans"'], ['system', 'System', 'Schrift des Handys', 'system-ui']];
 
-export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null, zuImport = null, hilfe = {} }) {
+export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null, zuImport = null, zuGewichtImport = null, hilfe = {} }) {
   const [mail, setMail] = useState(null);                   // null = zu, sonst { text, laeuft, fehler, gesendet }
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
   const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
@@ -263,6 +263,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         </div>
         ${einst.appSettings ? null : html`<span class="muted" style="font-size:12px">Profilbild und Schriftgröße gelten nach Update 11 auf allen Geräten, bis dahin nur auf diesem.</span>`}
         ${zuImport ? html`<button class="btn btn-soft btn-block" onClick=${zuImport}>${I.import} Trainings aus einer anderen App importieren</button>` : null}
+        ${zuGewichtImport ? html`<button class="btn btn-soft btn-block" onClick=${zuGewichtImport}>${I.import} Gewichtsdaten hinzufügen (Yazio, Waage, Screenshots)</button>` : null}
         ${hilfe.sichern ? html`<div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${hilfe.sichern}>Alles sichern (JSON)</button>
           <label class="btn btn-soft btn-sm datei-knopf" style="flex:1">Sicherung einspielen<input type="file" accept=".json,application/json" onChange=${(e) => hilfe.einspielen(e.currentTarget.files?.[0])}/></label></div>
           <span class="muted" style="font-size:12px">Sicherung = alle Trainings, eigenen Programme, Körperwerte und Einstellungen in einer Datei. Einspielen ergänzt nur, was fehlt.</span>` : null}

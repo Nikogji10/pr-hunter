@@ -10,6 +10,7 @@ import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
 import { GlossarSheet } from './ui/glossar.js';
 import { TrainingsImport, ImportHinweis, importHinweisOffen } from './ui/trainingsimport.js';
+import { GewichtImport } from './ui/gewichtimport.js';
 import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
 import { trainingsSchluessel } from './js/import.js';
 import { Training, baueTraining, alleSaetze } from './ui/training.js';
@@ -51,7 +52,7 @@ const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).fi
 // Navigation über die Browser-Historie: jede Ansicht ist ein Eintrag mit Adresse (#statistik, #uebung/<key>).
 // Zurück bleibt in der App (auf der ersten Ansicht passiert nichts), Neuladen öffnet dieselbe Ansicht an derselben Stelle.
 // #################################################################
-const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung', 'import', 'datenschutz']);
+const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung', 'import', 'gewicht', 'datenschutz']);
 function ausAdresse() {
   const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
   return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
@@ -1012,6 +1013,16 @@ function App() {
     gehe('training');
   };
   // 166: importierte Trainings (je Datum eines, Quelle „manual“) speichern und abgleichen
+  // Körpergewicht aus anderen Apps: je Tag ein Wert, übernommene Tage ersetzen (Auswahl trifft GewichtImport), dann abgleichen
+  const gewichteImportieren = async (liste) => {
+    if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Import speichert im Konto.' }); return; }
+    const nach = new Map(messwerte.map((m) => [m.datum, m]));
+    for (const w of liste) nach.set(w.datum, { datum: w.datum, kg: w.kg, offen: true });
+    const me = [...nach.values()].sort((a, b) => a.datum.localeCompare(b.datum));
+    setMesswerte(me);
+    await sp.current.setzeMeta('messwerte', me);
+    abgleich();
+  };
   const trainingsImportieren = async (liste) => {
     if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Import speichert im Konto.' }); return; }
     const neu = liste.map((t) => {
@@ -1169,6 +1180,7 @@ function App() {
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
           bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
       : ansicht === 'import' ? html`<${TrainingsImport} zurueck=${() => history.back()} vorhandene=${trainings} importieren=${trainingsImportieren}/>`
+      : ansicht === 'gewicht' ? html`<${GewichtImport} zurueck=${() => history.back()} vorhandene=${messwerte} importieren=${gewichteImportieren}/>`
       : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
       : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
@@ -1185,7 +1197,7 @@ function App() {
       : ansicht === 'einstellungen' ? html`<${Einstellungen} einst=${einstUi} setEinst=${setEinst} SyncPunkt=${SyncPunkt} zurueck=${() => gehe('heute')}
           konto=${nutzer} sync=${sync} offen=${offen} abgleich=${abgleich} abmelden=${raus} exportieren=${exportieren}
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
-          zuImport=${DEMO ? null : () => gehe('import')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
+          zuImport=${DEMO ? null : () => gehe('import')} zuGewichtImport=${DEMO ? null : () => gehe('gewicht')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
       : html`<${Heute} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}

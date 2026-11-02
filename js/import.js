@@ -446,3 +446,92 @@ export function ohneDuplikate(trainings, vorhandene) {
     .filter((t) => t.uebungen.length);
   return { neu, doppelt };
 }
+
+// #################################################################
+// Körpergewicht importieren: Yazio, Samsung Health, Apple Health, Waagen-Apps, Excel – direkt als CSV oder per KI
+// (auch aus Screenshots). Format: datum;kg, je Tag ein Wert.
+// #################################################################
+export const KI_ANLEITUNG_GEWICHT = `Lies die Körpergewichts-Werte aus den angehängten Screenshots oder der Exportdatei (z. B. Yazio, Samsung Health, Apple Health, Google Fit, Withings, Waagen-App, Excel) und gib sie als CSV für die App „PR Hunter“ aus.
+
+Regeln:
+- Trennzeichen Semikolon. Erste Zeile genau: datum;kg
+- Eine Zeile je Tag, älteste zuerst.
+- datum: JJJJ-MM-TT (z. B. 2026-03-14). Fehlt das Jahr, aus dem Zusammenhang ableiten (Datum des Screenshots, Reihenfolge der Einträge).
+- kg: Gewicht in Kilogramm mit Punkt und einer Nachkommastelle (Pfund × 0,4536).
+- Mehrere Messungen am selben Tag: Durchschnitt.
+- Nur Wochenwerte (z. B. „5.–11. Okt.: 83,8 kg“): Datum = Donnerstag dieser Woche. Nur Monatswerte: Datum = 15. des Monats.
+- Werte, die man nur aus einem Diagramm schätzen könnte, weglassen. Erfinde nichts.
+- Gib nur die CSV in einem Codeblock aus, ohne weitere Erklärung.
+
+Beispiel:
+datum;kg
+2026-07-23;89.6
+2026-07-30;88.7
+
+Hier sind die Daten:
+`;
+export const KI_ANLEITUNG_GEWICHT_EN = `Read the body weight values from the attached screenshots or export file (e.g. Yazio, Samsung Health, Apple Health, Google Fit, Withings, a scale app, Excel) and output them as CSV for the app “PR Hunter”.
+
+Rules:
+- Semicolon as separator. First line exactly: datum;kg
+- One line per day, oldest first.
+- datum: YYYY-MM-DD (e.g. 2026-03-14). If the year is missing, infer it from context (screenshot date, order of entries).
+- kg: weight in kilograms with a decimal point and one decimal (pounds × 0.4536).
+- Several measurements on the same day: average.
+- Only weekly values (e.g. “Oct 5–11: 83.8 kg”): date = Thursday of that week. Only monthly values: date = 15th of the month.
+- Leave out values that could only be estimated from a chart. Do not invent anything.
+- Output only the CSV in a code block, without any explanation.
+
+Example:
+datum;kg
+2026-07-23;89.6
+2026-07-30;88.7
+
+Here is the data:
+`;
+
+const GEWICHT_KOPF = { datum: 'datum', date: 'datum', tag: 'datum', day: 'datum', zeit: 'datum', time: 'datum', timestamp: 'datum',
+  kg: 'kg', gewicht: 'kg', weight: 'kg', weight_kg: 'kg', weightkg: 'kg', 'gewicht(kg)': 'kg', 'weight(kg)': 'kg', koerpergewicht: 'kg', körpergewicht: 'kg',
+  lb: 'lb', lbs: 'lb', pfund: 'lb', weight_lb: 'lb', weightlb: 'lb', 'weight(lb)': 'lb' };
+
+/** CSV/Text → { werte: [{ datum, kg }] (je Tag einer, Mittel bei mehreren, sortiert), fehler: [] }. Kopfzeile optional (sonst Datum; kg). */
+export function leseGewichtCsv(text) {
+  const fehler = [], jeTag = new Map();
+  let kopf = null, trenner = null;
+  String(text).replace(/^﻿/, '').split(/\r?\n/).forEach((roh, i) => {
+    const nr = i + 1, zeile = roh.trim();
+    if (!zeile || zeile.startsWith('```') || zeile.startsWith('#') || fehler.length > 50) return;
+    trenner ??= [';', '\t', ','].sort((a, b) => zeile.split(b).length - zeile.split(a).length)[0];
+    const w = zerlegeZeile(zeile, trenner);
+    if (!kopf) {
+      const k = w.map((s) => s.toLowerCase().replace(/["\s]/g, '')).map((s) => GEWICHT_KOPF[s] ?? s);
+      if (!leseDatum(w[0] ?? '') && k.includes('datum') && (k.includes('kg') || k.includes('lb'))) { kopf = k; return; }
+      kopf = ['datum', 'kg'];                                                       // keine Kopfzeile: Datum; kg
+    }
+    const f = Object.fromEntries(kopf.map((k, j) => [k, w[j] ?? '']));
+    const datum = leseDatum(f.datum ?? '');
+    if (!datum) { fehler.push(`Zeile ${nr}: Datum „${f.datum ?? ''}“ nicht lesbar (JJJJ-MM-TT)`); return; }
+    const roheZahl = String(f.kg || f.lb || '').replace(/[^\d,.]/g, '').replace(',', '.');
+    let kg = roheZahl === '' ? NaN : Number(roheZahl);
+    if (!f.kg && f.lb) kg *= 0.45359237;
+    if (!(kg >= 25 && kg <= 300)) { fehler.push(`Zeile ${nr}: Gewicht „${f.kg || f.lb || ''}“ nicht plausibel (25–300 kg)`); return; }
+    jeTag.set(datum, [...(jeTag.get(datum) ?? []), kg]);
+  });
+  const werte = [...jeTag].map(([datum, l]) => ({ datum, kg: Math.round((l.reduce((a, b) => a + b, 0) / l.length) * 10) / 10 }))
+    .sort((a, b) => a.datum.localeCompare(b.datum));
+  if (!werte.length && !fehler.length) fehler.push('Keine Werte gefunden (erwartet: datum;kg).');
+  return { werte, fehler };
+}
+
+/** Mit vorhandenen Messwerten abgleichen: neue Tage, gleiche (übersprungen), abweichende (nur mit ueberschreiben übernommen). */
+export function gewichtAbgleich(werte, vorhandene, ueberschreiben = false) {
+  const da = new Map(vorhandene.map((m) => [m.datum, Number(m.kg)]));
+  const neu = [], anders = [];
+  let gleich = 0;
+  for (const w of werte) {
+    if (!da.has(w.datum)) neu.push(w);
+    else if (Math.abs(da.get(w.datum) - w.kg) < 0.05) gleich++;
+    else anders.push(w);
+  }
+  return { neu, gleich, anders, uebernehmen: ueberschreiben ? [...neu, ...anders].sort((a, b) => a.datum.localeCompare(b.datum)) : neu };
+}

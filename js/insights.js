@@ -2,6 +2,7 @@
 // Intensität, Erholung, Zeitnutzung), 1RM-Veränderung, Sätze je Muskel, Trainingszeit, Wochenvergleich.
 // Reine Rechnungen ohne Oberfläche; Muskeln und Pausen kommen als Funktionen herein (Katalog/Einstellungen der App).
 import { montagVon, plusTage, tageZwischen } from './daten.js';
+export { montagVon };
 
 /** Katalogmuskeln (free-exercise-db) → Gruppen der Analyse. */
 export const GRUPPE_VON = {
@@ -212,4 +213,32 @@ export function wochenVergleich(einheiten, heute) {
       volumen: es.length ? es.reduce((a, e) => a + volumen(e), 0) / es.length : 0, minuten: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : 0 };
   };
   return { diese: werte(m, heute), letzte: werte(vor, plusTage(m, -1)) };
+}
+
+// #################################################################
+// g) Bewegungsmuster: Sätze je Muster in einer Woche (Sechseck + Drücken/Ziehen je Tag, wie Jefit)
+// #################################################################
+/** Reihenfolge im Sechseck: oben, dann im Uhrzeigersinn – Gegenüber liegen Kniebeuge/Hinge, Drücken/Ziehen vertikal, Ziehen/Drücken horizontal. */
+export const MUSTER = ['squat', 'vPush', 'hPull', 'hinge', 'vPull', 'hPush'];
+const MUSTER_VON_ART = { squat: 'squat', squat_machine: 'squat', lunge: 'squat', deadlift: 'hinge', hinge: 'hinge',
+  bench: 'hPush', push_up: 'hPush', dip: 'hPush', fly: 'hPush', press: 'vPush', row: 'hPull', pull_up: 'vPull', pulldown: 'vPull' };
+
+/** Muster einer Übung aus ihrer Katalog-Art (f); Aufrechtrudern zählt zur Schulter, nicht zum Rudern. */
+export const musterVon = (art, key = '') => (/upright|aufrecht/i.test(key) ? null : MUSTER_VON_ART[art] ?? null);
+
+/** Sätze je Muster und Wochentag ab montag (7 Tage); artVon(key) liefert die Katalog-Art. */
+export function bewegungsmuster(einheiten, montag, artVon) {
+  const leer = () => Object.fromEntries(MUSTER.map((m) => [m, 0]));
+  const tage = Array.from({ length: 7 }, (_, i) => ({ datum: plusTage(montag, i), ...leer() }));
+  const summe = leer();
+  for (const e of einheiten) {
+    const i = tageZwischen(montag, e.datum);
+    if (i < 0 || i > 6) continue;
+    for (const u of e.uebungen) {
+      const m = musterVon(artVon(u.key), u.key);
+      if (m) { tage[i][m] += u.saetze.length; summe[m] += u.saetze.length; }
+    }
+  }
+  const push = summe.hPush + summe.vPush, pull = summe.hPull + summe.vPull, unter = summe.squat + summe.hinge;
+  return { tage, summe, push, pull, ober: push + pull, unter, gesamt: push + pull + unter };
 }
