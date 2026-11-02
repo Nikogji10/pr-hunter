@@ -203,8 +203,10 @@ export function saetzeJeMuskel(einheiten, heute, muskelnVon, tage = 7) {
 // #################################################################
 // f) Diese Woche gegen letzte Woche
 // #################################################################
-export function wochenVergleich(einheiten, heute) {
-  const m = montagVon(heute), vor = plusTage(m, -7);
+export function wochenVergleich(einheiten, heute, { abgeschlossen = false } = {}) {
+  // abgeschlossen: letzte volle Woche gegen die davor (die laufende Woche erst, wenn sie vorbei ist)
+  const m = plusTage(montagVon(heute), abgeschlossen ? -7 : 0), vor = plusTage(m, -7);
+  if (abgeschlossen) heute = plusTage(m, 6);
   const rek = rekorde(einheiten);
   const werte = (von, bis) => {
     const es = einheiten.filter((e) => e.datum >= von && e.datum <= bis);
@@ -212,7 +214,7 @@ export function wochenVergleich(einheiten, heute) {
     return { einheiten: es.length, rekorde: rek.filter((r) => r.datum >= von && r.datum <= bis).length,
       volumen: es.length ? es.reduce((a, e) => a + volumen(e), 0) / es.length : 0, minuten: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : 0 };
   };
-  return { diese: werte(m, heute), letzte: werte(vor, plusTage(m, -1)) };
+  return { diese: werte(m, heute), letzte: werte(vor, plusTage(m, -1)), von: m, bis: heute, abgeschlossen };
 }
 
 // #################################################################
@@ -241,4 +243,15 @@ export function bewegungsmuster(einheiten, montag, artVon) {
   }
   const push = summe.hPush + summe.vPush, pull = summe.hPull + summe.vPull, unter = summe.squat + summe.hinge;
   return { tage, summe, push, pull, ober: push + pull, unter, gesamt: push + pull + unter };
+}
+
+/** Ø je Trainingswoche über den ganzen Verlauf: alle Sätze je Muster und Wochentag ÷ Zahl der Wochen mit Training. */
+export function bewegungsmusterSchnitt(einheiten, artVon) {
+  const wochen = [...new Set(einheiten.map((e) => montagVon(e.datum)))];
+  if (!wochen.length) return { ...bewegungsmuster([], '2000-01-03', artVon), wochen: 0 };
+  // alle Wochen auf eine Woche legen (Datum relativ zum eigenen Montag), dann teilen
+  const B = '2000-01-03';                                                   // ein Montag
+  const gefaltet = einheiten.map((e) => ({ ...e, datum: plusTage(B, tageZwischen(montagVon(e.datum), e.datum)) }));
+  const b = bewegungsmuster(gefaltet, B, artVon), n = wochen.length, teile = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? v / n : v]));
+  return { tage: b.tage.map(teile), summe: teile(b.summe), push: b.push / n, pull: b.pull / n, ober: b.ober / n, unter: b.unter / n, gesamt: b.gesamt / n, wochen: n };
 }

@@ -1524,6 +1524,13 @@ export const EN = new Map([
   ["Sie stehen jetzt in der Statistik unter Körper und werden mit dem Konto abgeglichen.", "They are now in Stats under Body and will be synced with your account."],
   ["Gewichtsdaten hinzufügen (Yazio, Waage, Screenshots)", "Add weight data (Yazio, scale, screenshots)"],
   ["Alles schon vorhanden – nichts zu übernehmen.", "Everything already there – nothing to add."],
+  ["Ø gesamt", "Ø all time"],
+  ["Ø Sätze je Trainingswoche", "Ø sets per training week"],
+  ["Diese Woche noch keine Sätze.", "No sets yet this week."],
+  ["In dieser Woche keine Sätze.", "No sets in this week."],
+  ["Letzte Woche gegen die Woche davor", "Last week vs. the week before"],
+  ["Woche davor", "Week before"],
+  ["Gleich wie die Woche davor", "Same as the week before"],
 ]);
 
 export const EN_MUSTER = [

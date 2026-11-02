@@ -1741,8 +1741,13 @@ body { overflow-x: hidden; }
 .filter .chip > svg { width: 15px; height: 15px; margin-left: -2px; flex: none; }
 
 /* Analyse: Bewegungsmuster (Sechseck, Drücken/Ziehen je Tag) */
-.ins-woche { gap: 4px; align-items: center; white-space: nowrap; }
-.ins-woche b { font-size: 12.5px; min-width: 84px; text-align: center; }
+.mu-woche { align-items: center; padding: 4px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.mu-woche-titel { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.mu-woche-titel b { font-size: 15px; }
+.mu-woche-titel small { font-size: 12px; }
+.ins-hinweis { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-2); background: color-mix(in srgb, #7B61FF 12%, transparent); border-radius: 12px; padding: 8px 12px; }
+.ins-hinweis svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: #8E86FF; }
+.mu-woche-text { font-size: 13px; }
 .ins-sechseck, .ins-paar { width: 100%; height: auto; display: block; }
 .ins-netz { fill: none; stroke: var(--line); stroke-width: 1; }
 .ins-netz-wert { fill: color-mix(in srgb, #7B61FF 35%, transparent); stroke: #8E86FF; stroke-width: 2; stroke-linejoin: round; }

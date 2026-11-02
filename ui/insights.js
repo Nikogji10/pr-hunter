@@ -1,7 +1,7 @@
 // PR Hunter · Insights wie in Jefit (Wunsch 181): Analyse-Karten in der Statistik. Rechnungen in js/insights.js.
 import { html, useMemo, useState } from '../vendor/htm-preact.js';
 import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebung, pauseVon, I } from './basis.js';
-import { normiere, serie, einheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, montagVon } from '../js/insights.js';
+import { normiere, serie, einheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, bewegungsmusterSchnitt, montagVon } from '../js/insights.js';
 import { kanon, plusTage } from '../js/daten.js';
 import { MiniFigur } from './koerper.js';
 
@@ -16,7 +16,9 @@ const MONAT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
 const hm = (min) => (min == null ? '–' : min >= 60 ? `${Math.floor(min / 60)} h ${Math.round(min % 60)} min` : `${Math.round(min)} min`);
 const hms = (sek) => { const s = Math.round(sek); return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const kurz = (kg) => (kg >= 1000 ? `${fmt(kg / 1000, kg >= 10000 ? 0 : 1)}k` : fmt(kg, 0));
-const namen = (liste) => { const n = liste.map((x) => GRUPPE_NAME[x.gruppe]); return n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} ${deEn('und', 'and')} ${n.at(-1)}`; };
+const GRUPPE_EN = { brust: 'Chest', ruecken: 'Back', schultern: 'Shoulders', bizeps: 'Biceps', trizeps: 'Triceps', unterarme: 'Forearms',
+  beine: 'Upper legs', gesaess: 'Glutes', waden: 'Calves', bauch: 'Abs' };
+const namen = (liste) => { const n = liste.map((x) => (sprache() === 'en' ? GRUPPE_EN : GRUPPE_NAME)[x.gruppe]); return n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} ${deEn('und', 'and')} ${n.at(-1)}`; };
 
 function Kopf({ titel, unter }) {
   return html`<div class="ins-kopf"><b>${titel}</b> <span class="ins-analyse">Analyse</span>${unter ? html`<div class="ins-unter">${unter}</div>` : null}</div>`;
@@ -28,7 +30,7 @@ export function Insights({ trainings, einst, heute }) {
   const pause = (k) => pauseVon(k, null, einst.pausen);
   if (!E.length) return html`<section class="card pad"><p class="muted" style="margin:0">Noch keine Trainings – nach dem ersten Training stehen hier deine Analysen.</p></section>`;
   const s = serie(E, heute), a = einheitAnalyse(E, heute, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, heute),
-    m = saetzeJeMuskel(E, heute, muskelnVon), w = wochenVergleich(E, heute);
+    m = saetzeJeMuskel(E, heute, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
   const letzte5 = E.filter((e) => minuten(e) != null).slice(-5).reverse().map((e) => ({ e, z: zeitAnalyse(e, pause) }));
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
@@ -172,26 +174,37 @@ const DRUECKEN = '#7B61FF', ZIEHEN = '#AEB4FF';
 const verhaeltnis = (a, b) => (a + b ? `${a} : ${b}` : '–');
 
 function MusterKarte({ E, heute }) {
-  const [zurueck, setZurueck] = useState(0);                               // 0 = diese Woche, 1 = letzte …
+  const [art, setArt] = useState('woche');                                // 'woche' | 'schnitt' (Ø je Trainingswoche, ganzer Verlauf)
+  const [zurueck, setZurueck] = useState(1);                              // 1 = letzte volle Woche (Start), 0 = laufende Woche
+  const artVon = (k) => uebung(k)?.f ?? uebung(kanon(k))?.f;
   const erste = E.length ? montagVon(E[0].datum) : montagVon(heute);
   const montag = plusTage(montagVon(heute), -7 * zurueck);
-  const b = bewegungsmuster(E, montag, (k) => uebung(k)?.f ?? uebung(kanon(k))?.f);
-  const titel = zurueck === 0 ? deEn('Diese Woche', 'This week') : zurueck === 1 ? deEn('Letzte Woche', 'Last week') : `${datumKurz(montag)}–${datumKurz(plusTage(montag, 6))}`;
+  const b = art === 'schnitt' ? bewegungsmusterSchnitt(E, artVon) : bewegungsmuster(E, montag, artVon);
+  const titel = zurueck === 0 ? deEn('Diese Woche (läuft)', 'This week (ongoing)') : zurueck === 1 ? deEn('Letzte Woche', 'Last week') : `${datumKurz(montag)}–${datumKurz(plusTage(montag, 6))}`;
+  const z = (x) => (art === 'schnitt' ? fmt(x, 1) : String(x));
+  const verh = (a, c) => (a + c ? `${z(a)} : ${z(c)}` : '–');
   return html`<section class="card pad stack ins">
-    <div class="row between"><${Kopf} titel="Bewegungsmuster" unter="Sätze je Muster"/>
-      <span class="row ins-woche"><button class="iconbtn klein" disabled=${montag <= erste} onClick=${() => setZurueck(zurueck + 1)} aria-label="Woche zurück"><span style="display:inline-block;transform:rotate(180deg)">${I.weiter}</span></button>
-        <b>${titel}</b><button class="iconbtn klein" disabled=${zurueck === 0} onClick=${() => setZurueck(zurueck - 1)} aria-label="Woche vor">${I.weiter}</button></span></div>
-    <div class="ins-zwei drei"><div><span class="muted">Drücken : Ziehen</span><b>${verhaeltnis(b.push, b.pull)}</b></div>
-      <div><span class="muted">Ober : Unter</span><b>${verhaeltnis(b.ober, b.unter)}</b></div>
-      <div><span class="muted">Sätze</span><b>${b.gesamt || '–'}</b></div></div>
-    <${Sechseck} summe=${b.summe}/>
-    <${PaarBalken} titel="Vertikal: Drücken vs. Ziehen" tage=${b.tage} a="vPush" b="vPull" heute=${heute}/>
-    <${PaarBalken} titel="Horizontal: Drücken vs. Ziehen" tage=${b.tage} a="hPush" b="hPull" heute=${heute}/>
+    <${Kopf} titel="Bewegungsmuster" unter=${art === 'schnitt' ? 'Ø Sätze je Trainingswoche' : 'Sätze je Muster'}/>
+    <div class="filter" role="group" aria-label="Zeitraum">
+      <button class="chip" aria-pressed=${String(art === 'woche')} onClick=${() => setArt('woche')}>Woche</button>
+      <button class="chip" aria-pressed=${String(art === 'schnitt')} onClick=${() => setArt('schnitt')}>Ø gesamt</button></div>
+    ${art === 'woche' ? html`<div class="row between mu-woche">
+        <button class="iconbtn klein" disabled=${montag <= erste} onClick=${() => setZurueck(zurueck + 1)} aria-label="Woche zurück"><span style="display:inline-block;transform:rotate(180deg)">${I.weiter}</span></button>
+        <span class="mu-woche-titel"><b>${titel}</b>${zurueck <= 1 ? html`<small class="muted">${`${datumKurz(montag)}–${datumKurz(plusTage(montag, 6))}`}</small>` : null}</span>
+        <button class="iconbtn klein" disabled=${zurueck === 0} onClick=${() => setZurueck(zurueck - 1)} aria-label="Woche vor">${I.weiter}</button></div>`
+      : html`<span class="muted mu-woche-text">${deEn(`Durchschnitt über ${b.wochen} Wochen mit Training`, `Average over ${b.wochen} weeks with training`)}</span>`}
+    <div class="ins-zwei drei"><div><span class="muted">Drücken : Ziehen</span><b>${verh(b.push, b.pull)}</b></div>
+      <div><span class="muted">Ober : Unter</span><b>${verh(b.ober, b.unter)}</b></div>
+      <div><span class="muted">Sätze</span><b>${b.gesamt ? z(b.gesamt) : '–'}</b></div></div>
+    ${art === 'woche' && !b.gesamt ? html`<p class="muted" style="margin:0;font-size:13px">${zurueck === 0 ? 'Diese Woche noch keine Sätze.' : 'In dieser Woche keine Sätze.'}</p>` : null}
+    <${Sechseck} summe=${b.summe} z=${z}/>
+    <${PaarBalken} titel="Vertikal: Drücken vs. Ziehen" tage=${b.tage} a="vPush" b="vPull" heute=${art === 'woche' ? heute : null}/>
+    <${PaarBalken} titel="Horizontal: Drücken vs. Ziehen" tage=${b.tage} a="hPush" b="hPull" heute=${art === 'woche' ? heute : null}/>
   </section>`;
 }
 
 /** Netzdiagramm: Achsen je Muster, Fläche = Sätze (am größten Wert gemessen, mindestens 10). */
-function Sechseck({ summe }) {
+function Sechseck({ summe, z = String }) {
   const en = sprache() === 'en', M = 150, r = 66, max = Math.max(10, ...MUSTER.map((m) => summe[m]));
   const punkt = (i, f) => { const w = (-90 + i * 60) * Math.PI / 180; return [M + Math.cos(w) * r * f, 118 + Math.sin(w) * r * f]; };
   const ring = (f) => MUSTER.map((_, i) => punkt(i, f).join(',')).join(' ');
@@ -204,17 +217,17 @@ function Sechseck({ summe }) {
     ${MUSTER.map((m, i) => { const [x, y] = punkt(i, 1.13), anker = Math.abs(x - M) < 5 ? 'middle' : x > M ? 'start' : 'end';
       const oben = i === 0 ? -14 : i === 3 ? 6 : -3;
       return html`<text key=${m} x=${x} y=${y + oben} text-anchor=${anker} class="ins-netz-text" translate="no">${MUSTER_NAME[m][en ? 1 : 0]}
-        <tspan x=${x} dy="14" class="ins-netz-zahl">${summe[m] || '–'}</tspan></text>`; })}
+        <tspan x=${x} dy="14" class="ins-netz-zahl">${summe[m] ? z(summe[m]) : '–'}</tspan></text>`; })}
   </svg>`;
 }
 
 /** Zwei Balken je Wochentag (Drücken, Ziehen) auf grauer Spur, Achse 0 / Mitte / Maximum (mindestens 20). */
 function PaarBalken({ titel, tage, a, b, heute }) {
-  const en = sprache() === 'en', max = Math.ceil(Math.max(20, ...tage.flatMap((t) => [t[a], t[b]])) / 10) * 10;
+  const en = sprache() === 'en', groesst = Math.max(...tage.flatMap((t) => [t[a], t[b]])), max = groesst <= 10 && groesst > 0 && !Number.isInteger(groesst) ? 10 : Math.ceil(Math.max(20, groesst) / 10) * 10;
   const H = 96, y = (v) => 8 + H - (v / max) * H, WT = en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
   return html`<div class="stack" style="gap:6px">
     <b class="ins-paar-titel">${titel}</b>
-    <div class="row mu-legende"><span><i style=${`background:${DRUECKEN}`}></i>Drücken</span><span><i style=${`background:${ZIEHEN}`}></i>Ziehen</span></div>
+    <div class="row mu-legende"><span><i style=${`background:${DRUECKEN}`}></i>${deEn('Drücken', 'Push')}</span><span><i style=${`background:${ZIEHEN}`}></i>${deEn('Ziehen', 'Pull')}</span></div>
     <svg class="ins-paar" viewBox="0 0 300 130" role="img" aria-label=${titel}>
       ${[0, max / 2, max].map((v) => html`<g key=${v}><line x1="8" x2="262" y1=${y(v)} y2=${y(v)} class=${v ? 'ins-hilfslinie' : 'ins-grundlinie'}/>
         <text x="296" y=${y(v) + 4} text-anchor="end" class="ins-achse">${v}</text></g>`)}
@@ -259,17 +272,19 @@ function WocheKarte({ w }) {
     const max = Math.max(a, b, 1), auf = a > b, gleich = a === b;
     return html`<div class="ins-woche">
       <b class="ins-titel">${titel}</b>
-      <div class="row between"><b class="ins-gross-zahl">${fmtWert(a)}<small>${einheitText}</small></b><span class=${`ins-pfeil ${gleich ? '' : auf ? 'auf' : 'ab'}`}>${gleich ? '●' : auf ? '▲' : '▼'}</span></div>
-      <div class="ins-vergleich"><span class="diese" style=${`--w:${(a / max) * 100}%`}><b>Diese Woche</b><b>${fmtWert(a)}${einheitText ? ` ${einheitText}` : ''}</b></span>
-        <span class="letzte" style=${`--w:${(b / max) * 100}%`}><b>Letzte Woche</b><b>${fmtWert(b)}${einheitText ? ` ${einheitText}` : ''}</b></span></div>
-      <small class="ins-satz">${gleich ? 'Gleich wie letzte Woche' : auf ? mehr(a - b) : weniger(b - a)}</small></div>`;
+      <div class="row between"><b class="ins-gross-zahl">${fmtWert(a)}<small>${einheitText}</small></b><span class=${`ins-pfeil ${gleich ? '' : auf ? 'auf' : 'ab'}`} aria-hidden="true">${gleich ? '=' : `${auf ? '▲ +' : '▼ −'}${fmtWert(Math.abs(a - b))}`}</span></div>
+      <div class="ins-vergleich"><span class="diese" style=${`--w:${(a / max) * 100}%`}><b>Letzte Woche</b><b>${fmtWert(a)}${einheitText ? ` ${einheitText}` : ''}</b></span>
+        <span class="letzte" style=${`--w:${(b / max) * 100}%`}><b>Woche davor</b><b>${fmtWert(b)}${einheitText ? ` ${einheitText}` : ''}</b></span></div>
+      <small class="ins-satz">${gleich ? 'Gleich wie die Woche davor' : auf ? mehr(a - b) : weniger(b - a)}</small></div>`;
   };
   const d = w.diese, l = w.letzte;
   return html`<section class="card pad stack ins">
-    <${Kopf} titel="Wochenvergleich" unter="Diese Woche gegen letzte Woche"/>
-    ${zeile('Trainings', d.einheiten, l.einheiten, (x) => String(x), '', (x) => deEn(`${x} mehr als letzte Woche`, `${x} more than last week`), (x) => deEn(`${x} weniger als letzte Woche`, `${x} fewer than last week`))}
-    ${zeile('1RM-Rekorde', d.rekorde, l.rekorde, (x) => String(x), '', (x) => deEn(`${x} mehr als letzte Woche`, `${x} more than last week`), (x) => deEn(`${x} weniger als letzte Woche`, `${x} fewer than last week`))}
-    ${zeile('Ø Volumen je Training', d.volumen, l.volumen, (x) => fmt(x, 0), einheit(), (x) => deEn(`${fmt(x, 0)} ${einheit()} mehr als letzte Woche`, `${fmt(x, 0)} ${einheit()} more than last week`), (x) => deEn(`${fmt(x, 0)} ${einheit()} weniger als letzte Woche`, `${fmt(x, 0)} ${einheit()} less than last week`))}
-    ${d.minuten || l.minuten ? zeile('Ø Trainingsdauer', d.minuten, l.minuten, (x) => hm(x), '', (x) => deEn(`${Math.round(x)} Minuten mehr als letzte Woche`, `${Math.round(x)} minutes more than last week`), (x) => deEn(`${Math.round(x)} Minuten weniger als letzte Woche`, `${Math.round(x)} minutes less than last week`)) : null}
+    <${Kopf} titel="Wochenvergleich" unter="Letzte Woche gegen die Woche davor"/>
+    ${w.abgeschlossen ? html`<p class="ins-hinweis">${I.tabVerlauf}<span>${deEn(`Letzte volle Woche (${datumKurz(w.von)}–${datumKurz(w.bis)}). Die laufende Woche kommt hier dazu, sobald sie vorbei ist.`,
+      `Last full week (${datumKurz(w.von)}–${datumKurz(w.bis)}). The current week shows up here once it is over.`)}</span></p>` : null}
+    ${zeile('Trainings', d.einheiten, l.einheiten, (x) => String(x), '', (x) => deEn(`${x} mehr als die Woche davor`, `${x} more than the week before`), (x) => deEn(`${x} weniger als die Woche davor`, `${x} fewer than the week before`))}
+    ${zeile('1RM-Rekorde', d.rekorde, l.rekorde, (x) => String(x), '', (x) => deEn(`${x} mehr als die Woche davor`, `${x} more than the week before`), (x) => deEn(`${x} weniger als die Woche davor`, `${x} fewer than the week before`))}
+    ${zeile('Ø Volumen je Training', d.volumen, l.volumen, (x) => fmt(x, 0), einheit(), (x) => deEn(`${fmt(x, 0)} ${einheit()} mehr als die Woche davor`, `${fmt(x, 0)} ${einheit()} more than the week before`), (x) => deEn(`${fmt(x, 0)} ${einheit()} weniger als die Woche davor`, `${fmt(x, 0)} ${einheit()} less than the week before`))}
+    ${d.minuten || l.minuten ? zeile('Ø Trainingsdauer', d.minuten, l.minuten, (x) => hm(x), '', (x) => deEn(`${Math.round(x)} Minuten mehr als die Woche davor`, `${Math.round(x)} minutes more than the week before`), (x) => deEn(`${Math.round(x)} Minuten weniger als die Woche davor`, `${Math.round(x)} minutes less than the week before`)) : null}
   </section>`;
 }
