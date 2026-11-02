@@ -84,9 +84,11 @@ export function motivationAus(a, m = {}) {
   const titel = m.blockFertig ? deEn(`Block geschafft${name}!`, `Block complete${name}!`)
     : a.prs.length ? deEn(`Rekordtag${name}!`, `PR day${name}!`)
     : m.erstes ? deEn(`Erstes Training im Log${name}!`, `First workout logged${name}!`)
+    : m.abzeichen?.length ? deEn(`Neues Abzeichen${name}!`, `New badge${name}!`)
     : m.ziel && m.woche === m.ziel ? deEn(`Wochenziel geschafft${name}!`, `Weekly goal reached${name}!`)
     : `${lob}${name}!`;
   const zeilen = [];
+  if (m.abzeichen?.length) zeilen.push(deEn(`Neues Abzeichen: ${m.abzeichen.map((x) => `${x.icon} ${x.text[0]}`).join(', ')}`, `New badge: ${m.abzeichen.map((x) => `${x.icon} ${x.text[1]}`).join(', ')}`));
   if (m.blockFertig) zeilen.push(deEn('Alle Trainings des Blocks erledigt – Zeit für den Test oder den nächsten Block.', 'Every workout of the block done – time to test or start the next block.'));
   if (a.prs.length) zeilen.push(deEn(`${a.prs.length === 1 ? 'Ein neuer Rekord' : `${a.prs.length} neue Rekorde`} – das Training zahlt sich aus.`, `${a.prs.length === 1 ? 'A new PR' : `${a.prs.length} new PRs`} – the work is paying off.`));
   if (m.ziel && m.woche != null) zeilen.push(m.woche >= m.ziel

@@ -1804,3 +1804,50 @@ body { overflow-x: hidden; }
 .technik-bilder img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .technik-bilder small { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 99px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 11px; font-weight: 800; }
 .technik ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-2); }
+/* 182: Körpermaße */
+.masse-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.masse-kachel { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); }
+.masse-kachel > .muted { font-size: 12px; }
+.masse-kachel b { font-size: 22px; }
+.masse-kachel b small { font-size: 12px; margin-left: 2px; color: var(--muted); }
+.masse-diff { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+.masse-diff.auf { color: #34C77B; } .masse-diff.ab { color: #E0786A; }
+.masse-linie { width: 100%; height: 26px; margin-top: 4px; }
+.masse-linie path { fill: none; stroke: var(--acc); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.masse-felder { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* 184: Erfolge */
+.erfolge { display: flex; flex-direction: column; gap: 8px; }
+.erfolg { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.erfolg-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; background: color-mix(in srgb, var(--ink) 8%, transparent); filter: grayscale(1); opacity: .55; }
+.erfolg.hat .erfolg-icon { filter: none; opacity: 1; background: color-mix(in srgb, #F2C230 22%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, #F2C230 45%, transparent); }
+.erfolg-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.erfolg-text b { font-size: 14px; }
+.erfolg-text small { font-size: 11.5px; }
+.erfolg-balken { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.erfolg-balken i { display: block; height: 100%; background: linear-gradient(90deg, #F2C230, #FFDF7A); border-radius: 99px; }
+.erfolg-anzahl { font-size: 12px; font-weight: 800; color: var(--muted); }
+/* 183: Autoregulation-Hinweis in der Karte */
+.vorschlag.auto.deload { color: #E0786A; }
+.vorschlag.auto.weniger { color: #F2C230; }
+/* 189: Wettkampftag */
+.wk-total { display: flex; align-items: baseline; justify-content: space-between; }
+.wk-total b { font: 900 40px/1 var(--f); font-stretch: 115%; }
+.wk-total b small { font-size: 15px; margin-left: 4px; color: var(--muted); }
+.wk-total span { font-weight: 800; color: var(--acc-text); }
+.wk-versuche { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wk-versuch { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 14px; border: 1px solid var(--kante); background: var(--raised); }
+.wk-versuch .field .label:empty { display: none; }
+.wk-versuch.gut { border-color: #34C77B; background: color-mix(in srgb, #34C77B 14%, var(--raised)); }
+.wk-versuch.ungueltig { border-color: #E0786A; background: color-mix(in srgb, #E0786A 14%, var(--raised)); }
+.wk-versuch .chip { justify-content: center; }
+.wk-opener { border-top: 1px dashed var(--line); padding-top: 6px; }
+/* 185: Likes und Kommentare im Feed */
+.reaktionen { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.chip.reakt { gap: 6px; font-size: 15px; }
+.chip.reakt b { font-size: 12.5px; }
+.chip.reakt.an { color: #FF5C7A; border-color: color-mix(in srgb, #FF5C7A 50%, var(--kante)); }
+.kommentare { display: flex; flex-direction: column; gap: 6px; }
+.kommentar { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.kommentar span { color: var(--ink-2); overflow-wrap: anywhere; }
+/* 186: geschickte Pläne */
+.geteilt-zeile { display: flex; gap: 8px; align-items: center; }

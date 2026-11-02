@@ -87,7 +87,7 @@ export function MenueKnopf({ auf }) {
 const WERKZEUG_TEXT = {
   '1rm': 'Maximalkraft aus Gewicht × Wdh', scheiben: 'Was auf die Stange kommt', rpe: 'Gewicht für Ziel-Wdh und RPE', prozent: 'Prozent vom Max',
   koerper: 'Klimmzug und Dips mit Körpergewicht', warm: 'Aufwärmsätze bis zum Top-Satz', punkte: 'DOTS, IPF GL, Wilks', versuche: 'Wettkampfversuche planen',
-  timer: 'Stoppuhr und Intervall-Timer',
+  timer: 'Stoppuhr und Intervall-Timer', wettkampf: 'Versuche abhaken, Total, Aufwärmen am Meet-Tag',
 };
 
 /** Seitenmenü links: Werkzeuge (Rechner) – zieht sich nach links zu, Tipp daneben schließt. */
@@ -133,7 +133,7 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
     <nav class="sm-leiste" aria-label="Werkzeuge">
       <div class="sm-kopf"><span class="logo"><b>PR</b> Hunter</span><button class="iconbtn" onClick=${schliessen} aria-label="Menü schließen">${I.zu}</button></div>
       <span class="eyebrow sm-titel">Werkzeuge</span>
-      ${[...RECHNER, ['timer', 'Timer']].filter(([k]) => !einfach || !['punkte', 'versuche'].includes(k)).map(([k, t]) => html`<button key=${k} class="sm-punkt" onClick=${() => waehle(k)}>
+      ${[...RECHNER, ['timer', 'Timer']].filter(([k]) => !einfach || !['punkte', 'versuche', 'wettkampf'].includes(k)).map(([k, t]) => html`<button key=${k} class="sm-punkt" onClick=${() => waehle(k)}>
         <span class="sm-icon">${werkzeugIcon(k)}</span><span class="sm-text"><b>${t}</b><small>${WERKZEUG_TEXT[k]}</small></span><span class="sm-pfeil">›</span></button>`)}
       <span class="eyebrow sm-titel">Hilfe</span>
       <button class="sm-punkt" onClick=${() => waehle('begriffe')}><span class="sm-icon">?</span><span class="sm-text"><b>Begriffe erklärt</b><small>RPE, e1RM, Back-off, Deload …</small></span><span class="sm-pfeil">›</span></button>

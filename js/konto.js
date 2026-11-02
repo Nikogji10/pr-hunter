@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -241,6 +241,31 @@ export const feedAusZeilen = (zeilen) => zeilen.map((z) => ({
     // ab Update 16: Sätze zusammengefasst (Top-Satz und Back-offs getrennt)
     folge: Array.isArray(b.folge) ? b.folge.map((g) => ({ kg: g.kg == null ? null : Number(g.kg), wdh: g.wdh ?? null, n: g.n ?? 1 })) : null })),
 }));
+// 185/186 (Update 27): Likes, Kommentare, Pläne an Freunde
+const ohne27 = (r) => r.error && /feed_reaktionen|geteilte_plaene|feed_likes|feed_kommentare|plan_geteilt|does not exist|schema cache/i.test(r.error.message);
+const FEHLT_27 = 'Datenbank-Update 27 fehlt (db/27_likes_plaene.sql).';
+/** Likes und Kommentare je Feed-Eintrag: { id: { likes, ich, kommentare: [{ id, name, text, zeit, ich }] } }; null ohne Update 27. */
+export async function ladeReaktionen(sb, ids) {
+  if (!ids.length) return {};
+  const r = await sb.rpc('feed_reaktionen', { ids });
+  if (ohne27(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return Object.fromEntries((r.data ?? []).map((z) => [z.workout_id, { likes: z.likes ?? 0, ich: !!z.ich_like, kommentare: z.kommentare ?? [] }]));
+}
+const mit27 = (r) => { if (ohne27(r)) throw new Error(FEHLT_27); return pruefe(r); };
+export const liken = async (sb, id, an) => mit27(an ? await sb.from('feed_likes').insert({ workout_id: id }) : await sb.from('feed_likes').delete().eq('workout_id', id));
+export const kommentieren = async (sb, id, text) => mit27(await sb.from('feed_kommentare').insert({ workout_id: id, text: text.trim() }));
+export const kommentarLoeschen = async (sb, kid) => mit27(await sb.from('feed_kommentare').delete().eq('id', kid));
+export const planSenden = async (sb, an, name, definition) => mit27(await sb.from('plan_geteilt').insert({ an, name, definition }));
+/** An mich geschickte Pläne; null ohne Update 27. */
+export async function geteiltePlaene(sb) {
+  const r = await sb.rpc('geteilte_plaene');
+  if (ohne27(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).map((z) => ({ id: z.id, von: z.von_name, name: z.name, definition: z.definition, datum: String(z.created_at ?? '').slice(0, 10) }));
+}
+export const geteiltenEntfernen = async (sb, id) => mit27(await sb.from('plan_geteilt').delete().eq('id', id));
+
 /** Feed der letzten tage Tage; null, solange Update 15 fehlt. */
 export async function ladeFeed(sb, tage = 30) {
   const r = await sb.rpc('feed', { p_tage: tage });
@@ -327,6 +352,15 @@ export const ladeMesswerte = async (sb) => (await pruefe(await sb.from('body_met
 
 export const messwertHochladen = async (sb, m) =>
   pruefe(await sb.from('body_metrics').upsert({ date: m.datum, bodyweight_kg: m.kg }, { onConflict: 'user_id,date' }));
+
+// 182: Körpermaße (Umfänge in cm) in measurements, Körperfett in body_fat_pct – Zeile je Tag wie das Gewicht
+export const ladeMasse = async (sb) => (await pruefe(await sb.from('body_metrics').select('date, measurements, body_fat_pct').or('measurements.not.is.null,body_fat_pct.not.is.null')))
+  .map((m) => ({ datum: m.date, werte: { ...(m.measurements ?? {}), ...(m.body_fat_pct != null ? { kfa: Number(m.body_fat_pct) } : {}) } }));
+export const masseHochladen = async (sb, m) => {
+  const { kfa, ...umfaenge } = m.werte ?? {};
+  return pruefe(await sb.from('body_metrics').upsert({ date: m.datum, ...(Object.keys(umfaenge).length ? { measurements: umfaenge } : {}), ...(kfa != null ? { body_fat_pct: kfa } : {}) },
+    { onConflict: 'user_id,date' }));
+};
 
 /** Messwert für einen Tag setzen (ersetzt einen vorhandenen am selben Tag). */
 export const setzeMesswert = (liste, datum, kg) => [...liste.filter((m) => m.datum !== datum), { datum, kg, offen: true }]

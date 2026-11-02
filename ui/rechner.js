@@ -6,11 +6,12 @@ import { dots, ipfGl, wilksPunkte, versuche } from '../js/punkte.js';
 import { E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { Timer } from './timer.js';
+import { Wettkampftag } from './wettkampf.js';
 
 // Werte im Rechner sind schon in der Anzeigeeinheit; das Zahlenfeld rechnet deshalb nicht um
 const Zahl = ({ id, label, wert, setze }) => html`<${ZahlFeld} id=${id} label=${label} wert=${wert} setze=${setze}/>`;
 export const RECHNER = [['1rm', '1RM'], ['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
-  ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche']];
+  ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche'], ['wettkampf', 'Wettkampftag']];
 const runde1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
 export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck = null }) {
@@ -37,7 +38,7 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
   return html`<div class="screen">
     <header class="topbar unter">${zurueck ? html`<button class="iconbtn" onClick=${zurueck} aria-label="Zurück">${I.zurueck}</button>` : null}
       <div style="flex:1;min-width:0"><div class="eyebrow">Werkzeuge</div><h1 class="h1">${art === 'timer' ? 'Timer' : 'Rechner'}</h1></div></header>
-    <div class="filter" role="group" aria-label="Rechner wählen">${[...RECHNER, ['timer', 'Timer']].filter(([key]) => einst.trainingsart !== 'einfach' || !['punkte', 'versuche'].includes(key)).map(([key, t]) =>
+    <div class="filter" role="group" aria-label="Rechner wählen">${[...RECHNER, ['timer', 'Timer']].filter(([key]) => einst.trainingsart !== 'einfach' || !['punkte', 'versuche', 'wettkampf'].includes(key)).map(([key, t]) =>
       html`<button key=${key} class="chip" aria-pressed=${String(art === key)} onClick=${() => setArt(key)}>${werkzeugIcon(key)}${t}</button>`)}</div>
 
     ${art === 'scheiben' && html`<section class="card pad stack">
@@ -117,6 +118,7 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
       <p class="muted" style="margin:0;font-size:12.5px">Vorbelegt mit deinem aktuellen e1RM-Total. IPF GL für Classic (ohne Equipment).</p>
     </section>`}
 
+    ${art === 'wettkampf' && html`<${Wettkampftag} ziele=${v} koerper=${p.koerper} inc=${inc}/>`}
     ${art === 'versuche' && html`<section class="card pad stack">
       <p class="muted" style="margin:0;font-size:13.5px">Ziel für den 3. Versuch eintragen: 1. Versuch etwa 91 %, 2. Versuch etwa 96 % (Strategie nach Matt Gary). Vorbelegt mit deinem aktuellen e1RM.</p>
       <div class="fields drei">${[['squat', 'Kniebeuge'], ['bench', 'Bankdrücken'], ['dead', 'Kreuzheben']].map(([l, t]) => html`<${Zahl} key=${l} id=${`v-${l}`} label=${t} wert=${v[l]} schritt=${inc} setze=${(x) => setV({ ...v, [l]: x })}/>`)}</div>

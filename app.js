@@ -38,6 +38,8 @@ import { speicherFuer, dauerhaft } from './js/lokal.js';
 import { supabase, codeSenden, codePruefen, sitzung, abmelden, emailAendern } from './js/supabase.js';
 import * as konto from './js/konto.js';
 import { normiere, wochenSerie } from './js/insights.js';
+import { erfolge, neueAbzeichen } from './js/erfolge.js';
+import { autoregulation } from './js/autoregulation.js';
 
 const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
@@ -257,7 +259,7 @@ function MaxListe({ werte, zuUebung }) {
 }
 
 function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
-  startenAm, bearbeiten, loeschen, zuUebung, menueAuf, zuImport = null }) {
+  startenAm, bearbeiten, loeschen, wiederholen = null, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
   const [planOffen, setPlanOffen] = useState(false);
@@ -353,7 +355,7 @@ function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeich
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}
     ${tag ? null : html`${ohnePlan}<button class="btn btn-soft btn-block" onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan schließen' : 'Plan ansehen'}</button>`}
     ${tagOffen ? html`<${TagSheet} d=${tagOffen} plan=${tage.find((x) => x.datum === tagOffen)} erledigt=${erledigt.has(tagOffen)} zu=${() => setTagOffen(null)}
-      startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
+      startenAm=${training ? null : startenAm} bearbeiten=${bearbeiten} loeschen=${loeschen} wiederholen=${wiederholen} zuUebung=${zuUebung}/>` : null}
     ${sheet === 'wechseln' ? html`<${TagWechselSheet} tage=${tage} erledigt=${erledigt} wochen=${wochen} akt=${akt} prog=${prog} einfach=${prog.kategorie === 'eigen'}
       starten=${starten} zu=${() => setSheet(null)}/>` : null}
     ${sheet === 'verschieben' && tag ? html`<${Sheet} zu=${() => setSheet(null)} label="Training verschieben">
@@ -397,6 +399,7 @@ function App() {
   const [heute, setHeute] = useState(heuteLokal);
   const [trainings, setTrainings] = useState([]);
   const [messwerte, setMesswerte] = useState([]);
+  const [masse, setMasse] = useState([]);                        // 182: Körpermaße je Messtag
   const [info, setInfo] = useState({});                  // datei → { id, version, name, vorlage, versionen }
   const [block, setBlock] = useState(null);
   const [einst, setEinstRoh] = useState(STANDARD_EINSTELLUNGEN);
@@ -496,8 +499,9 @@ function App() {
     setNutzer(n);
     const s = await speicherFuer(n.id);
     sp.current = s;
-    const [tr, me, bl, ei, lauf, inf, ue, an, zf, pause] = await Promise.all(['', 'messwerte', 'block', 'einst', 'laufend', 'programme', 'uebungen', 'anpassungen', 'zusammen', 'pause']
+    const [tr, me, bl, ei, lauf, inf, ue, an, zf, pause, ma] = await Promise.all(['', 'messwerte', 'block', 'einst', 'laufend', 'programme', 'uebungen', 'anpassungen', 'zusammen', 'pause', 'masse']
       .map((k) => (k ? s.meta(k) : s.alle())));
+    setMasse(ma ?? []);
     zusammenSetzen(zf);
     setTrainings(tr);
     setMesswerte(me ?? []);
@@ -588,6 +592,10 @@ function App() {
       for (const m of me.filter((x) => x.offen)) { await konto.messwertHochladen(sb, m); m.offen = false; }
       me = konto.mischeMesswerte(me, await konto.ladeMesswerte(sb));
       await s.setzeMeta('messwerte', me); setMesswerte(me);
+      let ma = (await s.meta('masse')) ?? [];
+      for (const m of ma.filter((x) => x.offen)) { await konto.masseHochladen(sb, m); m.offen = false; }
+      ma = konto.mischeMesswerte(ma, await konto.ladeMasse(sb));
+      await s.setzeMeta('masse', ma); setMasse(ma);
       let bl = await s.meta('block');
       if (bl?.offen) { await konto.blockHochladen(sb, bl); bl = bl.ende ? null : { ...bl, offen: false }; }
       else bl = await konto.ladeBlock(sb, inf);
@@ -986,8 +994,14 @@ function App() {
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: tag.datum, titel: `Woche ${nr} · ${datumLang(tag.datum).split(',')[0]}`,
       runId: aktiverBlock?.id ?? null, woche: tag.woche, tagOffset: tag.offset, bereitschaft,
       // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
-      karten: baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
+      karten: baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht, autoFuer: einst.autoregulation ? autoFuer() : null }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
     gehe('training');
+  };
+  // 183: letzte drei Einheiten je Übung (Arbeitssätze) für die Autoregulation
+  const autoFuer = () => {
+    const je = new Map();
+    for (const e of normiere(trainings)) for (const u of e.uebungen) je.set(u.key, [...(je.get(u.key) ?? []), { datum: e.datum, saetze: u.saetze }].slice(-3));
+    return (key, ziel) => (je.has(key) ? autoregulation(je.get(key), ziel) : null);
   };
   const starteFrei = (bereitschaft = null) => {
     tonFreigeben(); wachBleiben();
@@ -1014,7 +1028,12 @@ function App() {
       const E = normiere(trainings.filter((x) => x.id !== t.id)), daten = [...E.map((e) => e.datum), t.datum];
       const vol = (e) => e.uebungen.reduce((s, u) => s + u.saetze.reduce((b, x) => b + (x.kg > 0 ? x.kg : 0) * (x.wdh ?? 0), 0), 0);
       const letzte = E.slice(-5).map(vol).filter((v) => v > 0);
-      const motivation = { vorname: einst.vorname, ziel: einst.wochenziel ?? 3, erstes: !E.length,
+      // 184: Abzeichen vorher/nachher (das neue Training als gespeichertes Format dazu)
+      const neu = { datum: t.datum, start: t.start, ende: ende ? Date.parse(ende) : Date.now(), uebungen: t.karten.filter((k) => k.key).map((k) => ({ key: k.key,
+        saetze: k.gruppen.flatMap((g) => g.saetze.filter((s) => s.erledigt).map((s) => ({ kg: s.kg, wdh: s.wdh, rpe: s.rpe, typ: s.typ, fertig: true }))) })) };
+      const opt = { liftVon, powerlifting: einst.trainingsart !== 'einfach' };
+      const abzeichen = neueAbzeichen(erfolge(E, opt), erfolge([...E, ...normiere([neu])], opt));
+      const motivation = { vorname: einst.vorname, ziel: einst.wochenziel ?? 3, erstes: !E.length, abzeichen,
         woche: new Set(daten.filter((d) => montagVon(d) === montagVon(t.datum))).size, serie: wochenSerie(daten, t.datum).aktuell,
         schnitt: letzte.length ? letzte.reduce((a, b) => a + b, 0) / letzte.length : 0,
         blockFertig: !!(t.planDatum && tage.length && tage.every((x) => x.datum === t.planDatum || erledigt.has(x.datum))) };
@@ -1035,6 +1054,25 @@ function App() {
     const w = trainings.find((x) => x.id === id);
     if (!w) return;
     setTraining({ ...zuTraining(w), titel: `Korrektur · ${datumLang(w.datum)}` });
+    gehe('training');
+  };
+  // 182: Körpermaße eines Tages setzen (ergänzt einen vorhandenen Eintrag), dann abgleichen
+  const masseSetzen = (datum, werte) => {
+    if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Körpermaße speichert das Konto.' }); return; }
+    const alt = masse.find((m) => m.datum === datum);
+    const neu = [...masse.filter((m) => m.datum !== datum), { datum, werte: { ...(alt?.werte ?? {}), ...werte }, offen: true }].sort((a, b) => a.datum.localeCompare(b.datum));
+    setMasse(neu); sp.current.setzeMeta('masse', neu).then(abgleich);
+    setToast({ titel: 'Maße gespeichert', text: datumLang(datum) });
+  };
+  // 188: vergangenes Training mit denselben Übungen und Sätzen (kg × Wdh als Vorgabe, nichts abgehakt) neu starten
+  const wiederholen = (id) => {
+    if (training) { setToast({ titel: 'Training läuft', text: 'Erst das laufende Training beenden.' }); gehe('training'); return; }
+    const w = trainings.find((x) => x.id === id);
+    if (!w) return;
+    tonFreigeben(); wachBleiben(); vibriere(120);
+    const karten = zuTraining(w).karten.map(({ uid: _u, ...k }, i) => ({ ...k, id: i, zu: i > 0, gruppen: k.gruppen.map((g) => ({ ...g,
+      saetze: g.saetze.map(({ id: _i, zeit: _z, ...s }) => ({ ...s, kgPlan: s.kg, erledigt: false, e1rm: null, pr: false, geaendert: false })) })) }));
+    setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: `Wie am ${datumKurz(w.datum)}`, runId: null, bereitschaft: null, karten });
     gehe('training');
   };
   // 166: importierte Trainings (je Datum eines, Quelle „manual“) speichern und abgleichen
@@ -1112,6 +1150,13 @@ function App() {
   const infoSetzen = async (inf) => { setInfo(inf); if (!DEMO) await sp.current.setzeMeta('programme', inf); };
   setzeDienste({
     meldung: setToast,
+    ladeReaktionen: DEMO ? null : (ids) => konto.ladeReaktionen(supabase(), ids),
+    liken: DEMO ? null : (id, an) => konto.liken(supabase(), id, an),
+    kommentieren: DEMO ? null : (id, text) => konto.kommentieren(supabase(), id, text),
+    kommentarLoeschen: DEMO ? null : (kid) => konto.kommentarLoeschen(supabase(), kid),
+    planSenden: DEMO ? null : (an, name, def) => konto.planSenden(supabase(), an, name, def),
+    geteiltePlaene: DEMO ? null : () => konto.geteiltePlaene(supabase()),
+    geteiltenEntfernen: DEMO ? null : (id) => konto.geteiltenEntfernen(supabase(), id),
     melden: DEMO ? null : (id, name) => setFeedback({ art: 'meldung', betrifft: id, name }),
     programmSpeichern: async (datei, def) => {
       const p = info[datei];
@@ -1132,7 +1177,7 @@ function App() {
   });
   // 126 b: vollständige Sicherung (JSON) und Einspielen – ergänzt nur fehlende Trainings und eigene Programme
   const sichern = () => herunterladen(JSON.stringify({ format: 'pr-hunter-sicherung', version: 1, exportiert: new Date().toISOString(),
-    einst: (({ offen: _o, ...e }) => e)(einst), messwerte, block, programme: Object.fromEntries(Object.entries(info).filter(([, p]) => !p.vorlage)),
+    einst: (({ offen: _o, ...e }) => e)(einst), messwerte, masse, block, programme: Object.fromEntries(Object.entries(info).filter(([, p]) => !p.vorlage)),
     trainings: trainings.filter((t) => !t.geloescht) }, null, 1), `pr-hunter-sicherung_${heuteLokal()}.json`, 'application/json');
   const einspielen = async (datei) => {
     if (!datei) return;
@@ -1203,12 +1248,12 @@ function App() {
           neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
       : ansicht === 'verlauf' ? html`<${Verlauf} planTage=${tage} erledigt=${erledigt} startenAm=${startenAm} zuUebung=${(key) => zuUebung(key, 'verlauf')}
-          bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen}/>`
+          bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} wiederholen=${DEMO ? null : wiederholen}/>`
       : ansicht === 'import' ? html`<${TrainingsImport} zurueck=${() => history.back()} vorhandene=${trainings} importieren=${trainingsImportieren}/>`
       : ansicht === 'gewicht' ? html`<${GewichtImport} zurueck=${() => history.back()} vorhandene=${messwerte} importieren=${gewichteImportieren}/>`
       : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
       : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} zuEinstellungen=${() => gehe('einstellungen')}/>`
-      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings}/>`
+      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen}/>`
       : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
           // 180: aktueller Satz des Trainings (offene Übung zuerst); bei Klimmzug/Dips als Zusatzgewicht für den Klimmzug-Rechner
           const ks = training ? [...training.karten.filter((k) => k.key && !k.zu), ...training.karten.filter((k) => k.key && k.zu)] : [];
@@ -1227,7 +1272,7 @@ function App() {
       : html`<${Heute} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
-          startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
+          startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} wiederholen=${DEMO ? null : wiederholen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
           zuImport=${DEMO ? null : () => gehe('import')}/>`;
   };
   seiteRef.current = seiteFuer;

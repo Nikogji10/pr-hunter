@@ -190,6 +190,7 @@ export const I = {
   'w-warm': svg(html`<path d="M12 21.5a6.5 6.5 0 0 0 6.5-6.5c0-3.8-2.6-6-4-9.5-1.6 1.8-2.3 3.5-2.3 5.5-1.1-.5-1.9-1.5-2.3-3C7.8 9.8 5.5 12 5.5 15a6.5 6.5 0 0 0 6.5 6.5Z"/>`),
   'w-punkte': svg(html`<path d="M3 20.5h18M4.5 20.5v-6h5v6M9.5 20.5V8.5h5v12M14.5 20.5v-8h5v8"/>`),
   'w-versuche': svg(html`<path d="M10.5 6h9.5M10.5 12h9.5M10.5 18h9.5"/><path d="M3.5 6l1.4 1.4L7.5 4.8M3.5 12l1.4 1.4 2.6-2.6"/><circle cx="5.3" cy="18" r="1.6"/>`),
+  'w-wettkampf': svg(html`<path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5.5a2.5 2.5 0 0 0 2.6 4M16 6h2.5a2.5 2.5 0 0 1-2.6 4M12 13v3.5M9 20.5h6M10 16.5h4v4h-4z"/>`),
   'w-timer': svg(html`<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.8M10 2.5h4M12 2.5V6M18.3 6.7l1.5-1.5"/>`),
   check: svg(html`<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="3"/>`),
   theme: svg(html`<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>`),

@@ -183,6 +183,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Erstelle unten einen neuen Plan.</p></section>`}
     ${/* Seite einfach halten: ein Knopf „Neuen Plan erstellen“ fragt erst dann nach dem Weg; Meine Pläne und Vorlagen zugeklappt */ ''}
+    <${GeteiltePlaene} speichernNeu=${speichernNeu} toast=${toast}/>
     <h2 class="abschnitt-titel">Neuer Plan</h2>
     ${!neuOffen ? html`<button class="btn btn-chalk btn-block" onClick=${() => setNeuOffen(true)}>+ Neuen Plan erstellen</button>`
       : html`<section class="card pad stack neu-frage"><div class="row between"><span class="viz-t">Wie willst du planen?</span>
@@ -217,6 +218,42 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         <button class="btn btn-gefahr" style="flex:1" onClick=${() => { setBlock(null); setBeenden(false); toast({ titel: 'Block beendet', text: 'Starte eine Vorlage, wenn es weitergeht.' }); }}>Beenden</button></div>
     <//>` : null}
   </div>`;
+}
+
+/** 186: Plan an einen Freund schicken (Update 27) – er übernimmt ihn unter Programme mit einem Tipp. */
+function PlanSenden({ name, prog, zu, toast }) {
+  const [freunde, setFreunde] = useState(null);
+  const [fehler, setFehler] = useState(null);
+  const [laeuft, setLaeuft] = useState(null);
+  useEffect(() => { DIENSTE.ladeFreunde?.().then((f) => setFreunde((f ?? []).filter((x) => x.status === 'angenommen'))).catch((e) => setFehler(e.message)); }, []);
+  const senden = async (f) => {
+    setLaeuft(f.id); setFehler(null);
+    try { await DIENSTE.planSenden(f.id, name, prog); zu(); toast({ titel: 'Plan geschickt', text: `${name} → ${f.name}` }); }
+    catch (e) { setFehler(e.message); setLaeuft(null); }
+  };
+  return html`<${Sheet} zu=${zu} label="An Freund schicken">
+    <h2 class="h2">An Freund schicken</h2>
+    <p class="muted" style="margin:0;font-size:13.5px">${`„${name}“ landet bei deinem Freund unter Programme. Er übernimmt ihn mit einem Tipp und rechnet mit seinen eigenen Maxen.`}</p>
+    ${freunde == null && !fehler ? html`<p class="muted">Lade …</p>` : null}
+    ${freunde?.length === 0 ? html`<p class="muted" style="margin:0">Noch keine Freunde – unter Feed → Freunde hinzufügen.</p>` : null}
+    ${(freunde ?? []).map((f) => html`<button key=${f.id} class="btn btn-soft btn-block" disabled=${!!laeuft} onClick=${() => senden(f)}>${laeuft === f.id ? 'Schickt …' : f.name}</button>`)}
+    ${fehler ? html`<p class="fehler" style="margin:0">${fehler}</p>` : null}
+  <//>`;
+}
+
+/** 186: an mich geschickte Pläne – übernehmen (als eigenes Programm) oder ablehnen. */
+function GeteiltePlaene({ speichernNeu, toast }) {
+  const [liste, setListe] = useState([]);
+  const laden = () => DIENSTE.geteiltePlaene?.().then((l) => setListe(l ?? [])).catch(() => {});
+  useEffect(() => { laden(); }, []);
+  if (!liste.length) return null;
+  const weg = async (g) => { try { await DIENSTE.geteiltenEntfernen(g.id); } catch (e) { toast({ titel: 'Nicht entfernt', text: e.message }); } laden(); };
+  return html`<section class="card pad stack geteilt">
+    <span class="viz-t">Von Freunden geschickt</span>
+    ${liste.map((g) => html`<div key=${g.id} class="geteilt-zeile"><div style="min-width:0;flex:1"><b>${g.name}</b><div class="muted" style="font-size:12.5px">${`von ${g.von} · ${datumKurz(g.datum)}`}</div></div>
+      <button class="btn btn-chalk btn-sm" onClick=${async () => { await speichernNeu({ ...g.definition, name: g.name }, { quelle: 'import' }); await weg(g); }}>Übernehmen</button>
+      <button class="iconbtn klein" aria-label="Ablehnen" onClick=${() => weg(g)}>${I.zu}</button></div>`)}
+  </section>`;
 }
 
 function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, setEinst, toast, zurueck, starten, bearbeiten, kopieBearbeiten, zumGenerator, neueVersion = null, umstellen }) {
@@ -300,6 +337,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
           : html`<button class="btn btn-soft btn-sm" onClick=${() => kopieBearbeiten({ ...prog, name: `${INFO[datei].kurz} (eigene Fassung)` })}>Kopie bearbeiten</button>`}
         <button class="btn btn-soft btn-sm" onClick=${async () => toast((await kopiere(json())) ? { titel: 'Kopiert', text: 'Programm als JSON in der Zwischenablage – z. B. für Claude.' } : { titel: 'Kopieren gesperrt', text: 'Der Browser erlaubt es hier nicht.' })}>Als JSON kopieren</button>
         <button class="btn btn-soft btn-sm" onClick=${teilen}>Teilen</button>
+        ${DIENSTE.planSenden ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('freund')}>An Freund schicken</button>` : null}
         ${prog.rules?.generator ? html`<button class="btn btn-soft btn-sm" onClick=${() => zumGenerator(prog.rules.generator)}>Im Generator ändern</button>` : null}
         ${eigen && !aktiv ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setSheet('archivieren')}>Archivieren</button>` : null}
       </div>
@@ -316,6 +354,7 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setSheet(null)}>Abbrechen</button>
         <button class="btn btn-chalk" style="flex:1" disabled=${!name.trim()} onClick=${async () => { try { await DIENSTE.programmUmbenennen?.(datei, name.trim()); setSheet(null); toast({ titel: 'Umbenannt', text: name.trim() }); } catch (e) { toast({ titel: 'Nicht umbenannt', text: e.message }); } }}>Speichern</button></div>
     <//>` : null}
+    ${sheet === 'freund' ? html`<${PlanSenden} name=${INFO[datei].kurz} prog=${prog} zu=${() => setSheet(null)} toast=${toast}/>` : null}
     ${sheet === 'archivieren' ? html`<${Sheet} zu=${() => setSheet(null)} label="Archivieren">
       <h2 class="h2">Programm archivieren?</h2>
       <p style="margin:0">Es verschwindet aus der Liste. Alte Blöcke und Trainings bleiben unverändert.</p>

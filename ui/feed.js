@@ -222,6 +222,39 @@ const CACHE = 'prh-feed';
 const ausCache = () => { try { return JSON.parse(localStorage.getItem(CACHE)) ?? []; } catch { return []; } };
 const inCache = (f) => { try { localStorage.setItem(CACHE, JSON.stringify(f)); } catch { /* voll oder gesperrt */ } };
 
+/** 185: Like und Kommentare unter einem Feed-Eintrag – sofort angezeigt, dann gespeichert (bei Fehler zurück). */
+function Reaktionen({ e, r, offen, umschalten, neu }) {
+  const [text, setText] = useState('');
+  const [fehler, setFehler] = useState(null);
+  const liken = async () => {
+    const vorher = r, jetzt = { ...r, ich: !r.ich, likes: r.likes + (r.ich ? -1 : 1) };
+    neu(jetzt); setFehler(null);
+    try { await DIENSTE.liken(e.id, jetzt.ich); } catch (x) { neu(vorher); setFehler(x.message); }
+  };
+  const senden = async () => {
+    const t = text.trim(); if (!t) return;
+    const k = { id: `neu-${Date.now()}`, name: 'Du', text: t, zeit: new Date().toISOString(), ich: true };
+    neu({ ...r, kommentare: [...r.kommentare, k] }); setText(''); setFehler(null);
+    try { await DIENSTE.kommentieren(e.id, t); } catch (x) { neu(r); setText(t); setFehler(x.message); }
+  };
+  const loeschen = async (kid) => {
+    neu({ ...r, kommentare: r.kommentare.filter((k) => k.id !== kid) });
+    try { if (!String(kid).startsWith('neu-')) await DIENSTE.kommentarLoeschen(kid); } catch (x) { neu(r); setFehler(x.message); }
+  };
+  return html`<div class="reaktionen">
+    <div class="row" style="gap:6px">
+      <button class=${`chip reakt ${r.ich ? 'an' : ''}`} aria-pressed=${String(r.ich)} onClick=${liken} aria-label="Gefällt mir">${r.ich ? '♥' : '♡'}<b>${r.likes || ''}</b></button>
+      <button class="chip reakt" aria-expanded=${String(offen)} onClick=${umschalten}>💬<b>${r.kommentare.length || ''}</b></button></div>
+    ${offen ? html`<div class="kommentare">
+      ${r.kommentare.map((k) => html`<div key=${k.id} class="kommentar"><b>${k.ich ? 'Du' : k.name}</b><span>${k.text}</span>
+        ${k.ich || e.ich ? html`<button class="iconbtn klein" aria-label="Kommentar löschen" onClick=${() => loeschen(k.id)}>${I.zu}</button>` : null}</div>`)}
+      <div class="row" style="gap:6px"><input class="text" type="text" maxlength="500" placeholder="Kommentar schreiben …" aria-label="Kommentar" value=${text}
+        onInput=${(ev) => setText(ev.currentTarget.value)} onKeyDown=${(ev) => ev.key === 'Enter' && senden()}/>
+        <button class="btn btn-chalk btn-sm" disabled=${!text.trim()} onClick=${senden}>Senden</button></div></div>` : null}
+    ${fehler ? html`<p class="fehler" style="margin:0">${fehler}</p>` : null}
+  </div>`;
+}
+
 export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen }) {
   const [reiter, setReiter] = useState('feed');
   useUnterReiter('feed', [['feed'], ['freunde']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
@@ -229,6 +262,10 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
   const [offen, setOffen] = useState(null);
   const [uebAuf, setUebAuf] = useState(() => new Set());       // aufgeklappte Übungen (Feed-Eintrag-Id + Index)
   const umschaltenUeb = (id) => setUebAuf((alt) => { const n = new Set(alt); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // 185: Likes und Kommentare (Update 27); null = Update fehlt → Leiste ausgeblendet
+  const [reakt, setReakt] = useState({});
+  const [kommOffen, setKommOffen] = useState(null);
+  const reaktionenLaden = (liste) => DIENSTE.ladeReaktionen?.(liste.map((e) => e.id).filter(Boolean)).then((r) => setReakt(r ?? null)).catch(() => {});
   const laden = async () => {
     if (DEMO || !DIENSTE.ladeFeed) return;
     setStand((s) => ({ ...s, laedt: true, fehler: null }));
@@ -236,6 +273,7 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
       const f = await DIENSTE.ladeFeed();
       if (f) inCache(f);
       setStand({ laedt: false, eintraege: f ?? [], fehler: null, fehlt: f == null });
+      if (f) reaktionenLaden(f);
     } catch (e) { setStand((s) => ({ ...s, laedt: false, fehler: navigator.onLine ? e.message : 'Kein Netz – der Feed braucht eine Verbindung.' })); }
   };
   useEffect(() => { laden(); }, []);
@@ -278,6 +316,8 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, zuEinstellungen
         </li>`;
       })}</ul>
       ${e.liste.length > 4 ? html`<button class="link" style="justify-self:start" onClick=${() => setOffen(offen === e.id ? null : e.id)}>${offen === e.id ? 'Weniger' : `Alle ${e.liste.length} Übungen`}</button>` : null}
+      ${reakt && DIENSTE.liken && e.id ? html`<${Reaktionen} e=${e} r=${reakt[e.id] ?? { likes: 0, ich: false, kommentare: [] }} offen=${kommOffen === e.id}
+        umschalten=${() => setKommOffen(kommOffen === e.id ? null : e.id)} neu=${(r) => setReakt((alt) => ({ ...alt, [e.id]: r }))}/>` : null}
     </article>`)}
     </div>`}
   </div>`;

@@ -13,6 +13,7 @@ import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR
 import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
+import { MasseKarte } from './masse.js';
 import { Insights } from './insights.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
@@ -34,7 +35,7 @@ function wochenDaten(x) {
 // Statistik startet mit dem Profil (Erholung + Kraftprofil), dann Kraft, Belastung … (Niko 02.11.)
 const STAT_REITER = [['profil', 'Profil'], ['analyse', 'Analyse'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
-export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [] }) {
+export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null }) {
   // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
@@ -302,7 +303,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       markiere=${imUrlaub}/>`
     : html`
     ${hat(gemessen) ? html`<${KoerperStatistik} x=${x} werte=${ab(gemessen)} von=${x[0]} ziel=${einst.gewichtZiel}/>` : null}
-      ${!hat(gemessen) ? html`<section class="card pad"><p class="muted" style="margin:0">Noch kein Körpergewicht im Zeitraum – auf „Heute“ mit −/+ eintragen.</p></section>` : null}`}
+      ${!hat(gemessen) ? html`<section class="card pad"><p class="muted" style="margin:0">Noch kein Körpergewicht im Zeitraum – auf „Heute“ mit −/+ eintragen.</p></section>` : null}
+      <${MasseKarte} masse=${masse} setzen=${masseSetzen}/>`}
     </div>
   </div>`;
 }

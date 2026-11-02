@@ -4,6 +4,7 @@ import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebun
 import { normiere, serie, wochenEinheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, bewegungsmusterSchnitt, montagVon } from '../js/insights.js';
 import { kanon, plusTage } from '../js/daten.js';
 import { MiniFigur } from './koerper.js';
+import { erfolge } from '../js/erfolge.js';
 
 const GRUPPE_NAME = { brust: 'Brust', ruecken: 'Rücken', schultern: 'Schultern', bizeps: 'Bizeps', trizeps: 'Trizeps', unterarme: 'Unterarme',
   beine: 'Oberschenkel', gesaess: 'Gesäß', waden: 'Waden', bauch: 'Bauch' };
@@ -39,6 +40,7 @@ export function Insights({ trainings, einst, heute }) {
     m = saetzeJeMuskel(E, sonntag, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
+    <${ErfolgeKarte} E=${E} powerlifting=${einst.trainingsart !== 'einfach'}/>
     <${EinheitKarte} a=${a} unter=${letzteWoche}/>
     ${r.anzahl ? html`<${EinsRmKarte} r=${r} unter=${letzteWoche}/>` : null}
     ${m.liste.length ? html`<${MuskelKarte} m=${m} unter=${letzteWoche}/>` : null}
@@ -128,6 +130,22 @@ function EinheitKarte({ a, unter }) {
     <${Regler} titel="Intensität" stufe=${a.intensitaet.stufe} wert=${a.intensitaet.wert} farbe="#FF8A5C" text=${iText}/>
     <${Regler} titel="Erholung" stufe=${a.erholung.stufe} wert=${a.erholung.wert} farbe="#34C77B" text=${eText}/>
     ${a.nutzung ? html`<${Regler} titel="Zeitnutzung" stufe=${a.nutzung.stufe} wert=${a.nutzung.wert} farbe="#3BA7F0" text=${zText}/>` : null}
+  </section>`;
+}
+
+// ---------- Erfolge (184) ----------
+function ErfolgeKarte({ E, powerlifting }) {
+  const en = sprache() === 'en';
+  const er = useMemo(() => erfolge(E, { liftVon, powerlifting }), [E, powerlifting]);
+  return html`<section class="card pad stack ins">
+    <${Kopf} titel="Erfolge" unter=${deEn(`${er.abzeichen.length} von ${er.gesamt} Abzeichen`, `${er.abzeichen.length} of ${er.gesamt} badges`)}/>
+    <div class="erfolge">${er.liste.map((k) => html`<div key=${k.id} class=${`erfolg ${k.stufe != null ? 'hat' : ''}`}>
+      <span class="erfolg-icon" aria-hidden="true">${k.icon}</span>
+      <div class="erfolg-text"><b>${k.stufe != null ? k.text(k.stufe)[en ? 1 : 0] : k.name[en ? 1 : 0]}</b>
+        ${k.naechste ? html`<div class="erfolg-balken"><i style=${`width:${Math.round(k.fortschritt * 100)}%`}></i></div>
+          <small class="muted">${deEn(`Nächstes: ${k.text(k.naechste)[0]}`, `Next: ${k.text(k.naechste)[1]}`)}</small>`
+          : html`<small class="muted">${deEn('Alle Stufen erreicht', 'All levels reached')}</small>`}</div>
+      <span class="erfolg-anzahl">${`${k.anzahl}/${k.stufen.length}`}</span></div>`)}</div>
   </section>`;
 }
 

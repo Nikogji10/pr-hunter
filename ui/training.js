@@ -40,7 +40,7 @@ export function satzE1rm(key, s, koerperKg, mitRpe = false) {
 }
 
 /** Trainingstag aus planeBlock in Karten mit Sätzen; gleiche Übung hintereinander = eine Karte (Top-Satz + Back-offs). */
-export function baueTraining(tag, { leichter = false, koerperKg = 88 } = {}) {
+export function baueTraining(tag, { leichter = false, koerperKg = 88, autoFuer = null } = {}) {
   const karten = [];
   for (const u of tag.uebungen) {
     if (!u.gruppen.length) continue;                  // optionale Übung ohne Vorgabe (Candito-Kniebeugetage)
@@ -55,9 +55,13 @@ export function baueTraining(tag, { leichter = false, koerperKg = 88 } = {}) {
       const kgBis = g.kgBis != null ? (leichter ? mround(g.kgBis * 0.95) : g.kgBis) : null;
       let ausE1rm = false;
       if (kg == null && u.key) { kg = vorschlag(u.key, wdh, g.rpe?.max, koerperKg); ausE1rm = kg != null; }
+      // 183: Autoregulation (Option) für Zubehör – nicht für Kniebeuge/Bank/Kreuzheben und ihre Wettkampf-Varianten
+      const auto = autoFuer && u.key && liftVon(u.key) === 'andere' && !koerperUebung(u.key)
+        ? autoFuer(u.key, { rpe: g.rpe?.max ?? 8, wdhOben: g.wdh?.max ?? g.wdh?.min ?? null, inc: incVon(u.key) }) : null;
+      if (auto) { kg = leichter ? mround(auto.kg * 0.95) : auto.kg; ausE1rm = false; }
       karte.gruppen.push({
         rolle: g.rolle ?? u.rolle, wdhText: wdhText(g.wdh), rpe: g.rpe, notiz: g.notiz, vorschlag: ausE1rm, saetzeText: g.saetze?.text ?? null,
-        gekuerzt: g.gekuerzt, kgBis,
+        gekuerzt: g.gekuerzt, kgBis, ...(auto ? { auto } : {}),
         saetze: Array.from({ length: n }, () => ({ kg, kgPlan: kg, wdh, rpe: null, erledigt: false, e1rm: null, pr: false, geaendert: false })),
       });
     }
@@ -263,6 +267,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
             : !letzte ? html`<div class="ex-werte"><span class="erstes-mal">Erstes Mal: leicht anfangen – ein Gewicht, mit dem alle Wdh sauber gehen</span></div>` : null;
         })()
         : BEST_E1RM[k.key] || heute1rm ? html`<div class="ex-werte">${BEST_E1RM[k.key] ? html`<span class="best-1rm" title=${E1RM_QUELLE[k.key]?.best ? datumKurz(E1RM_QUELLE[k.key].best.datum) : ''}>1RM ${gwE(BEST_E1RM[k.key], 1)}${quelleText(E1RM_QUELLE[k.key]?.best)}</span>` : null}${heute1rm ? html`<span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : null}</div>` : null}
+        ${(() => { const au = k.gruppen.find((g) => g.auto)?.auto; return au ? html`<div class="ex-werte"><span class=${`vorschlag auto ${au.art}`}>${`Auto: ${au.text[sprache() === 'en' ? 1 : 0]}`}</span></div>` : null; })()}
         ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">

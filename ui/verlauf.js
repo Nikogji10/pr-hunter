@@ -8,7 +8,7 @@ import { UebungSuche } from './suche.js';
 
 const iso = (j, m, t) => `${j}-${String(m + 1).padStart(2, '0')}-${String(t).padStart(2, '0')}`;
 
-export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = null, loeschen = null }) {
+export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = null, loeschen = null, wiederholen = null }) {
   const [monat, setMonat] = useState(() => ({ j: Number(HEUTE.slice(0, 4)), m: Number(HEUTE.slice(5, 7)) - 1 }));
   const [tag, setTag] = useState(null);
   const geplant = Object.fromEntries(planTage.map((t) => [t.datum, t]));
@@ -58,14 +58,14 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
       })}${Object.keys(trainingsTage).length ? null : html`<p class="muted" style="margin:0;font-size:14px">Noch keine Trainings gespeichert.</p>`}</div>
     </section>
     ${tag ? html`<${TagSheet} d=${tag} plan=${geplant[tag]} erledigt=${erledigt.has(tag)} zu=${() => setTag(null)} startenAm=${startenAm}
-      bearbeiten=${bearbeiten} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
+      bearbeiten=${bearbeiten} wiederholen=${wiederholen} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
   </div>`;
 }
 
 const liftsVon = (planTag) => !planTag ? [] : [...new Set(planTag.uebungen.map((u) => liftVon(u.key)).filter((l) => l !== 'andere'))];
 
 /** Ein Tag: gespeichertes Training (Bearbeiten, Löschen) oder Plan (Starten, Vorziehen). Auch von „Heute“ aus geöffnet. */
-export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen, zuUebung = null }) {
+export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen, zuUebung = null, wiederholen = null }) {
   const t = trainingAm(d);
   const [frage, setFrage] = useState(null);              // id der Einheit, deren Löschen bestätigt werden soll
   const mehrere = (t?.einheiten.length ?? 0) > 1;
@@ -84,6 +84,7 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
       ${t.notizen?.length ? html`<div class="notizen">${t.notizen.map((n, i) => html`<p key=${i}><b>Notiz</b> ${n}</p>`)}</div>` : null}
       ${bearbeiten && !frage ? t.einheiten.map((id, i) => html`<div key=${id} class="row">
         <button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => { zu(); bearbeiten(id); }}>${mehrere ? `Einheit ${i + 1} bearbeiten` : 'Bearbeiten'}</button>
+        ${wiederholen ? html`<button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => { zu(); wiederholen(id); }}>${I.neu ?? ''} Wiederholen</button>` : null}
         <button class="btn btn-gefahr btn-sm" onClick=${() => setFrage(id)}>Löschen</button></div>`) : null}
       ${frage ? html`<div class="hint" role="alertdialog" aria-label="Löschen bestätigen">${I.warn}<span class="t">${mehrere ? `Einheit ${t.einheiten.indexOf(frage) + 1}` : 'Training'} löschen?</span><span></span>
         <p>Es verschwindet hier und beim nächsten Abgleich auch auf dem Server. Das nächtliche Backup behält den alten Stand.</p><span></span>

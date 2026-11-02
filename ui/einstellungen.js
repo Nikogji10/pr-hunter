@@ -175,6 +175,9 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <label class="schalter" style="border-top:0;padding-top:0" for="e-cut"><span><b>Cut-Modus</b><br/>
         <span class="muted" style="font-size:12.5px">Ein Satz weniger bei Back-offs, Varianten und Zubehör (mind. 1). Top-Sätze, Tests und Wettkampf-Hauptsätze bleiben. Vorlagen mit eigenen Cut-Regeln (Hybrid) nutzen diese.</span></span>
         <input type="checkbox" id="e-cut" checked=${einst.cut} onChange=${(e) => setEinst({ ...einst, cut: e.currentTarget.checked })}/></label>
+      <label class="schalter" for="e-auto"><span><b>Autoregulation für Zubehör</b><br/>
+        <span class="muted" style="font-size:12.5px">Gewicht der Zubehörübungen aus der RPE der letzten Einheit (leichter → mehr, schwerer → weniger); fällt die Leistung dreimal hintereinander, Deload −10 %. Kniebeuge, Bank und Kreuzheben steuert weiter der Plan.</span></span>
+        <input type="checkbox" id="e-auto" checked=${!!einst.autoregulation} onChange=${(e) => setEinst({ ...einst, autoregulation: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-bereit"><span><b>Readiness-Check</b><br/>
         <span class="muted" style="font-size:12.5px">Vor jedem Training vier kurze Fragen (Schlaf, Stress, Muskelkater, Energie). Bei schlechten Werten schlägt die App 5 % weniger Gewicht vor.</span></span>
         <input type="checkbox" id="e-bereit" checked=${einst.bereitschaft !== false} onChange=${(e) => setEinst({ ...einst, bereitschaft: e.currentTarget.checked })}/></label>
