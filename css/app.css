@@ -1761,3 +1761,9 @@ body { overflow-x: hidden; }
 .ins-grundlinie { stroke: var(--seq-2); stroke-width: 1; }
 .ins-heute { fill: #8E86FF !important; font-weight: 800; }
 .ins-wert.klein { font-size: 9.5px; }
+/* 1RM: Nähe zum Bestwert */
+.rm-nah { display: flex; flex-direction: column; gap: 6px; }
+.rm-nah > .row b { font-size: 14px; }
+.rm-nah small { font-size: 12px; }
+.rm-nah-balken { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.rm-nah-balken i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #7B61FF, #AEB4FF); }

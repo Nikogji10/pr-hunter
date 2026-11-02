@@ -212,7 +212,12 @@ export function einsRmAnalyse(einheiten, heute, tage = 7) {
   }
   const aenderungen = [...neu].filter(([k]) => vorher.has(k)).map(([key, n]) => ({ key, neu: n, vorher: vorher.get(key), diff: n.wert - vorher.get(key).wert, prozent: (n.wert / vorher.get(key).wert - 1) * 100 }));
   const proTag = Array.from({ length: tage }, (_, i) => { const d = plusTage(ab, i); return { datum: d, diff: aenderungen.filter((a) => a.neu.datum === d).reduce((s, a) => s + a.diff, 0) }; });
-  return { summe: aenderungen.reduce((s, a) => s + a.diff, 0), proTag, top: aenderungen.filter((a) => a.diff > 0).sort((a, b) => b.prozent - a.prozent).slice(0, 3), anzahl: aenderungen.length };
+  // Im Block (submaximal) ist die Summe der Veränderungen fast immer negativ und sagt nichts – angezeigt werden neue Bestwerte
+  // und wie nah das beste e1RM der Woche am Allzeit-Bestwert lag (naehe: 0–1)
+  const naehe = aenderungen.map((a) => ({ key: a.key, woche: a.neu, best: Math.max(a.neu.wert, a.vorher.wert), anteil: Math.min(1, a.neu.wert / a.vorher.wert) }))
+    .sort((a, b) => b.anteil - a.anteil);
+  return { summe: aenderungen.reduce((s, a) => s + a.diff, 0), proTag, top: aenderungen.filter((a) => a.diff > 0).sort((a, b) => b.prozent - a.prozent).slice(0, 3),
+    anzahl: aenderungen.length, rekorde: aenderungen.filter((a) => a.diff > 0).length, naehe };
 }
 
 // #################################################################

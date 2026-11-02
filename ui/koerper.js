@@ -48,7 +48,7 @@ const LINIEN_VORNE = ['M88 162 L100 162 M88 184 L100 184 M88 206 L100 206', 'M84
 const LINIEN_HINTEN = ['M100 70 L100 224', 'M90 300 C88 310 86 320 84 326', 'M76 356 C76 370 76 380 78 388'];
 
 /** farbe(gruppe) → Füllfarbe; ohne Angabe nach Stärkestufe aus werte. */
-function Figur({ teile, linien, werte, aktiv, waehle, titel, farbe = null }) {
+function Figur({ teile, linien, werte, aktiv, waehle, titel, farbe = null, ausschnitt = '0 0 200 430' }) {
   const seite = (spiegeln) => Object.entries(teile).flatMap(([m, pfade]) => pfade.map((d, i) => {
     const gruppe = GRUPPE[m] ?? m, w = werte[gruppe];
     const ist = aktiv === gruppe;
@@ -63,7 +63,7 @@ function Figur({ teile, linien, werte, aktiv, waehle, titel, farbe = null }) {
     ${seite(spiegeln)}
     ${linien.map((d, i) => html`<path key=${i} d=${d} class="muskel-linie"/>`)}
   </g>`;
-  return html`<figure class="figur"><svg viewBox="0 0 200 430" role="img" aria-label=${`Muskeln ${titel}`}>
+  return html`<figure class="figur"><svg viewBox=${ausschnitt} role="img" aria-label=${`Muskeln ${titel}`}>
     <defs>
       <radialGradient id="muskelLicht" cx="35%" cy="25%" r="85%">
         <stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".45" stop-color="#fff" stop-opacity=".06"/>
@@ -161,8 +161,11 @@ export function ZielMuskeln({ zonen, neben = [] }) {
 }
 
 /** 181: kleine Figur (vorne oder hinten, je nachdem wo die Zonen liegen) für die Insights. */
-export function MiniFigur({ zonen }) {
-  const vorne = zonen.some((z) => SUCH_VORNE[z]);
+/** Kleine Figur mit hervorgehobenen Zonen. seite 'vorne' | 'hinten' (sonst die Seite, auf der mehr Zonen liegen),
+ *  ausschnitt = viewBox des Körperteils (sonst ganze Figur) – vorher wurde z. B. Rücken von vorne (nur Trapez) und
+ *  Oberschenkel abgeschnitten gezeigt. */
+export function MiniFigur({ zonen, seite = null, ausschnitt = '0 0 200 430' }) {
+  const vorne = seite ? seite === 'vorne' : zonen.filter((z) => SUCH_VORNE[z]).length >= zonen.filter((z) => SUCH_HINTEN[z]).length;
   const farbe = (g) => (zonen.includes(g) ? 'var(--acc)' : 'var(--muskel-leer)');
-  return html`<div class="mini-figur"><${Figur} teile=${vorne ? SUCH_VORNE : SUCH_HINTEN} linien=${vorne ? LINIEN_VORNE : LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="" farbe=${farbe}/></div>`;
+  return html`<div class="mini-figur"><${Figur} teile=${vorne ? SUCH_VORNE : SUCH_HINTEN} linien=${vorne ? LINIEN_VORNE : LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="" farbe=${farbe} ausschnitt=${ausschnitt}/></div>`;
 }

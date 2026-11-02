@@ -1,6 +1,6 @@
 // PR Hunter · Insights wie in Jefit (Wunsch 181): Analyse-Karten in der Statistik. Rechnungen in js/insights.js.
 import { html, useMemo, useState } from '../vendor/htm-preact.js';
-import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebung, pauseVon, I } from './basis.js';
+import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebung, pauseVon, I, liftVon } from './basis.js';
 import { normiere, serie, wochenEinheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, bewegungsmusterSchnitt, montagVon } from '../js/insights.js';
 import { kanon, plusTage } from '../js/daten.js';
 import { MiniFigur } from './koerper.js';
@@ -9,6 +9,10 @@ const GRUPPE_NAME = { brust: 'Brust', ruecken: 'Rücken', schultern: 'Schultern'
   beine: 'Oberschenkel', gesaess: 'Gesäß', waden: 'Waden', bauch: 'Bauch' };
 const GRUPPE_ZONEN = { brust: ['brust'], ruecken: ['latissimus', 'oberer_ruecken', 'ruecken_unten', 'trapez'], schultern: ['schulter_vorn', 'schulter_seite', 'schulter_hinten'],
   bizeps: ['bizeps'], trizeps: ['trizeps'], unterarme: ['unterarme'], beine: ['quadrizeps', 'beinbeuger', 'adduktoren'], gesaess: ['gesaess'], waden: ['waden'], bauch: ['bauch'] };
+// Mini-Figur je Gruppe: Seite und Ausschnitt (viewBox im 200×430-Körper, Seitenverhältnis wie das 56×64-Feld)
+const GRUPPE_BILD = { brust: ['vorne', '30 60 140 160'], schultern: ['vorne', '30 60 140 160'], bizeps: ['vorne', '30 80 140 160'], unterarme: ['vorne', '30 110 140 160'],
+  bauch: ['vorne', '30 100 140 160'], beine: ['vorne', '30 210 140 160'], ruecken: ['hinten', '22 62 156 178'], trizeps: ['hinten', '30 80 140 160'],
+  gesaess: ['hinten', '30 170 140 160'], waden: ['hinten', '30 270 140 160'] };
 const STUFE = { niedrig: 'Niedrig', mittel: 'Mittel', hoch: 'Hoch' };
 const MONAT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const MONAT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -116,7 +120,7 @@ function EinheitKarte({ a, unter }) {
     <b class="ins-titel">Im Fokus</b>
     ${a.muskeln.slice(0, 6).map((x) => html`<div key=${x.gruppe} class="ins-muskel">
       <b class="ins-gross">${GRUPPE_NAME[x.gruppe]}</b>
-      <div class="ins-muskel-zeile"><${MiniFigur} zonen=${GRUPPE_ZONEN[x.gruppe] ?? []}/>
+      <div class="ins-muskel-zeile"><${MiniFigur} zonen=${GRUPPE_ZONEN[x.gruppe] ?? []} seite=${GRUPPE_BILD[x.gruppe]?.[0]} ausschnitt=${GRUPPE_BILD[x.gruppe]?.[1]}/>
         <div class="ins-vier"><div><span>Volumen</span><b>${kurz(x.volumen)}</b></div><div><span>Sätze</span><b>${x.saetze}</b></div>
           <div><span>Min</span><b>${Math.round(x.minuten)}</b></div><div><span>Rekorde</span><b>${x.rekorde}</b></div></div></div></div>`)}
     <b class="ins-titel">Ø Trainings-Score</b>
@@ -129,18 +133,18 @@ function EinheitKarte({ a, unter }) {
 
 // ---------- c) 1RM ----------
 function EinsRmKarte({ r, unter }) {
-  const max = Math.max(1, ...r.proTag.map((x) => Math.abs(x.diff)));
   const medaille = ['🥇', '🥈', '🥉'];
+  // Hauptübungen (Kniebeuge, Bank, Kreuzheben) zuerst; ohne sie die drei, die am nächsten am Bestwert waren
+  const haupt = r.naehe.filter((x) => liftVon(x.key) !== 'andere');
+  const nah = (haupt.length ? haupt : r.naehe).slice(0, 4);
   return html`<section class="card pad stack ins">
     <${Kopf} titel="1RM" unter=${unter}/>
-    <p class="ins-text">${r.summe >= 0 ? 'Fortschritt! Deine 1RM-Veränderung der letzten Woche:' : 'Fortschritt ist nicht immer gerade. Deine 1RM-Veränderung der letzten Woche:'}</p>
-    <b class=${`ins-gross-zahl ${r.summe >= 0 ? 'auf' : 'ab'}`}>${`${r.summe > 0 ? '+' : r.summe < 0 ? '−' : ''}${gw(Math.abs(r.summe), 1)}`}<small>${einheit()}</small></b>
-    <svg class="ins-1rm" viewBox="0 0 280 100" role="img" aria-label="1RM-Veränderung je Tag">
-      <line x1="0" x2="280" y1="50" y2="50" class="ins-null"/>
-      ${r.proTag.map((x, i) => { const h = (Math.abs(x.diff) / max) * 42, bx = 10 + i * 38;
-        return html`<g key=${x.datum}>${x.diff ? html`<rect x=${bx} y=${x.diff > 0 ? 50 - h : 50} width="18" height=${Math.max(2, h)} rx="4" class=${x.diff > 0 ? 'ins-bar' : 'ins-bar ab'}/>` : html`<circle cx=${bx + 9} cy="50" r="2.5" class="ins-punkt-leer"/>`}
-          <text x=${bx + 9} y="98" text-anchor="middle" class="ins-achse">${datumKurz(x.datum).slice(0, 5)}</text></g>`; })}
-    </svg>
+    ${r.rekorde ? html`<p class="ins-text">${deEn(`${r.rekorde} ${r.rekorde === 1 ? 'neuer Bestwert' : 'neue Bestwerte'} (e1RM)`, `${r.rekorde} new ${r.rekorde === 1 ? 'best' : 'bests'} (e1RM)`)}</p>`
+      : html`<p class="ins-text">Kein neuer Bestwert.</p><p class="ins-text klein">Im Block mit submaximalen Sätzen normal – Bestwerte kommen beim Testen oder in der Peaking-Phase.</p>`}
+    ${nah.length ? html`<b class="ins-titel">So nah am Bestwert</b>
+      ${nah.map((x) => html`<div key=${x.key} class="rm-nah">
+        <div class="row between"><b>${nameVon(x.key)}</b><span><b>${fmt(x.anteil * 100, 0)} %</b> <small class="muted">${`${gw(x.woche.wert, 1)} / ${gw(x.best, 1)} ${einheit()}`}</small></span></div>
+        <div class="rm-nah-balken"><i style=${`width:${Math.round(x.anteil * 100)}%`}></i></div></div>`)}` : null}
     ${r.top.length ? html`<b class="ins-titel">Top 3 mit dem größten Zuwachs</b>
       ${r.top.map((t, i) => html`<div key=${t.key} class="ins-gewinn"><span class="ins-medaille">${medaille[i]}</span><${UebungsBild} schluessel=${t.key} groesse=${40}/>
         <div><div class="row between"><b class="ins-link">${nameVon(t.key)}</b><span class="ins-prozent">▲ ${fmt(t.prozent, 0)} %</span></div>

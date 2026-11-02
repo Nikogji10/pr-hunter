@@ -1538,6 +1538,9 @@ export const EN = new Map([
   ["Ø Trainings-Score", "Ø workout score"],
   ["Trainings der Woche", "Workouts of the week"],
   ["Vor jedem Training waren alle Muskeln ausreichend erholt.", "Before every workout all muscles were sufficiently recovered."],
+  ["Kein neuer Bestwert.", "No new best."],
+  ["Im Block mit submaximalen Sätzen normal – Bestwerte kommen beim Testen oder in der Peaking-Phase.", "Normal in a block with submaximal sets – bests come when testing or peaking."],
+  ["So nah am Bestwert", "How close to your best"],
 ]);
 
 export const EN_MUSTER = [
