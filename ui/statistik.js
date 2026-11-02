@@ -30,16 +30,17 @@ function wochenDaten(x) {
 }
 
 // Reiter: Kraft (Total, Lifts, Verläufe, Ziele, Rekorde) · Profil (Muskeln, Vergleich) · Belastung · Training · Körper
-const STAT_REITER = [['kraft', 'Kraft'], ['profil', 'Profil'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
+// Statistik startet mit dem Profil (Erholung + Kraftprofil), dann Kraft, Belastung … (Niko 02.11.)
+const STAT_REITER = [['profil', 'Profil'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
 export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [] }) {
   // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
-  // einfache Ansicht: ohne Kraft (SBD/DOTS); „Profil“ heißt dort „Erholung“ und zeigt nur die Muskel-Erholung (ohne Kraftprofil)
+  // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
-  const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft').map(([k, n]) => (k === 'profil' ? [k, 'Erholung'] : [k, n])) : STAT_REITER;
-  const [reiterRoh, setReiter] = useState(() => speicher.lies('prh-stat-reiter') ?? 'kraft');
+  const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
+  const [reiterRoh, setReiter] = useState(() => speicher.lies('prh-stat-reiter2') ?? 'profil');
   const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
-  const waehleReiter = (k) => { setReiter(k); speicher.schreib('prh-stat-reiter', k); scrollTo({ top: 0 }); };
+  const waehleReiter = (k) => { setReiter(k); speicher.schreib('prh-stat-reiter2', k); scrollTo({ top: 0 }); };
   const [bereich, setBereich] = useState(52);
   const [rekLift, setRekLift] = useState('squat');
   // Zeitraum in Wochen: 0 = alles, -1 = seit Beginn des aktiven Blocks
@@ -234,9 +235,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <${ErholungKarte} zustand=${erholt}/>
       <p class="muted" style="margin:0;font-size:12.5px">Eigene Näherung wie „Muscle Recovery“ in Jefit: Hauptmuskel zählt voll, mitarbeitende Muskeln halb, Sätze ab RPE 8 mehr als leichte. Gefühl geht vor.</p>
     </section>
-    ${einfach ? null : html`    <section class="card pad stack">
+    <section class="card pad stack">
       <div class="row between" style="align-items:flex-start"><div><span class="viz-t">Kraftprofil</span>
-        <div class="viz-u"><span>Nach der veröffentlichten Methode von Symmetric Strength</span> · ${`${gwE(kg)} Körpergewicht`}</div></div>
+        <div class="viz-u"><span>${Object.keys(profil.lifts).length ? 'Nach der veröffentlichten Methode von Symmetric Strength' : 'Aus deinen Übungen abgeleitet (Näherung)'}</span> · ${`${gwE(kg)} Körpergewicht`}</div></div>
         <div class="dots-wert"><div class="eyebrow">Gesamt</div><b>${fmt(profil.gesamt, 1)}</b></div></div>
       <${KoerperKarte} muskeln=${profil.muskeln} quellen=${profil.quellen}/>
       <div class="stack" style="gap:10px">${LIFTS.map((l) => profil.lifts[l] && html`<div key=${l} class="stufe-zeile">
@@ -256,7 +257,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
-    <${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
+    ${einfach ? null : html`<${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
     : reiter === 'belastung' ? html`
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>

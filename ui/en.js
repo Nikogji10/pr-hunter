@@ -1440,6 +1440,7 @@ export const EN = new Map([
   ["Dieser Anzeigename ist schon vergeben – bitte einen anderen wählen.", "This display name is already taken – please choose another one."],
   ["Feedback ist erst nach Update 24 möglich.", "Feedback requires update 24."],
   ["Termine in den Kalender (.ics)", "Dates to your calendar (.ics)"],
+  ["Aus deinen Übungen abgeleitet (Näherung)", "Derived from your exercises (approximation)"],
 ]);
 
 export const EN_MUSTER = [

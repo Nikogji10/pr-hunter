@@ -82,6 +82,20 @@ export const ANTEIL_GESCHAETZT = {
   'palms-up_barbell_wrist_curl_over_a_bench': [0.27, { unterarme: 1 }],
   side_lateral_raise: [0.11, { schulter_seite: 1 }], face_pull: [0.3, { schulter_seite: 1, trapez: 0.5 }],
   butterfly: [0.54, { brust: 1 }],
+  // Maschinen, Kabel und Kurzhanteln für Bodybuilding ohne Langhantel-Lifts (02.11.): grobe Richtwerte, gekennzeichnet als Näherung
+  leg_press: [1.5, { quadrizeps: 1, gesaess: 0.5 }], smith_machine_squat: [0.85, { quadrizeps: 1, gesaess: 0.5 }],
+  goblet_squat: [0.3, { quadrizeps: 1, gesaess: 0.5 }], dumbbell_deadlift: [0.35, { gesaess: 1, beinbeuger: 0.5, ruecken_unten: 0.5 }],
+  machine_bench_press: [0.6, { brust: 1, trizeps: 0.5 }], leverage_chest_press: [0.6, { brust: 1, trizeps: 0.5 }],
+  leverage_incline_chest_press: [0.5, { brust: 1, schulter_vorn: 0.5 }], machine_shoulder_military_press: [0.4, { schulter_vorn: 1, trizeps: 0.5 }],
+  cable_crossover: [0.25, { brust: 1 }], dumbbell_flyes: [0.12, { brust: 1 }],
+  underhand_cable_pulldowns: [0.5, { latissimus: 1, bizeps: 0.5 }], lat_pulldown_machine_plate_loaded: [0.5, { latissimus: 1 }],
+  low_row_machine: [0.55, { latissimus: 1, trapez: 0.5 }], 'reverse_grip_bent-over_rows': [0.52, { latissimus: 1, bizeps: 0.5 }],
+  reverse_machine_flyes: [0.25, { schulter_seite: 1, trapez: 0.5 }],
+  machine_triceps_extension: [0.3, { trizeps: 1 }], lying_dumbbell_tricep_extension: [0.1, { trizeps: 1 }], seated_triceps_press: [0.25, { trizeps: 1 }],
+  incline_dumbbell_curl: [0.1, { bizeps: 1 }],
+  thigh_abductor: [1.0, { gesaess: 1 }], thigh_adductor: [0.9, { adduktoren: 1 }],
+  cable_glute_kickback: [0.25, { gesaess: 1 }], glute_kickback_machine: [0.5, { gesaess: 1 }],
+  cable_crunch: [0.45, { bauch: 1 }], ab_crunch_machine: [0.45, { bauch: 1 }], hyperextensions_back_extensions: [0.4, { ruecken_unten: 1, gesaess: 0.5 }],
 };
 // Die Wettkampf-Lifts nach der veröffentlichten Methode, mit Gewicht je Muskel; Bauch aus Kniebeuge und Kreuzheben abgeleitet
 const SBD_MUSKELN = {
@@ -122,7 +136,10 @@ export function kraftprofil(e1rms, koerperKg, weitere = []) {
   const uebungen = [];
   // Geschätzte Übungen höchstens BAND Punkte über/unter dem Schnitt der Wettkampf-Lifts: Maschinen und Kabelzüge zeigen je
   // Gerät sehr verschiedene Gewichte, und Isolationen mit vielen Wdh ergeben ein zu hohes e1RM (Seitheben → „Weltklasse“)
-  const schnitt = werte.length ? werte.reduce((a, x) => a + x, 0) / werte.length : null;
+  // Ohne Wettkampf-Lifts (Bodybuilding): Mitte = Median der geschätzten Übungen, damit einzelne Maschinen nicht ausreißen
+  const roheWerte = weitere.map((u) => uebungsWert(u.key, u.e1rm, koerperKg)).filter((w) => w != null).sort((a, b) => a - b);
+  const median = roheWerte.length ? roheWerte[Math.floor((roheWerte.length - 1) / 2)] : null;
+  const schnitt = werte.length ? werte.reduce((a, x) => a + x, 0) / werte.length : median;
   for (const u of weitere) {
     const roh = uebungsWert(u.key, u.e1rm, koerperKg);
     if (roh == null) continue;
@@ -136,7 +153,9 @@ export function kraftprofil(e1rms, koerperKg, weitere = []) {
     muskeln[m] = summe > 0 ? runde(b.reduce((a, x) => a + x.wert * x.gewicht, 0) / summe, 1) : null;
     quellen[m] = b.map(({ name, wert, geschaetzt }) => ({ name, wert: runde(wert, 1), geschaetzt }));
   }
-  return { lifts, gesamt: werte.length ? runde(werte.reduce((a, b) => a + b, 0) / werte.length, 1) : null, muskeln, quellen,
+  // Gesamt: Mittel der drei Lifts; ohne Lifts das Mittel der Muskeln mit Daten (Bodybuilding)
+  const mitDaten = Object.values(muskeln).filter((w) => w != null);
+  return { lifts, gesamt: werte.length ? runde(werte.reduce((a, b) => a + b, 0) / werte.length, 1) : mitDaten.length ? runde(mitDaten.reduce((a, b) => a + b, 0) / mitDaten.length, 1) : null, muskeln, quellen,
     uebungen: uebungen.sort((a, b) => b.wert - a.wert) };
 }
 
