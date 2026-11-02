@@ -1,6 +1,6 @@
 // PR Hunter · Bodybuilding-Generator (Wunsch 98): Schritt für Schritt – 1. Split, 2. je Muskelgruppe zwei Übungen,
 // 3. Tage pro Woche und Blocklänge, 4. Vorschau der ersten Woche → als eigenes Programm speichern. Logik in js/bodybuilding.js.
-import { html, useState, useEffect, I, nameVon, UebungsBild, uebung, useSitzung } from './basis.js';
+import { html, useState, useEffect, I, nameVon, UebungsBild, uebung, useSitzung, deEn } from './basis.js';
 import { UebungSuche, ISO_FAMILIEN } from './suche.js';
 
 // 145: Muskelgruppe → Zone im Körperdiagramm der großen Übungsauswahl
@@ -17,7 +17,8 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
   const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
   const [deload, setDeload] = useSitzung('prh-gen-bb-deload', true);
   const [auswahlRoh, setAuswahl] = useSitzung('prh-gen-bb-auswahl', standardAuswahl);
-  const auswahl = { ...standardAuswahl(), ...Object.fromEntries(Object.entries(auswahlRoh ?? {}).filter(([, l]) => Array.isArray(l) && l.length)) };
+  // fehlende Gruppen (ältere Sitzung) mit dem Vorschlag ergänzen; leere Liste bleibt leer (alle abgewählt, gleich neue wählen)
+  const auswahl = { ...standardAuswahl(), ...Object.fromEntries(Object.entries(auswahlRoh ?? {}).filter(([, l]) => Array.isArray(l))) };
   const [name, setName] = useSitzung('prh-gen-bb-name', '');
   const [schritt, weiter, zurueckSchritt] = useSchritte('prh-gen-bb-schritt');
   const gruppen = [...new Set(SPLITS[split].tage.flatMap(([, g]) => g))];
@@ -25,12 +26,12 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
   const arten = Object.fromEntries(Object.values(auswahl).flat().map((k) => [k, artAus(k)]));
   const p = generiereBodybuilding({ name: name.trim(), split, tage, wochen, deload, auswahl, arten });
   const woche1 = p.weeks[0];
-  // Kachel antippen: gewählte abwählen (mindestens eine bleibt), sonst hinzufügen – bei schon zwei ersetzt sie die zweite
+  // Kachel antippen: gewählte abwählen (auch alle), sonst hinzufügen – mehr als zwei wechseln sich in den Trainings ab
   const tippe = (g, key) => {
     const a = auswahl[g];
-    const neu = a.includes(key) ? (a.length > 1 ? a.filter((k) => k !== key) : a) : a.length < 2 ? [...a, key] : [a[0], key];
-    setAuswahl({ ...auswahl, [g]: neu });
+    setAuswahl({ ...auswahl, [g]: a.includes(key) ? a.filter((k) => k !== key) : [...a, key] });
   };
+  const ohneUebung = gruppen.filter((g) => !auswahl[g].length);
   const satzSumme = (g) => woche1.days.flatMap((d) => d.items).filter((x) => auswahl[g].includes(x.exercise_key)).reduce((a, x) => a + Number(x.groups[0].sets), 0);
   return html`<div class="screen">
     <header class="topbar unter"><button class="iconbtn" onClick=${zurueck} aria-label="Zurück">${I.zurueck}</button>
@@ -41,9 +42,9 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
       <div class="split-wahl">${Object.entries(SPLITS).map(([k, s]) => html`<button key=${k} class="split-karte" aria-pressed=${String(split === k)}
         onClick=${() => { setSplit(k); setTage(TAGE_STANDARD[k]); }}><b>${s.name}</b><span>${s.text}</span></button>`)}</div></section>` : null}
 
-    ${schritt === 2 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">2</span><span class="viz-t">Zwei Übungen je Muskelgruppe</span></div>
-      <span class="muted" style="font-size:12.5px">Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Tauschen, was dir besser liegt oder was dein Gym hat.</span>
-      ${gruppen.map((g) => html`<div key=${g} class="muskel-wahl"><div class="row between"><b>${MUSKELGRUPPEN[g].name}</b><span class="muted" style="font-size:12px">${`${auswahl[g].length}/2 gewählt`}</span></div>
+    ${schritt === 2 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">2</span><span class="viz-t">Übungen je Muskelgruppe</span></div>
+      <span class="muted" style="font-size:12.5px">Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Antippen wählt ab oder hinzu. Bei mehr als zwei kommen je Training zwei dran, die übrigen wechseln sich über Trainings und Wochen ab.</span>
+      ${gruppen.map((g) => html`<div key=${g} class="muskel-wahl"><div class="row between"><b>${MUSKELGRUPPEN[g].name}</b><span class=${auswahl[g].length ? 'muted' : 'warn-text'} style="font-size:12px">${auswahl[g].length > 2 ? deEn(`${auswahl[g].length} gewählt · im Wechsel`, `${auswahl[g].length} selected · rotating`) : `${auswahl[g].length}/2 gewählt`}</span></div>
         <div class="ueb-kacheln">${[...new Set([...auswahl[g], ...MUSKELGRUPPEN[g].uebungen.map(([k]) => k)])].map((k) => {   // gewählte immer vorne
           const nr = auswahl[g].indexOf(k);
           return html`<button key=${k} class=${`ueb-kachel ${nr >= 0 ? 'gewaehlt' : ''}`} aria-pressed=${String(nr >= 0)} onClick=${() => tippe(g, k)}>
@@ -74,7 +75,8 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
       <span class="muted" style="font-size:12.5px">Danach lässt es sich ansehen, bearbeiten und als Block starten.</span>
     </section>` : null}
     <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${zurueckSchritt}>Zurück</button>` : null}
-      ${schritt < 4 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${weiter}>Weiter</button>` : null}</div>
+      ${schritt < 4 ? html`<button class="btn btn-chalk" style="flex:1.6" disabled=${schritt === 2 && ohneUebung.length > 0} onClick=${weiter}>Weiter</button>` : null}</div>
+    ${schritt === 2 && ohneUebung.length ? html`<span class="muted" style="font-size:12.5px;text-align:center">${deEn(`Noch ohne Übung: ${ohneUebung.map((g) => MUSKELGRUPPEN[g].name).join(', ')}`, `Still without exercise: ${ohneUebung.map((g) => MUSKELGRUPPEN[g].name).join(', ')}`)}</span>` : null}
   </div>`;
 }
 

@@ -1547,6 +1547,8 @@ export const EN = new Map([
   ["Hier ist etwas schiefgegangen", "Something went wrong here"],
   ["Eingaben zurücksetzen und neu laden", "Reset input and reload"],
   ["Einsteiger · fertige Vorlage", "Beginner · ready-made template"],
+  ["Übungen je Muskelgruppe", "Exercises per muscle group"],
+  ["Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Antippen wählt ab oder hinzu. Bei mehr als zwei kommen je Training zwei dran, die übrigen wechseln sich über Trainings und Wochen ab.", "Suggested is a proven combination – compound plus isolation. Tap to deselect or add. With more than two, each workout gets two and the others rotate across workouts and weeks."],
 ]);
 
 export const EN_MUSTER = [

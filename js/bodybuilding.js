@@ -52,7 +52,9 @@ export function haeufigkeit(split, tageProWoche) {
 }
 
 /**
- * Programm erzeugen. e: { name, split, tage (2–6), wochen (4–6 Aufbau), deload (bool), auswahl: { gruppe: [key, key] } }
+ * Programm erzeugen. e: { name, split, tage (2–6), wochen (4–6 Aufbau), deload (bool), auswahl: { gruppe: [key, …] } }
+ * Je Training kommen höchstens zwei Übungen einer Gruppe dran; mehr gewählte wechseln sich ab – fortlaufend über alle
+ * Trainings und Wochen (A B · C A · B C …), damit jede regelmäßig drankommt.
  * Rückgabe: Programm im App-Format (ohne Maxe; Gewichte kommen beim Training aus RPE + e1RM).
  */
 export function generiereBodybuilding(e) {
@@ -61,16 +63,17 @@ export function generiereBodybuilding(e) {
   const h = haeufigkeit(e.split ?? 'ppl', tage);
   const offsets = WOCHENTAGE[tage];
   const weeks = [];
+  const vorkommen = {};                                          // wie oft eine Gruppe bisher dran war (über alle Wochen)
   for (let w = 0; w < wochen + (e.deload !== false ? 1 : 0); w++) {
     const deload = w === wochen, spitze = w === wochen - 1;
-    const vorkommen = {};                                        // wie oft eine Gruppe in dieser Woche schon dran war
     const days = offsets.map((off, i) => {
       const [label, gruppen] = split.tage[i % split.tage.length];
-      // Höchstens MAX_JE_TAG Übungen: sonst je Gruppe nur eine, die zwei gewählten wechseln sich ab (A/B)
+      // Höchstens MAX_JE_TAG Übungen: sonst je Gruppe nur eine pro Training
       const voll = gruppen.reduce((a, g) => a + Math.min(2, (auswahl[g] ?? []).filter(Boolean).length), 0);
       const items = gruppen.flatMap((g) => {
-        const alle = (auswahl[g] ?? []).filter(Boolean).slice(0, 2), n = vorkommen[g] = (vorkommen[g] ?? -1) + 1;
-        const keys = voll > MAX_JE_TAG && alle.length > 1 ? [alle[n % alle.length]] : alle;
+        const alle = (auswahl[g] ?? []).filter(Boolean), n = vorkommen[g] = (vorkommen[g] ?? -1) + 1;
+        const plaetze = Math.min(voll > MAX_JE_TAG ? 1 : 2, alle.length);
+        const keys = [...new Set(Array.from({ length: plaetze }, (_, j) => alle[(n * plaetze + j) % alle.length]))];
         // Sätze je Übung: Wochenziel der Gruppe ÷ (Häufigkeit × Übungen); +1 ab der zweiten Hälfte (Volumen steigt)
         const ziel = MUSKELGRUPPEN[g].saetze + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
         const jeUebung = Math.max(2, Math.min(5, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
