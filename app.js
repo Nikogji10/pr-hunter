@@ -1057,7 +1057,7 @@ function App() {
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}/>` : null}
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
-      ${I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</nav></div>
+      ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
         <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}

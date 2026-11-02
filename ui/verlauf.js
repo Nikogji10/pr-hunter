@@ -33,7 +33,7 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
     <header class="topbar"><div><div class="eyebrow">Trainings und Plan</div><h1 class="h1">Verlauf</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}</header>
     <section class="card pad stack">
       <span class="viz-t">Übung ansehen</span>
-      <${UebungSuche} id="verlauf-suche" platzhalter="Übung suchen, z. B. Kniebeuge" onWahl=${zuUebung}/>
+      <${UebungSuche} id="verlauf-suche" platzhalter="Übung suchen, z. B. Kniebeuge" onWahl=${zuUebung} wiederOeffnen=${true}/>
     </section>
     <section class="card pad stack">
       <div class="monat">

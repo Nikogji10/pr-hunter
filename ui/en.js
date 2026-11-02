@@ -1663,4 +1663,5 @@ export const EN_MUSTER = [
   ["{0} melden", "Report {0}"],
   ["{0} oder in der App über „Feedback senden“.", "{0} or in the app via “Send feedback”."],
   ["{0} Trainings und {1} Programme ergänzt.", "{0} workouts and {1} programs added."],
+  ["{0} anzeigen", "Show {0}"],
 ];

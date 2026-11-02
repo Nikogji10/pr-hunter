@@ -85,20 +85,21 @@ function TrefferZeile({ e, waehle }) {
  * Generatoren, Verlauf, Import). Suche, Muskel über das Körperdiagramm (feine Zonen), Grund-/Isolationsübung,
  * Gerät, Sortierung nach Beliebtheit oder Name; familien = Vorauswahl eines Platzes („Alle Übungen“ hebt sie auf).
  */
-export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zoneStart = null, onWahl, zu }) {
-  const [q, setQ] = useState('');
-  const [alle, setAlle] = useState(!familien);
-  const [zone, setZone] = useState(zoneStart);
-  const [koerper, setKoerper] = useState(!!zoneStart);
-  const [equipment, setEquipment] = useState('');
-  const [art, setArt] = useState('');
+export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zoneStart = null, onWahl, zu, merken = null, zustand = null }) {
+  const [q, setQ] = useState(zustand?.q ?? '');
+  const [alle, setAlle] = useState(zustand?.alle ?? !familien);
+  const [zone, setZone] = useState(zustand?.zone ?? zoneStart);
+  const [koerper, setKoerper] = useState(false);              // Diagramm nur auf Wunsch offen, nach der Wahl wieder zu
+  const [equipment, setEquipment] = useState(zustand?.equipment ?? '');
+  const [art, setArt] = useState(zustand?.art ?? '');
   const [sortierung, setSortierung] = useState(() => speicher.lies('prh-sortierung') ?? 'beliebt');
   const [max, setMax] = useState(80);
   const fam = alle ? null : familien;
   const treffer = suche(katalogListe(), { q, familien: fam, zone, equipment, art, sortierung, max: max + 1 });
   const mehr = treffer.length > max;
   // erst schließen, dann melden: so räumt das Fenster seinen Verlaufseintrag auf, bevor ein Elternfenster zugeht
-  const waehle = (k) => { zu(); setTimeout(() => onWahl(k), 60); };
+  // merken: Auswahl führt auf eine andere Seite (Verlauf → Übung) – Zustand merken, damit „Zurück“ wieder hierher führt
+  const waehle = (k) => { merken?.({ q, alle, zone, equipment, art }); zu(); setTimeout(() => onWahl(k), 60); };
   const neu = DIENSTE.neueUebungStarten ? () => { const text = q.trim(); zu(); setTimeout(() => DIENSTE.neueUebungStarten(text, onWahl), 60); } : null;
   const sortieren = (s) => { setSortierung(s); speicher.schreib('prh-sortierung', s); };
   const filterZahl = [zone, equipment, art].filter(Boolean).length;
@@ -115,7 +116,8 @@ export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zone
         ${familien ? html`<button class="chip" aria-pressed=${String(alle)} onClick=${() => setAlle(!alle)}>Alle Übungen</button>` : null}
         ${['', ...EQUIPMENT_FILTER].map((k) => html`<button key=${k || 'alle'} class="chip" aria-pressed=${String(equipment === k)} onClick=${() => setEquipment(k)}>${k ? EQUIPMENT[k] : 'Alle Geräte'}</button>`)}
       </div>
-      ${koerper ? html`<div class="aw-koerper"><${MuskelWahl} zone=${zone} waehle=${(z) => { setZone(z); setMax(80); }}/></div>` : null}
+      ${koerper ? html`<div class="aw-koerper"><${MuskelWahl} zone=${zone} waehle=${(z) => { setZone(z); setMax(80); if (z) setTimeout(() => setKoerper(false), 250); }}/>
+        <button class="btn btn-chalk btn-block" onClick=${() => setKoerper(false)}>${zone ? `${ZONE_NAME[zone]} anzeigen` : 'Fertig'}</button></div>` : null}
       <span class="muted aw-zahl">${`${Math.min(treffer.length, max)}${mehr ? '+' : ''} Treffer`}${fam ? ' · passend zum Platz' : ''}${filterZahl ? ` · ${filterZahl} Filter` : ''}</span>
     </div>
     <div class="aw-liste">
@@ -128,10 +130,14 @@ export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zone
 }
 
 /** Auslöser in Karten und Fenstern: sieht aus wie ein Suchfeld, öffnet die große Auswahl. */
-export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung suchen …', autofokus = false, titel = null, zone = null }) {
-  const [offen, setOffen] = useState(autofokus);
+export function UebungSuche({ id, familien = null, onWahl, platzhalter = 'Übung suchen …', autofokus = false, titel = null, zone = null, wiederOeffnen = false }) {
+  // wiederOeffnen: nach „Zurück“ von der gewählten Übung die Auswahl mit Suche und Filtern wieder zeigen
+  const schluessel = `prh-auswahl-${id}`;
+  const [gemerkt] = useState(() => { if (!wiederOeffnen) return null; try { const z = JSON.parse(sessionStorage.getItem(schluessel)); sessionStorage.removeItem(schluessel); return z; } catch { return null; } });
+  const [offen, setOffen] = useState(autofokus || !!gemerkt);
+  const merken = wiederOeffnen ? (z) => { try { sessionStorage.setItem(schluessel, JSON.stringify(z)); } catch { /* egal */ } } : null;
   return html`<div class="stack" style="gap:6px">
     <button id=${id} class="suche suche-knopf" onClick=${() => setOffen(true)}>${I.suche}<span>${platzhalter}</span></button>
-    ${offen ? html`<${Portal}><${UebungsAuswahl} titel=${titel ?? (familien ? 'Übung für diesen Platz' : 'Übung wählen')} familien=${familien} zoneStart=${zone} onWahl=${onWahl} zu=${() => setOffen(false)}/><//>` : null}
+    ${offen ? html`<${Portal}><${UebungsAuswahl} titel=${titel ?? (familien ? 'Übung für diesen Platz' : 'Übung wählen')} familien=${familien} zoneStart=${zone} onWahl=${onWahl} zu=${() => setOffen(false)} merken=${merken} zustand=${gemerkt}/><//>` : null}
   </div>`;
 }

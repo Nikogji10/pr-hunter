@@ -907,8 +907,8 @@ body::before { z-index: 15; }   /* Streifen unter der Statusleiste nur noch dort
 .wp-zeile:nth-child(2) { border-top: 0; }
 .wp-zeile b { color: var(--acc-text); }
 
-/* Sechs Tabs (mit Feed): etwas enger */
-.tabs nav { grid-template-columns: repeat(6, 1fr); }
+/* Fünf Tabs (Rechner seit 172 im Seitenmenü) */
+.tabs nav { grid-template-columns: repeat(5, 1fr); }
 .tabs button { font-size: 9.5px; letter-spacing: .02em; }
 /* Feed */
 .feed-kopf { display: flex; align-items: center; gap: 12px; }
@@ -1550,3 +1550,16 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
   padding: 10px 16px; border-radius: 999px; background: var(--acc); color: var(--on-acc, #fff); font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .neue-version svg { width: 18px; height: 18px; }
 .datenschutz p { font-size: 14px; line-height: 1.5; }
+
+/* Untere Leiste: fünf gleich breite Reiter, größere Symbole (02.11.) */
+.tabs nav { grid-template-columns: repeat(5, minmax(0, 1fr)); justify-items: stretch; }
+.tabs button { width: 100%; height: 68px; }
+.tabs button svg { width: 26px; height: 26px; padding: 4px 16px; stroke-width: 1.9; }
+.tabs button span { font-size: 11.5px; }
+.dock { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+/* Übungsauswahl: Kopf nur noch mit Suche und Filtern fest oben, das Diagramm scrollt mit (keine Überlappung mit der Liste) */
+.aw-kopf { position: static; }
+.aw-kopf > .suche { position: sticky; top: 0; z-index: 2; }
+.aw-koerper { max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 10px; }
+.aw-koerper .figuren { max-width: 300px; margin: 0 auto; }
