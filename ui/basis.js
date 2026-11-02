@@ -168,17 +168,12 @@ const svg = (pfad) => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 export const I = {
   papierkorb: svg(html`<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>`),
   heute: svg(html`<path d="M2.5 12h3M18.5 12h3M5.5 7.5v9M18.5 7.5v9M8.5 5v14M15.5 5v14M8.5 12h7"/>`),
-  // untere Leiste: zweifarbige Symbole mit gleicher optischer Größe
-  tabHeute: svg(html`<rect x="4.5" y="6.5" width="3" height="11" rx="1.2" fill="currentColor" fill-opacity=".2"/><rect x="16.5" y="6.5" width="3" height="11" rx="1.2" fill="currentColor" fill-opacity=".2"/>
-    <rect x="7.5" y="8.5" width="2" height="7" rx="1"/><rect x="14.5" y="8.5" width="2" height="7" rx="1"/><path d="M9.5 12h5M2 12h2.5M19.5 12H22"/>`),
-  tabProgramme: svg(html`<rect x="4.5" y="4" width="15" height="17" rx="2.5" fill="currentColor" fill-opacity=".2"/><path d="M9 4V3h6v1"/>
-    <path d="M8 10l1.3 1.3L11.6 9M8 15.5l1.3 1.3 2.3-2.3M13.5 10.2H16M13.5 15.7H16"/>`),
-  tabVerlauf: svg(html`<rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="currentColor" fill-opacity=".2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>
-    <path d="M8.5 14.8l2 2 4.5-4.5"/>`),
-  tabFeed: svg(html`<circle cx="9" cy="8.5" r="3.2" fill="currentColor" fill-opacity=".2"/><path d="M3 19.5c.6-3.3 3-5.2 6-5.2s5.4 1.9 6 5.2"/>
-    <circle cx="17" cy="9" r="2.5"/><path d="M16.8 14.3c2.3.3 3.8 1.9 4.2 4.7"/>`),
-  tabStatistik: svg(html`<rect x="4" y="13" width="3.5" height="7" rx="1" fill="currentColor" fill-opacity=".2"/><rect x="10.25" y="9" width="3.5" height="11" rx="1" fill="currentColor" fill-opacity=".2"/>
-    <rect x="16.5" y="5" width="3.5" height="15" rx="1" fill="currentColor" fill-opacity=".2"/><path d="M3 21h18"/>`),
+  // untere Leiste: klare Linien-Symbole ohne Flächen, gleiche optische Größe
+  tabHeute: svg(html`<path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/>`),
+  tabProgramme: svg(html`<rect x="5" y="4.5" width="14" height="16" rx="2.5"/><path d="M9 4.5h6M8.5 10h7M8.5 13.5h7M8.5 17h4"/>`),
+  tabVerlauf: svg(html`<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/>`),
+  tabFeed: svg(html`<circle cx="9" cy="9" r="3"/><path d="M3.5 19c.7-3 2.9-4.6 5.5-4.6s4.8 1.6 5.5 4.6"/><path d="M15.5 6.4a3 3 0 0 1 0 5.2M17.5 14.6c1.6.6 2.6 2 3 4.4"/>`),
+  tabStatistik: svg(html`<path d="M4 19.5h16"/><path d="M5 15.5l4.5-4.5 3.5 3 6-6.5"/><path d="M15 7.5h4v4"/>`),
   programme: svg(html`<rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/>`),
   verlauf: svg(html`<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>`),
   statistik: svg(html`<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`),
