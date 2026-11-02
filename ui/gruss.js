@@ -1,11 +1,12 @@
 // PR Hunter · Begrüßung auf „Heute“ (Wunsch 173): „Guten Morgen, Niko“ und ein Spruch des Tages.
-// Sprüche als Paare [Deutsch, Englisch]; je Tag fest gewählt (gleich beim erneuten Öffnen), über eine feste
-// Mischung der Liste, damit sich nichts wiederholt, bevor alle einmal dran waren.
+// Sprüche als Paare [Deutsch, Englisch] (optional dritter Eintrag 'pl' = nur Powerlifting, 'bb' = nur Bodybuilding/einfach);
+// je Tag fest gewählt (gleich beim erneuten Öffnen), über eine feste Mischung der Liste, damit sich nichts wiederholt,
+// bevor alle einmal dran waren.
 import { html, sprache } from './basis.js';
 
 const ALLGEMEIN = [
   ['Stärker als gestern.', 'Stronger than yesterday.'],
-  ['Die Stange lügt nicht.', 'The bar never lies.'],
+  ['Die Stange lügt nicht.', 'The bar never lies.', 'pl'],
   ['Kleine Schritte, große Zahlen.', 'Small steps, big numbers.'],
   ['Jede Wiederholung zählt.', 'Every rep counts.'],
   ['Disziplin schlägt Motivation.', 'Discipline beats motivation.'],
@@ -18,7 +19,7 @@ const ALLGEMEIN = [
   ['Konstanz baut Kraft.', 'Consistency builds strength.'],
   ['Du gegen dich von letzter Woche.', 'You versus last week\'s you.'],
   ['Kein Satz ist umsonst.', 'No set is wasted.'],
-  ['Ruhig atmen, fest stehen, drücken.', 'Breathe, brace, press.'],
+  ['Ruhig atmen, fest stehen, drücken.', 'Breathe, brace, press.', 'pl'],
   ['Fortschritt ist leise – bis er laut wird.', 'Progress is quiet – until it isn\'t.'],
   ['Der schwerste Teil: die Tür zum Gym.', 'The hardest lift: the gym door.'],
   ['Ein guter Satz nach dem anderen.', 'One good set at a time.'],
@@ -28,7 +29,7 @@ const ALLGEMEIN = [
   ['Nur der Kalender zeigt Pausen.', 'Only the calendar takes days off.'],
   ['Gewicht bewegen, Kopf frei machen.', 'Move weight, clear your head.'],
   ['Zieh durch.', 'Finish strong.'],
-  ['Mehr Kreide, weniger Zweifel.', 'More chalk, less doubt.'],
+  ['Mehr Kreide, weniger Zweifel.', 'More chalk, less doubt.', 'pl'],
   ['Der Plan steht. Du auch.', 'The plan is set. So are you.'],
   ['Heute ist ein guter Tag für einen Rekord.', 'Today is a good day for a PR.'],
   ['Kraft ist eine Fähigkeit – üb sie.', 'Strength is a skill – practise it.'],
@@ -45,7 +46,7 @@ const ALLGEMEIN = [
   ['Stark sein ist eine Entscheidung.', 'Being strong is a decision.'],
   ['Bleib hungrig.', 'Stay hungry.'],
   ['Auch Profis machen Aufwärmsätze.', 'Even pros do warm-ups.'],
-  ['Spannung halten. Immer.', 'Stay tight. Always.'],
+  ['Spannung halten. Immer.', 'Stay tight. Always.', 'pl'],
   ['Kopf hoch, Brust raus, los.', 'Chin up, chest out, go.'],
   ['Die beste Investition: du selbst.', 'Best investment: yourself.'],
   ['Kraft kommt nicht über Nacht – aber jede Nacht ein bisschen.', 'Strength doesn\'t come overnight – but a bit every night.'],
@@ -69,7 +70,7 @@ const ALLGEMEIN = [
   ['Gute Form ist das stärkste Gewicht.', 'Good form is the strongest weight.'],
   ['Nicht zählen, abhaken.', 'Don\'t count it, tick it off.'],
   ['Zwischen den Sätzen wächst die Entschlossenheit.', 'Resolve grows between sets.'],
-  ['Dein Rücken dankt dir fürs Bracen.', 'Your back thanks you for bracing.'],
+  ['Dein Rücken dankt dir fürs Bracen.', 'Your back thanks you for bracing.', 'pl'],
   ['Wer regelmäßig kommt, kommt weit.', 'Show up often, go far.'],
   ['Kein schlechtes Training – nur Daten.', 'No bad sessions – only data.'],
   ['Feier die kleinen Rekorde.', 'Celebrate the small PRs.'],
@@ -88,11 +89,11 @@ const ALLGEMEIN = [
   ['Druck macht Diamanten.', 'Pressure makes diamonds.'],
   ['Es zählt, was du wiederholst.', 'What you repeat is what counts.'],
   ['Heute baust du am stärksten Ich.', 'Today you build your strongest self.'],
-  ['Wer die Stange greift, hat schon halb gewonnen.', 'Grip the bar and you\'re halfway there.'],
+  ['Wer die Stange greift, hat schon halb gewonnen.', 'Grip the bar and you\'re halfway there.', 'pl'],
   ['Ehrgeiz plus Plan gleich Rekord.', 'Ambition plus a plan equals a PR.'],
   ['Mach es schwer. Mach es sauber. Mach es wieder.', 'Make it heavy. Make it clean. Do it again.'],
   ['Gute Laune ist das beste Pre-Workout.', 'Good mood is the best pre-workout.'],
-  ['Kreide drauf und los.', 'Chalk up and go.'],
+  ['Kreide drauf und los.', 'Chalk up and go.', 'pl'],
   ['Eisen formt Charakter.', 'Iron shapes character.'],
   ['Konzentration ist dein Spotter.', 'Focus is your spotter.'],
   ['Ein Rekord beginnt im Kopf.', 'A PR starts in your head.'],
@@ -104,12 +105,76 @@ const ALLGEMEIN = [
   ['Es gibt kein „zu spät“ für stark.', 'It\'s never too late to get strong.'],
   ['Der beste Spotter bist du selbst.', 'Your best spotter is you.'],
   ['Nichts motiviert wie ein neuer Rekord.', 'Nothing motivates like a fresh PR.'],
+  // 02.11.: mehr allgemeine
+  ['Fortschritt ist kein Zufall.', 'Progress is no accident.'],
+  ['Gute Gewohnheiten sind schwer zu brechen.', 'Good habits are hard to break.'],
+  ['Komm fürs Training, bleib fürs Gefühl danach.', 'Come for the workout, stay for the feeling after.'],
+  ['Ein Training ist besser als keins.', 'One workout beats none.'],
+  ['Motivation bringt dich hin, Gewohnheit bringt dich weiter.', 'Motivation gets you started, habit keeps you going.'],
+  ['Sei stolz auf jedes Training.', 'Be proud of every session.'],
+  ['Du musst nicht perfekt sein, nur dabei.', 'You don\'t have to be perfect, just present.'],
+  ['Heute ein bisschen besser als gestern.', 'A little better than yesterday.'],
+];
+
+// Powerlifting: Kniebeuge, Bank, Kreuzheben, Total, Blockplanung
+const POWER = [
+  ['Brace wie ein Fass, drück wie ein Kolben.', 'Brace like a barrel, drive like a piston.'],
+  ['Tiefe ist kein Vorschlag.', 'Depth is not a suggestion.'],
+  ['Kommando abwarten, dann drücken.', 'Wait for the command, then press.'],
+  ['Drei Lifts. Ein Total.', 'Three lifts. One total.'],
+  ['Das Total wächst Kilo für Kilo.', 'The total grows kilo by kilo.'],
+  ['Weißes Licht beginnt im Training.', 'White lights start in training.'],
+  ['Rücken fest, Hüfte durch, abschließen.', 'Back tight, hips through, lock it out.'],
+  ['Der Opener muss immer gehen.', 'Your opener should always fly.'],
+  ['Peaking ist Geduld mit Plan.', 'Peaking is patience with a plan.'],
+  ['Kniebeuge: Brust hoch, Knie raus.', 'Squat: chest up, knees out.'],
+  ['Bankdrücken beginnt mit den Füßen.', 'The bench press starts with your feet.'],
+  ['Kreuzheben: Schieb den Boden weg.', 'Deadlift: push the floor away.'],
+  ['Submaximal heute, Rekord am Testtag.', 'Submax today, PR on test day.'],
+  ['RPE 8 heißt: zwei im Tank.', 'RPE 8 means two in the tank.'],
+  ['Der Block macht dich stark, nicht der eine Tag.', 'The block makes you strong, not one day.'],
+  ['Auch ein Grind ist eine Wiederholung.', 'A grind is still a rep.'],
+  ['Stark heißt: auch die letzte Wiederholung sauber.', 'Strong means the last rep is clean too.'],
+  ['Gürtel zu, Kopf an.', 'Belt on, mind on.'],
+  ['Jede Woche ein Stück näher am Total.', 'Every week a bit closer to your total.'],
+  ['Wettkampf ist Training mit Publikum.', 'A meet is just training with a crowd.'],
+  ['Kaffee, Kreide, Kniebeuge.', 'Coffee, chalk, squats.'],
+  ['Schwere Singles, ruhiger Kopf.', 'Heavy singles, calm mind.'],
+];
+
+// Bodybuilding / einfaches Training: Muskelaufbau, Volumen, Technik, Ernährung, Erholung
+const BODY = [
+  ['Spür den Muskel, nicht nur das Gewicht.', 'Feel the muscle, not just the weight.'],
+  ['Kontrolle in der Negativen baut Muskeln.', 'Control on the negative builds muscle.'],
+  ['Volumen ist dein Freund.', 'Volume is your friend.'],
+  ['Der Pump ist nur der Anfang.', 'The pump is just the beginning.'],
+  ['Muskeln wachsen beim Essen und Schlafen.', 'Muscles grow while you eat and sleep.'],
+  ['Saubere Wiederholungen bauen Form.', 'Clean reps build shape.'],
+  ['Volle Bewegung, volles Wachstum.', 'Full range, full growth.'],
+  ['Die letzte Wiederholung macht den Unterschied.', 'The last rep makes the difference.'],
+  ['Symmetrie kommt von Geduld.', 'Symmetry comes from patience.'],
+  ['Protein heute, Muskeln morgen.', 'Protein today, muscle tomorrow.'],
+  ['Langsam runter, den Muskel arbeiten lassen.', 'Lower it slowly, let the muscle work.'],
+  ['Ein Muskel, ein Fokus.', 'One muscle, one focus.'],
+  ['Bis RPE 9 – da beginnt das Wachstum.', 'To RPE 9 – that\'s where growth starts.'],
+  ['Der Spiegel lügt manchmal, das Log nie.', 'The mirror sometimes lies, the log never does.'],
+  ['Form vor Ego.', 'Form over ego.'],
+  ['Jeder Muskel zweimal pro Woche – so wächst er.', 'Hit each muscle twice a week – that\'s how it grows.'],
+  ['Ein Kilo oder eine Wiederholung mehr – das ist Fortschritt.', 'One more kilo or one more rep – that\'s progress.'],
+  ['Disziplin in der Küche zeigt sich im Gym.', 'Discipline in the kitchen shows in the gym.'],
+  ['Besser aussehen, stärker fühlen.', 'Look better, feel stronger.'],
+  ['Deload ist kein Rückschritt.', 'A deload is not a step back.'],
+  ['Wachstum braucht Zeit – und Wiederholungen.', 'Growth takes time – and reps.'],
+  ['Brennen heißt: Es wirkt.', 'The burn means it\'s working.'],
+  ['Kurze Pausen, langer Fokus.', 'Short rests, long focus.'],
+  ['Dein Körper ist dein Projekt.', 'Your body is your project.'],
+  ['Kaffee, Aufwärmen, Pump.', 'Coffee, warm-up, pump.'],
 ];
 
 const MORGEN = [
   ['Früher Vogel, schwere Stange.', 'Early bird, heavy bar.'],
   ['Der Tag ist frisch – du auch.', 'Fresh day, fresh you.'],
-  ['Kaffee, Kreide, Kniebeuge.', 'Coffee, chalk, squats.'],
+  ['Kaffee, dann Eisen.', 'Coffee, then iron.'],
   ['Wer früh hebt, hat den Tag gewonnen.', 'Lift early, win the day.'],
   ['Guter Start: erst Frühstück, dann Eisen.', 'Good start: breakfast, then iron.'],
 ];
@@ -144,18 +209,21 @@ function gemischt(liste) {
   const l = liste.map((x, i) => [x, (i * 2654435761) % 4294967296]);
   return l.sort((a, b) => a[1] - b[1]).map(([x]) => x);
 }
-const POOL = gemischt(ALLGEMEIN);
+// Pool je Trainingsart: allgemeine plus die der eigenen Richtung (Powerlifting-Sprüche nicht bei Bodybuilding und umgekehrt)
+const passt = (art) => (x) => !x[2] || x[2] === (art === 'einfach' ? 'bb' : 'pl');
+const POOLS = { pl: gemischt([...ALLGEMEIN, ...POWER].filter(passt('powerlifting'))), bb: gemischt([...ALLGEMEIN, ...BODY].filter(passt('einfach'))) };
 const tagNr = (datum) => Math.floor(Date.parse(`${datum}T00:00:00Z`) / 86400000);
 
 /** Spruch des Tages: an Trainings-/Ruhetagen, Montag, Freitag, Wochenende oder Tageszeit gelegentlich passend, sonst aus der großen Liste. */
-export function spruchDes(datum, { trainingstag = null, stunde = new Date().getHours() } = {}) {
+export function spruchDes(datum, { trainingstag = null, stunde = new Date().getHours(), art = 'powerlifting' } = {}) {
+  const POOL = POOLS[art === 'einfach' ? 'bb' : 'pl'];
   const n = tagNr(datum);
   const wt = new Date(`${datum}T00:00:00Z`).getUTCDay();
   const passend = [
     ...(trainingstag === true ? TRAININGSTAG : trainingstag === false ? RUHETAG : []),
     ...(wt === 1 ? MONTAG : wt === 5 ? FREITAG : wt === 0 || wt === 6 ? WOCHENENDE : []),
     ...(stunde < 11 ? MORGEN : stunde >= 18 ? ABEND : []),
-  ];
+  ].filter(passt(art));
   // jeder dritte Tag ein passender Spruch, sonst der nächste aus der großen Liste
   const paar = passend.length && n % 3 === 0 ? passend[Math.floor(n / 3) % passend.length] : POOL[n % POOL.length];
   return sprache() === 'en' ? paar[1] : paar[0];
@@ -169,11 +237,11 @@ export function begruessung(stunde = new Date().getHours()) {
   return en ? 'Hello' : 'Hallo';
 }
 
-export function Gruss({ vorname, datum, trainingstag }) {
+export function Gruss({ vorname, datum, trainingstag, art = 'powerlifting' }) {
   return html`<div class="gruss">
     <h1 class="gruss-t">${vorname ? `${begruessung()}, ${vorname}` : begruessung()}</h1>
-    <p class="gruss-s">${spruchDes(datum, { trainingstag })}</p>
+    <p class="gruss-s">${spruchDes(datum, { trainingstag, art })}</p>
   </div>`;
 }
 
-export const ANZAHL_SPRUECHE = ALLGEMEIN.length + MORGEN.length + ABEND.length + TRAININGSTAG.length + RUHETAG.length + MONTAG.length + FREITAG.length + WOCHENENDE.length;
+export const ANZAHL_SPRUECHE = ALLGEMEIN.length + POWER.length + BODY.length + MORGEN.length + ABEND.length + TRAININGSTAG.length + RUHETAG.length + MONTAG.length + FREITAG.length + WOCHENENDE.length;

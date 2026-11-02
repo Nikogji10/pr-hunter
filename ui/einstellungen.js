@@ -3,6 +3,7 @@
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
 import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep } from './basis.js';
 import { DEMO } from './stand.js';
+import { APP_VERSION } from './hilfe.js';
 import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnisHolen } from './mitteilung.js';
 import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung, neigungStaerke, setzeNeigungStaerke } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
@@ -318,5 +319,6 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           onClick=${async () => { setLoeschen({ ...loeschen, laeuft: true, fehler: null }); try { await kontoLoeschen(); } catch (e) { setLoeschen({ ...loeschen, laeuft: false, fehler: e.message }); } }}>
           ${loeschen.laeuft ? 'Wird vorgemerkt …' : 'In 14 Tagen löschen'}</button></div>
     <//>` : null}
+    <p class="muted app-version">${`Version ${APP_VERSION()}`}</p>
   </div>`;
 }

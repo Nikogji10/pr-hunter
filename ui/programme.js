@@ -51,12 +51,14 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
 
 const ERSTELLER = ['bodybuilding', 'eigen', 'generator'];
 const VORLAGE_STAND = 'prh-gen-vorlage-stand';             // Stand einer unveränderten Vorlage (dann nicht warnen)
-const genStand = () => JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !k.endsWith('-schritt'))
+const navi = (k) => k.endsWith('-schritt') || k.endsWith('-seite');      // Position im Ersteller, keine Eingabe
+const genStand = () => JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !navi(k))
   .sort().map((k) => [k, sessionStorage.getItem(k)]));
 const eingabenDa = () => {
   try {
     if (sessionStorage.getItem(VORLAGE_STAND) === genStand()) return false;
-    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1'));
+    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k)
+      && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1') && !(k.endsWith('-seite') && sessionStorage.getItem(k) === '0'));
   } catch { return false; }
 };
 
@@ -123,7 +125,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const verwerfen = () => {
     const st = history.state ?? {};
     sitzungLeeren('prh-gen-');
-    history.go(-(st.unter ? (st.schritt ?? 1) + 1 : 1));
+    history.go(-(st.unter ? (st.schritt ?? 1) + (st.seite ?? 0) + 1 : 1));
   };
   const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label="Eingaben verwerfen">
       <h2 class="h2">Eingaben verwerfen?</h2>

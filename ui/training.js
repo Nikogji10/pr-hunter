@@ -2,7 +2,8 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild, useEffect, leseZahl, deEn, datumKurz } from './basis.js';
+import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache } from './basis.js';
+import { technikVon } from '../js/technik.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -224,6 +225,7 @@ const nurOffen = (ki) => (ks) => { ks.forEach((x, j) => { if (x.key) x.zu = j !=
 
 function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
   const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere(k.zu ? nurOffen(ki) : (ks) => { ks[ki].zu = true; }));
+  const [technik, setTechnik] = useState(false);             // 163 e: Technik (Bilder + Hinweise) in der Karte aufgeklappt
   if (k.zu) {
     const alle = k.gruppen.flatMap((g) => g.saetze), fertig = alle.filter((s) => s.erledigt).length;
     return html`<section class=${`card ex eingeklappt ${gedimmt ? 'gedimmt' : ''}`} ...${wisch}>
@@ -266,8 +268,17 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       <div class="ex-akt">
         <button class="mini akzent" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung">${I.statistik}</button>
         <button class="mini" onClick=${() => setSheet({ art: 'tausch', ki })} aria-label="Übung tauschen">${I.tausch}</button>
+        <button class=${`mini ${technik ? 'akzent' : ''}`} aria-pressed=${String(technik)} onClick=${() => setTechnik(!technik)} aria-label="Technik">${I.technik}</button>
       </div>
     </div>
+    ${technik ? (() => {
+      const bilder = bilderVon(k.key), en = sprache() === 'en';
+      return html`<div class="technik">
+        ${bilder.length ? html`<div class="technik-bilder">${bilder.map((u, i) => html`<button key=${u} onClick=${() => zeigeBild(bilder, nameVon(k.key))} aria-label=${i ? 'Endposition vergrößern' : 'Startposition vergrößern'}>
+          <img src=${u} alt="" loading="lazy" onError=${(e) => { e.currentTarget.parentElement.style.display = 'none'; }}/><small>${i ? 'Ende' : 'Start'}</small></button>`)}</div>` : null}
+        <ul>${technikVon(uebung(k.key)).map(([de, enText]) => html`<li key=${de} translate="no">${en ? enText : de}</li>`)}</ul>
+      </div>`;
+    })() : null}
     ${k.gruppen.map((g, gi) => html`<div key=${gi}>
       <div class="group-h">
         <span class="row" style="gap:6px"><span class=${`tag ${['top', 'test'].includes(g.rolle) ? 'top' : ''}`}>${rollenText[g.rolle] ?? (programmText(g.saetzeText) ?? 'Arbeitssätze')}</span>

@@ -1549,6 +1549,24 @@ export const EN = new Map([
   ["Einsteiger · fertige Vorlage", "Beginner · ready-made template"],
   ["Übungen je Muskelgruppe", "Exercises per muscle group"],
   ["Vorgeschlagen ist eine bewährte Kombination – Grundübung plus Isolation. Antippen wählt ab oder hinzu. Bei mehr als zwei kommen je Training zwei dran, die übrigen wechseln sich über Trainings und Wochen ab.", "Suggested is a proven combination – compound plus isolation. Tap to deselect or add. With more than two, each workout gets two and the others rotate across workouts and weeks."],
+  ["Eine Druckübung plus eine Isolation (Flys, Crossover) ist eine bewährte Kombination.", "A press plus an isolation (flyes, crossovers) is a proven combination."],
+  ["Je eine Übung für die Breite und fürs Rudern – so kommt beides in jedes Training.", "One exercise for width and one for rows – so every workout gets both."],
+  ["Breite · Latzug & Klimmzug", "Width · pulldowns & pull-ups"],
+  ["Dicke · Rudern", "Thickness · rows"],
+  ["Drücken für die vordere, Seitheben für die seitliche Schulter – die hintere bekommt eigene Sätze.", "Presses for the front, lateral raises for the side delts – the rear delts get their own sets."],
+  ["Vordere Schulter · Drücken", "Front delts · presses"],
+  ["Seitliche Schulter · Seitheben", "Side delts · lateral raises"],
+  ["Zwei verschiedene Curls – z. B. Langhantel und Hammer – treffen den Bizeps vollständiger.", "Two different curls – e.g. barbell and hammer – hit the biceps more completely."],
+  ["Pushdown plus eine Übung über Kopf dehnt den langen Kopf mit.", "A pushdown plus an overhead exercise also stretches the long head."],
+  ["Eine schwere Kniebeuge-Variante plus Beinstrecker.", "A heavy squat variation plus leg extensions."],
+  ["Hüftbeugung (Rumänisches Kreuzheben) plus Beincurl.", "A hip hinge (Romanian deadlift) plus a leg curl."],
+  ["Hip Thrust oder Glute Bridge – das Gesäß arbeitet auch bei Kniebeuge und RDL mit.", "Hip thrust or glute bridge – the glutes also work in squats and RDLs."],
+  ["Stehend (gestreckte Knie) und sitzend ergänzen sich.", "Standing (straight knees) and seated complement each other."],
+  ["Eine Übung mit Gewicht (Kabel, Maschine) lässt sich gut steigern.", "A weighted exercise (cable, machine) is easy to progress."],
+  ["Startposition vergrößern", "Enlarge start position"],
+  ["Endposition vergrößern", "Enlarge end position"],
+  ["Weniger Sätze", "Fewer sets"],
+  ["Mehr Sätze", "More sets"],
 ]);
 
 export const EN_MUSTER = [
@@ -1787,4 +1805,5 @@ export const EN_MUSTER = [
   ["Abweichende Tage überschreiben ({0})", "Overwrite different days ({0})"],
   ["{0} Problem – nichts übernommen", "{0} problem – nothing added"],
   ["{0} Probleme – nichts übernommen", "{0} problems – nothing added"],
+  ["Version {0}", "Version {0}"],
 ];

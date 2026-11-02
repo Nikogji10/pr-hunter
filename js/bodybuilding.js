@@ -44,6 +44,10 @@ export const standardAuswahl = () => Object.fromEntries(Object.entries(MUSKELGRU
 // 145: frei gewählte Katalogübungen bringen ihre Art in e.arten mit (g = Grundübung, m = Maschine/Kabel)
 const art = (gruppe, key, arten = {}) => MUSKELGRUPPEN[gruppe].uebungen.find(([k]) => k === key)?.[1] ?? arten[key] ?? '';
 
+/** Harte Sätze je Woche für eine Gruppe: eigene Vorgabe (e.saetze, 145) oder der Richtwert der Gruppe. */
+export const SAETZE_SPANNE = [4, 22];
+export const saetzeVon = (g, e = {}) => Math.min(SAETZE_SPANNE[1], Math.max(SAETZE_SPANNE[0], Number(e.saetze?.[g]) || MUSKELGRUPPEN[g].saetze));
+
 /** Wie oft jede Muskelgruppe pro Woche drankommt (bei gegebenem Split und Tagen). */
 export function haeufigkeit(split, tageProWoche) {
   const s = SPLITS[split], h = {};
@@ -75,8 +79,8 @@ export function generiereBodybuilding(e) {
         const plaetze = Math.min(voll > MAX_JE_TAG ? 1 : 2, alle.length);
         const keys = [...new Set(Array.from({ length: plaetze }, (_, j) => alle[(n * plaetze + j) % alle.length]))];
         // Sätze je Übung: Wochenziel der Gruppe ÷ (Häufigkeit × Übungen); +1 ab der zweiten Hälfte (Volumen steigt)
-        const ziel = MUSKELGRUPPEN[g].saetze + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
-        const jeUebung = Math.max(2, Math.min(5, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
+        const ziel = saetzeVon(g, e) + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
+        const jeUebung = Math.max(2, Math.min(6, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
         return keys.map((key) => {
           const a = art(g, key, e.arten), grund = a.includes('g'), maschine = a.includes('m');
           const saetze = deload ? Math.max(1, Math.ceil(jeUebung / 2)) : jeUebung;
@@ -93,6 +97,6 @@ export function generiereBodybuilding(e) {
     id: `bodybuilding-${Date.now()}`, name: e.name || `${split.name} ${tage}×/Woche`,
     source: 'Bodybuilding-Generator: 10–20 Sätze je Muskel/Woche, RPE-Steigerung, Deload', kategorie: 'bodybuilding',
     inputs: [], weeks, settings: { cut_mode: { reduce_sets: 1, min_sets: 1 } },
-    rules: { bodybuilding: { split: e.split ?? 'ppl', tage, wochen, deload: e.deload !== false, auswahl } },
+    rules: { bodybuilding: { split: e.split ?? 'ppl', tage, wochen, deload: e.deload !== false, auswahl, ...(e.saetze ? { saetze: e.saetze } : {}) } },
   };
 }

@@ -271,7 +271,7 @@ function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeich
     <div class="row kopf6-rechts"><${SyncPunkt} sync=${sync} offen=${offen}/>
       <button class="profil-knopf" onClick=${zuEinstellungen} aria-label="Profil und Einstellungen"><${Avatar} bild=${einst.avatar} name=${einst.name} groesse=${34}/></button></div>
   </header>
-  <${Gruss} vorname=${einst.vorname} datum=${HEUTE} trainingstag=${planHeute && !erledigt.has(HEUTE) ? true : planHeute === false ? false : null}/>
+  <${Gruss} vorname=${einst.vorname} art=${einst.trainingsart} datum=${HEUTE} trainingstag=${planHeute && !erledigt.has(HEUTE) ? true : planHeute === false ? false : null}/>
   ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
   ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
   ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}`;
@@ -1009,7 +1009,17 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
-    if (!t.bearbeiten) { setAbschluss(abschlussAus(t, ende ? Date.parse(ende) : Date.now())); vibriere([120, 80, 160]); }   // gespeichert: doppelt
+    if (!t.bearbeiten) {
+      // Motivation: Woche, Serie, Ø Volumen der letzten 5 Trainings, erstes Training, Block fertig (das neue Training ist noch nicht in trainings)
+      const E = normiere(trainings.filter((x) => x.id !== t.id)), daten = [...E.map((e) => e.datum), t.datum];
+      const vol = (e) => e.uebungen.reduce((s, u) => s + u.saetze.reduce((b, x) => b + (x.kg > 0 ? x.kg : 0) * (x.wdh ?? 0), 0), 0);
+      const letzte = E.slice(-5).map(vol).filter((v) => v > 0);
+      const motivation = { vorname: einst.vorname, ziel: einst.wochenziel ?? 3, erstes: !E.length,
+        woche: new Set(daten.filter((d) => montagVon(d) === montagVon(t.datum))).size, serie: wochenSerie(daten, t.datum).aktuell,
+        schnitt: letzte.length ? letzte.reduce((a, b) => a + b, 0) / letzte.length : 0,
+        blockFertig: !!(t.planDatum && tage.length && tage.every((x) => x.datum === t.planDatum || erledigt.has(x.datum))) };
+      setAbschluss({ ...abschlussAus(t, ende ? Date.parse(ende) : Date.now()), motivation }); vibriere([120, 80, 160]);
+    }   // gespeichert: doppelt
     if (DEMO) { if (t.planDatum) setDemoErledigt(new Set([...demoErledigt, t.planDatum])); setToast({ titel: 'Training gespeichert', text: `${t.titel} ist erledigt.` }); return; }
     // Beim Bearbeiten bleiben Ende und Körpergewicht des Originals, sonst gelten jetzt und das aktuelle Körpergewicht
     const w = ausTraining(t, { id: t.id, sessionRpe, notiz, ...(t.ende && (t.bearbeiten || ende) ? { ende: t.ende } : {}),

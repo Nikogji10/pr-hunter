@@ -2,7 +2,7 @@
 // Rekorde und das ganze Training – jede Übung mit ihren Sätzen (gleiche kg × Wdh hintereinander zusammengefasst).
 // Sätze und Gewichte lassen sich ausblenden (gemerkt pro Gerät). „Teilen“ zeichnet dieselbe Karte als Bild (Canvas,
 // 1080 × 1350) und gibt sie ans Teilen-Menü des Handys; ohne Teilen-Funktion wird das Bild heruntergeladen.
-import { html, useState, I, deEn, fmt, datumLang, gw, gwE, einheit, tonnage, minutenText, nameVon, sprache } from './basis.js';
+import { html, useState, useEffect, I, deEn, fmt, datumLang, gw, gwE, einheit, tonnage, minutenText, nameVon, sprache } from './basis.js';
 import { uebersetze } from './sprache.js';
 
 const MIT_SAETZEN = 'prh-abschluss-saetze';
@@ -72,7 +72,45 @@ export function abschlussAus(t, ende = Date.now()) {
   };
 }
 
+// Motivation nach dem Training (02.11.): Überschrift je Anlass und bis zu drei kurze Rückmeldungen
+const LOB = [['Stark gemacht', 'Good job'], ['Sauber abgeliefert', 'Well delivered'], ['Wieder ein Schritt nach vorn', 'Another step forward'],
+  ['Training erledigt – stark', 'Workout done – strong'], ['Das war gute Arbeit', 'That was solid work'], ['Durchgezogen', 'You saw it through']];
+
+/** m: { vorname, woche, ziel, serie, schnitt (Ø Volumen der letzten Trainings), erstes, blockFertig } – alles optional. */
+export function motivationAus(a, m = {}) {
+  const en = sprache() === 'en';
+  const name = m.vorname ? `, ${m.vorname}` : '';
+  const lob = LOB[(a.minuten + a.saetze + Number(String(a.datum).slice(-2))) % LOB.length][en ? 1 : 0];
+  const titel = m.blockFertig ? deEn(`Block geschafft${name}!`, `Block complete${name}!`)
+    : a.prs.length ? deEn(`Rekordtag${name}!`, `PR day${name}!`)
+    : m.erstes ? deEn(`Erstes Training im Log${name}!`, `First workout logged${name}!`)
+    : m.ziel && m.woche === m.ziel ? deEn(`Wochenziel geschafft${name}!`, `Weekly goal reached${name}!`)
+    : `${lob}${name}!`;
+  const zeilen = [];
+  if (m.blockFertig) zeilen.push(deEn('Alle Trainings des Blocks erledigt – Zeit für den Test oder den nächsten Block.', 'Every workout of the block done – time to test or start the next block.'));
+  if (a.prs.length) zeilen.push(deEn(`${a.prs.length === 1 ? 'Ein neuer Rekord' : `${a.prs.length} neue Rekorde`} – das Training zahlt sich aus.`, `${a.prs.length === 1 ? 'A new PR' : `${a.prs.length} new PRs`} – the work is paying off.`));
+  if (m.ziel && m.woche != null) zeilen.push(m.woche >= m.ziel
+    ? (m.woche === m.ziel ? deEn(`${m.woche} von ${m.ziel} Trainings diese Woche – Ziel erreicht.`, `${m.woche} of ${m.ziel} workouts this week – goal reached.`)
+      : deEn(`Schon ${m.woche} Trainings diese Woche – über dem Ziel.`, `Already ${m.woche} workouts this week – above your goal.`))
+    : deEn(`Training ${m.woche} von ${m.ziel} diese Woche – noch ${m.ziel - m.woche} bis zum Ziel.`, `Workout ${m.woche} of ${m.ziel} this week – ${m.ziel - m.woche} to go.`));
+  if (m.serie >= 2) zeilen.push(deEn(`Serie: ${m.serie} Wochen in Folge.`, `Streak: ${m.serie} weeks in a row.`));
+  if (m.schnitt > 0 && a.volumen > 0 && zeilen.length < 3) {
+    const d = (a.volumen / m.schnitt - 1) * 100;
+    zeilen.push(d >= 5 ? deEn(`Volumen ${fmt(d, 0)} % über deinem Schnitt.`, `Volume ${fmt(d, 0)} % above your average.`)
+      : d <= -15 ? deEn('Leichter als sonst – Erholung gehört dazu.', 'Lighter than usual – recovery is part of it.')
+      : deEn('Volumen im gewohnten Bereich – Konstanz macht stark.', 'Volume right where it usually is – consistency builds strength.'));
+  }
+  return { titel, zeilen: zeilen.slice(0, 3) };
+}
+
 export function Abschluss({ daten: a, zu }) {
+  const mot = motivationAus(a, a.motivation);
+  // kurz „Stark gemacht!“ groß zeigen, dann die Karte (Tippen überspringt)
+  const [intro, setIntro] = useState('an');
+  useEffect(() => {
+    const t1 = setTimeout(() => setIntro('weg'), 1500), t2 = setTimeout(() => setIntro(null), 1850);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
   const [status, setStatus] = useState(null);
   const [mitSaetzen, setMitSaetzen] = useState(() => { try { return localStorage.getItem(MIT_SAETZEN) !== '0'; } catch { return true; } });
   const umschalten = () => { const neu = !mitSaetzen; setMitSaetzen(neu); try { localStorage.setItem(MIT_SAETZEN, neu ? '1' : '0'); } catch { /* egal */ } };
@@ -89,8 +127,11 @@ export function Abschluss({ daten: a, zu }) {
     } catch (e) { setStatus(e?.name === 'AbortError' ? null : 'Teilen ging nicht – mach einfach einen Screenshot.'); }
   };
   return html`<div class="abschluss" role="dialog" aria-modal="true" aria-label="Training geschafft">
+    ${intro ? html`<div class=${`ak-intro ${intro === 'weg' ? 'weg' : ''}`} onClick=${() => setIntro(null)}>
+      <div class="ak-intro-haken">${I.check}</div><b>${mot.titel}</b>${mot.zeilen[0] ? html`<span>${mot.zeilen[0]}</span>` : null}</div>` : null}
     <article class=${`abschluss-karte ${a.prs.length ? 'mit-pr' : ''}`}>
       <div class="ak-kopf"><span class="ak-logo">PR <b>Hunter</b></span><span class="muted">${datumLang(a.datum)}</span></div>
+      <div class="ak-lob"><b>${mot.titel}</b>${mot.zeilen.map((z, i) => html`<span key=${i}>${z}</span>`)}</div>
       <div><div class="eyebrow ak-geschafft">Training geschafft</div><h2 class="ak-titel">${a.titel}</h2></div>
       <div class="ak-zahlen">
         <div><span class="eyebrow">Dauer</span><b>${minutenText(a.minuten)}</b></div>

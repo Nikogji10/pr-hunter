@@ -179,6 +179,7 @@ export const I = {
   programme: svg(html`<rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h9M7.5 13h9M7.5 17h5"/>`),
   verlauf: svg(html`<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>`),
   statistik: svg(html`<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`),
+  technik: svg(html`<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6h.01"/>`),
   rechner: svg(html`<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/>`),
   // Werkzeuge im Seitenmenü und in der Rechner-Auswahl – je Rechner ein eigenes Zeichen
   'w-1rm': svg(html`<path d="M2.5 13h19"/><rect x="5" y="8" width="3" height="10" rx="1"/><rect x="16" y="8" width="3" height="10" rx="1"/><path d="M9.5 5.5 12 3l2.5 2.5"/>`),
