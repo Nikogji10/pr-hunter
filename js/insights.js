@@ -99,6 +99,34 @@ export function serie(einheiten, heute) {
     minutenSchnitt: mins.length ? mins.reduce((a, b) => a + b, 0) / mins.length : null, rekordeProWoche: aktuell ? rek / aktuell : 0, raster, zeit14, top };
 }
 
+/** Alle Trainings von … bis zusammen: Muskelgruppen (Summen), Ø Score/Intensität/Erholung/Zeitnutzung, Zeit summiert. */
+export function wochenEinheitAnalyse(einheiten, von, bis, opts) {
+  const stufe = (v) => (v < 0.4 ? 'niedrig' : v < 0.75 ? 'mittel' : 'hoch');
+  const mittel = (l) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : null);
+  const liste = [];
+  einheiten.forEach((e, i) => { if (e.datum >= von && e.datum <= bis) liste.push({ e, a: einheitAnalyse(einheiten.slice(0, i + 1), bis, opts) }); });
+  if (!liste.length) return { anzahl: 0, von, bis };
+  const gruppen = new Map();
+  for (const { a } of liste) for (const m of a.muskeln) {
+    const x = gruppen.get(m.gruppe) ?? { gruppe: m.gruppe, volumen: 0, saetze: 0, minuten: 0, rekorde: 0 };
+    x.volumen += m.volumen; x.saetze += m.saetze; x.minuten += m.minuten; x.rekorde += m.rekorde;
+    gruppen.set(m.gruppe, x);
+  }
+  const mitZeit = liste.filter(({ a }) => a.zeit);
+  const summe = (k) => mitZeit.reduce((s, { a }) => s + a.zeit[k], 0);
+  const sek = summe('gesamt'), frei = summe('ungenutzt'), saetze = mitZeit.reduce((s, { e }) => s + saetzeVon(e), 0);
+  const zeit = mitZeit.length ? { gesamt: sek, aktiv: summe('aktiv'), pause: summe('pause'), laden: summe('laden'), ungenutzt: frei,
+    nutzung: sek ? (sek - frei) / sek : 0, mehrPauseJeSatz: saetze ? frei / saetze : 0 } : null;
+  const intens = mittel(liste.map(({ a }) => a.intensitaet.wert)), erhol = mittel(liste.map(({ a }) => a.erholung.wert));
+  const nutz = mittel(liste.filter(({ a }) => a.nutzung).map(({ a }) => a.nutzung.wert));
+  return { anzahl: liste.length, von, bis, minuten: liste.reduce((s, { e }) => s + (minuten(e) ?? 0), 0),
+    muskeln: [...gruppen.values()].sort((a, b) => b.saetze - a.saetze || b.volumen - a.volumen),
+    score: Math.round(mittel(liste.map(({ a }) => a.score))),
+    intensitaet: { wert: intens, stufe: stufe(intens) }, erholung: { wert: erhol, stufe: stufe(erhol), belastet: liste.reduce((s, { a }) => s + a.erholung.belastet, 0) },
+    nutzung: nutz == null ? null : { wert: nutz, stufe: stufe(nutz) }, zeit,
+    einheiten: liste.map(({ e, a }) => ({ e, z: a.zeit })) };
+}
+
 // #################################################################
 // e) Trainingszeit: aktiv / Pause / Laden / ungenutzt
 // #################################################################

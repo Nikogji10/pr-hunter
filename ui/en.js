@@ -1533,6 +1533,11 @@ export const EN = new Map([
   ["Gleich wie die Woche davor", "Same as the week before"],
   ["Fortschritt! Deine 1RM-Veränderung der letzten Woche:", "Progress! Your 1RM change last week:"],
   ["Fortschritt ist nicht immer gerade. Deine 1RM-Veränderung der letzten Woche:", "Progress isn't always linear. Your 1RM change last week:"],
+  ["Trainingswoche", "Training week"],
+  ["Letzte Woche kein Training.", "No workouts last week."],
+  ["Ø Trainings-Score", "Ø workout score"],
+  ["Trainings der Woche", "Workouts of the week"],
+  ["Vor jedem Training waren alle Muskeln ausreichend erholt.", "Before every workout all muscles were sufficiently recovered."],
 ]);
 
 export const EN_MUSTER = [

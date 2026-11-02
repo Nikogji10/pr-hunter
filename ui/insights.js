@@ -1,7 +1,7 @@
 // PR Hunter · Insights wie in Jefit (Wunsch 181): Analyse-Karten in der Statistik. Rechnungen in js/insights.js.
 import { html, useMemo, useState } from '../vendor/htm-preact.js';
 import { fmt, gw, einheit, nameVon, UebungsBild, datumKurz, deEn, sprache, uebung, pauseVon, I } from './basis.js';
-import { normiere, serie, einheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, bewegungsmusterSchnitt, montagVon } from '../js/insights.js';
+import { normiere, serie, wochenEinheitAnalyse, einsRmAnalyse, saetzeJeMuskel, wochenVergleich, zeitAnalyse, minuten, IDEAL, MUSTER, bewegungsmuster, bewegungsmusterSchnitt, montagVon } from '../js/insights.js';
 import { kanon, plusTage } from '../js/daten.js';
 import { MiniFigur } from './koerper.js';
 
@@ -31,16 +31,15 @@ export function Insights({ trainings, einst, heute }) {
   if (!E.length) return html`<section class="card pad"><p class="muted" style="margin:0">Noch keine Trainings – nach dem ersten Training stehen hier deine Analysen.</p></section>`;
   // Wochen-Analysen gelten für die letzte volle Woche (Mo–So); die laufende kommt erst dran, wenn sie vorbei ist
   const sonntag = plusTage(montagVon(heute), -1), letzteWoche = deEn(`Letzte Woche · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`, `Last week · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`);
-  const s = serie(E, heute), a = einheitAnalyse(E, sonntag, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, sonntag),
+  const s = serie(E, heute), a = wochenEinheitAnalyse(E, plusTage(sonntag, -6), sonntag, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, sonntag),
     m = saetzeJeMuskel(E, sonntag, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
-  const letzte5 = E.filter((e) => minuten(e) != null).slice(-5).reverse().map((e) => ({ e, z: zeitAnalyse(e, pause) }));
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
-    ${a ? html`<${EinheitKarte} a=${a}/>` : null}
+    <${EinheitKarte} a=${a} unter=${letzteWoche}/>
     ${r.anzahl ? html`<${EinsRmKarte} r=${r} unter=${letzteWoche}/>` : null}
     ${m.liste.length ? html`<${MuskelKarte} m=${m} unter=${letzteWoche}/>` : null}
     <${MusterKarte} E=${E} heute=${heute}/>
-    ${a?.zeit ? html`<${ZeitKarte} z=${a.zeit} e=${a.einheit} letzte=${letzte5}/>` : null}
+    ${a.zeit ? html`<${ZeitKarte} z=${a.zeit} unter=${letzteWoche} einheiten=${a.einheiten.filter((x) => x.z)}/>` : null}
     <${WocheKarte} w=${w}/>
   </div>`;
 }
@@ -103,22 +102,24 @@ function Regler({ titel, stufe, wert, farbe, text }) {
     <div class="ins-spur"><i style=${`left:${Math.round(wert * 100)}%`}></i></div>
     <p class="muted">${text}</p></div>`;
 }
-function EinheitKarte({ a }) {
+function EinheitKarte({ a, unter }) {
+  if (!a.anzahl) return html`<section class="card pad stack ins"><${Kopf} titel="Trainingswoche" unter=${unter}/>
+    <p class="ins-text">Letzte Woche kein Training.</p></section>`;
   const iText = { niedrig: 'Leichtes Training – eine gute Grundlage. Für mehr Reiz Gewicht oder Sätze steigern.', mittel: 'Solide Anstrengung, gut für stetigen Fortschritt.', hoch: 'Hohe Intensität – auf genug Erholung achten.' }[a.intensitaet.stufe];
-  const eText = a.erholung.belastet ? deEn(`${a.erholung.belastet} der trainierten Muskelgruppen waren in den 2 Tagen davor schon dran.`, `${a.erholung.belastet} of the trained muscle groups were already worked in the 2 days before.`)
-    : 'Alle Muskeln waren vor dem Training ausreichend erholt.';
+  const eText = a.erholung.belastet ? deEn(`${a.erholung.belastet}-mal war eine Muskelgruppe in den 2 Tagen davor schon dran.`, `${a.erholung.belastet} times a muscle group had already been worked in the 2 days before.`)
+    : 'Vor jedem Training waren alle Muskeln ausreichend erholt.';
   const zText = a.zeit ? (a.zeit.ungenutzt > 60 ? deEn(`Etwa ${fmt(a.zeit.mehrPauseJeSatz / 60, 1)} min mehr geplante Pause je Satz oder ${hm(a.zeit.ungenutzt / 60)} weniger Leerlauf würden die Zeit besser nutzen.`,
     `About ${fmt(a.zeit.mehrPauseJeSatz / 60, 1)} min more planned rest per set or ${hm(a.zeit.ungenutzt / 60)} less idle time would use the time better.`) : 'Die Trainingszeit war gut genutzt.') : null;
   return html`<section class="card pad stack ins">
-    <${Kopf} titel="Trainingseinheit" unter=${deEn(`Training vom ${datumKurz(a.einheit.datum)}`, `Workout of ${datumKurz(a.einheit.datum)}`)}/>
-    <p class="ins-text akzent">${deEn(`Letzte Woche ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'Training' : 'Trainings'}, zusammen ${hm(a.woche.minuten)}.`, `Last week ${a.woche.anzahl} ${a.woche.anzahl === 1 ? 'workout' : 'workouts'}, ${hm(a.woche.minuten)} in total.`)}</p>
+    <${Kopf} titel="Trainingswoche" unter=${unter}/>
+    <p class="ins-text akzent">${deEn(`${a.anzahl} ${a.anzahl === 1 ? 'Training' : 'Trainings'}, zusammen ${hm(a.minuten)}.`, `${a.anzahl} ${a.anzahl === 1 ? 'workout' : 'workouts'}, ${hm(a.minuten)} in total.`)}</p>
     <b class="ins-titel">Im Fokus</b>
-    ${a.muskeln.slice(0, 5).map((x) => html`<div key=${x.gruppe} class="ins-muskel">
+    ${a.muskeln.slice(0, 6).map((x) => html`<div key=${x.gruppe} class="ins-muskel">
       <b class="ins-gross">${GRUPPE_NAME[x.gruppe]}</b>
       <div class="ins-muskel-zeile"><${MiniFigur} zonen=${GRUPPE_ZONEN[x.gruppe] ?? []}/>
         <div class="ins-vier"><div><span>Volumen</span><b>${kurz(x.volumen)}</b></div><div><span>Sätze</span><b>${x.saetze}</b></div>
           <div><span>Min</span><b>${Math.round(x.minuten)}</b></div><div><span>Rekorde</span><b>${x.rekorde}</b></div></div></div></div>`)}
-    <b class="ins-titel">Trainings-Score</b>
+    <b class="ins-titel">Ø Trainings-Score</b>
     <${Halbkreis} wert=${a.score}/>
     <${Regler} titel="Intensität" stufe=${a.intensitaet.stufe} wert=${a.intensitaet.wert} farbe="#FF8A5C" text=${iText}/>
     <${Regler} titel="Erholung" stufe=${a.erholung.stufe} wert=${a.erholung.wert} farbe="#34C77B" text=${eText}/>
@@ -227,19 +228,20 @@ function Sechseck({ summe, z = String }) {
 /** Zwei Balken je Wochentag (Drücken, Ziehen) auf grauer Spur, Achse 0 / Mitte / Maximum (mindestens 20). */
 function PaarBalken({ titel, tage, a, b, heute, zahlen = true }) {
   const en = sprache() === 'en', groesst = Math.max(...tage.flatMap((t) => [t[a], t[b]])), max = SKALA.find((s) => s >= groesst) ?? Math.ceil(groesst / 10) * 10;
-  const H = 96, y = (v) => 8 + H - (v / max) * H, WT = en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
+  // T = Platz über der Achse für die Zahl auf dem höchsten Balken (sonst abgeschnitten, wenn er bis ans Maximum reicht)
+  const T = 18, H = 96, y = (v) => T + H - (v / max) * H, WT = en ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['M', 'D', 'M', 'D', 'F', 'S', 'S'];
   return html`<div class="stack" style="gap:6px">
     <b class="ins-paar-titel">${titel}</b>
     <div class="row mu-legende"><span><i style=${`background:${DRUECKEN}`}></i>${deEn('Drücken', 'Push')}</span><span><i style=${`background:${ZIEHEN}`}></i>${deEn('Ziehen', 'Pull')}</span></div>
-    <svg class="ins-paar" viewBox="0 0 300 130" role="img" aria-label=${titel}>
+    <svg class="ins-paar" viewBox="0 0 300 140" role="img" aria-label=${titel}>
       ${[0, max / 2, max].map((v) => html`<g key=${v}><line x1="8" x2="262" y1=${y(v)} y2=${y(v)} class=${v ? 'ins-hilfslinie' : 'ins-grundlinie'}/>
         <text x="296" y=${y(v) + 4} text-anchor="end" class="ins-achse">${fmt(v, 1)}</text></g>`)}
-      ${zahlen && tage.map((t, i) => [[a, 0], [b, 12]].map(([k, d]) => (t[k] ? html`<text key=${`${t.datum}${k}`} x=${20 + i * 35 + d + 4} y=${y(t[k]) - 4} text-anchor="middle" class="ins-wert klein">${fmt(t[k], 1)}</text>` : null)))}
       ${tage.map((t, i) => { const x = 20 + i * 35;
         return html`<g key=${t.datum}>
-          ${[[a, DRUECKEN, 0], [b, ZIEHEN, 12]].map(([k, farbe, d]) => html`<rect key=${k} x=${x + d} y="8" width="8" height=${H} rx="4" class="mu-spur"/>
-            ${t[k] ? html`<rect x=${x + d} y=${y(t[k])} width="8" height=${8 + H - y(t[k])} rx="4" style=${`fill:${farbe}`}/>` : null}`)}
-          <text x=${x + 10} y="126" text-anchor="middle" class=${`ins-achse ${t.datum === heute ? 'ins-heute' : ''}`}>${WT[i]}</text></g>`; })}
+          ${[[a, DRUECKEN, 0], [b, ZIEHEN, 12]].map(([k, farbe, d]) => html`<rect key=${k} x=${x + d} y=${T} width="8" height=${H} rx="4" class="mu-spur"/>
+            ${t[k] ? html`<rect x=${x + d} y=${y(t[k])} width="8" height=${T + H - y(t[k])} rx="4" style=${`fill:${farbe}`}/>` : null}`)}
+          <text x=${x + 10} y=${T + H + 20} text-anchor="middle" class=${`ins-achse ${t.datum === heute ? 'ins-heute' : ''}`}>${WT[i]}</text></g>`; })}
+      ${zahlen && tage.map((t, i) => [[a, 0], [b, 12]].map(([k, d]) => (t[k] ? html`<text key=${`${t.datum}${k}`} x=${20 + i * 35 + d + 4} y=${y(t[k]) - 5} text-anchor="middle" class="ins-wert klein">${fmt(t[k], 1)}</text>` : null)))}
     </svg>
   </div>`;
 }
@@ -254,17 +256,17 @@ function Ring({ z }) {
     <text x="80" y="85" text-anchor="middle" class="ins-ring-zeit">${hms(z.gesamt)}</text>
   </svg>`;
 }
-function ZeitKarte({ z, e, letzte }) {
+function ZeitKarte({ z, unter, einheiten }) {
   return html`<section class="card pad stack ins">
-    <${Kopf} titel="Trainingszeit" unter=${deEn(`Training vom ${datumKurz(e.datum)}`, `Workout of ${datumKurz(e.datum)}`)}/>
+    <${Kopf} titel="Trainingszeit" unter=${unter}/>
     <p class="ins-text">${z.nutzung < 0.75 ? deEn(`Eine Zeitnutzung von ${Math.round(z.nutzung * 100)} % – vermutlich längere Pausen als geplant. Mit etwa ${fmt(z.mehrPauseJeSatz / 60, 1)} min mehr Pause je Satz wäre die Zeit voll genutzt.`,
       `A time utilization of ${Math.round(z.nutzung * 100)} % – probably longer rests than planned. About ${fmt(z.mehrPauseJeSatz / 60, 1)} min more rest per set would use the time fully.`)
       : deEn(`Starke ${Math.round(z.nutzung * 100)} % Zeitnutzung – kaum Leerlauf.`, `Strong ${Math.round(z.nutzung * 100)} % time utilization – hardly any idle time.`)}</p>
     <div class="ins-zwei"><div><span class="muted">Zeitnutzung</span><b class="ins-prozent-gross">${fmt(z.nutzung * 100, 1)}<small>%</small></b></div>
       <div><span class="muted">Ungenutzt</span><b class="ins-prozent-gross">${fmt((1 - z.nutzung) * 100, 1)}<small>%</small></b></div></div>
     <div class="ins-ring-zeile"><${Ring} z=${z}/><div class="ins-legende">${TEILE.map(([k, n, f]) => html`<span key=${k}><i style=${`background:${f}`}></i>${n}</span>`)}</div></div>
-    ${letzte.length > 1 ? html`<b class="ins-titel">Letzte ${letzte.length} Trainings</b>
-      ${letzte.map(({ e: x, z: y }) => html`<div key=${x.datum + (x.start ?? '')} class="ins-stapel">
+    ${einheiten.length > 1 ? html`<b class="ins-titel">Trainings der Woche</b>
+      ${einheiten.map(({ e: x, z: y }) => html`<div key=${x.datum + (x.start ?? '')} class="ins-stapel">
         <div class="ins-stapel-balken">${TEILE.map(([k, , f]) => html`<i key=${k} style=${`width:${(y[k] / y.gesamt) * 100}%;background:${f}`}></i>`)}</div>
         <small class="muted">${deEn(`Gesamt ${hms(y.gesamt)} · ${datumKurz(x.datum)}`, `Total ${hms(y.gesamt)} · ${datumKurz(x.datum)}`)}</small></div>`)}` : null}
   </section>`;
