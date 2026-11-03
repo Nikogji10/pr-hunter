@@ -1453,8 +1453,10 @@ function App() {
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${(timer && !imTraining) || leiste ? html`<div class="dock">
-      ${leiste ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
-      ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}/>` : null}
+      ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}
+      ${leiste && !(timer && !imTraining) ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
+      ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}
+        zusatz=${leiste ? () => { const s = alleSaetze(training); return `🏋️ ${training.bearbeiten ? 'Bearbeitung' : uhr((Date.now() - training.start) / 1000)}   ✅ ${s.filter((x) => x.erledigt).length}/${s.length} Sätze`; } : null}/>` : null}
     </div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
       ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + neuReakt.length > 9 ? '9+' : anfragen + neuReakt.length}</i>` : null}</button>`)}</nav></div>

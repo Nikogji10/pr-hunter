@@ -245,7 +245,7 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
       <div class="kommentar-vorschau"><b>${k.ich ? 'Du' : k.name}</b><span>${k.text}</span></div>
       <div class="stack" style="gap:8px">
         ${k.ich || e.ich ? html`<button class="btn btn-gefahr btn-block" onClick=${() => { zu(); loeschen(k.id); }}>${I.papierkorb} Löschen</button>` : null}
-        ${!k.ich && DIENSTE.melden && k.uid ? html`<button class="btn btn-soft btn-block" onClick=${() => { zu(); setTimeout(() => DIENSTE.melden(k.uid, k.name, `Kommentar: „${k.text}“`), 80); }}>${I.warn} Melden</button>` : null}
+        ${!k.ich && DIENSTE.melden ? html`<button class="btn btn-soft btn-block" onClick=${() => { zu(); setTimeout(() => DIENSTE.melden(k.uid ?? null, k.name, `Kommentar von ${k.name}: „${k.text}“`), 80); }}>${I.warn} Melden</button>` : null}
         <button class="btn btn-soft btn-block" onClick=${zu}>Abbrechen</button></div>
     <//>`);
   const langDruck = (k) => ({

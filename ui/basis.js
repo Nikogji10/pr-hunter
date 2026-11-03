@@ -271,7 +271,7 @@ export const I = {
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
-export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null }) {
+export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zusatz = null }) {   // zusatz(): zweite Zeile (laufendes Training)
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000;
   useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
@@ -280,10 +280,15 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null }) {
   const auf = oeffnen ? { onClick: oeffnen, role: 'button', tabIndex: 0, style: 'cursor:pointer', 'aria-label': 'Zum laufenden Training' } : {};
   return html`<div class=${`timer ${rest <= 0 ? 'over' : ''} ${kopf ? 'im-kopf' : ''}`} role="timer" aria-live="off">
     <div class="timer-auf" ...${auf}><svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor;opacity:.2" stroke-width="4"/>
-      <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/></svg>
-    <div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
+      <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/>
+      ${zusatz ? html`<text x="20" y="21" text-anchor="middle" dominant-baseline="middle" font-size="15">${rest > 0 ? '⏱️' : '🔔'}</text>` : null}</svg>
+    ${zusatz ? html`<div class="timer-text">
+        <div class="timer-zeile1"><span class="t">${rest > 0 ? mmss(rest) : 'Los!'}</span><span class="timer-label">${rest > 0 ? (timer.grund ? `Pause · ${timer.grund}` : 'Pause') : 'Pause vorbei'}</span></div>
+        <div class="s">${`➜ ${timer.naechster}${timer.naechsterUebung ? ` · ${timer.naechsterUebung}` : ''}`}</div>
+        <div class="s timer-zusatz">${zusatz()}</div></div>`
+      : html`<div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
       <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
-        : `Pause${timer.grund ? ` (${timer.grund})` : ''} · nächster: ${timer.naechster}`}</div></div></div>
+        : `Pause${timer.grund ? ` (${timer.grund})` : ''} · nächster: ${timer.naechster}`}</div></div>`}</div>
     <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
     <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
     <button onClick=${() => setTimer(null)} aria-label="Pause beenden" style="min-width:40px">${I.zu}</button>

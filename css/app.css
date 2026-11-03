@@ -2067,3 +2067,15 @@ body { overflow-x: hidden; }
 .rb-hinweis-text small { font-size: 12px; color: var(--ink-2); }
 .rb-hinweis-zu { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; }
 .rb-hinweis-zu svg { width: 14px; height: 14px; }
+/* eine Leiste: Pausen-Timer mit Zeile „Training …“ */
+.timer-zusatz { display: flex; align-items: center; gap: 6px; opacity: .85; margin-top: 1px; }
+.timer-zusatz .puls { width: 7px; height: 7px; flex: none; border-radius: 50%; background: currentColor; animation: puls 1.8s infinite; }
+.dock .timer .s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock .timer .timer-auf > div { min-width: 0; }
+/* Leiste unten: Pause und Training übersichtlich */
+.timer-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.timer-zeile1 { display: flex; align-items: baseline; gap: 8px; }
+.timer-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+.dock .timer .s { font-size: 12.5px; }
+.dock .timer .timer-zusatz { opacity: .85; font-variant-numeric: tabular-nums; }
+.dock .timer .ring { width: 44px; height: 44px; }
