@@ -2357,3 +2357,11 @@ body { overflow-x: hidden; }
 .ki-kopf, .ki-schritte, .ki-feld, .ki-ideen, .ki-kopieren, .ki-ziele, .ki-vorschau, .ki-hinweis { flex: none; }
 .ki-kopieren { min-height: 50px; }
 .ki-ideen .chip[aria-pressed="true"] { background: linear-gradient(120deg, #7C4DFF, #3B82F6); border-color: transparent; color: #fff; box-shadow: none; }
+/* Fenster: Inhalte schrumpfen nicht (sonst wurde z. B. „Fertig“ unter langen Listen zur dünnen Linie) – das Fenster scrollt */
+.sheet:not(.voll) > * { flex-shrink: 0; }
+/* Griff bleibt beim Scrollen oben stehen; Ziehen am Griff schließt auch aus der Mitte (größere Fläche zum Anfassen) */
+.sheet .grab { position: sticky; top: -10px; z-index: 5; width: 144px; padding: 8px 40px; flex-shrink: 0; touch-action: none; }
+/* Fester Fensterkopf (z. B. Ton-Auswahl): bleibt oben stehen, Wischen nach unten schließt auch aus der Mitte */
+.sheet-kopf { position: sticky; top: -10px; z-index: 4; margin: -26px -16px 0; padding: 24px 16px 12px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); box-shadow: 0 10px 14px -12px rgba(0, 0, 0, .55); touch-action: none; }   /* deckend: --karte ist halbtransparent */
+.sheet-kopf .h2 { margin: 0; } .sheet-kopf small { font-size: 12.5px; }

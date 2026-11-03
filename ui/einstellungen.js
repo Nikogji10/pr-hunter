@@ -375,25 +375,30 @@ const ABO_ANLEITUNG = {
  *  beim Öffnen steht der gewählte Ton in der Mitte, Antippen wählt und spielt ihn – das Fenster bleibt zum Durchprobieren offen. */
 function TonWahl({ wert, setze }) {
   const [offen, setOffen] = useState(false);
+  return html`<button class="ton-knopf" aria-haspopup="dialog" onClick=${() => setOffen(true)}><span>${tonName(wert)}</span><span class="ton-pfeil" aria-hidden="true">▾</span></button>
+    ${offen ? html`<${Portal}><${Sheet} zu=${() => setOffen(false)} label=${deEn('Ton am Pausenende', 'Sound at end of rest')}>
+      <div class="sheet-kopf"><h2 class="h2">${deEn('Ton am Pausenende', 'Sound at end of rest')}</h2></div>
+      <${TonListe} wert=${wert} setze=${setze}/>
+    <//><//>` : null}`;
+}
+
+/** Liste im Fenster; zentriert beim Öffnen den gewählten Ton im sichtbaren Bereich unter dem festen Kopf.
+ *  Eigene Komponente, damit das Zentrieren im Fenster selbst läuft (das Fenster wird über ein Portal gezeichnet). */
+function TonListe({ wert, setze }) {
   const liste = useRef(null);
   useEffect(() => {
-    if (!offen) return;
     requestAnimationFrame(() => {
       const el = liste.current?.querySelector('.ton-punkt[aria-pressed="true"]'), box = el?.closest('.sheet');
       if (!el || !box) return;
+      const kopf = box.querySelector('.sheet-kopf')?.offsetHeight ?? 0;
       const a = el.getBoundingClientRect(), b = box.getBoundingClientRect();
-      box.scrollTop += a.top - b.top - (b.height - a.height) / 2;
+      box.scrollTop += a.top - (b.top + kopf) - (b.height - kopf - a.height) / 2;
     });
-  }, [offen]);
-  return html`<button class="ton-knopf" aria-haspopup="dialog" onClick=${() => setOffen(true)}><span>${tonName(wert)}</span><span class="ton-pfeil" aria-hidden="true">▾</span></button>
-    ${offen ? html`<${Portal}><${Sheet} zu=${() => setOffen(false)} label=${deEn('Ton am Pausenende', 'Sound at end of rest')}>
-      <h2 class="h2">${deEn('Ton am Pausenende', 'Sound at end of rest')}</h2>
-      <div class="stack ton-liste" ref=${liste} style="gap:10px">${TON_GRUPPEN.map(([g, de, en]) => html`<div key=${g} class="stack" style="gap:4px">
-        <span class="eyebrow">${deEn(de, en)}</span>
-        ${Object.entries(TOENE).filter(([, t]) => t.gruppe === g).map(([id]) => html`<button key=${id} class="ton-punkt" aria-pressed=${String(wert === id)}
-          onClick=${() => { piep(id); setze(id); }}><span>${tonName(id)}</span>${wert === id ? I.check : null}</button>`)}</div>`)}</div>
-      <button class="btn btn-chalk btn-block" onClick=${() => setOffen(false)}>${deEn('Fertig', 'Done')}</button>
-    <//><//>` : null}`;
+  }, []);
+  return html`<div class="stack ton-liste" ref=${liste} style="gap:10px">${TON_GRUPPEN.map(([g, de, en]) => html`<div key=${g} class="stack" style="gap:4px">
+    <span class="eyebrow">${deEn(de, en)}</span>
+    ${Object.entries(TOENE).filter(([, x]) => x.gruppe === g).map(([id]) => html`<button key=${id} class="ton-punkt" aria-pressed=${String(wert === id)}
+      onClick=${() => { piep(id); setze(id); }}><span>${tonName(id)}</span>${wert === id ? I.check : null}</button>`)}</div>`)}</div>`;
 }
 
 function KalenderAbo() {

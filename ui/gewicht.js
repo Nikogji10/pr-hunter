@@ -25,7 +25,7 @@ export function GewichtKarte({ einst, setEinst, kompakt = false }) {
   const zielAnzeige = einst.gewichtZiel != null ? runde1(inAnzeige(einst.gewichtZiel)) : null;
   const abstand = zielAnzeige != null && wert != null ? runde1(wert - zielAnzeige) : null;
   const verlauf = KOERPERVERLAUF.filter((m) => m.datum >= plusTage(HEUTE, -56)).map((m) => inAnzeige(m.kg));
-  const status = entwurf != null ? 'wird gespeichert …' : heute ? 'heute gewogen' : letzter ? `zuletzt ${datumKurz(letzter.datum)} – tippen für heute` : 'noch kein Wert';
+  const status = entwurf != null ? 'wird gespeichert …' : heute ? 'heute gewogen' : letzter ? `zuletzt ${datumKurz(letzter.datum)}` : 'noch kein Wert';
   const zielText = abstand == null ? null : abstand === 0 ? 'Ziel erreicht' : abstand > 0 ? `noch ${fmt(abstand, 1)} ${einheit()} runter` : `noch ${fmt(-abstand, 1)} ${einheit()} rauf`;
   const zielSheet = zielOffen ? html`<${Sheet} zu=${() => setZielOffen(false)} label="Gewichtsziel">
       <h2 class="h2">Gewichtsziel</h2>
@@ -62,7 +62,7 @@ ${' '}<span class="muted">seit letzter Woche</span></span>` : html`<span class="
       <button class="rund" onClick=${() => tippe(-0.1)} aria-label=${`0,1 ${einheit()} weniger`}>−</button>
       <div class="gewicht-wert">
         <b class="zahl tab-num">${wert != null ? fmt(wert, 1) : '–'}<small> ${einheit()}</small></b>
-        <span class="muted">${entwurf != null ? 'wird gespeichert …' : heute ? 'heute gewogen' : letzter ? `zuletzt ${datumKurz(letzter.datum)} – tippen für heute` : 'noch kein Wert'}</span>
+        <span class="muted">${entwurf != null ? 'wird gespeichert …' : heute ? 'heute gewogen' : letzter ? `zuletzt ${datumKurz(letzter.datum)}` : 'noch kein Wert'}</span>
       </div>
       <button class="rund" onClick=${() => tippe(0.1)} aria-label=${`0,1 ${einheit()} mehr`}>+</button>
     </div>

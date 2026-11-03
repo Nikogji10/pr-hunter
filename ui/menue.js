@@ -54,13 +54,14 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
         const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
         if (!art || !f.zug?.start(art)) { s.keine = true; return; }
         s.art = art;
+        s.ab = dx;                                     // ab hier mitgehen – ohne Sprung um die 12-px-Schwelle
         // Sicherheitsnetz: kommt kein Loslassen an (Browser hat die Geste übernommen), nach 1,2 s ohne Bewegung beenden
         clearInterval(wache);
         wache = setInterval(() => { if (s?.art && Date.now() - s.letzte > 1200) ende(); }, 300);
       }
       s.letzte = Date.now();
       s.dx = dx;
-      fn.current.zug.bewege(s.art, dx);
+      fn.current.zug.bewege(s.art, dx - (s.ab ?? 0));
     };
     const ende = () => {
       clearInterval(wache);

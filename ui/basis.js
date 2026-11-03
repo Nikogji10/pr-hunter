@@ -1,5 +1,5 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect, useRef, render } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef, useLayoutEffect, render } from '../vendor/htm-preact.js';
 import { pauseAnteil, pausePlus, pauseMinus } from '../js/pausenbalken.js';
 export { pauseAnteil, pausePlus, pauseMinus };
 /** Farbe der Pause nach Restzeit (03.11.), fließend: grün bis 1:00, dann über Gelb (0:30) nach Rot (0:00); vorbei = grün („Los!“). */
@@ -517,10 +517,12 @@ export const zeigeFenster = (f) => fensterSetzen?.(() => f);
 
 /** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
 /** Zeichnet den Inhalt direkt unter <body> – für Fenster in Karten mit backdrop-filter (dort wäre position:fixed an die Karte gebunden). */
+// useLayoutEffect, nicht useEffect: aus einem useEffect heraus gezeichnet, gingen die Effekte des Inhalts verloren
+// (Preact leert die Effekt-Warteschlange nach dem Durchlauf) – Wischen zum Schließen und Zurück-Taste fehlten dann.
 export function Portal({ children }) {
   const ziel = useRef(null);
-  useEffect(() => { const d = document.createElement('div'); document.body.append(d); ziel.current = d; render(children, d); return () => { render(null, d); d.remove(); }; }, []);
-  useEffect(() => { if (ziel.current) render(children, ziel.current); });
+  useLayoutEffect(() => { const d = document.createElement('div'); document.body.append(d); ziel.current = d; render(children, d); return () => { render(null, d); d.remove(); }; }, []);
+  useLayoutEffect(() => { if (ziel.current) render(children, ziel.current); });
   return null;
 }
 
@@ -544,9 +546,11 @@ export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   // Nach unten wegziehen: nur wenn der Inhalt ganz oben steht und die Geste eindeutig nach unten geht
   const ref = useRef(null), zug = useRef(null);
   const start = (e) => {
-    if (e.touches.length !== 1 || ref.current.scrollTop > 0 || e.target.closest?.('.zuschnitt, input[type="range"]')) return;
+    // am Griff bzw. festen Fensterkopf (bleiben beim Scrollen oben stehen) immer, sonst nur, wenn der Inhalt ganz oben steht
+    const griff = !!e.target.closest?.('.grab, .sheet-kopf');
+    if (e.touches.length !== 1 || (ref.current.scrollTop > 0 && !griff) || e.target.closest?.('.zuschnitt, input[type="range"]')) return;
     const t = e.touches[0];
-    zug.current = { x: t.clientX, y: t.clientY, dy: 0, aktiv: false, t0: Date.now() };
+    zug.current = { x: t.clientX, y: t.clientY, dy: 0, aktiv: false, t0: Date.now(), griff };
   };
   const ziehe = (e) => {
     const z = zug.current, s = ref.current;
@@ -554,7 +558,7 @@ export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
     const t = e.touches[0], dy = t.clientY - z.y, dx = t.clientX - z.x;
     if (!z.aktiv) {
       if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
-      if (dy <= 0 || Math.abs(dx) > dy || s.scrollTop > 0) { zug.current = null; return; }
+      if (dy <= 0 || Math.abs(dx) > dy || (s.scrollTop > 0 && !z.griff)) { zug.current = null; return; }
       z.aktiv = true; s.classList.add('zieht');
     }
     z.dy = Math.max(0, dy);
@@ -699,6 +703,5 @@ export function BildLupe() {
   return html`<div class="bild-lupe" role="dialog" aria-label=${bild.name || 'Bild'} onClick=${() => (history.state?.lupe ? history.back() : setBild(null))}>
     ${bild.name ? html`<b>${bild.name}</b>` : null}
     <div class="bild-lupe-bilder">${bild.urls.map((u, i) => html`<img key=${i} src=${u} alt="" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }}/>`)}</div>
-    <span class="muted">Tippen zum Schließen</span>
   </div>`;
 }

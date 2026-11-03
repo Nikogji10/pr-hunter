@@ -1038,6 +1038,7 @@ function App() {
     }, 900);
   });
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
+  const zugZoom = useRef(1);
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
     seitenWechsel: () => !!wischRef.current.reiter,
     zug: {
@@ -1046,6 +1047,7 @@ function App() {
       // Beide Ebenen bewegen sich in Prozent der eigenen Breite – unabhängig von Schriftgröße (zoom) und Bildschirmbreite.
       start: (art) => {
         if (zugLaeuft.current) return false;                  // vorige Wisch-Animation läuft noch
+        zugZoom.current = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;   // einmal je Geste, nicht je Bewegung
         zugUnter.current = null;
         if (art === 'menue') { setMenueZug(true); return true; }
         // Seite mit Unterreitern (Statistik, Feed): erst dort blättern
@@ -1090,7 +1092,7 @@ function App() {
         return true;
       },
       bewege: (art, dx) => {
-        const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;   // Schriftgröße skaliert die App (zoom)
+        const z = zugZoom.current;                    // Schriftgröße skaliert die App (zoom); je Bewegung neu lesen erzwang Layout
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (!l) return;

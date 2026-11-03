@@ -47,7 +47,7 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
         <span><i class="dot" style="box-shadow:inset 0 0 0 1.5px var(--line)"></i>geplant</span>${URLAUB ? html`<span><i class="dot" style="background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 4px)"></i>${URLAUB.name}</span>` : null}</div>
     </section>
     <section class="card pad">
-      <div class="row between" style="margin-bottom:4px"><span class="eyebrow">Letzte Trainings</span><span class="muted" style="font-size:13px">antippen für Details</span></div>
+      <div class="row between" style="margin-bottom:4px"><span class="eyebrow">Letzte Trainings</span></div>
       <div class="liste">${Object.keys(trainingsTage).sort().reverse().slice(0, 5).map((d) => {
         const t = trainingAm(d);
         return html`<button key=${d} onClick=${() => setTag(d)}>

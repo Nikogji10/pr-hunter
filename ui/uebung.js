@@ -171,7 +171,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
       ${p?.plateau ? html`<section class="hint">${I.warn}<span class="t">${`Seit ${p.wochenOhneRekord} Trainingswochen kein neues e1RM`}</span><span></span>
         <p>Bestwert im letzten halben Jahr ${gwE(p.best, 1)}. Typische Hebel: Wiederholungsbereich wechseln, eine Variante (Pause, Pins) einbauen oder eine Deload-Woche.</p></section>` : null}
       ${unterChart.length ? html`<div class="row between" style="margin-top:4px"><span class="viz-t">Verlauf</span>${gewaehlt ? html`<button class="chip" onClick=${() => setGewaehlt(null)}>${datumKurz(gewaehlt)} ✕</button>`
-        : html`<span class="muted" style="font-size:12.5px">Punkt antippen zeigt den Tag</span>`}</div>` : null}
+        : null}</div>` : null}
       ${unterChart.slice(0, mehr).map((x) => einheitKarte(x, x.datum === gewaehlt))}
       ${unterChart.length > mehr ? html`<button class="btn btn-soft btn-sm" onClick=${() => setMehr(mehr + 20)}>Ältere Einheiten (${unterChart.length - mehr})</button>` : null}`
     : reiter === 'rekorde' ? html`

@@ -434,7 +434,7 @@ function NotizKarte({ trainings, von }) {
   if (!zahl.length) return null;
   const treffer = wahl ? im.filter((x) => x.ids.includes(wahl)).sort((a, b) => b.t.datum.localeCompare(a.t.datum)) : [];
   return html`<section class="card pad stack">
-    <div><span class="viz-t">${deEn('Wie war es?', 'How was it?')}</span><div class="viz-u">${deEn('Notiz-Chips beim Beenden im Zeitraum – antippen zeigt die Tage', 'Note chips from finishing in the period – tap to see the days')}</div></div>
+    <div><span class="viz-t">${deEn('Wie war es?', 'How was it?')}</span><div class="viz-u">${deEn('Notiz-Chips beim Beenden im Zeitraum', 'Note chips from finishing in the period')}</div></div>
     <div class="chips-zeile notiz-chips">${zahl.map(([id, text, n]) => html`<button key=${id} class="chip" aria-pressed=${String(wahl === id)} onClick=${() => setWahl(wahl === id ? null : id)} translate="no">${`${text} · ${n}`}</button>`)}</div>
     ${treffer.length ? html`<ul class="notiz-tage">${treffer.slice(0, 12).map((x) => html`<li key=${x.t.id}><b>${datumKurz(x.t.datum)}</b><span class="muted">${x.rest || ''}</span></li>`)}</ul>` : null}
   </section>`;

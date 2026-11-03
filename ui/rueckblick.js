@@ -113,7 +113,7 @@ export function Rueckblick({ r, vorname, zu }) {
           <button class="btn rb-btn" onClick=${teilen}>${I.teilen} ${deEn('Teilen', 'Share')}</button></div>
         ${status ? html`<span class="rb-klein">${status}</span>` : null}</div>` : liste[i].inhalt}
     </div>
-    ${!ende ? html`<span class="rb-hinweis">${pause ? deEn('Pausiert', 'Paused') : deEn('Tippen zum Weiterblättern', 'Tap to continue')}</span>` : null}
+    ${!ende ? html`<span class="rb-hinweis">${pause ? deEn('Pausiert', 'Paused') : ''}</span>` : null}
   </div>`;
 }
 
@@ -149,7 +149,7 @@ export function RueckblickKarte({ jahr, oeffnen, weg }) {
   return html`<section class="card rb-hinweis kein-wisch" ...${w.props} role="button" tabIndex="0"
     onClick=${(e) => { if (e.target.closest('.rb-hinweis-zu') || !w.geklickt()) return; weg(); oeffnen(); }}>
     <span class="rb-hinweis-icon" aria-hidden="true">🎆</span>
-    <span class="rb-hinweis-text"><b>${deEn(`Dein Jahresrückblick ${jahr} ist da`, `Your ${jahr} year in review is here`)}</b><small>${deEn('Antippen zum Ansehen', 'Tap to watch')}</small></span>
+    <span class="rb-hinweis-text"><b>${deEn(`Dein Jahresrückblick ${jahr} ist da`, `Your ${jahr} year in review is here`)}</b></span>
     <button class="rb-hinweis-zu" onClick=${(e) => { e.stopPropagation(); w.ausblenden(1); }} aria-label="Ausblenden">${I.zu}</button>
   </section>`;
 }

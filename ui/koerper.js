@@ -229,6 +229,5 @@ export function ErholungKurz({ trainings, oeffnen = null }) {
       ${gelb.length ? html`<span><i class="ek-punkt gelb"></i><b>${deEn('Fast erholt', 'Almost recovered')}:</b> ${namen(gelb)}</span>` : null}
       <small class="muted">${deEn('Alles andere ist frisch – gut für ein freies Training.', 'Everything else is fresh – good for a free workout.')}</small></div>
     ${oeffnen ? html`<span class="ek-pfeil" aria-hidden="true">›</span>` : null}
-    ${hinweis ? html`<span class="ek-hinweis">${deEn('zur Seite wischen zum Ausblenden', 'swipe aside to hide')}</span>` : null}
   </section>`;
 }
