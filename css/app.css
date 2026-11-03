@@ -2299,3 +2299,61 @@ body { overflow-x: hidden; }
 .coach-anfrage-zeile { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
 .coach-anfrage-knoepfe { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 .rpe-fehlt { text-align: right; font-size: 12px; }
+/* 221: Frag die KI – Kachel auf „Heute“ und Fenster */
+.ki-kachel { --ki: linear-gradient(120deg, #8B5CF6, #3B82F6 45%, #06B6D4 70%, var(--acc)); position: relative; display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 14px 14px 14px 12px; border-radius: var(--r-xl); border: 1.5px solid transparent; color: var(--ink); text-align: left; cursor: pointer; overflow: hidden;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--ki) border-box;
+  box-shadow: 0 12px 30px -16px color-mix(in srgb, #6D5CF6 70%, transparent), var(--shadow); }
+.ki-kachel::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .14;
+  background: radial-gradient(60% 120% at 0% 0%, #8B5CF6, transparent 70%), radial-gradient(50% 120% at 100% 100%, #06B6D4, transparent 70%); }
+.ki-kachel::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; pointer-events: none; transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .10), transparent); animation: ki-glanz 5s ease-in-out infinite; }
+@keyframes ki-glanz { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+.ki-kachel:active { transform: scale(.985); }
+.ki-icon { position: relative; flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, #8B5CF6, #3B82F6 55%, #06B6D4); background-size: 200% 200%; animation: ki-fluss 6s ease-in-out infinite;
+  box-shadow: 0 6px 18px -6px #6D5CF6, inset 0 1px 0 rgba(255, 255, 255, .35); }
+.ki-icon svg { width: 26px; height: 26px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .25)); }
+.ki-icon.gross { width: 54px; height: 54px; border-radius: 16px; } .ki-icon.gross svg { width: 30px; height: 30px; }
+@keyframes ki-fluss { 50% { background-position: 100% 100%; } }
+.ki-text { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ki-text b { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.ki-text small { font-size: 12.5px; line-height: 1.35; color: var(--ink-2); }
+.ki-pfeil { position: relative; font-size: 26px; line-height: 1; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .ki-kachel::after, .ki-icon { animation: none; } }
+.ki-kopf { display: flex; align-items: center; gap: 14px; }
+.ki-schritte { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ki-schritte li { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 10px 6px; border-radius: 14px;
+  background: var(--raised); border: 1px solid var(--kante); transition: border-color .2s, background .2s; }
+.ki-schritte i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 13px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink-2); margin-bottom: 4px; }
+.ki-schritte b { font-size: 13.5px; } .ki-schritte small { font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+.ki-schritte li.jetzt { border-color: #6D5CF6; background: color-mix(in srgb, #6D5CF6 12%, var(--raised)); }
+.ki-schritte li.jetzt i { background: linear-gradient(135deg, #8B5CF6, #3B82F6); color: #fff; }
+.ki-schritte li.fertig i { background: var(--ok); color: #fff; }
+.ki-feld { display: flex; flex-direction: column; gap: 6px; }
+.ki-feld textarea { width: 100%; min-height: 84px; resize: vertical; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--kante); background: var(--sunken);
+  color: var(--ink); font: 500 15px/1.4 var(--f); }
+.ki-feld textarea:focus { outline: 2px solid #6D5CF6; outline-offset: 1px; }
+.ki-ideen { display: flex; flex-wrap: wrap; gap: 6px; }
+.ki-kopieren { background: linear-gradient(120deg, #7C4DFF, #3B82F6) !important; border-color: transparent !important; color: #fff !important; box-shadow: 0 10px 24px -12px #5B5CF6; }
+.ki-kopieren.ok { background: linear-gradient(120deg, #1E9E58, #2FBF71) !important; box-shadow: 0 10px 24px -12px #1E9E58; }
+.ki-kopieren:disabled { opacity: .45; box-shadow: none; }
+.ki-ziele { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ki-ziel { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; border: 1px solid var(--kante);
+  background: var(--raised); color: var(--ink); text-decoration: none; transition: transform .15s, border-color .2s; }
+.ki-ziel:active { transform: scale(.96); }
+.ki-ziel i { width: 30px; height: 30px; border-radius: 10px; }
+.ki-ziel.chatgpt i { background: linear-gradient(135deg, #10A37F, #0B7A5F); }
+.ki-ziel.gemini i { background: linear-gradient(135deg, #4285F4, #9B72CB 60%, #D96570); }
+.ki-ziel.claude i { background: linear-gradient(135deg, #D97757, #B5583A); }
+.ki-ziel span { font-weight: 800; font-size: 14px; } .ki-ziel small { font-size: 11px; color: var(--muted); }
+.ki-ziele.bereit .ki-ziel { border-color: color-mix(in srgb, #6D5CF6 55%, var(--kante)); animation: ki-bereit 1.6s ease-in-out 2; }
+@keyframes ki-bereit { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, #6D5CF6 25%, transparent); } }
+.ki-vorschau summary { cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
+.ki-vorschau pre { margin: 8px 0 0; max-height: 220px; overflow: auto; padding: 10px 12px; border-radius: 12px; background: var(--sunken); border: 1px solid var(--kante);
+  font: 11.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; color: var(--ink-2); -webkit-user-select: text; user-select: text; }
+.ki-hinweis { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.ki-kopf, .ki-schritte, .ki-feld, .ki-ideen, .ki-kopieren, .ki-ziele, .ki-vorschau, .ki-hinweis { flex: none; }
+.ki-kopieren { min-height: 50px; }
+.ki-ideen .chip[aria-pressed="true"] { background: linear-gradient(120deg, #7C4DFF, #3B82F6); border-color: transparent; color: #fff; box-shadow: none; }

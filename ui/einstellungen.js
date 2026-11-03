@@ -148,7 +148,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <${KalenderAbo}/>
       <span class="viz-t unterteil">Wochenziel</span>
       <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
-      <span class="muted" style="font-size:12.5px">Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge du trainiert hast (mindestens ein Training pro Woche).</span>
+      <span class="muted" style="font-size:12.5px">${deEn('Nach jedem Training zeigt die App, wie viele Trainings diese Woche geschafft sind und wie weit es noch bis zum Ziel ist.', 'After each workout the app shows how many workouts you have done this week and how far it is to your goal.')}</span>
     </section>
     <section class="card pad stack">
       <span class="viz-t">Standard-Pausen</span>

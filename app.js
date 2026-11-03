@@ -49,6 +49,7 @@ import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
 import { GeschlechtKarte, ZyklusChip, geschlechtAusName } from './ui/zyklus.js';
 import { BeschwerdeSheet, BeschwerdeHinweis } from './ui/beschwerde.js';
 import { CoachSeite } from './ui/coach.js';
+import { KiKachel } from './ui/ki.js';
 import { anpassungFuer, REGIONEN } from './js/beschwerden.js';
 import { chipsAus } from './js/notizchips.js';
 import { rueckblick as rueckblickAus } from './js/rueckblick.js';
@@ -231,16 +232,6 @@ function TrainingsartKarte({ waehle }) {
 }
 
 /** 163 i: Wochenziel; Serie wie in der Analyse: Wochen in Folge mit mindestens einem Training (gleiche Zahl auf beiden Seiten). */
-function WochenZiel({ ziel, trainings = [] }) {
-  const daten = useMemo(() => normiere(trainings).map((e) => e.datum), [trainings]);
-  const diese = new Set(daten.filter((d) => montagVon(d) === montagVon(HEUTE))).size;
-  const serie = wochenSerie(daten, HEUTE).aktuell;
-  return html`<section class="card wochenziel">
-    <div class="wz-punkte" aria-hidden="true">${Array.from({ length: ziel }, (_, i) => html`<i key=${i} class=${i < diese ? 'voll' : ''}></i>`)}</div>
-    <span class="wz-text"><b>${`${Math.min(diese, ziel)}/${ziel} diese Woche`}</b><small>${serie ? `Serie: ${serie} ${serie === 1 ? 'Woche' : 'Wochen'} in Folge` : 'Diese Woche trainieren und eine neue Serie starten.'}</small></span>
-    ${diese >= ziel ? html`<span class="wz-ok">✓</span>` : null}
-  </section>`;
-}
 
 /** 173: einmal nach dem Vornamen fragen (für „Guten Morgen, …“); „Später“ fragt erst morgen wieder. */
 function VornameKarte({ speichern }) {
@@ -301,7 +292,7 @@ function Heute({ beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik
   })()}
   <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
   ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik}/>` : null}`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3} trainings=${trainings}/>`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog}/>`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'

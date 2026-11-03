@@ -373,7 +373,16 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zus
 /** Kopieren mit Rückfall: klappt die Zwischenablage nicht, wird das Textfeld markiert. */
 export async function kopiere(text, feld) {
   try { await navigator.clipboard.writeText(text); return true; }
-  catch { if (feld) { feld.focus(); feld.select(); } return false; }
+  catch {
+    // zweiter Weg (ältere Browser, fehlende Freigabe): unsichtbares Textfeld markieren und kopieren
+    try {
+      const f = document.createElement('textarea');
+      f.value = text; f.setAttribute('readonly', ''); Object.assign(f.style, { position: 'fixed', top: '0', left: '0', opacity: '0' });
+      document.body.append(f); f.select(); const ok = document.execCommand('copy'); f.remove();
+      if (ok) return true;
+    } catch { /* weiter unten */ }
+    if (feld) { feld.focus(); feld.select(); } return false;
+  }
 }
 
 /**

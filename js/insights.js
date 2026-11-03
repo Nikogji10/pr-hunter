@@ -23,7 +23,7 @@ export const e1 = (s) => (s.kg > 0 && s.wdh > 0 && s.wdh <= 12 ? (s.kg * (30 + s
  */
 export function normiere(trainings) {
   return trainings.filter((t) => t && !t.geloescht && t.datum).map((t) => ({
-    datum: t.datum, start: ms(t.start), ende: ms(t.ende),
+    datum: t.datum, start: ms(t.start), ende: ms(t.ende), sessionRpe: zahl(t.sessionRpe), notiz: t.notiz || null,   // 221: für „Frag die KI“
     uebungen: (t.uebungen ?? []).map((u) => ({ key: u.key, saetze: (u.saetze ?? []).filter((s) => s.fertig !== false && s.typ !== 'warmup')
       .map((s) => ({ kg: zahl(s.kg), wdh: zahl(s.wdh), rpe: zahl(s.rpe), zeit: ms(s.zeit) })) })).filter((u) => u.saetze.length),
   })).filter((e) => e.uebungen.length).sort((a, b) => a.datum.localeCompare(b.datum) || (a.start ?? 0) - (b.start ?? 0));
