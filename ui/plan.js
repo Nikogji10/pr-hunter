@@ -1,6 +1,6 @@
 // PR Hunter · Gemeinsame Planbausteine für Programme, Generator, Editor, Heute und Verlauf:
 // Beschreibungen der Vorlagen, Startmaxe, Plantage eines Blocks, Wochentitel, Darstellung eines Plantags.
-import { html, nameVon, liftVon, LIFT, datumKurz, datumLang, rpeText, incStandard, gw, einheit } from './basis.js';
+import { html, nameVon, liftVon, LIFT, datumKurz, datumLang, rpeText, incStandard, gw, einheit, deEn } from './basis.js';
 import { planeBlock } from '../js/programm.js';
 import { programmText } from './programmtexte.js';
 import { mround } from '../js/rechnen.js';
@@ -53,10 +53,10 @@ export function blockTage(prog, { start, werte, cut = false, alternativ = false,
 }
 export const wochenListe = (tage) => [...new Set(tage.map((t) => t.woche))];
 
-function zeile(u, g) {
+export function zeile(u, g) {
   const s = programmText(g.saetze?.text) ?? (g.saetze?.min === g.saetze?.max ? g.saetze?.min : `${g.saetze?.min}–${g.saetze?.max}`);
   const w = g.wdh?.amrap ? 'max' : g.wdh?.text ?? (g.wdh?.plus ? `${g.wdh.min}+` : g.wdh?.min === g.wdh?.max ? g.wdh?.min : `${g.wdh?.min}–${g.wdh?.max}`);
-  const last = g.kg != null ? `${gw(g.kg)}${g.kgBis ? `–${gw(g.kgBis)}` : ''} ${einheit()}` : rpeText(g.rpe) ?? 'frei';
+  const last = g.kg != null ? `${gw(g.kg)}${g.kgBis ? `–${gw(g.kgBis)}` : ''} ${einheit()}` : rpeText(g.rpe) ?? deEn('frei', 'free');
   return [`${s} × ${w ?? '–'}`, last];
 }
 

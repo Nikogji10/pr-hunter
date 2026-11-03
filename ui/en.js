@@ -1689,6 +1689,21 @@ export const EN = new Map([
   ["Klein gemacht", "Minimised"],
   ["Gedrückt halten macht es wieder groß, ziehen verschiebt.", "Press and hold to enlarge, drag to move."],
   ["Zurück zum Training (gedrückt halten: groß)", "Back to workout (hold: enlarge)"],
+  ["Coach-Modus", "Coach mode"],
+  ["Athleten betreuen, Trainings sehen, Pläne schicken", "Coach athletes, see workouts, send plans"],
+  ["Geschlecht", "Gender"],
+  ["Frau", "Woman"],
+  ["Mann", "Man"],
+  ["Keine Angabe", "Prefer not to say"],
+  ["Wettkampf-Ergebnisse", "Meet results"],
+  ["„Meine Wettkämpfe“ in Statistik → Kraft: Versuche, Total, DOTS und Verlauf je Meet.", "“My meets” in Stats → Strength: attempts, total, DOTS and progress per meet."],
+  ["Zyklus-Tracking", "Cycle tracking"],
+  ["Zyklustag und Phase auf „Heute“, Eintragen und Leistung je Phase in Statistik → Körper. Privat – Freunde sehen davon nichts.", "Cycle day and phase on “Today”, logging and performance per phase in Stats → Body. Private – friends see none of it."],
+  ["Gruppe", "Group"],
+  ["Gruppen", "Groups"],
+  ["Als PDF", "As PDF"],
+  ["Erst Maxe eintragen", "Enter your maxes first"],
+  ["Für das PDF rechnet die App die Gewichte aus deinen Maxen.", "For the PDF the app calculates weights from your maxes."],
 ]);
 
 export const EN_MUSTER = [
@@ -1942,4 +1957,5 @@ export const EN_MUSTER = [
   ["Ab {0} leidet die Technik.", "From {0} technique suffers."],
   ["+ {0}", "+ {0}"],
   ["Dein Jahresrückblick {0} ist da", "Your {0} year in review is here"],
+  ["Kommentar von {0}: „{1}“", "Comment from {0}: “{1}”"],
 ];

@@ -135,16 +135,17 @@ function EinheitKarte({ a, unter }) {
 
 // ---------- Erfolge (184) ----------
 function ErfolgeKarte({ E, powerlifting }) {
-  const en = sprache() === 'en';
-  const er = useMemo(() => erfolge(E, { liftVon, powerlifting }), [E, powerlifting]);
+  const en = sprache() === 'en', sp = en ? 1 : 0;
+  const er = useMemo(() => erfolge(E, { powerlifting }), [E, powerlifting]);
+  // Titel = dein tatsächlicher Wert (nicht die Stufe); Balken = Weg über alle Stufen; Lifts: bestes e1RM der Wettkampf-Übung
+  const wertText = (k) => k.text(k.kg ? fmt(k.wert, 1) : fmt(Math.floor(k.wert)))[sp];
   return html`<section class="card pad stack ins">
     <${Kopf} titel="Erfolge" unter=${deEn(`${er.abzeichen.length} von ${er.gesamt} Abzeichen`, `${er.abzeichen.length} of ${er.gesamt} badges`)}/>
     <div class="erfolge">${er.liste.map((k) => html`<div key=${k.id} class=${`erfolg ${k.stufe != null ? 'hat' : ''}`}>
       <span class="erfolg-icon" aria-hidden="true">${k.icon}</span>
-      <div class="erfolg-text"><b>${k.stufe != null ? k.text(k.stufe)[en ? 1 : 0] : k.name[en ? 1 : 0]}</b>
-        ${k.naechste ? html`<div class="erfolg-balken"><i style=${`width:${Math.round(k.fortschritt * 100)}%`}></i></div>
-          <small class="muted">${deEn(`Nächstes: ${k.text(k.naechste)[0]}`, `Next: ${k.text(k.naechste)[1]}`)}</small>`
-          : html`<small class="muted">${deEn('Alle Stufen erreicht', 'All levels reached')}</small>`}</div>
+      <div class="erfolg-text"><b>${k.wert > 0 ? wertText(k) : k.name[sp]}</b>
+        <div class="erfolg-balken"><i style=${`width:${Math.round(k.fortschritt * 100)}%`}></i></div>
+        <small class="muted">${[k.stufe != null ? `✓ ${k.text(k.stufe)[sp]}` : null, k.naechste ? deEn(`Nächstes: ${k.text(k.naechste)[0]}`, `Next: ${k.text(k.naechste)[1]}`) : deEn('Alle Stufen erreicht', 'All levels reached')].filter(Boolean).join(' · ')}${k.kg ? deEn(' · bestes e1RM aller Zeiten (Wettkampfübung)', ' · best e1RM of all time (competition lift)') : ''}</small></div>
       <span class="erfolg-anzahl">${`${k.anzahl}/${k.stufen.length}`}</span></div>`)}</div>
   </section>`;
 }

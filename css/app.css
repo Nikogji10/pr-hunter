@@ -2241,3 +2241,60 @@ body { overflow-x: hidden; }
 .pdock.ruhig .pdock-zeit b { color: var(--ink); }
 /* Farbverlauf: die Farbe ändert sich jede Viertelsekunde ein wenig – weich überblenden */
 .pdock .pdock-zeit b, .kopf-countdown, .dock-mini b, .pdock-balken, .kopf-balken, .pdock-punkt, .kopf-punkt { transition-duration: .3s; }
+/* 220: Zyklus */
+.zyklus-chip { margin: -4px 0 4px; font-size: 13px; font-weight: 700; color: #E58BD0; }
+.zyklus-stand { display: flex; flex-direction: column; align-items: flex-end; }
+.zyklus-stand b { font-size: 20px; }
+.zyklus-stand span { font-size: 12.5px; color: var(--ink-2); }
+.zyklus-balken { display: flex; gap: 2px; height: 12px; }
+.zyklus-balken i { flex: 1; border-radius: 3px; background: var(--raised); }
+.zyklus-balken .zp-menstruation { background: #E0607E; } .zyklus-balken .zp-follikel { background: #7C9CFF; }
+.zyklus-balken .zp-ovulation { background: #F2C230; } .zyklus-balken .zp-luteal { background: #B48CF2; }
+.zyklus-balken i.heute { outline: 2px solid var(--ink); outline-offset: 1px; }
+.zyklus-zeile { display: grid; grid-template-columns: 1fr auto 34px; gap: 8px; font-size: 13.5px; align-items: baseline; }
+.zyklus-zeile .auf { color: #34C77B; } .zyklus-zeile .ab { color: #E0786A; }
+/* 215: RPE-Genauigkeit */
+.rpe-gesamt { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--raised); border-left: 4px solid var(--muted); }
+.rpe-gesamt b { font-size: 20px; }
+.rpe-gesamt span { font-size: 12.5px; color: var(--ink-2); }
+.rpe-gesamt.gut { border-left-color: #34C77B; } .rpe-gesamt.mittel { border-left-color: #F2C230; } .rpe-gesamt.schlecht { border-left-color: #E0786A; }
+.rpe-zeilen { display: flex; flex-direction: column; gap: 4px; }
+.rpe-zeile { display: grid; grid-template-columns: 1fr auto 34px; gap: 8px; font-size: 13.5px; align-items: baseline; }
+.rpe-zeile b.gut { color: #34C77B; } .rpe-zeile b.mittel { color: #F2C230; } .rpe-zeile b.schlecht { color: #E0786A; }
+/* 213: Wettkampf-Ergebnisse */
+.meet-verlauf { display: flex; align-items: flex-end; gap: 6px; height: 56px; padding: 0 2px; }
+.meet-verlauf i { flex: 1; max-width: 34px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #F2C230, color-mix(in srgb, #F2C230 45%, transparent)); }
+.meet-zeile { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--kante); background: var(--raised); text-align: left; color: var(--ink); }
+.meet-kopf { display: flex; flex-direction: column; } .meet-kopf b { font-size: 15px; } .meet-kopf span { font-size: 12.5px; }
+.meet-werte { display: flex; gap: 12px; flex-wrap: wrap; font-weight: 800; font-size: 15px; }
+.meet-werte span { display: flex; flex-direction: column; } .meet-werte small { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--muted); }
+.meet-werte .meet-total { color: #F2C230; }
+.meet-versuche { display: flex; gap: 10px; } .meet-versuche span { display: flex; gap: 3px; }
+.meet-versuche i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.meet-versuche i.gut { background: #34C77B; } .meet-versuche i.ungueltig { background: #E0786A; }
+.meet-eingabe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.meet-versuch { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 12px; border: 1px solid var(--kante); }
+.meet-versuch.gut { border-color: color-mix(in srgb, #34C77B 50%, var(--kante)); } .meet-versuch.ungueltig { border-color: color-mix(in srgb, #E0786A 60%, var(--kante)); }
+.meet-versuch .chip { justify-content: center; font-size: 11.5px; }
+.meet-summe { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; } .meet-summe b { font-size: 22px; color: #F2C230; }
+/* 216: Beschwerden */
+.beschwerde-zeile { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; font-size: 13.5px; align-items: baseline; }
+.beschwerde-hinweis { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; border-color: color-mix(in srgb, #F2C230 40%, var(--kante)); }
+/* 218: Gruppen */
+.gruppen-filter { flex-wrap: wrap; }
+.gruppe-zeile { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; border: 1px solid var(--kante); background: var(--raised); text-align: left; color: var(--ink); }
+.gruppe-emoji { font-size: 24px; } .gruppe-text { flex: 1; min-width: 0; display: flex; flex-direction: column; } .gruppe-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gruppe-emoji-wahl { font-size: 18px; padding: 0 10px; }
+/* 214: Coach-Modus */
+.coach-chips { flex-wrap: wrap; }
+.coach-start { align-items: center; text-align: center; } .coach-gross { font-size: 44px; }
+.coach-name { font-size: 18px; }
+.coach-zahlen { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
+.coach-zahlen div { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 12px; background: var(--raised); }
+.coach-zahlen small { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); } .coach-zahlen b { font-size: 17px; }
+.coach-uebung { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; } .coach-uebung span { font-weight: 700; }
+.coach-uebung small { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.coach-anfrage { border-color: color-mix(in srgb, var(--acc) 40%, var(--kante)); font-size: 13.5px; }
+.coach-einladen { display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
+.coach-anfrage-zeile { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
+.coach-anfrage-knoepfe { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }

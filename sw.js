@@ -1,8 +1,8 @@
-// PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
+-A// PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
 // einem eigenen Cache, der Versionswechsel überdauert.
-const VERSION = '956ab78fde91';
+const VERSION = '0c58ebe8ec78';
 const DATEIEN = [
   "./",
   "app.js",
@@ -29,6 +29,7 @@ const DATEIEN = [
   "js/auswertung.js",
   "js/autoregulation.js",
   "js/bearbeiten.js",
+  "js/beschwerden.js",
   "js/block.js",
   "js/bodybuilding.js",
   "js/daten.js",
@@ -44,6 +45,7 @@ const DATEIEN = [
   "js/programm.js",
   "js/punkte.js",
   "js/rechnen.js",
+  "js/rpegenauigkeit.js",
   "js/rueckblick.js",
   "js/scheibenwechsel.js",
   "js/stillstand.js",
@@ -51,6 +53,7 @@ const DATEIEN = [
   "js/sync.js",
   "js/technik.js",
   "js/verweise.js",
+  "js/zyklus.js",
   "manifest.webmanifest",
   "programme/candito_6_week.json",
   "programme/candito_int_adv_bench.json",
@@ -61,7 +64,9 @@ const DATEIEN = [
   "ui/basis.js",
   "ui/bbgenerator.js",
   "ui/bereitschaft.js",
+  "ui/beschwerde.js",
   "ui/challenges.js",
+  "ui/coach.js",
   "ui/diagramme.js",
   "ui/editor.js",
   "ui/eigenerplan.js",
@@ -74,6 +79,7 @@ const DATEIEN = [
   "ui/gewicht.js",
   "ui/gewichtimport.js",
   "ui/glossar.js",
+  "ui/gruppen.js",
   "ui/gruss.js",
   "ui/hilfe.js",
   "ui/hintergrund.js",
@@ -84,6 +90,7 @@ const DATEIEN = [
   "ui/menue.js",
   "ui/mitteilung.js",
   "ui/plan.js",
+  "ui/plandruck.js",
   "ui/programme.js",
   "ui/programmtexte.js",
   "ui/rechner.js",
@@ -98,9 +105,11 @@ const DATEIEN = [
   "ui/uebung.js",
   "ui/vergleich.js",
   "ui/verlauf.js",
+  "ui/wettkaempfe.js",
   "ui/wettkampf.js",
   "ui/zusammen.js",
   "ui/zuschnitt.js",
+  "ui/zyklus.js",
   "vendor/htm-preact.js",
   "vendor/supabase.js"
 ];

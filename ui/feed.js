@@ -7,6 +7,8 @@ import { DIENSTE } from './stand.js';
 import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
 import { rekordChronik } from '../js/auswertung.js';
 import { ChallengesReiter } from './challenges.js';
+import { GruppenVerwaltung, GruppenFilter, inGruppe } from './gruppen.js';
+import { CoachAnfragen } from './coach.js';
 
 /** Demo: die letzten Trainingstage als eigener Feed (Rekorde wie in der Statistik gezählt). */
 function demoFeed() {
@@ -275,6 +277,7 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
   // Reiter merkt sich die Sitzung (Neuladen bleibt bei „Freunde“); neu geöffnete App startet bei „Feed“
   const [reiter, setReiterRoh] = useState(() => UNTER_VORSCHAU.feed ?? (() => { try { return sessionStorage.getItem('prh-reiter-feed'); } catch { return null; } })() ?? 'feed');
   const setReiter = (k) => { setReiterRoh(k); try { sessionStorage.setItem('prh-reiter-feed', k); } catch { /* egal */ } };
+  const [feedGruppe, setFeedGruppe] = useState(null);           // 218: Feed nach Gruppe filtern
   useUnterReiter('feed', [['feed'], ['freunde'], ['challenges']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);
@@ -312,7 +315,7 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
     <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde'], ['challenges', 'Challenges']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
     <div class="unter-inhalt">
-    ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : reiter === 'challenges' ? html`<${ChallengesReiter}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
+    ${reiter === 'freunde' ? html`<div class="stack" style="gap:12px"><${CoachAnfragen}/><${Freunde} einst=${einst} setEinst=${setEinst}/><${GruppenVerwaltung} einst=${einst} setEinst=${setEinst}/></div>` : reiter === 'challenges' ? html`<${ChallengesReiter} einst=${einst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
     ${aktiv.length ? html`<section class="card pad stack trainiert-gerade"><span class="viz-t">${deEn('Trainiert gerade', 'Training right now')}</span>
       ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000));
         return html`<div key=${a.id} class="aktiv-zeile"><span class="aktiv-avatar"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${34}/><i></i></span>
@@ -327,7 +330,8 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
     ${stand.fehler ? html`<p class="fehler">${stand.fehler}</p>` : null}
     ${stand.laedt && !stand.eintraege.length ? html`<p class="muted">Lade …</p>` : null}
     ${!stand.laedt && !stand.eintraege.length && !stand.fehlt && geteilt ? html`<section class="card pad"><p class="muted" style="margin:0">In den letzten 30 Tagen noch keine geteilten Trainings.</p></section>` : null}
-    ${stand.eintraege.filter((e) => e.ich || !e.nutzer || sichtbar(einst, e.nutzer, 'feed')).map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''} ${neuIds.has(e.id) ? 'hat-neues' : ''}`}>
+    <${GruppenFilter} gruppen=${einst.gruppen ?? []} wert=${feedGruppe} setWert=${setFeedGruppe}/>
+    ${stand.eintraege.filter((e) => e.ich || !e.nutzer || (sichtbar(einst, e.nutzer, 'feed') && inGruppe(einst.gruppen, feedGruppe, e.nutzer))).map((e) => html`<article key=${e.id} class=${`card pad stack feed-eintrag ${e.prs ? 'mit-pr' : ''} ${neuIds.has(e.id) ? 'hat-neues' : ''}`}>
       <div class="feed-kopf"><${Avatar} bild=${e.avatar} name=${e.name} groesse=${40}/>
         <div style="min-width:0;flex:1"><b>${e.ich ? 'Du' : e.name}</b><div class="muted" style="font-size:12.5px">${datumLang(e.datum)}</div></div>
         ${e.prs ? html`<span class="feed-pr"><span class="medaille">PR</span><b>${e.prs}</b></span>` : null}</div>

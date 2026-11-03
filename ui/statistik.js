@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache, liftVon } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -11,6 +11,7 @@ import { KoerperKarte, ErholungKarte, MUSKEL_NAME, farbeVon } from './koerper.js
 import { Zielprognose, Vergleich } from './vergleich.js';
 import { Bestenliste } from './challenges.js';
 import { stillstaende } from '../js/stillstand.js';
+import { rpeGenauigkeit } from '../js/rpegenauigkeit.js';
 import { normiere } from '../js/insights.js';
 import { NOTIZ_CHIPS, chipsAus } from '../js/notizchips.js';
 import { bereitschaftsWert } from '../js/auswertung.js';
@@ -20,6 +21,8 @@ import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
 import { MasseKarte } from './masse.js';
+import { ZyklusKarte } from './zyklus.js';
+import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
@@ -220,7 +223,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     ${hat(dotsReihe) ? html`<${LinienChart} titel="Punkte" unter="DOTS und IPF GL aus Total und Körpergewicht (zeitlich nächster Messwert)" x=${x}
       serien=${[{ id: 'dots', name: 'DOTS', farbe: 'var(--lift-bench)', werte: ab(dotsReihe) }, { id: 'gl', name: 'IPF GL', farbe: 'var(--lift-squat)', werte: ab(glReihe) }]} einheit="" hoehe=${180}/>` : null}
     ${hat(relativ) ? html`<${LinienChart} titel="Relative Stärke" unter="Total ÷ Körpergewicht" x=${x} serien=${[{ id: 'rel', name: 'Total ÷ KG', farbe: 'var(--lift-dead)', werte: ab(relativ) }]} einheit="×" stellen=${2} hoehe=${170}/>` : null}
+    ${einst.wettkampfErgebnisse !== false && setEinst ? html`<${WettkaempfeKarte} einst=${einst} setEinst=${setEinst}/>` : null}
     <${StillstandKarte} trainings=${trainings} cut=${!!einst.cut}/>
+    <${RpeKarte} trainings=${trainings}/>
     <${Zielprognose} aktuell=${aktuell} wettkampf=${einst.wettkampfDatum ?? null} ziele=${einst.ziele ?? {}} setZiel=${setEinst ? (key, kg) => setEinst({ ...einst, ziele: { ...(einst.ziele ?? {}), [key]: kg } }) : null}/>
     <section class="card pad stack">
       <div class="row between"><span class="viz-t">Neue Rekorde</span><span class="muted" style="font-size:12.5px">e1RM</span></div>
@@ -276,7 +281,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
-    ${einfach ? null : html`<${Bestenliste}/>`}
+    ${einfach ? null : html`<${Bestenliste} gruppen=${einst.gruppen ?? []}/>`}
     ${einfach ? null : html`<${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
     : reiter === 'belastung' ? html`
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
@@ -312,11 +317,13 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
       markiere=${imUrlaub}/>
     <${SchlafKarte} trainings=${trainings} x=${x}/>
-    <${NotizKarte} trainings=${trainings} von=${x[0] ?? HEUTE}/>`
+    <${NotizKarte} trainings=${trainings} von=${x[0] ?? HEUTE}/>
+    ${einfach ? html`<${RpeKarte} trainings=${trainings}/>` : null}`
     : html`
     ${hat(gemessen) ? html`<${KoerperStatistik} x=${x} werte=${ab(gemessen)} von=${x[0]} ziel=${einst.gewichtZiel}/>` : null}
       ${!hat(gemessen) ? html`<section class="card pad"><p class="muted" style="margin:0">Noch kein Körpergewicht im Zeitraum – auf „Heute“ mit −/+ eintragen.</p></section>` : null}
-      <${MasseKarte} masse=${masse} setzen=${masseSetzen}/>`}
+      <${MasseKarte} masse=${masse} setzen=${masseSetzen}/>
+      <${ZyklusKarte} einst=${einst} setEinst=${setEinst} trainings=${trainings}/>`}
     </div>
   </div>`;
 }
@@ -430,5 +437,22 @@ function NotizKarte({ trainings, von }) {
     <div><span class="viz-t">${deEn('Wie war es?', 'How was it?')}</span><div class="viz-u">${deEn('Notiz-Chips beim Beenden im Zeitraum – antippen zeigt die Tage', 'Note chips from finishing in the period – tap to see the days')}</div></div>
     <div class="chips-zeile notiz-chips">${zahl.map(([id, text, n]) => html`<button key=${id} class="chip" aria-pressed=${String(wahl === id)} onClick=${() => setWahl(wahl === id ? null : id)} translate="no">${`${text} · ${n}`}</button>`)}</div>
     ${treffer.length ? html`<ul class="notiz-tage">${treffer.slice(0, 12).map((x) => html`<li key=${x.t.id}><b>${datumKurz(x.t.datum)}</b><span class="muted">${x.rest || ''}</span></li>`)}</ul>` : null}
+  </section>`;
+}
+
+/** 215: Wie gut schätzt du RPE? Abweichung in RPE je Lift (> 0 = zu niedrig angegeben, die Sätze waren schwerer). */
+function RpeKarte({ trainings }) {
+  const r = rpeGenauigkeit(normiere(trainings), { liftVon });
+  const text = (a) => (Math.abs(a) <= 0.3 ? deEn('passt', 'accurate') : a > 0 ? deEn(`≈ ${fmt(a, 1)} zu niedrig`, `≈ ${fmt(a, 1)} too low`) : deEn(`≈ ${fmt(-a, 1)} zu hoch`, `≈ ${fmt(-a, 1)} too high`));
+  const klasse = (a) => (Math.abs(a) <= 0.3 ? 'gut' : Math.abs(a) <= 0.8 ? 'mittel' : 'schlecht');
+  const zeilen = [['squat', LIFT.squat.name], ['bench', LIFT.bench.name], ['dead', LIFT.dead.name], ['andere', deEn('Zubehör', 'Accessories')]].filter(([l]) => r.je[l]);
+  return html`<section class="card pad stack">
+    <div><span class="viz-t">${deEn('RPE-Genauigkeit', 'RPE accuracy')}</span><div class="viz-u">${deEn('Deine RPE-Angaben im Vergleich zu harten Sätzen (RPE ≥ 9,5) in ±3 Wochen', 'Your RPE ratings compared with hard sets (RPE ≥ 9.5) within ±3 weeks')}</div></div>
+    ${!r.gesamt ? html`<p class="muted" style="margin:0;font-size:13.5px">${deEn('Noch zu wenige Daten – dafür braucht es Sätze mit RPE 6–9,5 und in der Nähe einen schweren Satz (RPE 9,5–10) derselben Übung.', 'Not enough data yet – this needs sets at RPE 6–9.5 and a heavy set (RPE 9.5–10) of the same exercise nearby.')}</p>`
+      : html`<div class=${`rpe-gesamt ${klasse(r.gesamt.abweichung)}`}><b>${text(r.gesamt.abweichung)}</b><span>${deEn(`im Schnitt über ${r.gesamt.n} Sätze`, `on average over ${r.gesamt.n} sets`)}</span></div>
+      <div class="rpe-zeilen">${zeilen.map(([l, n]) => html`<div key=${l} class="rpe-zeile"><span>${n}</span><b class=${klasse(r.je[l].abweichung)}>${text(r.je[l].abweichung)}</b><small class="muted">${`${r.je[l].n}×`}</small></div>`)}</div>
+      <span class="muted" style="font-size:12.5px">${Math.abs(r.gesamt.abweichung) <= 0.3 ? deEn('Sehr gut – deine RPE-Angaben passen zu dem, was du wirklich hebst. RPE-basierte Pläne treffen damit die richtigen Gewichte.', 'Very good – your RPE ratings match what you actually lift. RPE-based plans hit the right weights.')
+        : r.gesamt.abweichung > 0 ? deEn('Deine Sätze waren schwerer, als du angibst. Gib lieber ehrlich etwas höher an – sonst schlägt die App zu schwere Gewichte vor.', 'Your sets were harder than you rate them. Rate honestly a bit higher – otherwise the app suggests weights that are too heavy.')
+        : deEn('Du hattest mehr im Tank, als du angibst. Trau dir mehr zu – oft geht noch 1 Wdh mehr, als es sich anfühlt.', 'You had more in the tank than you rate. Trust yourself more – often there is one more rep than it feels.')}</span>`}
   </section>`;
 }

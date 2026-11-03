@@ -1,6 +1,6 @@
 // PR Hunter · Programme – aktiver Block (Soll-Ist, neue Maxe aus dem Test), Vorlagen und eigene Programme, Detail mit
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
-import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren } from './basis.js';
+import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren, deEn } from './basis.js';
 import { UebungSuche } from './suche.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan } from './eigenerplan.js';
@@ -16,6 +16,7 @@ import { pruefePana } from '../js/generator.js';
 import { HEUTE, DEMO, DIENSTE, plusTage } from './stand.js';
 import { INFO, BEISPIEL_MAXE, MAX_NAME, startMaxe, kurzTitel, blockTage, wochenListe, TagPlan } from './plan.js';
 import { GeneratorAnsicht } from './generator.js';
+import { planDrucken } from './plandruck.js';
 import { Editor } from './editor.js';
 
 export { INFO, NAMEN, blockTage, wochenListe, kurzTitel, TagPlan } from './plan.js';
@@ -337,6 +338,12 @@ function Detail({ datei, prog, vorgabe, ausTest, startVorschlag, block, einst, s
           : html`<button class="btn btn-soft btn-sm" onClick=${() => kopieBearbeiten({ ...prog, name: `${INFO[datei].kurz} (eigene Fassung)` })}>Kopie bearbeiten</button>`}
         <button class="btn btn-soft btn-sm" onClick=${async () => toast((await kopiere(json())) ? { titel: 'Kopiert', text: 'Programm als JSON in der Zwischenablage – z. B. für Claude.' } : { titel: 'Kopieren gesperrt', text: 'Der Browser erlaubt es hier nicht.' })}>Als JSON kopieren</button>
         <button class="btn btn-soft btn-sm" onClick=${teilen}>Teilen</button>
+        <button class="btn btn-soft btn-sm" onClick=${() => {   // 217: schön gesetztes PDF über den Druckdialog
+          let tage;
+          try { tage = blockTage(prog, { start, werte, cut, alternativ }); }
+          catch { toast({ titel: 'Erst Maxe eintragen', text: 'Für das PDF rechnet die App die Gewichte aus deinen Maxen.' }); return; }
+          planDrucken({ titel: INFO[datei].kurz, untertitel: `${prog.weeks.length} ${deEn('Wochen', 'weeks')} · Start ${datumKurz(start)}${aktiv ? deEn(' · aktiver Block', ' · active block') : ''}`, tage, quelle: prog.source ?? '' });
+        }}>Als PDF</button>
         ${DIENSTE.planSenden ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('freund')}>An Freund schicken</button>` : null}
         ${prog.rules?.generator ? html`<button class="btn btn-soft btn-sm" onClick=${() => zumGenerator(prog.rules.generator)}>Im Generator ändern</button>` : null}
         ${eigen && !aktiv ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => setSheet('archivieren')}>Archivieren</button>` : null}

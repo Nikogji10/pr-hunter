@@ -5,6 +5,7 @@
 import { html, useState, useEffect, fmt, gw, einheit, LIFT, Avatar, deEn, datumKurz, I, Sheet, zwischen } from './basis.js';
 import { DIENSTE, HEUTE, plusTage } from './stand.js';
 import { dots } from '../js/punkte.js';
+import { GruppenFilter, inGruppe } from './gruppen.js';
 
 const ARTEN = [['trainings', 'Trainings', 'Workouts', '🏋️'], ['tonnen', 'Tonnen', 'Tonnes', '🏗️'], ['saetze', 'Sätze', 'Sets', '🔁'], ['stunden', 'Stunden', 'Hours', '⏱️']];
 const artName = (a) => { const x = ARTEN.find(([k]) => k === a); return x ? deEn(x[1], x[2]) : a; };
@@ -19,7 +20,7 @@ const ZEITRAUM = [
   ['30', '30 Tage', '30 days', () => [HEUTE, plusTage(HEUTE, 29)]],
 ];
 
-export function ChallengesReiter() {
+export function ChallengesReiter({ einst = {} }) {
   const [liste, setListe] = useState(() => zwischen.lies('challenges') ?? undefined);   // undefined = lädt, null = Update fehlt; erst gemerkte
   const [fehler, setFehler] = useState(null);
   const [neu, setNeu] = useState(false);
@@ -35,8 +36,8 @@ export function ChallengesReiter() {
     ${liste?.length === 0 ? html`<section class="card pad"><p class="muted" style="margin:0;font-size:14px">${deEn('Noch keine Challenge. Fordere deine Freunde heraus – wer trainiert diese Woche am meisten?', 'No challenge yet. Challenge your friends – who trains the most this week?')}</p></section>` : null}
     ${(liste ?? []).map((c) => html`<${ChallengeKarte} key=${c.id} c=${c} antworten=${antworten}/>`)}`}
     ${fehler ? html`<p class="fehler">${fehler}</p>` : null}
-    <${Bestenliste}/>
-    ${neu ? html`<${NeueChallenge} zu=${() => setNeu(false)} fertig=${() => { setNeu(false); laden(); }}/>` : null}
+    <${Bestenliste} gruppen=${einst.gruppen ?? []}/>
+    ${neu ? html`<${NeueChallenge} gruppen=${einst.gruppen ?? []} zu=${() => setNeu(false)} fertig=${() => { setNeu(false); laden(); }}/>` : null}
   </div>`;
 }
 
@@ -63,7 +64,7 @@ function ChallengeKarte({ c, antworten }) {
   </section>`;
 }
 
-function NeueChallenge({ zu, fertig }) {
+function NeueChallenge({ zu, fertig, gruppen = [] }) {
   const [art, setArt] = useState('trainings');
   const [zeit, setZeit] = useState('woche');
   const [titel, setTitel] = useState('');
@@ -89,6 +90,7 @@ function NeueChallenge({ zu, fertig }) {
     <label class="field" for="ch-titel"><span class="label">${deEn('Titel (optional)', 'Title (optional)')}</span>
       <input id="ch-titel" class="text" type="text" maxlength="80" placeholder=${vorschlag} value=${titel} onInput=${(e) => setTitel(e.currentTarget.value)}/></label>
     <span class="eyebrow">${deEn('Wen herausfordern?', 'Who to challenge?')}</span>
+    ${gruppen.length && freunde?.length ? html`<div class="chips-zeile">${gruppen.map((g) => html`<button key=${g.id} class="chip" onClick=${() => setWahl(freunde.filter((f) => g.mitglieder.includes(f.id)).map((f) => f.id))}>${`${g.emoji} ${g.name}`}</button>`)}</div>` : null}
     ${freunde == null ? html`<p class="muted">${deEn('Lade …', 'Loading …')}</p>` : !freunde.length ? html`<p class="muted" style="margin:0">${deEn('Noch keine Freunde – unter Feed → Freunde hinzufügen.', 'No friends yet – add some under Feed → Friends.')}</p>`
       : html`<div class="chips-zeile" style="flex-wrap:wrap">${freunde.map((f) => html`<button key=${f.id} class="chip" aria-pressed=${String(wahl.includes(f.id))}
         onClick=${() => setWahl(wahl.includes(f.id) ? wahl.filter((x) => x !== f.id) : [...wahl, f.id])}><${Avatar} bild=${f.avatar} name=${f.name} groesse=${20}/>${f.name}</button>`)}</div>`}
@@ -98,7 +100,8 @@ function NeueChallenge({ zu, fertig }) {
 }
 
 /** 212: Bestenliste – Rangliste je Lift, Total oder DOTS aus dem Vergleich. */
-export function Bestenliste() {
+export function Bestenliste({ gruppen = [] }) {
+  const [gruppe, setGruppe] = useState(null);
   const [daten, setDaten] = useState(() => zwischen.lies('vergleich') ?? undefined);
   const [kat, setKat] = useState('total');
   useEffect(() => { DIENSTE.ladeVergleich?.().then((d) => { setDaten(d ?? null); if (d) zwischen.schreib('vergleich', d); }).catch(() => setDaten((x) => x ?? null)); }, []);
@@ -106,11 +109,12 @@ export function Bestenliste() {
   if (daten === undefined) return null;
   const total = (p) => (['squat', 'bench', 'dead'].every((l) => p.lifts[l]?.aktuell != null) ? ['squat', 'bench', 'dead'].reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);
   const wert = (p) => (kat === 'total' ? total(p) : kat === 'dots' ? (total(p) != null && p.koerpergewicht ? dots(total(p), p.koerpergewicht) : null) : p.lifts[kat]?.aktuell ?? null);
-  const rang = daten.map((p) => ({ p, w: wert(p) })).filter((x) => x.w != null).sort((a, b) => b.w - a.w);
+  const rang = daten.filter((p) => p.ich || inGruppe(gruppen, gruppe, p.id)).map((p) => ({ p, w: wert(p) })).filter((x) => x.w != null).sort((a, b) => b.w - a.w);
   const kats = [['squat', LIFT.squat.name], ['bench', LIFT.bench.name], ['dead', LIFT.dead.name], ['total', 'Total'], ['dots', 'DOTS']];
   return html`<section class="card pad stack">
     <div><span class="viz-t">${deEn('Bestenliste', 'Leaderboard')}</span><div class="viz-u">${deEn('e1RM der letzten 12 Wochen – Freunde mit Vergleich-Freigabe', 'e1RM of the last 12 weeks – friends who share the comparison')}</div></div>
     <div class="chips-zeile">${kats.map(([k, n]) => html`<button key=${k} class="chip" aria-pressed=${String(kat === k)} onClick=${() => setKat(k)}>${n}</button>`)}</div>
+    <${GruppenFilter} gruppen=${gruppen} wert=${gruppe} setWert=${setGruppe}/>
     ${rang.length < 2 ? html`<p class="muted" style="margin:0;font-size:13.5px">${deEn('Noch zu wenige Werte für eine Rangliste – dafür brauchen mindestens zwei Personen den Vergleich eingeschaltet.', 'Not enough values for a ranking yet – at least two people need the comparison switched on.')}</p>`
       : html`<div class="ch-rang">${rang.map(({ p, w }, i) => html`<div key=${p.id} class=${`ch-zeile ${p.ich ? 'ich' : ''}`}>
         <span class="ch-platz">${MEDAILLE[i] ?? `${i + 1}.`}</span><${Avatar} bild=${p.avatar} name=${p.name} groesse=${28}/>

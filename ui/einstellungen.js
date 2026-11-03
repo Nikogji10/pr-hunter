@@ -197,6 +197,9 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <label class="schalter" for="e-technik"><span><b>Technik je Satz bewerten</b><br/>
         <span class="muted" style="font-size:12.5px">Nach dem Abhaken 👍 oder 👎 für die Technik. Die Übungsseite zeigt dann, ab welchem Gewicht die Technik leidet.</span></span>
         <input type="checkbox" id="e-technik" checked=${!!einst.technikBewertung} onChange=${(e) => setEinst({ ...einst, technikBewertung: e.currentTarget.checked })}/></label>
+      ${einst.trainingsart !== 'einfach' ? html`<label class="schalter" for="e-meets"><span><b>Wettkampf-Ergebnisse</b><br/>
+        <span class="muted" style="font-size:12.5px">„Meine Wettkämpfe“ in Statistik → Kraft: Versuche, Total, DOTS und Verlauf je Meet.</span></span>
+        <input type="checkbox" id="e-meets" checked=${einst.wettkampfErgebnisse !== false} onChange=${(e) => setEinst({ ...einst, wettkampfErgebnisse: e.currentTarget.checked })}/></label>` : null}
       <div class="stack unterteil" style="gap:8px"><span class="eyebrow">Wettkampf</span>
         <span class="muted" style="font-size:12.5px">Mit Datum zeigt „Heute“ einen Countdown, die passende Phase und eine Prognose deiner Lifts. Mit Gewichtsklasse dazu den Abstand zum Limit.</span>
         <div class="fields"><label class="field" for="e-wk-datum"><span class="label">Wettkampfdatum</span>
@@ -304,6 +307,11 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           ${hilfe.datenschutz ? html`<button class="btn btn-soft btn-sm" style="flex:1" onClick=${hilfe.datenschutz}>Datenschutz & Impressum</button>` : null}</div>
         <label class="field" for="e-vorname"><span class="label">Vorname (für die Begrüßung)</span>
           <input id="e-vorname" class="text" type="text" autocomplete="given-name" value=${vorname} onInput=${(e) => setVorname(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, vorname: vorname.trim() || null })}/></label>
+        <div class="stack" style="gap:6px"><span class="label">Geschlecht</span>
+          <div class="seg" role="group" aria-label="Geschlecht">${[['w', 'Frau'], ['m', 'Mann'], ['x', 'Keine Angabe']].map(([k, n]) => html`<button key=${k} aria-pressed=${String(einst.geschlecht === k)} onClick=${() => setEinst({ ...einst, geschlecht: k })}>${n}</button>`)}</div></div>
+        ${einst.geschlecht === 'w' ? html`<label class="schalter" for="e-zyklus"><span><b>Zyklus-Tracking</b><br/>
+          <span class="muted" style="font-size:12.5px">Zyklustag und Phase auf „Heute“, Eintragen und Leistung je Phase in Statistik → Körper. Privat – Freunde sehen davon nichts.</span></span>
+          <input type="checkbox" id="e-zyklus" checked=${einst.zyklusAn !== false} onChange=${(e) => setEinst({ ...einst, zyklusAn: e.currentTarget.checked })}/></label>` : null}
         <label class="field" for="e-name"><span class="label">Anzeigename</span>
           <input id="e-name" class="text" type="text" value=${name} onInput=${(e) => setName(e.currentTarget.value)} onChange=${() => setEinst({ ...einst, name: name.trim() || null })}/></label>
         ${emailAendern ? mail == null ? html`<button class="link" style="justify-self:start" onClick=${() => setMail({ text: '' })}>E-Mail-Adresse ändern</button>`

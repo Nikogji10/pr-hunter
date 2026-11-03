@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, uebung, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -13,7 +13,7 @@ import { TrainingsImport, ImportHinweis, importHinweisOffen } from './ui/trainin
 import { GewichtImport } from './ui/gewichtimport.js';
 import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
 import { trainingsSchluessel } from './js/import.js';
-import { Training, baueTraining, alleSaetze, kartenAusStand } from './ui/training.js';
+import { Training, baueTraining, alleSaetze, kartenAusStand, beschwerdenAnwenden } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
 import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
@@ -46,6 +46,11 @@ import { useAnsagen } from './ui/ansage.js';
 import { WettkampfCountdown } from './ui/wettkampf.js';
 import { ErholungKurz } from './ui/koerper.js';
 import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
+import { GeschlechtKarte, ZyklusChip, geschlechtAusName } from './ui/zyklus.js';
+import { BeschwerdeSheet, BeschwerdeHinweis } from './ui/beschwerde.js';
+import { CoachSeite } from './ui/coach.js';
+import { anpassungFuer, REGIONEN } from './js/beschwerden.js';
+import { chipsAus } from './js/notizchips.js';
 import { rueckblick as rueckblickAus } from './js/rueckblick.js';
 
 const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
@@ -61,7 +66,7 @@ const liftsDes = (tag) => [...new Set(tag.uebungen.map((u) => liftVon(u.key)).fi
 // Navigation über die Browser-Historie: jede Ansicht ist ein Eintrag mit Adresse (#statistik, #uebung/<key>).
 // Zurück bleibt in der App (auf der ersten Ansicht passiert nichts), Neuladen öffnet dieselbe Ansicht an derselben Stelle.
 // #################################################################
-const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung', 'import', 'gewicht', 'datenschutz']);
+const ANSICHTEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik', 'rechner', 'einstellungen', 'training', 'uebung', 'import', 'gewicht', 'datenschutz', 'coach']);
 function ausAdresse() {
   const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
   return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
@@ -265,7 +270,7 @@ function MaxListe({ werte, zuUebung }) {
   </section>`;
 }
 
-function Heute({ zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+function Heute({ beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, wiederholen = null, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
@@ -283,6 +288,9 @@ function Heute({ zuStatistik = null, trainings = [], block, prog, tage, erledigt
   <${Gruss} vorname=${einst.vorname} art=${einst.trainingsart} datum=${HEUTE} trainingstag=${planHeute && !erledigt.has(HEUTE) ? true : planHeute === false ? false : null}/>
   ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
   ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
+  ${!einst.geschlecht && einst.vorname && !DEMO ? html`<${GeschlechtKarte} setzen=${(g) => setEinst({ ...einst, geschlecht: g })}/>` : null}
+  <${ZyklusChip} einst=${einst}/>
+  ${beschwerdeErledigt ? html`<${BeschwerdeHinweis} liste=${einst.beschwerden} erledigt=${beschwerdeErledigt}/>` : null}
   ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}
   ${(() => {   // 206: Hinweis auf den Jahresrückblick in den letzten zwei Dezemberwochen (ab 18.12.), einmalig
     const jahr = HEUTE.slice(0, 4), weg = `prh-rueckblick-weg-${jahr}`;
@@ -366,6 +374,7 @@ function Heute({ zuStatistik = null, trainings = [], block, prog, tage, erledigt
         <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
           : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
       ${tagOption && training?.planDatum !== tag.datum ? html`<button class="tag-wechsel" onClick=${() => setSheet('wechseln')}>${I.tausch}<span>Anderen Trainingstag wählen</span><span class="ml-pfeil">›</span></button>` : null}
+      ${beschwerdeMelden ? html`<button class="tag-wechsel" onClick=${beschwerdeMelden}><span aria-hidden="true">🩹</span><span>${deEn('Beschwerden? Plan anpassen', 'Discomfort? Adjust plan')}</span><span class="ml-pfeil">›</span></button>` : null}
       ${tag.verschoben ? html`<span class="muted" style="font-size:13px">Verschoben – ursprünglich am ${datumKurz(plusTage(block.start, tag.offset))}.</span>` : null}
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}
     ${tag ? null : html`${ohnePlan}<button class="btn btn-soft btn-block" onClick=${() => setPlanOffen(!planOffen)}>${planOffen ? 'Plan schließen' : 'Plan ansehen'}</button>`}
@@ -493,6 +502,23 @@ function App() {
   const kleinZiehen = useZiehen({ achsen: 'xy', lang: () => setDockKlein(false),
     ablegen: (r) => setDockPos({ ...dockPos, klein: { x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) } }) });
   const appZoom = () => parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+  // 219: Kurzbefehle der installierten App (Manifest „shortcuts“) kommen als ?aktion=… – einmal nach dem Laden ausführen
+  const aktionFn = useRef(null), aktionErledigt = useRef(false);
+  useEffect(() => {
+    if (phase !== 'bereit' || aktionErledigt.current) return;
+    const a = new URLSearchParams(location.search).get('aktion');
+    if (!a) return;
+    aktionErledigt.current = true;
+    history.replaceState(history.state, '', location.pathname + location.hash);
+    setTimeout(() => aktionFn.current?.(a), 300);
+  }, [phase]);
+  useEffect(() => {
+    if (DEMO || phase !== 'bereit' || einst.geschlecht) return;
+    const g = geschlechtAusName(einst.vorname, einst.name);
+    if (g) setEinst({ ...einst, geschlecht: g });
+  }, [phase, einst.vorname, einst.name]);
+  const [beschwerdeOffen, setBeschwerdeOffen] = useState(false);     // 216: Melde-Fenster
+  const beschwerdeNachAbschluss = useRef(false);
   const [rbJahr, setRbJahr] = useState(null);
   // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
   // im Menü nur rund um den Jahreswechsel: ab 18.12. das laufende Jahr, im Januar noch das gerade beendete
@@ -1193,7 +1219,9 @@ function App() {
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: tag.datum, titel: `Woche ${nr} · ${datumLang(tag.datum).split(',')[0]}`,
       runId: aktiverBlock?.id ?? null, woche: tag.woche, tagOffset: tag.offset, bereitschaft,
       // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
-      karten: baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht, autoFuer: einst.autoregulation ? autoFuer() : null }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
+      karten: beschwerdenAnwenden(baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht, autoFuer: einst.autoregulation ? autoFuer() : null }),
+        anpassungFuer(tag.uebungen.map((u) => u.key), einst.beschwerden, HEUTE, uebung), einstUi.koerpergewicht,
+        (r) => { const x = REGIONEN.find(([k]) => k === r); return x ? deEn(x[1], x[2]) : r; }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
     gehe('training');
   };
   // 183: letzte drei Einheiten je Übung (Arbeitssätze) für die Autoregulation
@@ -1211,6 +1239,11 @@ function App() {
   const starten = (tag) => { if (training) gehe('training'); else if (mitCheck) setBereit({ tag }); else startePlan(tag); };
   const freiStarten = () => { if (mitCheck) setBereit({ frei: true }); else starteFrei(); };
   const startenAm = (d) => { const t = tage.find((x) => x.datum === d); if (t) starten(t); };
+  aktionFn.current = (a) => {
+    if (a === 'training') { const t = tage.find((x) => x.datum === HEUTE && !erledigt.has(x.datum) && !x.uebersprungen); if (training) gehe('training'); else if (t) starten(t); else freiStarten(); }
+    else if (a === 'gewicht') { gehe('heute'); setTimeout(() => document.querySelector('.gewicht-karte, .g6-zahl')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); }
+    else if (['statistik', 'feed', 'verlauf', 'programme'].includes(a)) gehe(a);
+  };
   const beenden = async ({ sessionRpe = null, notiz = null, verwerfen = false, ende = null } = {}) => {
     const t = ende ? { ...training, ende } : training;     // ende: von Hand eingetragen (vergessenes Training)
     const fertig = alleSaetze(t).filter((s) => s.erledigt).length;
@@ -1222,6 +1255,7 @@ function App() {
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
     }
+    if (!t.bearbeiten && chipsAus(notiz ?? '').ids.includes('zwickt')) beschwerdeNachAbschluss.current = true;   // 216
     if (!t.bearbeiten) {
       // Motivation: Woche, Serie, Ø Volumen der letzten 5 Trainings, erstes Training, Block fertig (das neue Training ist noch nicht in trainings)
       const E = normiere(trainings.filter((x) => x.id !== t.id)), daten = [...E.map((e) => e.datum), t.datum];
@@ -1230,7 +1264,7 @@ function App() {
       // 184: Abzeichen vorher/nachher (das neue Training als gespeichertes Format dazu)
       const neu = { datum: t.datum, start: t.start, ende: ende ? Date.parse(ende) : Date.now(), uebungen: t.karten.filter((k) => k.key).map((k) => ({ key: k.key,
         saetze: k.gruppen.flatMap((g) => g.saetze.filter((s) => s.erledigt).map((s) => ({ kg: s.kg, wdh: s.wdh, rpe: s.rpe, typ: s.typ, fertig: true }))) })) };
-      const opt = { liftVon, powerlifting: einst.trainingsart !== 'einfach' };
+      const opt = { powerlifting: einst.trainingsart !== 'einfach' };
       const abzeichen = neueAbzeichen(erfolge(E, opt), erfolge([...E, ...normiere([neu])], opt));
       const motivation = { vorname: einst.vorname, ziel: einst.wochenziel ?? 3, erstes: !E.length, abzeichen,
         woche: new Set(daten.filter((d) => montagVon(d) === montagVon(t.datum))).size, serie: wochenSerie(daten, t.datum).aktuell,
@@ -1360,6 +1394,13 @@ function App() {
     challengeAnlegen: DEMO ? null : (c) => konto.challengeAnlegen(supabase(), c),
     challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
     mitmachen: DEMO ? null : (a) => mitmachen(a),
+    coachBeziehungen: DEMO ? null : () => konto.coachBeziehungen(supabase()),
+    coachAnfragen: DEMO ? null : (id) => konto.coachAnfragen(supabase(), id),
+    coachAntworten: DEMO ? null : (id, ja) => konto.coachAntworten(supabase(), id, ja),
+    coachBeenden: DEMO ? null : (id) => konto.coachBeenden(supabase(), id),
+    athletTrainings: DEMO ? null : (id) => konto.athletTrainings(supabase(), id),
+    athletBlock: DEMO ? null : (id) => konto.athletBlock(supabase(), id),
+    wettkampfSpeichern: (m) => { setEinst({ ...einst, wettkaempfe: [...(einst.wettkaempfe ?? []).filter((x) => x.id !== m.id), m] }); setToast({ titel: deEn('Wettkampf gespeichert', 'Meet saved'), text: deEn('Statistik → Kraft → Meine Wettkämpfe', 'Stats → Strength → My meets') }); },
     kalenderLink: DEMO ? null : async (neu = false) => `${SUPABASE_URL}/functions/v1/kalender?t=${await konto.kalenderToken(supabase(), neu)}`,
     melden: DEMO ? null : (id, name, text = '') => setFeedback({ art: 'meldung', betrifft: id, name, text }),
     programmSpeichern: async (datei, def) => {
@@ -1456,6 +1497,8 @@ function App() {
       : ansicht === 'import' ? html`<${TrainingsImport} zurueck=${() => history.back()} vorhandene=${trainings} importieren=${trainingsImportieren}/>`
       : ansicht === 'gewicht' ? html`<${GewichtImport} zurueck=${() => history.back()} vorhandene=${messwerte} importieren=${gewichteImportieren}/>`
       : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
+      : ansicht === 'coach' ? html`<${CoachSeite} zurueck=${() => history.back()}
+          plaene=${Object.entries(info).map(([d, p]) => ({ name: p.name ?? NAMEN[d] ?? d, def: programme[d], eigen: !p.vorlage })).filter((p) => p.def).sort((a, b) => b.eigen - a.eigen)}/>`
       : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} neuReakt=${neuReakt} gesehen=${reaktionenGesehen} aktiv=${aktiveFreunde} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen}/>`
       : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
@@ -1473,7 +1516,8 @@ function App() {
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           zuImport=${DEMO ? null : () => gehe('import')} zuGewichtImport=${DEMO ? null : () => gehe('gewicht')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
-      : html`<${Heute} zuStatistik=${() => gehe('statistik')} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
+      : html`<${Heute} beschwerdeMelden=${DEMO ? null : () => setBeschwerdeOffen(true)}
+          beschwerdeErledigt=${DEMO ? null : (id) => setEinst({ ...einst, beschwerden: (einst.beschwerden ?? []).filter((b) => b.id !== id) })} zuStatistik=${() => gehe('statistik')} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} wiederholen=${DEMO ? null : wiederholen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
@@ -1505,14 +1549,17 @@ function App() {
       los=${(r, l) => { const b = bereit; setBereit(null); if (b.frei) starteFrei(r); else startePlan(b.tag, r, l); }}/>` : null}
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
-    ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
+    ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => { setAbschluss(null); if (beschwerdeNachAbschluss.current) { beschwerdeNachAbschluss.current = false; setTimeout(() => setBeschwerdeOffen(true), 250); } }}/>` : null}
+    ${beschwerdeOffen ? html`<${BeschwerdeSheet} zu=${() => setBeschwerdeOffen(false)}
+      planKeys=${(bis) => tage.filter((x) => x.datum >= HEUTE && x.datum <= bis && !erledigt.has(x.datum)).flatMap((x) => x.uebungen.map((u) => u.key))}
+      speichern=${(b) => { setEinst({ ...einst, beschwerden: [...(einst.beschwerden ?? []).filter((x) => x.bis >= HEUTE), b] }); setToast({ titel: deEn('Gute Besserung 🩹', 'Get well soon 🩹'), text: b.modus === 'notieren' ? deEn('Notiert.', 'Noted.') : deEn('Der Plan ist angepasst – betroffene Übungen siehst du beim Training.', 'Plan adjusted – you will see the affected exercises in your workout.') }); }}/>` : null}
     ${rbJahr && rbDaten ? html`<${Rueckblick} r=${rbDaten} vorname=${einst.vorname} zu=${() => setRbJahr(null)}/>` : null}
     ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
       beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
     <${FensterHost}/>
     <${BildLupe}/>
     <${SeitenMenue} rueckblickJahr=${rueckblickMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
-      waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); gehe('rechner', k, true); }}/>
+      waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); if (k === 'coach') { gehe('coach', null, true); return; } gehe('rechner', k, true); }}/>
     ${glossar ? html`<${GlossarSheet} zu=${() => setGlossar(false)}/>` : null}
     ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} vorText=${feedback.text ?? ''} zu=${() => setFeedback(null)}
       senden=${(f) => konto.feedbackSenden(supabase(), f)}/>` : null}

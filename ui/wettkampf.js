@@ -3,6 +3,8 @@
 // Wettkampftag übersteht Neuladen und Wechsel in andere Seiten). Gewichte in der Anzeigeeinheit.
 import { html, useState, fmt, inKg, inAnzeige, stangeKg, scheibenKg, einheit, ZahlFeld, deEn, Scheiben, datumKurz, sprache } from './basis.js';
 import { trendAm } from '../js/auswertung.js';
+import { MeetSheet } from './wettkaempfe.js';
+import { DIENSTE, HEUTE as HEUTE_STAND } from './stand.js';
 import { aufwaermen } from '../js/rechnen.js';
 import { versuche, dots } from '../js/punkte.js';
 
@@ -15,6 +17,7 @@ export function Wettkampftag({ ziele, koerper, inc }) {
   const [w, setWRoh] = useState(() => lade() ?? { ziel: ziele, versuche: Object.fromEntries(LIFTE.map(([l]) => [l, versuche(ziele[l], inc) ?? [null, null, null]])),
     status: Object.fromEntries(LIFTE.map(([l]) => [l, [null, null, null]])), koerper, geschlecht: 'm', vorDir: 8 });
   const setW = (neu) => { setWRoh(neu); try { localStorage.setItem(SPEICHER, JSON.stringify(neu)); } catch { /* egal */ } };
+  const [ergebnis, setErgebnis] = useState(null);           // 213: Ergebnis aus den Versuchen übernehmen
   const E = einheit(), lb = E === 'lb';
   const besterGueltig = (l) => Math.max(0, ...w.versuche[l].filter((kg, i) => w.status[l][i] === 'gut' && kg > 0));
   const total = LIFTE.reduce((s, [l]) => s + besterGueltig(l), 0), alleDrei = LIFTE.every(([l]) => besterGueltig(l) > 0);
@@ -63,6 +66,9 @@ export function Wettkampftag({ ziele, koerper, inc }) {
       <span class="viz-t">Ziele (3. Versuch)</span>
       <div class="fields drei">${LIFTE.map(([l, t]) => html`<${ZahlFeld} key=${l} id=${`wk-ziel-${l}`} label=${t} wert=${w.ziel[l]} schritt=${inc} setze=${(x) => setW({ ...w, ziel: { ...w.ziel, [l]: x } })}/>`)}</div>
       <button class="btn btn-soft btn-block" onClick=${neuPlanen}>Versuche neu planen (91 % · 96 % · 100 %)</button>
+      ${DIENSTE.wettkampfSpeichern ? html`<button class="btn btn-chalk btn-block" onClick=${() => setErgebnis({ id: `m-${Date.now()}`, name: '', datum: HEUTE_STAND, klasse: null, koerper: inKg(w.koerper) || null, platz: null,
+        versuche: Object.fromEntries(LIFTE.map(([l]) => [l, w.versuche[l].map((kg, i) => [kg ? inKg(kg) : null, w.status[l][i] !== 'ungueltig'])])) })}>${deEn('Als Ergebnis speichern', 'Save as result')}</button>` : null}
+      ${ergebnis ? html`<${MeetSheet} w=${ergebnis} zu=${() => setErgebnis(null)} speichern=${(m) => { DIENSTE.wettkampfSpeichern(m); setErgebnis(null); }}/>` : null}
       ${opener !== Infinity ? null : html`<span class="muted">Noch keine Versuche.</span>`}
     </section>
   </div>`;

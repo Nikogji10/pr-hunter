@@ -76,6 +76,28 @@ export function baueTraining(tag, { leichter = false, koerperKg = 88, autoFuer =
 
 export const alleSaetze = (t) => t.karten.flatMap((k) => k.gruppen.flatMap((g) => g.saetze));
 
+/** 216: Beschwerden – betroffene Übungen ersetzen (Gewicht aus der eigenen Form) oder 20 % leichter; Hinweis als Notiz in der Karte. */
+export function beschwerdenAnwenden(karten, anpassung, koerperKg, regionName) {
+  return karten.map((k) => {
+    const a = k.key && anpassung.get(k.key);
+    if (!a) return k;
+    const n = structuredClone(k), alt = k.key;
+    if (a.ersatz) {
+      n.key = a.ersatz;
+      for (const g of n.gruppen) {
+        const kg = vorschlag(a.ersatz, g.saetze[0]?.wdh ?? 8, g.rpe?.max ?? 8, koerperKg);
+        g.vorschlag = kg != null;
+        for (const s of g.saetze) { s.kg = kg; s.kgPlan = kg; s.geaendert = false; }
+      }
+      n.notiz = `🩹 ${regionName(a.region)}: ${nameVon(a.ersatz)} statt ${nameVon(alt)}`;
+    } else if (a.leichter) {
+      for (const g of n.gruppen) for (const s of g.saetze) if (s.kg > 0) { s.kg = mround(s.kg * 0.8, incVon(alt)); s.kgPlan = s.kg; }
+      n.notiz = `🩹 ${regionName(a.region)}: 20 % leichter`;
+    }
+    return n;
+  });
+}
+
 /** 194: Karten aus dem Stand eines Trainingspartners – gleiche Übungen, Satzzahl und Wdh, Gewicht aus der eigenen Form (RPE 8). */
 export function kartenAusStand(stand, koerperKg) {
   return stand.filter((u) => u.k && u.s?.length).map((u, i) => {

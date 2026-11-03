@@ -138,6 +138,8 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
       ${rueckblickJahr ? html`<span class="eyebrow sm-titel">Rückblick</span>
       <button class="sm-punkt" onClick=${() => { zu(); setTimeout(() => dispatchEvent(new CustomEvent('prh-rueckblick', { detail: { jahr: rueckblickJahr } })), 120); }}>
         <span class="sm-icon">🎆</span><span class="sm-text"><b>${`Jahresrückblick ${rueckblickJahr}`}</b><small>Dein Trainingsjahr als Story</small></span><span class="sm-pfeil">›</span></button>` : null}
+      ${!vorschau ? html`<span class="eyebrow sm-titel">Coach</span>
+      <button class="sm-punkt" onClick=${() => waehle('coach')}><span class="sm-icon">📋</span><span class="sm-text"><b>Coach-Modus</b><small>Athleten betreuen, Trainings sehen, Pläne schicken</small></span><span class="sm-pfeil">›</span></button>` : null}
       <span class="eyebrow sm-titel">Hilfe</span>
       <button class="sm-punkt" onClick=${() => waehle('begriffe')}><span class="sm-icon">?</span><span class="sm-text"><b>Begriffe erklärt</b><small>RPE, e1RM, Back-off, Deload …</small></span><span class="sm-pfeil">›</span></button>
       <span class="muted sm-tipp">Tipp: vom linken Rand nach rechts wischen öffnet dieses Menü überall.</span>

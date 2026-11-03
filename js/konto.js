@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -306,6 +306,20 @@ export const challengeAnlegen = async (sb, c) => mit30(await sb.rpc('challenge_a
 export const challengeAntworten = async (sb, id, dabei) => mit30(await sb.rpc('challenge_antworten', { p_id: id, p_dabei: dabei }));
 // 211: geheimer Kalender-Link
 export const kalenderToken = async (sb, neu = false) => mit30(await sb.rpc('kalender_token', { neu }));
+// 214 (Update 32): Coach-Modus
+const ohne32 = (r) => r.error && /coach|athlet/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
+const mit32 = (r) => { if (ohne32(r)) throw new Error('Datenbank-Update 32 fehlt (db/32_coach.sql).'); if (r.error) throw new Error(r.error.message); return r.data; };
+export async function coachBeziehungen(sb) {
+  const r = await sb.rpc('coach_beziehungen');
+  if (ohne32(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return r.data ?? [];
+}
+export const coachAnfragen = async (sb, id) => mit32(await sb.rpc('coach_anfragen', { p_athlet: id }));
+export const coachAntworten = async (sb, id, ja) => mit32(await sb.rpc('coach_antworten', { p_coach: id, p_ja: ja }));
+export const coachBeenden = async (sb, id) => mit32(await sb.rpc('coach_beenden', { p_andere: id }));
+export const athletTrainings = async (sb, id, tage = 120) => mit32(await sb.rpc('athlet_trainings', { p_athlet: id, p_tage: tage })) ?? [];
+export const athletBlock = async (sb, id) => (mit32(await sb.rpc('athlet_block', { p_athlet: id })) ?? [])[0] ?? null;
 export const reaktionenGesehen = async (sb) => { const r = await sb.rpc('reaktionen_gesehen'); if (r.error && !/does not exist|schema cache|could not find/i.test(r.error.message)) throw new Error(r.error.message); };
 
 /** Feed der letzten tage Tage; null, solange Update 15 fehlt. */
