@@ -271,13 +271,34 @@ export const I = {
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
-export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zusatz = null }) {   // zusatz(): zweite Zeile (laufendes Training)
+/** Leiste unten außerhalb des Trainings (03.11.): kompakt, Glasfläche, dünner Fortschrittsbalken; Übungsname ganz. */
+function PausenDock({ timer, setTimer, oeffnen, zusatz, fortschritt = null }) {
+  const rest = (timer.ende - Date.now()) / 1000, anteil = Math.max(0, Math.min(1, rest / timer.dauer)), z = zusatz(), f = fortschritt?.();
+  return html`<div class=${`pdock ${rest <= 0 ? 'over' : ''}`} role="timer" aria-live="off">
+    <div class="pdock-haupt" onClick=${oeffnen} role=${oeffnen ? 'button' : null} tabIndex=${oeffnen ? 0 : null} aria-label=${oeffnen ? 'Zum laufenden Training' : null}>
+      <div class="pdock-zeit" title=${timer.grund ?? 'Pause'}><span class="pdock-punkt" aria-hidden="true"></span><b class="tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</b></div>
+      <div class="pdock-info">
+        <b class="pdock-uebung">${timer.naechsterUebung ?? timer.naechster}</b>
+        <span class="pdock-meta">${timer.naechsterUebung ? html`<span class="pdock-satz">${timer.naechster}</span>` : null}<span>${z}</span></span>
+      </div>
+    </div>
+    <div class="pdock-knoepfe">
+      <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
+      <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
+    </div>
+    ${f?.length ? html`<div class="pdock-fortschritt" role="progressbar" aria-label="Erledigte Sätze je Übung">${f.map(([fertig, alle], i) => html`<span key=${i} style=${`flex:${alle}`}><i style=${`transform:scaleX(${alle ? fertig / alle : 0})`}></i></span>`)}</div>` : null}
+    <i class="pdock-balken" style=${`transform:scaleX(${anteil})`}></i>
+  </div>`;
+}
+
+export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zusatz = null, fortschritt = null }) {   // zusatz(): zweite Zeile (laufendes Training)
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000;
   useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
   const C = 2 * Math.PI * 16, anteil = Math.max(0, Math.min(1, rest / timer.dauer));
   // 169: außerhalb des Trainings öffnet ein Tipp auf Ring oder Zeit das laufende Training
   const auf = oeffnen ? { onClick: oeffnen, role: 'button', tabIndex: 0, style: 'cursor:pointer', 'aria-label': 'Zum laufenden Training' } : {};
+  if (zusatz) return html`<${PausenDock} timer=${timer} setTimer=${setTimer} oeffnen=${oeffnen} zusatz=${zusatz} fortschritt=${fortschritt}/>`;
   return html`<div class=${`timer ${rest <= 0 ? 'over' : ''} ${kopf ? 'im-kopf' : ''}`} role="timer" aria-live="off">
     <div class="timer-auf" ...${auf}><svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor;opacity:.2" stroke-width="4"/>
       <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/>

@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useWegwischen, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -404,6 +404,17 @@ function LaufLeiste({ training, oeffnen }) {
   </button>`;
 }
 
+/** Nach dem Wegwischen der Leiste: kleiner Knopf unten rechts (gleiches Glas), führt zurück ins Training. */
+function MiniDock({ training, timer, oeffnen }) {
+  useTakt(true, 500);
+  const pause = timer && timer.ende > Date.now();
+  return html`<button class=${`dock-mini ${pause ? 'pause' : ''}`} onClick=${oeffnen} aria-label="Zurück zum Training">
+    <span class="pdock-punkt" aria-hidden="true"></span>
+    <b class="tab-num">${pause ? mmss((timer.ende - Date.now()) / 1000) : uhr((Date.now() - training.start) / 1000)}</b>
+    <span class="dock-mini-pfeil" aria-hidden="true">›</span>
+  </button>`;
+}
+
 // #################################################################
 // App
 // #################################################################
@@ -459,6 +470,9 @@ function App() {
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
   const [abschluss, setAbschluss] = useState(null);
   const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
+  const [dockKlein, setDockKlein] = useState(null);                 // Leiste weggewischt: Kennung des Trainings (dann nur Mini-Knopf)
+  const dockWisch = useWegwischen(() => setDockKlein(trainingIdRef.current));
+  const trainingIdRef = useRef(null);
   const [rbJahr, setRbJahr] = useState(null);
   // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
   // im Menü nur rund um den Jahreswechsel: ab 18.12. das laufende Jahr, im Januar noch das gerade beendete
@@ -1452,12 +1466,15 @@ function App() {
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
-    ${(timer && !imTraining) || leiste ? html`<div class="dock">
+    ${(() => { trainingIdRef.current = training?.id ?? null; return null; })()}
+    ${leiste && dockKlein === training?.id ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')}/>`
+    : (timer && !imTraining) || leiste ? html`<div class="dock"><div class="dock-wisch kein-wisch" ...${dockWisch.props}>
       ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}
       ${leiste && !(timer && !imTraining) ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}
-        zusatz=${leiste ? () => { const s = alleSaetze(training); return `🏋️ ${training.bearbeiten ? 'Bearbeitung' : uhr((Date.now() - training.start) / 1000)}   ✅ ${s.filter((x) => x.erledigt).length}/${s.length} Sätze`; } : null}/>` : null}
-    </div>` : null}
+        fortschritt=${leiste ? () => training.karten.filter((k) => k.key).map((k) => { const s = k.gruppen.flatMap((g) => g.saetze); return [s.filter((x) => x.erledigt).length, s.length]; }).filter(([, n]) => n) : null}
+        zusatz=${leiste ? () => { const s = alleSaetze(training); return `${training.bearbeiten ? 'Bearbeitung' : uhr((Date.now() - training.start) / 1000)} · ${s.filter((x) => x.erledigt).length}/${s.length} Sätze`; } : null}/>` : null}
+    </div></div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
       ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + neuReakt.length > 9 ? '9+' : anfragen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
