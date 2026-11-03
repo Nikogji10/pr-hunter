@@ -75,6 +75,7 @@ function AthletAnsicht({ a, plaene, geaendert }) {
   const [plan, setPlan] = useState(false);
   const [mehr, setMehr] = useState(8);
   const [status, setStatus] = useState(null);
+  const [beenden, setBeenden] = useState(false);
   useEffect(() => {
     if (a.status !== 'aktiv') return;
     DIENSTE.athletTrainings?.(a.andere).then((l) => { setTr(l); zwischen.schreib(`coach-${a.andere}`, l); }).catch((e) => setStatus(e.message));
@@ -96,16 +97,23 @@ function AthletAnsicht({ a, plaene, geaendert }) {
         <div style="flex:1;min-width:0"><b class="coach-name">${a.name}</b><div class="muted" style="font-size:13px">${block ? `${block.name} · ${deEn('Woche', 'Week')} ${blockWoche}/${block.wochen}` : deEn('Kein aktiver Block', 'No active block')}</div></div></div>
       <div class="coach-zahlen">
         <div><small>${deEn('Diese Woche', 'This week')}</small><b>${woche}</b></div>
-        <div><small>${deEn('Zuletzt', 'Last')}</small><b>${liste[0] ? datumKurz(liste[0].datum) : '–'}</b></div>
+        <div><small>${deEn('Zuletzt', 'Latest')}</small><b>${liste[0] ? datumKurz(liste[0].datum) : '–'}</b></div>
         ${Object.entries(best).map(([l, w]) => html`<div key=${l}><small>${LIFT[l].name}</small><b>${w > 0 ? fmt(Math.round(w * 2) / 2, 1) : '–'}</b></div>`)}
       </div>
       <div class="row" style="gap:8px"><button class="btn btn-chalk" style="flex:1" disabled=${!plaene.length || !DIENSTE.planSenden} onClick=${() => setPlan(true)}>${deEn('Plan schicken', 'Send plan')}</button>
-        <button class="btn btn-soft" onClick=${async () => { if (confirm(deEn(`Coaching von ${a.name} beenden?`, `Stop coaching ${a.name}?`))) { await DIENSTE.coachBeenden(a.andere); geaendert(); } }}>${deEn('Beenden', 'End')}</button></div>
+        <button class="btn btn-soft" onClick=${() => setBeenden(true)}>${deEn('Beenden', 'End')}</button></div>
       ${status ? html`<span class="muted" style="font-size:12.5px">${status}</span>` : null}
     </section>
     ${tr == null ? html`<p class="muted">${deEn('Lade …', 'Loading …')}</p>` : !liste.length ? html`<section class="card pad"><p class="muted" style="margin:0">${deEn('Noch keine Trainings in den letzten Monaten.', 'No workouts in recent months.')}</p></section>` : null}
     ${liste.slice(0, mehr).map((t) => html`<${CoachTraining} key=${t.id} t=${t}/>`)}
     ${liste.length > mehr ? html`<button class="btn btn-soft btn-block" onClick=${() => setMehr(mehr + 10)}>${deEn('Ältere Trainings', 'Older workouts')}</button>` : null}
+    ${beenden ? html`<${Sheet} zu=${() => setBeenden(false)} label=${deEn('Coaching beenden', 'Stop coaching')}>
+      <div class="row" style="gap:12px;align-items:center"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${44}/>
+        <h2 class="h2" style="margin:0">${deEn(`Coaching von ${a.name} beenden?`, `Stop coaching ${a.name}?`)}</h2></div>
+      <p class="muted" style="margin:0;font-size:13.5px">${deEn(`Du siehst danach ${a.name}s Trainings nicht mehr. Deine Kommentare und geschickten Pläne bleiben. Wieder verbinden geht jederzeit über „+ Athlet“.`, `You will no longer see ${a.name}'s workouts. Your comments and sent plans stay. You can reconnect any time via “+ Athlete”.`)}</p>
+      <button class="btn btn-gefahr btn-block" onClick=${async () => { try { await DIENSTE.coachBeenden(a.andere); setBeenden(false); geaendert(); } catch (e) { setBeenden(false); setStatus(e.message); } }}>${deEn('Coaching beenden', 'Stop coaching')}</button>
+      <button class="btn btn-soft btn-block" onClick=${() => setBeenden(false)}>${deEn('Abbrechen', 'Cancel')}</button>
+    <//>` : null}
     ${plan ? html`<${Sheet} zu=${() => setPlan(false)} label=${deEn('Plan schicken', 'Send plan')}>
       <h2 class="h2">${deEn(`Plan an ${a.name}`, `Plan for ${a.name}`)}</h2>
       ${plaene.map((p, i) => html`${i === 0 || p.eigen !== plaene[i - 1].eigen ? html`<span class="eyebrow">${p.eigen ? deEn('Deine Pläne', 'Your plans') : deEn('Vorlagen', 'Templates')}</span>` : null}<button key=${p.name} class="btn btn-soft btn-block" onClick=${async () => { try { await DIENSTE.planSenden(a.andere, p.name, p.def); setPlan(false); setStatus(deEn(`„${p.name}“ geschickt – ${a.name} übernimmt ihn unter Programme.`, `“${p.name}” sent – ${a.name} adds it under Programs.`)); } catch (e) { setStatus(e.message); } }}>${p.name}</button>`)}

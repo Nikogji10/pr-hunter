@@ -2298,3 +2298,4 @@ body { overflow-x: hidden; }
 .coach-einladen { display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
 .coach-anfrage-zeile { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
 .coach-anfrage-knoepfe { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.rpe-fehlt { text-align: right; font-size: 12px; }

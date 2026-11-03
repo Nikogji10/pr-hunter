@@ -71,6 +71,7 @@ function ausAdresse() {
   const [a, key] = decodeURIComponent(location.hash.slice(1)).split('/');
   return ANSICHTEN.has(a) && (a !== 'uebung' || key) ? { ansicht: a, key: key || null } : { ansicht: 'heute', key: null };
 }
+const coachZahl = (r) => (r ?? []).filter((x) => x.rolle === 'coach' && x.status === 'angefragt').length;   // 214
 const adresse = (a, key) => `#${a}${key ? `/${encodeURIComponent(key)}` : ''}`;
 
 if (DEMO) setzeStand((await import('./ui/beispiel.js')).beispielStand());
@@ -531,6 +532,7 @@ function App() {
   const rbDaten = useMemo(() => (rbJahr ? rueckblickAus(normiere(trainings), rbJahr, { liftVon }) : null), [rbJahr, trainings]);
   const [aktiveFreunde, setAktiveFreunde] = useState([]);        // 191: Freunde, die gerade trainieren
   const [neuReakt, setNeuReakt] = useState([]);                  // 190: neue Likes/Kommentare unter meinen Trainings
+  const [coachOffen, setCoachOffen] = useState(0);              // 214: offene Coach-Anfragen an mich (zählt im roten Punkt mit)
   const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
   const sp = useRef(null);
@@ -677,6 +679,7 @@ function App() {
       }
       // Offene Freundschaftsanfragen an mich: roter Hinweis am Feed
       try { const fr = await konto.ladeFreunde(sb); setAnfragen(fr ? fr.filter((x) => x.status === 'offen' && x.richtung === 'rein').length : 0); } catch { /* egal */ }
+      try { setCoachOffen(coachZahl(await konto.coachBeziehungen(sb))); } catch { /* ohne Update 32 still */ }
       let me = (await s.meta('messwerte')) ?? [];
       for (const m of me.filter((x) => x.offen)) { await konto.messwertHochladen(sb, m); m.offen = false; }
       me = konto.mischeMesswerte(me, await konto.ladeMesswerte(sb));
@@ -1394,7 +1397,7 @@ function App() {
     challengeAnlegen: DEMO ? null : (c) => konto.challengeAnlegen(supabase(), c),
     challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
     mitmachen: DEMO ? null : (a) => mitmachen(a),
-    coachBeziehungen: DEMO ? null : () => konto.coachBeziehungen(supabase()),
+    coachBeziehungen: DEMO ? null : async () => { const r = await konto.coachBeziehungen(supabase()); setCoachOffen(coachZahl(r)); return r; },
     coachAnfragen: DEMO ? null : (id) => konto.coachAnfragen(supabase(), id),
     coachAntworten: DEMO ? null : (id, ja) => konto.coachAntworten(supabase(), id, ja),
     coachBeenden: DEMO ? null : (id) => konto.coachBeenden(supabase(), id),
@@ -1499,7 +1502,7 @@ function App() {
       : ansicht === 'datenschutz' ? html`<${Datenschutz} zurueck=${() => history.back()}/>`
       : ansicht === 'coach' ? html`<${CoachSeite} zurueck=${() => history.back()}
           plaene=${Object.entries(info).map(([d, p]) => ({ name: p.name ?? NAMEN[d] ?? d, def: programme[d], eigen: !p.vorlage })).filter((p) => p.def).sort((a, b) => b.eigen - a.eigen)}/>`
-      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen} neuReakt=${neuReakt} gesehen=${reaktionenGesehen} aktiv=${aktiveFreunde} zuEinstellungen=${() => gehe('einstellungen')}/>`
+      : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen + coachOffen} neuReakt=${neuReakt} gesehen=${reaktionenGesehen} aktiv=${aktiveFreunde} zuEinstellungen=${() => gehe('einstellungen')}/>`
       : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen}/>`
       : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
           // 180: aktueller Satz des Trainings (offene Übung zuerst); bei Klimmzug/Dips als Zusatzgewicht für den Klimmzug-Rechner
@@ -1540,7 +1543,7 @@ function App() {
         zusatz=${leiste ? () => { const s = alleSaetze(training); return html`<span class="pdock-zeitchip">${training.bearbeiten ? '✎' : `⏱ ${uhr((Date.now() - training.start) / 1000)}`}</span><span>${`${s.filter((x) => x.erledigt).length}/${s.length} Sätze`}</span>`; } : null}/>` : null}
     </div></div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
-      ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + neuReakt.length > 9 ? '9+' : anfragen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
+      ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || coachOffen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || coachOffen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + coachOffen + neuReakt.length > 9 ? '9+' : anfragen + coachOffen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>
         <div class="konfetti" aria-hidden="true">${Array.from({ length: 56 }, (_, i) => html`<i key=${i} style=${`--x:${(i * 37) % 100}%;--d:${(i % 9) * 0.08}s;--r:${(i * 53) % 360}deg;--f:${['var(--p25)', 'var(--p20)', 'var(--p15)', 'var(--p10)', '#fff', 'var(--gold)'][i % 6]}`}></i>`)}</div>` : null}</div>` : null}
