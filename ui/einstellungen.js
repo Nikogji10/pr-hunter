@@ -1,7 +1,7 @@
 // PR Hunter · Einstellungen als Menü mit Unterseiten: Training, Körper, Geräte und Einheit, Anzeige, Konto und Daten.
 // Jede Unterseite ist ein eigener Historien-Eintrag (Zurück führt ins Menü).
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
-import { html, useState, useEffect, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, TON_GRUPPEN, tonName, piep, kopiere } from './basis.js';
+import { html, useState, useEffect, useRef, Portal, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, TON_GRUPPEN, tonName, piep, kopiere } from './basis.js';
 import { DEMO, DIENSTE } from './stand.js';
 import { APP_VERSION } from './hilfe.js';
 import { sag } from './ansage.js';
@@ -166,10 +166,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <input type="checkbox" id="e-ansage" checked=${!!einst.sprachansagen} onChange=${(e) => { setEinst({ ...einst, sprachansagen: e.currentTarget.checked }); if (e.currentTarget.checked) sag(deEn('Sprachansagen sind an.', 'Voice prompts are on.')); }}/></label>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Ton am Pausenende</span>
         <div class="ton-auswahl">
-          <select class="text" aria-label="Ton am Pausenende" value=${einst.ton ?? 'piep'} onChange=${(e) => { const id = e.currentTarget.value; piep(id); setEinst({ ...einst, ton: id }); }}>
-            ${TON_GRUPPEN.map(([g, de, en]) => html`<optgroup key=${g} label=${deEn(de, en)}>${Object.entries(TOENE).filter(([, t]) => t.gruppe === g)
-              .map(([id]) => html`<option key=${id} value=${id} selected=${(einst.ton ?? 'piep') === id}>${tonName(id)}</option>`)}</optgroup>`)}
-          </select>
+          <${TonWahl} wert=${einst.ton ?? 'piep'} setze=${(id) => setEinst({ ...einst, ton: id })}/>
           <button class="btn btn-soft btn-sm ton-probe" onClick=${() => piep(einst.ton ?? 'piep')} aria-label="Ton abspielen">▶ Probe</button></div>
         <span class="muted" style="font-size:12.5px">${deEn(`${Object.keys(TOENE).length - 1} Töne in ${TON_GRUPPEN.length - 1} Gruppen – Auswählen spielt den Ton gleich ab. Dazu vibriert das Handy (das iPhone kann es nicht).`,
           `${Object.keys(TOENE).length - 1} sounds in ${TON_GRUPPEN.length - 1} groups – choosing one plays it right away. The phone vibrates too (iPhones can't).`)}</span></div>
@@ -373,6 +370,31 @@ const ABO_ANLEITUNG = {
   pc: ['Oben „Link kopieren“ (oder den Link an dich selbst schicken).', 'Google: calendar.google.com → „Weitere Kalender“ + → „Per URL“.',
     'Outlook: Kalender → „Kalender hinzufügen“ → „Aus dem Internet“.', 'Link einfügen und bestätigen.'],
 };
+
+/** Ton am Pausenende: eigenes Auswahlfenster statt <select> (das native Aufklappmenü flackerte auf dem Handy);
+ *  beim Öffnen steht der gewählte Ton in der Mitte, Antippen wählt und spielt ihn – das Fenster bleibt zum Durchprobieren offen. */
+function TonWahl({ wert, setze }) {
+  const [offen, setOffen] = useState(false);
+  const liste = useRef(null);
+  useEffect(() => {
+    if (!offen) return;
+    requestAnimationFrame(() => {
+      const el = liste.current?.querySelector('.ton-punkt[aria-pressed="true"]'), box = el?.closest('.sheet');
+      if (!el || !box) return;
+      const a = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+      box.scrollTop += a.top - b.top - (b.height - a.height) / 2;
+    });
+  }, [offen]);
+  return html`<button class="ton-knopf" aria-haspopup="dialog" onClick=${() => setOffen(true)}><span>${tonName(wert)}</span><span class="ton-pfeil" aria-hidden="true">▾</span></button>
+    ${offen ? html`<${Portal}><${Sheet} zu=${() => setOffen(false)} label=${deEn('Ton am Pausenende', 'Sound at end of rest')}>
+      <h2 class="h2">${deEn('Ton am Pausenende', 'Sound at end of rest')}</h2>
+      <div class="stack ton-liste" ref=${liste} style="gap:10px">${TON_GRUPPEN.map(([g, de, en]) => html`<div key=${g} class="stack" style="gap:4px">
+        <span class="eyebrow">${deEn(de, en)}</span>
+        ${Object.entries(TOENE).filter(([, t]) => t.gruppe === g).map(([id]) => html`<button key=${id} class="ton-punkt" aria-pressed=${String(wert === id)}
+          onClick=${() => { piep(id); setze(id); }}><span>${tonName(id)}</span>${wert === id ? I.check : null}</button>`)}</div>`)}</div>
+      <button class="btn btn-chalk btn-block" onClick=${() => setOffen(false)}>${deEn('Fertig', 'Done')}</button>
+    <//><//>` : null}`;
+}
 
 function KalenderAbo() {
   const [link, setLink] = useState(null);

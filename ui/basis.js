@@ -1,5 +1,5 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
-import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
+import { html, useState, useEffect, useRef, render } from '../vendor/htm-preact.js';
 import { pauseAnteil, pausePlus, pauseMinus } from '../js/pausenbalken.js';
 export { pauseAnteil, pausePlus, pauseMinus };
 /** Farbe der Pause nach Restzeit (03.11.), fließend: grün bis 1:00, dann über Gelb (0:30) nach Rot (0:00); vorbei = grün („Los!“). */
@@ -190,6 +190,27 @@ export const TOENE = {
   alarm: ton('laut', 'Alarm', 'Alarm', [0, 0.3, 0.6].map((t) => [t, 600, 0.26, 0.14, 'square', 1300])),
   sirene: ton('laut', 'Sirene', 'Siren', [[0, 650, 0.45, 0.13, 'sawtooth', 1300], [0.45, 1300, 0.45, 0.13, 'sawtooth', 650], [0.9, 650, 0.45, 0.13, 'sawtooth', 1300]]),
   stadion: ton('laut', 'Stadionhorn', 'Stadium horn', [[0, 233, 1.1, 0.16, 'sawtooth'], [0, 349, 1.1, 0.12, 'sawtooth'], [0, 466, 1.1, 0.08, 'square']]),
+  // Neu 03.11.: weitere Timer-Töne (kurz, klar erkennbar, auch über Handy-Lautsprecher)
+  countdown: ton('klassisch', 'Countdown 3-2-1', 'Countdown 3-2-1', [[0, 660, 0.14, 0.22, 'sine'], [0.45, 660, 0.14, 0.22, 'sine'], [0.9, 660, 0.14, 0.22, 'sine'], [1.35, 1320, 0.55, 0.26, 'sine']]),
+  kuechenwecker: ton('klassisch', 'Küchenwecker', 'Kitchen timer', [0, 0.85].flatMap((ab) => Array.from({ length: 16 }, (_, i) => [ab + i * 0.04, i % 2 ? 2900 : 2600, 0.035, 0.1, 'triangle']))),
+  sonar: ton('klassisch', 'Sonar', 'Sonar ping', [[0, 1180, 1.2, 0.22, 'sine'], [0, 2360, 0.4, 0.04, 'sine'], [0.6, 1180, 0.9, 0.07, 'sine']]),
+  startampel: ton('gym', 'Startampel', 'Race lights', [[0, 440, 0.22, 0.16, 'sawtooth'], [0.5, 440, 0.22, 0.16, 'sawtooth'], [1.0, 440, 0.22, 0.16, 'sawtooth'], [1.5, 880, 0.6, 0.18, 'sawtooth'], [1.5, 1320, 0.6, 0.06, 'sine']]),
+  torhorn: ton('gym', 'Torhorn (Eishockey)', 'Goal horn', [[0, 175, 1.6, 0.15, 'sawtooth'], [0, 220, 1.6, 0.12, 'sawtooth'], [0, 262, 1.6, 0.09, 'square'], [0, 350, 1.6, 0.06, 'sawtooth']]),
+  kettlebell: ton('gym', 'Kettlebell-Klang', 'Kettlebell clang', [[0, 370, 0.9, 0.12, 'sine'], [0, 1013, 0.7, 0.08, 'sine'], [0, 1847, 0.5, 0.06, 'sine'], [0, 2960, 0.3, 0.04, 'sine'], [0, 4200, 0.08, 0.18, 'rausch']]),
+  stoppuhr: ton('gym', 'Stoppuhr', 'Stopwatch', [[0, 6000, 0.02, 0.35, 'rausch'], [0.12, 6000, 0.02, 0.35, 'rausch'], [0.35, 1760, 0.12, 0.18, 'sine'], [0.5, 1760, 0.12, 0.18, 'sine'], [0.65, 2349, 0.35, 0.2, 'sine']]),
+  bereitlos: ton('arcade', 'Bereit – los!', 'Ready, go!', [[0, 392, 0.14, 0.12, 'square'], [0.3, 392, 0.14, 0.12, 'square'], [0.6, 784, 0.4, 0.14, 'square'], [0.6, 1175, 0.4, 0.05, 'square']]),
+  explosion: ton('arcade', '8-Bit-Explosion', '8-bit explosion', [[0, 800, 0.6, 0.35, 'rausch'], [0, 200, 0.5, 0.18, 'square', 40]]),
+  bonus: ton('arcade', 'Bonus-Runde', 'Bonus round', folge([784, 988, 1175, 1568, 1175, 988, 784, 988, 1175, 1568, 2093], 0.045, 0.06, 0.1, 'square')),
+  marimba: ton('musik', 'Marimba', 'Marimba', [[0, 784, 0.45, 0.22, 'sine'], [0, 3136, 0.05, 0.06, 'sine'], [0.15, 988, 0.45, 0.22, 'sine'], [0.15, 3952, 0.05, 0.06, 'sine'], [0.3, 1175, 0.6, 0.22, 'sine'], [0.3, 4700, 0.05, 0.05, 'sine']]),
+  synth: ton('musik', 'Synth-Akkord', 'Synth chord', [[0, 262, 1.2, 0.07, 'sawtooth'], [0, 330, 1.2, 0.06, 'sawtooth'], [0, 392, 1.2, 0.06, 'sawtooth'], [0, 494, 1.2, 0.05, 'sawtooth'], [0, 131, 1.2, 0.1, 'sine']]),
+  bassdrop: ton('musik', 'Bass-Drop', 'Bass drop', [[0, 1200, 0.5, 0.08, 'sawtooth', 150], [0.5, 3000, 0.15, 0.12, 'rausch'], [0.5, 160, 0.9, 0.4, 'sine', 45], [0.5, 320, 0.5, 0.12, 'triangle', 90]]),
+  glockenspiel: ton('musik', 'Glockenspiel', 'Glockenspiel', folge([2093, 1760, 1568, 1318, 1568, 2093], 0.1, 0.5, 0.1, 'sine')),
+  lofi: ton('musik', 'Lo-Fi', 'Lo-fi', folge([659, 523, 392], 0.16, 0.7, 0.15, 'triangle').concat([[0.32, 196, 0.8, 0.08, 'sine']])),
+  vogel: ton('sanft', 'Morgenvogel', 'Morning bird', [[0, 2600, 0.08, 0.1, 'sine', 3600], [0.1, 2700, 0.08, 0.1, 'sine', 3800], [0.35, 3000, 0.12, 0.09, 'sine', 2200], [0.6, 2600, 0.08, 0.1, 'sine', 3600], [0.7, 2700, 0.08, 0.1, 'sine', 3800]]),
+  herzschlag: ton('sanft', 'Herzschlag', 'Heartbeat', [0, 0.85].flatMap((ab) => [[ab, 120, 0.18, 0.45, 'sine', 60], [ab, 240, 0.08, 0.1, 'sine'], [ab + 0.22, 110, 0.2, 0.35, 'sine', 55], [ab + 0.22, 220, 0.08, 0.08, 'sine']])),
+  schulklingel: ton('laut', 'Schulklingel', 'School bell', Array.from({ length: 30 }, (_, i) => [i * 0.03, i % 2 ? 1920 : 1800, 0.03, 0.1, 'square'])),
+  oldtimer: ton('laut', 'Oldtimer-Hupe', 'Vintage horn', [[0, 300, 0.25, 0.15, 'sawtooth', 500], [0.25, 500, 0.5, 0.15, 'sawtooth', 430], [0.25, 250, 0.5, 0.08, 'square', 215]]),
+  tatuetata: ton('laut', 'Tatütata', 'Two-tone siren', [0, 0.6, 1.2].flatMap((ab) => [[ab, 440, 0.28, 0.13, 'square'], [ab + 0.3, 587, 0.28, 0.13, 'square']])),
   aus: ton('still', 'Nur Vibration', 'Vibration only', []),
 };
 export const tonName = (id) => { const t = TOENE[id] ?? TOENE.piep; return ANZEIGE.sprache === 'en' ? t.en : t.name; };
@@ -486,6 +507,14 @@ export function FensterHost() {
 export const zeigeFenster = (f) => fensterSetzen?.(() => f);
 
 /** Bottom-Sheet. Eigener Eintrag in der Historie: der Zurück-Knopf schließt das Sheet statt die Ansicht zu wechseln. */
+/** Zeichnet den Inhalt direkt unter <body> – für Fenster in Karten mit backdrop-filter (dort wäre position:fixed an die Karte gebunden). */
+export function Portal({ children }) {
+  const ziel = useRef(null);
+  useEffect(() => { const d = document.createElement('div'); document.body.append(d); ziel.current = d; render(children, d); return () => { render(null, d); d.remove(); }; }, []);
+  useEffect(() => { if (ziel.current) render(children, ziel.current); });
+  return null;
+}
+
 export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   const zuRef = useRef(zu);
   zuRef.current = zu;

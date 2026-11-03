@@ -442,10 +442,12 @@ function NotizKarte({ trainings, von }) {
 
 /** 215: Wie gut schätzt du RPE? Abweichung in RPE je Lift (> 0 = zu niedrig angegeben, die Sätze waren schwerer). */
 function RpeKarte({ trainings }) {
-  const r = rpeGenauigkeit(normiere(trainings), { liftVon });
+  // Kniebeuge, Bank, Kreuzheben (mit Varianten) – übrige Übungen getrennt nach Grundübung (Mehrgelenk) und Isolation
+  const art = (k) => { const l = liftVon(k); return l !== 'andere' ? l : ISO_FAMILIEN.has(uebung(k)?.f) ? 'isolation' : 'compound'; };
+  const r = rpeGenauigkeit(normiere(trainings), { liftVon: art });
   const text = (a) => (Math.abs(a) <= 0.3 ? deEn('passt', 'accurate') : a > 0 ? deEn(`≈ ${fmt(a, 1)} zu niedrig`, `≈ ${fmt(a, 1)} too low`) : deEn(`≈ ${fmt(-a, 1)} zu hoch`, `≈ ${fmt(-a, 1)} too high`));
   const klasse = (a) => (Math.abs(a) <= 0.3 ? 'gut' : Math.abs(a) <= 0.8 ? 'mittel' : 'schlecht');
-  const zeilen = [['squat', LIFT.squat.name], ['bench', LIFT.bench.name], ['dead', LIFT.dead.name], ['andere', deEn('Zubehör', 'Accessories')]].filter(([l]) => r.je[l]);
+  const zeilen = [['squat', LIFT.squat.name], ['bench', LIFT.bench.name], ['dead', LIFT.dead.name], ['compound', deEn('Grundübungen', 'Compound')], ['isolation', deEn('Isolation', 'Isolation')]].filter(([l]) => r.je[l]);
   return html`<section class="card pad stack">
     <div><span class="viz-t">${deEn('RPE-Genauigkeit', 'RPE accuracy')}</span><div class="viz-u">${deEn('Deine RPE-Angaben im Vergleich zu harten Sätzen (RPE ≥ 9,5) in ±3 Wochen', 'Your RPE ratings compared with hard sets (RPE ≥ 9.5) within ±3 weeks')}</div></div>
     ${!r.gesamt ? html`<p class="muted" style="margin:0;font-size:13.5px">${deEn('Noch zu wenige Daten – dafür braucht es Sätze mit RPE 6–9,5 und in der Nähe einen schweren Satz (RPE 9,5–10) derselben Übung.', 'Not enough data yet – this needs sets at RPE 6–9.5 and a heavy set (RPE 9.5–10) of the same exercise nearby.')}</p>`
