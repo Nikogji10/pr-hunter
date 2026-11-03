@@ -46,7 +46,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
   const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
-  const [reiterRoh, setReiter] = useState(() => UNTER_VORSCHAU.statistik ?? 'profil');   // beim Öffnen immer Profil (Niko 02.11.); Wisch-Bild: Nachbar
+  // beim Öffnen der App Profil (Niko 02.11.); Neuladen bleibt beim gewählten Reiter (Sitzung, 03.11.); Wisch-Bild: Nachbar
+  const [reiterRoh, setReiterRoh] = useState(() => UNTER_VORSCHAU.statistik ?? (() => { try { return sessionStorage.getItem('prh-reiter-statistik'); } catch { return null; } })() ?? 'profil');
+  const setReiter = (k) => { setReiterRoh(k); try { sessionStorage.setItem('prh-reiter-statistik', k); } catch { /* egal */ } };
   const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
   const waehleReiter = (k) => { setReiter(k); scrollTo({ top: 0 }); };
   useUnterReiter('statistik', reiterListe, reiter, waehleReiter);

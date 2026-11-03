@@ -2,6 +2,12 @@
 import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
 import { pauseAnteil, pausePlus, pauseMinus } from '../js/pausenbalken.js';
 export { pauseAnteil, pausePlus, pauseMinus };
+/** Farbe der Pause nach Restzeit (03.11.), fließend: grün bis 1:00, dann über Gelb (0:30) nach Rot (0:00); vorbei = grün („Los!“). */
+export const pausenFarbe = (rest) => {
+  if (rest <= 0 || rest >= 60) return 'hsl(145 62% 58%)';
+  const farbton = rest >= 30 ? 45 + ((rest - 30) / 30) * 100 : -6 + (rest / 30) * 51;     // 145 grün → 45 gelb → −6 rot
+  return `hsl(${farbton.toFixed(1)} ${rest >= 30 ? 70 : 82}% ${rest >= 30 ? 56 : 62}%)`;
+};
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
@@ -278,7 +284,7 @@ export function KopfZeit({ timer, start }) {
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000;
   // Pause vorbei: „Los!“ leuchtet grün, daneben wie lange schon drüber
-  return html`<div class=${`kopf-zeit ${rest > 0 ? '' : 'los'}`}><span class="kopf-punkt" aria-hidden="true"></span>
+  return html`<div class=${`kopf-zeit ${rest > 0 ? '' : 'los'}`} style=${`--pausenfarbe:${pausenFarbe(rest)}`}><span class="kopf-punkt" aria-hidden="true"></span>
     <span class="clock kopf-countdown tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</span>
     <span class="kopf-zeit-neben">${rest > 0 ? (timer.grund ?? 'Pause') : html`Pause vorbei <span class="los-ueber tab-num">${`+${mmss(-rest)}`}</span>`}<small class="tab-num kopf-trainingszeit">${`⏱ ${uhr((Date.now() - start) / 1000)}`}</small></span></div>`;
 }
@@ -287,7 +293,7 @@ export function KopfPause({ timer, setTimer }) {
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000, anteil = pauseAnteil(timer);
   useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
-  return html`<div class=${`kopf-pause ${rest <= 0 ? 'over' : ''}`} role="timer" aria-live="off">
+  return html`<div class=${`kopf-pause ${rest <= 0 ? 'over' : ''}`} style=${`--pausenfarbe:${pausenFarbe(rest)}`} role="timer" aria-live="off">
     <span class="kopf-naechster"><span class="kopf-pfeil">➜</span><b class="pdock-satz">${timer.naechster}</b>${timer.naechsterUebung ? html`<span class="kopf-uebung">${timer.naechsterUebung}</span>` : null}</span>
     <span class="pdock-knoepfe">
       <button onClick=${() => setTimer(pauseMinus(timer))} aria-label="30 Sekunden weniger">−30</button>
@@ -300,7 +306,7 @@ export function KopfPause({ timer, setTimer }) {
 /** Leiste unten außerhalb des Trainings (03.11.): kompakt, Glasfläche, dünner Fortschrittsbalken; Übungsname ganz. */
 function PausenDock({ timer, setTimer, oeffnen, zusatz, fortschritt = null }) {
   const rest = (timer.ende - Date.now()) / 1000, anteil = pauseAnteil(timer), z = zusatz(), f = fortschritt?.();
-  return html`<div class=${`pdock ${rest <= 0 ? 'over' : ''}`} role="timer" aria-live="off">
+  return html`<div class=${`pdock ${rest <= 0 ? 'over' : ''}`} style=${`--pausenfarbe:${pausenFarbe(rest)}`} role="timer" aria-live="off">
     <div class="pdock-haupt" onClick=${oeffnen} role=${oeffnen ? 'button' : null} tabIndex=${oeffnen ? 0 : null} aria-label=${oeffnen ? 'Zum laufenden Training' : null}>
       <div class="pdock-zeit" title=${timer.grund ?? 'Pause'}><span class="pdock-punkt" aria-hidden="true"></span>
         ${rest > 0 ? html`<b class="tab-num">${mmss(rest)}</b>` : html`<span class="los-block"><b>Los!</b><small class="los-ueber tab-num">${`+${mmss(-rest)}`}</small></span>`}</div>

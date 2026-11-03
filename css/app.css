@@ -2232,3 +2232,12 @@ body { overflow-x: hidden; }
 .pdock.ruhig .pdock-zeit b { color: var(--ink); }
 .pdock.ruhig .pdock-punkt { animation: none; }
 .pdock-zeitchip { margin-right: 9px; }
+/* Pausenfarbe nach Restzeit: grün → gelb (< 1:00) → rot (< 0:30) */
+.pdock .pdock-zeit b, .kopf-countdown, .dock-mini b, .dock-mini.pause b { color: var(--pausenfarbe, #5BD68F); transition: color .4s ease; }
+.pdock .pdock-punkt, .kopf-punkt, .dock-mini .pdock-punkt { background: var(--pausenfarbe, #34C77B); transition: background .4s ease; }
+.pdock-balken, .kopf-balken { background: var(--pausenfarbe, #5BD68F); transition: transform .25s linear, background .4s ease; }
+.dock-mini { border-color: color-mix(in srgb, var(--pausenfarbe, #34C77B) 50%, transparent); }
+.dock-mini-pfeil { color: var(--pausenfarbe, #5BD68F); }
+.pdock.ruhig .pdock-zeit b { color: var(--ink); }
+/* Farbverlauf: die Farbe ändert sich jede Viertelsekunde ein wenig – weich überblenden */
+.pdock .pdock-zeit b, .kopf-countdown, .dock-mini b, .pdock-balken, .kopf-balken, .pdock-punkt, .kopf-punkt { transition-duration: .3s; }

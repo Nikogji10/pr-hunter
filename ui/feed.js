@@ -272,7 +272,9 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
 }
 
 export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], gesehen = () => {}, aktiv = [], zuEinstellungen }) {
-  const [reiter, setReiter] = useState(() => UNTER_VORSCHAU.feed ?? 'feed');
+  // Reiter merkt sich die Sitzung (Neuladen bleibt bei „Freunde“); neu geöffnete App startet bei „Feed“
+  const [reiter, setReiterRoh] = useState(() => UNTER_VORSCHAU.feed ?? (() => { try { return sessionStorage.getItem('prh-reiter-feed'); } catch { return null; } })() ?? 'feed');
+  const setReiter = (k) => { setReiterRoh(k); try { sessionStorage.setItem('prh-reiter-feed', k); } catch { /* egal */ } };
   useUnterReiter('feed', [['feed'], ['freunde'], ['challenges']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);

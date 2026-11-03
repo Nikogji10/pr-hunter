@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, useZiehen, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -413,9 +413,9 @@ function TrainingDock({ training, oeffnen }) {
 /** Nach dem Wegwischen der Leiste: kleiner Knopf unten rechts (gleiches Glas), führt zurück ins Training. */
 function MiniDock({ training, timer, oeffnen, ziehen, pos = null }) {
   useTakt(true, 500);
-  const pause = timer && timer.ende > Date.now(), los = timer && !pause;
+  const pause = timer && timer.ende > Date.now(), los = timer && !pause, farbe = pause ? pausenFarbe((timer.ende - Date.now()) / 1000) : '#5BD68F';
   return html`<button class=${`dock-mini kein-wisch ziehbar ${pause ? 'pause' : ''} ${los ? 'los' : ''}`} ...${ziehen.props} onClick=${() => { if (ziehen.geklickt()) oeffnen(); }}
-    style=${pos ? `left:${pos.x}px;top:${pos.y}px;right:auto;bottom:auto` : ''} aria-label="Zurück zum Training (gedrückt halten: groß)">
+    style=${`--pausenfarbe:${farbe};${pos ? `left:${pos.x}px;top:${pos.y}px;right:auto;bottom:auto` : ''}`} aria-label="Zurück zum Training (gedrückt halten: groß)">
     <span class="pdock-punkt" aria-hidden="true"></span>
     <b class="tab-num">${pause ? mmss((timer.ende - Date.now()) / 1000) : los ? 'Los!' : uhr((Date.now() - training.start) / 1000)}</b>
     ${los ? html`<small class="los-ueber tab-num">${`+${mmss((Date.now() - timer.ende) / 1000)}`}</small>` : null}
