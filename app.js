@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -265,7 +265,7 @@ function MaxListe({ werte, zuUebung }) {
   </section>`;
 }
 
-function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+function Heute({ zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, wiederholen = null, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
@@ -284,14 +284,14 @@ function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeich
   ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
   ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
   ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}
-  ${(() => {   // 206: Jahresrückblick in der letzten Dezemberwoche
+  ${(() => {   // 206: Hinweis auf den Jahresrückblick in den letzten zwei Dezemberwochen (ab 18.12.), einmalig
     const jahr = HEUTE.slice(0, 4), weg = `prh-rueckblick-weg-${jahr}`;
-    if (HEUTE.slice(5, 7) !== '12' || Number(HEUTE.slice(8)) < 25 || speicher.lies(weg) || trainings.filter((t) => !t.geloescht && t.datum.startsWith(jahr)).length < 3) return null;
+    if (HEUTE.slice(5, 7) !== '12' || Number(HEUTE.slice(8)) < 18 || speicher.lies(weg) || trainings.filter((t) => !t.geloescht && t.datum.startsWith(jahr)).length < 3) return null;
     return html`<${RueckblickKarte} jahr=${jahr} oeffnen=${() => dispatchEvent(new CustomEvent('prh-rueckblick', { detail: { jahr: Number(jahr) } }))}
       weg=${() => { speicher.schreib(weg, '1'); setEinst({ ...einst }); }}/>`;
   })()}
   <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
-  ${!training ? html`<${ErholungKurz} trainings=${trainings}/>` : null}`;
+  ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik}/>` : null}`;
   const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3} trainings=${trainings}/>`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
@@ -450,6 +450,7 @@ function App() {
   const [menueZug, setMenueZug] = useState(false);               // Seitenmenü wird gerade aufgezogen
   const [menueGezogen, setMenueGezogen] = useState(false);       // per Wischen geöffnet: Einblend-Animation nicht nochmal
   const hauptRef = useRef(null), zugUnter = useRef(null), zugLaeuft = useRef(false);
+  const unterInhaltRef = useRef(null);                            // Wischen zwischen Unterreitern: nur dieser Inhalt gleitet
   const [lichter, setLichter] = useState(null);
   const [demoErledigt, setDemoErledigt] = useState(() => new Set());
   const [anpassungen, setAnpassungenRoh] = useState({});        // key → persönliche Anpassung der Übung
@@ -460,8 +461,13 @@ function App() {
   const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
   const [rbJahr, setRbJahr] = useState(null);
   // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
-  const rueckblickMenue = (() => { const j = Number(HEUTE.slice(0, 4)) - (HEUTE.slice(5, 7) === '12' ? 0 : 1); return trainings.some((t) => !t.geloescht && t.datum?.startsWith(String(j))) ? j : null; })();                       // 206: offener Jahresrückblick
-  useEffect(() => { const h = (e) => setRbJahr(e.detail?.jahr ?? null); addEventListener('prh-rueckblick', h); return () => removeEventListener('prh-rueckblick', h); }, []);
+  // im Menü nur rund um den Jahreswechsel: ab 18.12. das laufende Jahr, im Januar noch das gerade beendete
+  const rueckblickMenue = (() => {
+    const m = HEUTE.slice(5, 7), j = Number(HEUTE.slice(0, 4)) - (m === '01' ? 1 : 0);
+    if (!(m === '12' && Number(HEUTE.slice(8)) >= 18) && m !== '01') return null;
+    return trainings.some((t) => !t.geloescht && t.datum?.startsWith(String(j))) ? j : null;
+  })();                       // 206: offener Jahresrückblick
+  useEffect(() => { const h = (e) => { const j = e.detail?.jahr ?? null; if (j) speicher.schreib(`prh-rueckblick-weg-${j}`, '1'); setRbJahr(j); }; addEventListener('prh-rueckblick', h); return () => removeEventListener('prh-rueckblick', h); }, []);
   const rbDaten = useMemo(() => (rbJahr ? rueckblickAus(normiere(trainings), rbJahr, { liftVon }) : null), [rbJahr, trainings]);
   const [aktiveFreunde, setAktiveFreunde] = useState([]);        // 191: Freunde, die gerade trainieren
   const [neuReakt, setNeuReakt] = useState([]);                  // 190: neue Likes/Kommentare unter meinen Trainings
@@ -933,6 +939,29 @@ function App() {
     }
     return b ? b.el.cloneNode(true) : null;
   };
+  // Bild der Nachbar-Kategorie einer Seite mit Unterreitern (Feed, Statistik): dieselbe Seite, gezeichnet mit dem anderen Reiter
+  const bildUnter = (ansichtKey, reiterKey) => {
+    const fuer = seiteRef.current;
+    if (!fuer || !reiterKey) return null;
+    const merk = `${ansichtKey}:${reiterKey}`, b = bilder.current[merk];
+    if (b?.fuer === fuer) return b.el.cloneNode(true);
+    const tmp = document.createElement('div'), sitzung = {};
+    try { for (let n = 0; n < sessionStorage.length; n++) { const s = sessionStorage.key(n); sitzung[s] = sessionStorage.getItem(s); } } catch { /* egal */ }
+    UNTER_VORSCHAU[ansichtKey] = reiterKey;
+    try {
+      render(fuer(ansichtKey), tmp);
+      const el = document.createElement('div'); el.className = 'seite-haupt';
+      el.append(...[...tmp.childNodes].map((n) => n.cloneNode(true)));
+      el.querySelectorAll('.backdrop, .toast').forEach((x) => x.remove());
+      bilder.current[merk] = { el, fuer };
+      return el.cloneNode(true);
+    } catch { return null; }
+    finally {
+      delete UNTER_VORSCHAU[ansichtKey];
+      try { render(null, tmp); } catch { /* egal */ }
+      try { for (const [s, w] of Object.entries(sitzung)) if (sessionStorage.getItem(s) !== w) sessionStorage.setItem(s, w); } catch { /* egal */ }
+    }
+  };
   // Bilder der anderen Reiter im Leerlauf vorbereiten (nach jeder Änderung neu, Nachbarn zuerst) – der Wischbeginn baut dann nichts
   useEffect(() => {
     const nr = ++vorbereitung.current;
@@ -947,6 +976,12 @@ function App() {
       if (k) leer(() => { if (nr !== vorbereitung.current) return; bildVon(k, true); setTimeout(weiter, 40); }, { timeout: 2500 });
     };
     setTimeout(weiter, 350);
+    // Nachbar-Kategorien (Feed, Statistik) danach, damit auch das Wischen zwischen ihnen sofort ein Bild hat
+    setTimeout(() => {
+      if (nr !== vorbereitung.current || zugLaeuft.current) return;
+      const u = UNTERREITER[ansicht];
+      for (const rk of [u?.weiterKey, u?.zurueckKey].filter(Boolean)) leer(() => { if (nr === vorbereitung.current && !zugLaeuft.current) bildUnter(ansicht, rk); }, { timeout: 3000 });
+    }, 900);
   });
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
@@ -960,11 +995,32 @@ function App() {
         zugUnter.current = null;
         if (art === 'menue') { setMenueZug(true); return true; }
         // Seite mit Unterreitern (Statistik, Feed): erst dort blättern
-        const unter = UNTERREITER[jetzt.current.ansicht]?.[art];
-        if (unter) { zugUnter.current = unter; return true; }
-        const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
-        const bild = key ? bildVon(key) : null;
-        if (!bild) return false;
+        const u = UNTERREITER[jetzt.current.ansicht], unter = u?.[art];
+        let bild;
+        if (unter) {
+          zugUnter.current = unter;
+          // Kopf und Reiter-Kacheln bleiben stehen – nur der Inhalt darunter gleitet, die Nachbar-Kategorie schiebt sich herein
+          const ganz = bildUnter(jetzt.current.ansicht, u[art === 'weiter' ? 'weiterKey' : 'zurueckKey']);
+          const inhalt = hauptRef.current?.querySelector('.unter-inhalt'), teil = ganz?.querySelector('.unter-inhalt');
+          if (!inhalt || !teil) return true;                 // ohne Bild: wie früher nur leicht mitziehen
+          const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+          const r = inhalt.getBoundingClientRect(), leiste = hauptRef.current.querySelector('.reiter')?.getBoundingClientRect();
+          const oben = (r.top > 0 ? r.top : Math.max(0, leiste?.bottom ?? 0)) / z;
+          const rahmen = document.createElement('div');
+          rahmen.className = 'seite-nachbar unter-nachbar';
+          rahmen.setAttribute('aria-hidden', 'true');
+          rahmen.style.left = `${r.left / z}px`; rahmen.style.width = `${r.width / z}px`; rahmen.style.top = `${oben}px`;
+          teil.style.transform = `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
+          rahmen.append(teil);
+          document.body.append(rahmen);
+          ebeneRef.current = teil; unterInhaltRef.current = inhalt;
+          zugLaeuft.current = true;
+          return true;
+        } else {
+          const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
+          bild = key ? bildVon(key) : null;
+          if (!bild) return false;
+        }
         // Rahmen mit genau der Fläche der echten Seite (#app: Rand des body, höchstens 520 px breit) – sonst Spalt
         // beim Ziehen und ein Sprung um den Rand beim Tausch. Darin gleitet das Bild, durchsichtig wie die echte Seite.
         const app = document.getElementById('app'), rahmen = document.createElement('div');
@@ -989,8 +1045,8 @@ function App() {
           return;
         }
         const d = (art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx)) / z;
-        if (zugUnter.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
-        if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d}px)`;
+        if (zugUnter.current && !ebeneRef.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
+        (unterInhaltRef.current ?? hauptRef.current).style.transform = `translateX(${d}px)`;
         if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100%' : '-100%'} + ${d}px))`;
       },
       ende: (art, erfolg) => {
@@ -1004,8 +1060,9 @@ function App() {
           }, 190);
           return;
         }
-        const haupt = hauptRef.current, ebene = ebeneRef.current;
-        if (zugUnter.current) {
+        const haupt = unterInhaltRef.current ?? hauptRef.current, ebene = ebeneRef.current;
+        const unterWechsel = zugUnter.current;
+        if (zugUnter.current && !ebene) {
           const unter = zugUnter.current; zugUnter.current = null;
           if (erfolg) { if (haupt) haupt.style.transform = ''; unter(); return; }
           haupt?.classList.add('gleitet'); if (haupt) haupt.style.transform = 'translateX(0)';
@@ -1016,9 +1073,11 @@ function App() {
         if (haupt) haupt.style.transform = erfolg ? `translateX(${art === 'weiter' ? '-100%' : '100%'})` : 'translateX(0)';
         if (ebene) ebene.style.transform = erfolg ? 'translateX(0)' : `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
         setTimeout(() => {
-          const key = wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
+          zugUnter.current = null;
+          const key = unterWechsel ? 'unter' : wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
           const fertig = () => {
-            if (haupt) haupt.style.visibility = '';
+            if (haupt) { haupt.style.visibility = ''; haupt.style.transform = ''; haupt.classList.remove('gleitet'); }
+            unterInhaltRef.current = null;
             ebene?.parentElement?.remove(); ebeneRef.current = null;
             zugLaeuft.current = false;
           };
@@ -1027,7 +1086,7 @@ function App() {
             // gespult (das Bild zeigte schon den Endstand) – früher: Klasse aus und nach 0,4 s wieder an, das startete die
             // Animation neu und alle Kacheln sprangen.
             if (haupt) { haupt.style.visibility = 'hidden'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
-            gehe(key);
+            if (unterWechsel) unterWechsel(); else gehe(key);
             requestAnimationFrame(() => requestAnimationFrame(() => {
               for (const a of haupt?.getAnimations?.({ subtree: true }) ?? []) {
                 try { if (a.effect?.getComputedTiming?.().iterations !== Infinity) a.finish(); } catch { /* egal */ }
@@ -1267,7 +1326,7 @@ function App() {
     challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
     mitmachen: DEMO ? null : (a) => mitmachen(a),
     kalenderLink: DEMO ? null : async (neu = false) => `${SUPABASE_URL}/functions/v1/kalender?t=${await konto.kalenderToken(supabase(), neu)}`,
-    melden: DEMO ? null : (id, name) => setFeedback({ art: 'meldung', betrifft: id, name }),
+    melden: DEMO ? null : (id, name, text = '') => setFeedback({ art: 'meldung', betrifft: id, name, text }),
     programmSpeichern: async (datei, def) => {
       const p = info[datei];
       if (!DEMO && !navigator.onLine) throw new Error('Zum Speichern braucht das Handy Netz.');
@@ -1379,7 +1438,7 @@ function App() {
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           zuImport=${DEMO ? null : () => gehe('import')} zuGewichtImport=${DEMO ? null : () => gehe('gewicht')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
-      : html`<${Heute} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
+      : html`<${Heute} zuStatistik=${() => gehe('statistik')} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}
           startenAm=${startenAm} bearbeiten=${DEMO ? null : bearbeiten} loeschen=${DEMO ? null : loeschen} wiederholen=${DEMO ? null : wiederholen} zuUebung=${(key) => zuUebung(key, 'heute')} menueAuf=${() => setMenue(true)}
@@ -1416,7 +1475,7 @@ function App() {
     <${SeitenMenue} rueckblickJahr=${rueckblickMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
       waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); gehe('rechner', k, true); }}/>
     ${glossar ? html`<${GlossarSheet} zu=${() => setGlossar(false)}/>` : null}
-    ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} zu=${() => setFeedback(null)}
+    ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} vorText=${feedback.text ?? ''} zu=${() => setFeedback(null)}
       senden=${(f) => konto.feedbackSenden(supabase(), f)}/>` : null}
     ${neueVersion ? html`<${NeueVersion}/>` : null}
     ${einf ? html`<${Einfuehrung} fertig=${() => setEinf(false)} zuProgrammen=${aktiverBlock ? null : () => gehe('programme')}/>` : null}

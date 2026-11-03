@@ -133,24 +133,78 @@ export const speicher = {
 // Ton am Pausenende: in der App erzeugt (Web Audio, keine Tondateien). Wählbar in Einstellungen → Training.
 // Jeder Ton: Liste von [Start s, Frequenz Hz, Dauer s, Lautstärke, Wellenform]; „aus“ = nur Vibration.
 // #################################################################
+// Töne am Pausenende – alle im Browser erzeugt (keine Dateien). Note: [Start s, Frequenz Hz, Dauer s, Lautstärke, Welle, Zielfrequenz?]
+// Welle 'rausch' = gefiltertes Rauschen um die Frequenz (Startschuss, Klirren); mit Zielfrequenz gleitet der Ton (Laser, Power-up).
+const ton = (gruppe, name, en, noten) => ({ gruppe, name, en, noten });
+const folge = (fs, abstand, dauer, laut, welle, ab = 0) => fs.map((f, i) => [ab + i * abstand, f, dauer, laut, welle]);
+export const TON_GRUPPEN = [['klassisch', 'Klassisch', 'Classic'], ['gym', 'Gym und Sport', 'Gym and sport'], ['arcade', 'Arcade und Retro', 'Arcade and retro'],
+  ['musik', 'Musikalisch', 'Musical'], ['sanft', 'Sanft', 'Soft'], ['laut', 'Laut', 'Loud'], ['still', 'Ohne Ton', 'Silent']];
 export const TOENE = {
-  piep: { name: 'Piep', noten: [[0, 784, 0.18, 0.25, 'sine'], [0.22, 784, 0.18, 0.25, 'sine'], [0.44, 1046, 0.18, 0.25, 'sine']] },
-  glocke: { name: 'Glocke', noten: [[0, 1318, 1.1, 0.22, 'sine'], [0, 3638, 0.5, 0.05, 'sine'], [0.45, 1318, 1.1, 0.18, 'sine'], [0.45, 3638, 0.5, 0.04, 'sine']] },
-  gong: { name: 'Gong', noten: [[0, 196, 1.8, 0.32, 'sine'], [0, 392, 1.4, 0.12, 'sine'], [0, 523, 0.9, 0.06, 'triangle']] },
-  hupe: { name: 'Hupe', noten: [[0, 440, 0.32, 0.14, 'square'], [0.4, 440, 0.32, 0.14, 'square']] },
-  aufstieg: { name: 'Aufstieg', noten: [[0, 523, 0.14, 0.22, 'triangle'], [0.12, 659, 0.14, 0.22, 'triangle'], [0.24, 784, 0.14, 0.22, 'triangle'], [0.36, 1046, 0.3, 0.24, 'triangle']] },
-  aus: { name: 'Nur Vibration', noten: [] },
+  // Klassisch
+  piep: ton('klassisch', 'Piep', 'Beep', [[0, 784, 0.18, 0.25, 'sine'], [0.22, 784, 0.18, 0.25, 'sine'], [0.44, 1046, 0.18, 0.25, 'sine']]),
+  doppelpiep: ton('klassisch', 'Doppelpiep', 'Double beep', [[0, 1568, 0.09, 0.2, 'square'], [0.13, 1568, 0.09, 0.2, 'square']]),
+  wecker: ton('klassisch', 'Digitalwecker', 'Digital alarm', [0, 0.5].flatMap((ab) => folge([2093, 2093, 2093, 2093], 0.09, 0.06, 0.13, 'square', ab))),
+  glocke: ton('klassisch', 'Glocke', 'Bell', [[0, 1318, 1.1, 0.22, 'sine'], [0, 3638, 0.5, 0.05, 'sine'], [0.45, 1318, 1.1, 0.18, 'sine'], [0.45, 3638, 0.5, 0.04, 'sine']]),
+  gong: ton('klassisch', 'Gong', 'Gong', [[0, 196, 1.8, 0.32, 'sine'], [0, 392, 1.4, 0.12, 'sine'], [0, 523, 0.9, 0.06, 'triangle']]),
+  klingel: ton('klassisch', 'Fahrradklingel', 'Bike bell', [[0, 2637, 0.35, 0.16, 'triangle'], [0, 3951, 0.25, 0.05, 'sine'], [0.18, 2637, 0.5, 0.16, 'triangle'], [0.18, 3951, 0.3, 0.05, 'sine']]),
+  // Gym und Sport
+  boxglocke: ton('gym', 'Ringglocke (Boxen)', 'Boxing bell', [0, 0.28, 0.56].flatMap((t) => [[t, 1175, 0.9, 0.24, 'sine'], [t, 2945, 0.5, 0.07, 'sine'], [t, 4400, 0.25, 0.03, 'sine']])),
+  pfiff: ton('gym', 'Schiedsrichterpfiff', 'Referee whistle', Array.from({ length: 14 }, (_, i) => [i * 0.035, i % 2 ? 2950 : 2700, 0.04, 0.12, 'sine']).concat([[0.55, 2800, 0.35, 0.12, 'sine']])),
+  startschuss: ton('gym', 'Startschuss', 'Starting pistol', [[0, 1800, 0.35, 0.6, 'rausch'], [0, 120, 0.25, 0.3, 'sine', 50]]),
+  eisen: ton('gym', 'Eisen (Scheiben klirren)', 'Iron plates', [[0, 523, 0.6, 0.12, 'sine'], [0, 1397, 0.45, 0.08, 'sine'], [0, 2311, 0.3, 0.06, 'sine'], [0, 3150, 0.25, 0.04, 'sine'], [0, 5000, 0.12, 0.2, 'rausch'],
+    [0.16, 587, 0.5, 0.1, 'sine'], [0.16, 1480, 0.35, 0.06, 'sine'], [0.16, 4500, 0.1, 0.15, 'rausch']]),
+  buzzer: ton('gym', 'Hallen-Buzzer', 'Arena buzzer', [[0, 220, 0.9, 0.12, 'square'], [0, 233, 0.9, 0.1, 'sawtooth']]),
+  hupe: ton('gym', 'Hupe', 'Horn', [[0, 440, 0.32, 0.14, 'square'], [0.4, 440, 0.32, 0.14, 'square']]),
+  // Arcade und Retro
+  muenze: ton('arcade', 'Münze', 'Coin', [[0, 988, 0.08, 0.14, 'square'], [0.08, 1319, 0.4, 0.14, 'square']]),
+  levelup: ton('arcade', 'Level up', 'Level up', folge([523, 659, 784, 1046, 1319, 1568], 0.07, 0.1, 0.13, 'square').concat([[0.45, 2093, 0.35, 0.12, 'square']])),
+  powerup: ton('arcade', 'Power-up', 'Power-up', [[0, 300, 0.45, 0.13, 'square', 1400], [0.1, 450, 0.4, 0.06, 'triangle', 1800]]),
+  laser: ton('arcade', 'Laser', 'Laser', [[0, 1600, 0.22, 0.14, 'sawtooth', 180], [0.25, 1600, 0.22, 0.12, 'sawtooth', 180]]),
+  sprung: ton('arcade', 'Sprung', 'Jump', [[0, 380, 0.16, 0.15, 'square', 900]]),
+  extraleben: ton('arcade', 'Extraleben', '1-up', folge([1319, 1568, 2637, 2093, 2349, 3136], 0.09, 0.09, 0.12, 'square')),
+  // Musikalisch
+  aufstieg: ton('musik', 'Aufstieg', 'Rise', [[0, 523, 0.14, 0.22, 'triangle'], [0.12, 659, 0.14, 0.22, 'triangle'], [0.24, 784, 0.14, 0.22, 'triangle'], [0.36, 1046, 0.3, 0.24, 'triangle']]),
+  fanfare: ton('musik', 'Fanfare', 'Fanfare', [[0, 392, 0.12, 0.16, 'sawtooth'], [0.13, 392, 0.12, 0.16, 'sawtooth'], [0.26, 392, 0.12, 0.16, 'sawtooth'], [0.4, 523, 0.6, 0.18, 'sawtooth'], [0.4, 659, 0.6, 0.08, 'triangle']]),
+  harfe: ton('musik', 'Harfe', 'Harp', folge([523, 659, 784, 1046, 1318, 1568], 0.06, 1.2, 0.12, 'sine')),
+  xylophon: ton('musik', 'Xylophon', 'Xylophone', folge([1046, 1318, 1568, 2093], 0.11, 0.35, 0.2, 'triangle')),
+  kalimba: ton('musik', 'Kalimba', 'Kalimba', [[0, 1318, 0.6, 0.2, 'sine'], [0, 2636, 0.15, 0.05, 'sine'], [0.18, 1760, 0.7, 0.2, 'sine'], [0.18, 3520, 0.15, 0.05, 'sine']]),
+  sieg: ton('musik', 'Sieg', 'Victory', [[0, 784, 0.15, 0.18, 'triangle'], [0.15, 988, 0.15, 0.18, 'triangle'], [0.3, 1175, 0.15, 0.18, 'triangle'],
+    [0.45, 1568, 0.8, 0.2, 'triangle'], [0.45, 1175, 0.8, 0.1, 'sine'], [0.45, 988, 0.8, 0.08, 'sine']]),
+  // Sanft
+  tropfen: ton('sanft', 'Tropfen', 'Drop', [[0, 1400, 0.14, 0.22, 'sine', 500], [0.3, 1200, 0.14, 0.18, 'sine', 450]]),
+  blubb: ton('sanft', 'Blubb', 'Bubble', [[0, 300, 0.1, 0.25, 'sine', 900], [0.14, 350, 0.1, 0.22, 'sine', 1000]]),
+  windspiel: ton('sanft', 'Windspiel', 'Wind chimes', [[0, 2093, 1.4, 0.06, 'sine'], [0.12, 2637, 1.3, 0.05, 'sine'], [0.27, 3136, 1.2, 0.05, 'sine'], [0.4, 2349, 1.3, 0.05, 'sine'], [0.55, 2793, 1.2, 0.04, 'sine']]),
+  klangschale: ton('sanft', 'Klangschale', 'Singing bowl', [[0, 523, 2.8, 0.2, 'sine'], [0, 1046, 2.2, 0.06, 'sine'], [0, 1571, 1.6, 0.04, 'sine'], [0, 527, 2.8, 0.1, 'sine']]),
+  sanft: ton('sanft', 'Sanfter Wecker', 'Gentle alarm', folge([660, 660, 880], 0.38, 0.32, 0.14, 'sine')),
+  // Laut
+  alarm: ton('laut', 'Alarm', 'Alarm', [0, 0.3, 0.6].map((t) => [t, 600, 0.26, 0.14, 'square', 1300])),
+  sirene: ton('laut', 'Sirene', 'Siren', [[0, 650, 0.45, 0.13, 'sawtooth', 1300], [0.45, 1300, 0.45, 0.13, 'sawtooth', 650], [0.9, 650, 0.45, 0.13, 'sawtooth', 1300]]),
+  stadion: ton('laut', 'Stadionhorn', 'Stadium horn', [[0, 233, 1.1, 0.16, 'sawtooth'], [0, 349, 1.1, 0.12, 'sawtooth'], [0, 466, 1.1, 0.08, 'square']]),
+  aus: ton('still', 'Nur Vibration', 'Vibration only', []),
 };
+export const tonName = (id) => { const t = TOENE[id] ?? TOENE.piep; return ANZEIGE.sprache === 'en' ? t.en : t.name; };
 let audio;
 export function tonFreigeben() { try { audio ??= new AudioContext(); audio.state === 'suspended' && audio.resume(); } catch { /* kein Ton im Rahmen */ } }
 /** Ton spielen (Standard: der gewählte), dazu Vibration. */
 export function piep(art = ANZEIGE.ton) {
   try {
     tonFreigeben();
-    for (const [t, f, dauer, laut, welle] of (TOENE[art] ?? TOENE.piep).noten) {
-      const o = audio.createOscillator(), g = audio.createGain(), s = audio.currentTime + t;
-      o.type = welle; o.frequency.value = f; g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(laut, s + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0001, s + dauer); o.connect(g).connect(audio.destination); o.start(s); o.stop(s + dauer + 0.02);
+    for (const [t, f, dauer, laut, welle, fEnde] of (TOENE[art] ?? TOENE.piep).noten) {
+      const g = audio.createGain(), s = audio.currentTime + t;
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(laut, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, s + dauer);
+      let quelle;
+      if (welle === 'rausch') {           // gefiltertes Rauschen (Startschuss, Klirren)
+        const puffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * dauer), audio.sampleRate), d = puffer.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        quelle = audio.createBufferSource(); quelle.buffer = puffer;
+        const filter = audio.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = f; filter.Q.value = 0.8;
+        quelle.connect(filter).connect(g);
+      } else {
+        quelle = audio.createOscillator(); quelle.type = welle; quelle.frequency.setValueAtTime(f, s);
+        if (fEnde) quelle.frequency.exponentialRampToValueAtTime(fEnde, s + dauer);     // gleitender Ton
+        quelle.connect(g);
+      }
+      g.connect(audio.destination); quelle.start(s); quelle.stop(s + dauer + 0.02);
     }
   } catch { /* kein Ton im Rahmen */ }
   vibriere([180, 80, 180]);
@@ -260,9 +314,44 @@ export const sitzungLeeren = (vorne) => { try { for (const k of Object.keys(sess
 /** Unterreiter der aktuellen Seite (Statistik, Feed): Wischen blättert erst dort, am Ende auf die nächste Seite. */
 export const UNTERREITER = {};
 /** Für Seiten mit Reitern (je Seite gemerkt, auch wenn die Seite beim Wischen als Nachbar kurz mitläuft). */
+/** Karte zur Seite wegwischen (Hinweise auf „Heute“): Klasse kein-wisch an die Karte, ...props darauf, weg() nach dem
+ *  Hinauswischen. Der Klick direkt nach einem Wischen löst nichts aus (geklickt() prüfen). */
+export function useWegwischen(weg) {
+  const karte = useRef(null), zug = useRef(null), gewischt = useRef(0);
+  const ausblenden = (richtung = 1) => {
+    const el = karte.current;
+    if (el) { el.style.transition = 'transform .22s ease, opacity .22s ease'; el.style.transform = `translateX(${richtung * 110}%)`; el.style.opacity = '0'; }
+    setTimeout(weg, 220);
+  };
+  const props = {
+    ref: karte,
+    ontouchstart: (e) => { const t = e.touches[0]; zug.current = { x: t.clientX, y: t.clientY, dx: 0, waagrecht: null }; },
+    ontouchmove: (e) => {
+      const z = zug.current, el = karte.current; if (!z || !el) return;
+      const t = e.touches[0], dx = t.clientX - z.x, dy = t.clientY - z.y;
+      if (z.waagrecht == null && Math.max(Math.abs(dx), Math.abs(dy)) > 8) z.waagrecht = Math.abs(dx) > Math.abs(dy);
+      if (!z.waagrecht) return;
+      z.dx = dx; el.style.transition = 'none'; el.style.transform = `translateX(${dx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / el.offsetWidth));
+    },
+    ontouchend: () => {
+      const z = zug.current, el = karte.current; zug.current = null; if (!z || !el || !z.waagrecht) return;
+      gewischt.current = Date.now();
+      if (Math.abs(z.dx) > el.offsetWidth * 0.33) { ausblenden(Math.sign(z.dx)); return; }
+      el.style.transition = 'transform .18s ease, opacity .18s ease'; el.style.transform = ''; el.style.opacity = '';
+    },
+  };
+  return { props, ausblenden, geklickt: () => Date.now() - gewischt.current > 400 };
+}
+
+/** Beim Abbilden der Nachbar-Kategorie fürs Wischen: welcher Unterreiter gezeichnet werden soll (sonst leer). */
+export const UNTER_VORSCHAU = {};
 export function useUnterReiter(seite, liste, aktiv, waehle) {
   const i = liste.findIndex(([k]) => k === aktiv);
-  useEffect(() => { UNTERREITER[seite] = { zurueck: i > 0 ? () => waehle(liste[i - 1][0]) : null, weiter: i >= 0 && i < liste.length - 1 ? () => waehle(liste[i + 1][0]) : null }; });
+  useEffect(() => {
+    if (UNTER_VORSCHAU[seite]) return;               // Abbild für das Wischen – nicht als echter Reiter melden
+    UNTERREITER[seite] = { aktiv, zurueck: i > 0 ? () => waehle(liste[i - 1][0]) : null, weiter: i >= 0 && i < liste.length - 1 ? () => waehle(liste[i + 1][0]) : null,
+      zurueckKey: i > 0 ? liste[i - 1][0] : null, weiterKey: i >= 0 && i < liste.length - 1 ? liste[i + 1][0] : null };
+  });
   useEffect(() => () => { delete UNTERREITER[seite]; }, []);
 }
 

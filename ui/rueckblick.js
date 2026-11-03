@@ -2,7 +2,7 @@
 // balken oben, Tippen rechts/links blättert, gedrückt halten pausiert, weiter von selbst nach ein paar Sekunden.
 // Zahlen zählen hoch, jede Folie hat ihren eigenen Farbverlauf. Am Ende eine Zusammenfassung zum Teilen (Bild 1080 × 1920).
 // Auf „Heute“ erscheint in der letzten Dezemberwoche eine Karte (mit X weg, gemerkt je Jahr); sonst über das Menü.
-import { html, useState, useEffect, useRef, fmt, nameVon, LIFT, UebungsBild, deEn, sprache, I, vibriere } from './basis.js';
+import { html, useState, useEffect, useRef, fmt, nameVon, LIFT, UebungsBild, deEn, sprache, I, vibriere, useWegwischen } from './basis.js';
 import { titelVon } from '../js/rueckblick.js';
 
 const DAUER = 6500;
@@ -143,12 +143,13 @@ async function bildAus(r) {
   return new Promise((ok, nein) => c.toBlob((b) => (b ? ok(b) : nein(new Error('Bild'))), 'image/png'));
 }
 
-/** Karte auf „Heute“ in der letzten Dezemberwoche. */
+/** Kleiner Hinweis auf „Heute“ (ab 18.12.): einmalig – wegwischen, ✕ oder Öffnen blendet ihn für dieses Jahr aus. */
 export function RueckblickKarte({ jahr, oeffnen, weg }) {
-  return html`<section class="card rb-karte" onClick=${(e) => { if (!e.target.closest('.rb-karte-zu')) oeffnen(); }} role="button" tabIndex="0">
-    <div class="rb-karte-glanz"></div>
-    <div><span class="rb-karte-klein">${deEn('Jahresrückblick', 'Year in review')}</span><b class="rb-karte-titel">${deEn(`Dein Jahr ${jahr} ist da 🎉`, `Your ${jahr} is here 🎉`)}</b>
-      <span class="rb-karte-text">${deEn('Trainings, Tonnen, Rekorde – schau es dir an.', 'Workouts, tonnes, PRs – take a look.')}</span></div>
-    <button class="rb-karte-zu" onClick=${weg} aria-label="Ausblenden">${I.zu}</button>
+  const w = useWegwischen(weg);
+  return html`<section class="card rb-hinweis kein-wisch" ...${w.props} role="button" tabIndex="0"
+    onClick=${(e) => { if (e.target.closest('.rb-hinweis-zu') || !w.geklickt()) return; weg(); oeffnen(); }}>
+    <span class="rb-hinweis-icon" aria-hidden="true">🎆</span>
+    <span class="rb-hinweis-text"><b>${deEn(`Dein Jahresrückblick ${jahr} ist da`, `Your ${jahr} year in review is here`)}</b><small>${deEn('Antippen zum Ansehen', 'Tap to watch')}</small></span>
+    <button class="rb-hinweis-zu" onClick=${(e) => { e.stopPropagation(); w.ausblenden(1); }} aria-label="Ausblenden">${I.zu}</button>
   </section>`;
 }

@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, sprache } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -46,7 +46,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
   const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
-  const [reiterRoh, setReiter] = useState('profil');                // beim Öffnen immer Profil (Niko 02.11.)
+  const [reiterRoh, setReiter] = useState(() => UNTER_VORSCHAU.statistik ?? 'profil');   // beim Öffnen immer Profil (Niko 02.11.); Wisch-Bild: Nachbar
   const reiter = reiterListe.some(([k]) => k === reiterRoh) ? reiterRoh : reiterListe[0][0];
   const waehleReiter = (k) => { setReiter(k); scrollTo({ top: 0 }); };
   useUnterReiter('statistik', reiterListe, reiter, waehleReiter);
@@ -195,7 +195,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       ${/* Zeitraum im feststehenden Kopf: bleibt beim Scrollen sichtbar und filtert alles darunter (Wunsch 123) */ ''}
       ${['profil', 'analyse'].includes(reiter) ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 
-    <div class="reiter-inhalt statistik-inhalt" key=${reiter}>
+    <div class="reiter-inhalt statistik-inhalt unter-inhalt" key=${reiter}>
     ${reiter === 'analyse' ? html`<${Insights} einst=${einst} heute=${HEUTE} trainings=${DEMO
         // Beispieldaten: Tage mit fester Uhrzeit, damit Dauer und Zeitnutzung etwas zeigen
         ? Object.keys(trainingsTage).map((d) => { const t = trainingAm(d); return t && { datum: d, start: `${d}T17:00:00Z`, ende: new Date(Date.parse(`${d}T17:00:00Z`) + (60 + (Number(d.slice(8)) % 5) * 12) * 60000).toISOString(), uebungen: t.uebungen }; }).filter(Boolean)

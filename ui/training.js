@@ -179,7 +179,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     ${!t.bearbeiten && t.karten.some((k) => k.key) && alleSaetze(t).some((s) => !s.erledigt) ? html`<div class="zeit-leiste">
       <span class="muted">${deEn(`Noch ca. ${restMinuten(t.karten, pauseFuer, { kurz: t.kurz, istHaupt })} min`, `About ${restMinuten(t.karten, pauseFuer, { kurz: t.kurz, istHaupt })} min left`)}</span>
       <button class="chip" onClick=${() => setSheet({ art: 'zeit' })}>${t.kurz ? deEn('⏱ Gekürzt', '⏱ Shortened') : deEn('⏱ Wenig Zeit?', '⏱ Short on time?')}</button></div>` : null}
-    ${einst.aufwaermRoutine !== false && !t.bearbeiten && !t.aufwaermFertig && t.karten.some((k) => k.key) && !alleSaetze(t).some((s) => s.erledigt)
+    ${einst.mobility === true && !t.bearbeiten && !t.aufwaermFertig && t.karten.some((k) => k.key) && !alleSaetze(t).some((s) => s.erledigt)
       ? html`<${AufwaermRoutine} keys=${t.karten.map((k) => k.key).filter(Boolean)} fertig=${() => setT((alt) => ({ ...alt, aufwaermFertig: true }))}/>` : null}
     ${t.karten.map((k, ki) => k.slot ? html`<section class=${`card ex ${fokus != null ? 'gedimmt' : ''}`} key=${k.id}>
         <div class="ex-head"><div class="badge" style="background:var(--raised);color:var(--muted)">+</div>
@@ -408,7 +408,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       </span>
       <button class="link" onClick=${() => setSheet({ art: 'unotiz', ki })}>${k.notiz ? 'Notiz ändern' : 'Notiz'}</button>
       ${k.supersatz ? html`<button class="link" onClick=${() => supersatz(false)}>Supersatz lösen</button>`
-        : naechste && !naechste.slot ? html`<button class="link" onClick=${() => supersatz(true)}>Supersatz mit nächster</button>` : null}
+        : einst.supersatzKnopf && naechste && !naechste.slot ? html`<button class="link" onClick=${() => supersatz(true)}>Supersatz mit nächster</button>` : null}
       <span class="link">Pause ${mmss(pauseVon(k.key, g0.rolle, einst.pausen))}</span>
     </div>
   </section>`;

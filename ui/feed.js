@@ -1,7 +1,7 @@
 // PR Hunter · Feed: Trainings der Freunde (und die eigenen), wie der Feed in Jefit – Dauer, Übungen, Sätze, Volumen,
 // Rekorde und je Übung der beste Satz. Sichtbar nur, was die anderen freigeben (Einstellungen → Konto, Standard an);
 // wer selbst nicht teilt, sieht auch nichts. Daten: public.feed() aus db/15_feed.sql. In der Demo die eigenen Tage.
-import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, deEn, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter } from './basis.js';
+import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, deEn, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter, UNTER_VORSCHAU, Sheet, vibriere, zeigeFenster } from './basis.js';
 import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
 import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
@@ -238,6 +238,22 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
     neu({ ...r, kommentare: [...r.kommentare, k] }); setText(''); setFehler(null);
     try { await DIENSTE.kommentieren(e.id, t); } catch (x) { neu(r); setText(t); setFehler(x.message); }
   };
+  // Gedrückt halten (oder Rechtsklick) öffnet das Menü: Löschen (Verfasser und Besitzer des Trainings), Melden (fremde)
+  const uhr = useState({})[0];
+  // als eigenes Fenster (die Karte mit Glaseffekt würde ein festes Fenster sonst in sich einsperren)
+  const setMenue = (k) => zeigeFenster((zu) => html`<${Sheet} zu=${zu} label="Kommentar">
+      <div class="kommentar-vorschau"><b>${k.ich ? 'Du' : k.name}</b><span>${k.text}</span></div>
+      <div class="stack" style="gap:8px">
+        ${k.ich || e.ich ? html`<button class="btn btn-gefahr btn-block" onClick=${() => { zu(); loeschen(k.id); }}>${I.papierkorb} Löschen</button>` : null}
+        ${!k.ich && DIENSTE.melden && k.uid ? html`<button class="btn btn-soft btn-block" onClick=${() => { zu(); setTimeout(() => DIENSTE.melden(k.uid, k.name, `Kommentar: „${k.text}“`), 80); }}>${I.warn} Melden</button>` : null}
+        <button class="btn btn-soft btn-block" onClick=${zu}>Abbrechen</button></div>
+    <//>`);
+  const langDruck = (k) => ({
+    onPointerDown: (ev) => { uhr.x = ev.clientX; uhr.y = ev.clientY; clearTimeout(uhr.t); uhr.t = setTimeout(() => { vibriere(15); setMenue(k); }, 500); },
+    onPointerMove: (ev) => { if (Math.abs(ev.clientX - uhr.x) > 8 || Math.abs(ev.clientY - uhr.y) > 8) clearTimeout(uhr.t); },
+    onPointerUp: () => clearTimeout(uhr.t), onPointerLeave: () => clearTimeout(uhr.t), onPointerCancel: () => clearTimeout(uhr.t),
+    onContextMenu: (ev) => { ev.preventDefault(); clearTimeout(uhr.t); setMenue(k); },
+  });
   const loeschen = async (kid) => {
     neu({ ...r, kommentare: r.kommentare.filter((k) => k.id !== kid) });
     try { if (!String(kid).startsWith('neu-')) await DIENSTE.kommentarLoeschen(kid); } catch (x) { neu(r); setFehler(x.message); }
@@ -247,8 +263,7 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
       <button class=${`chip reakt ${r.ich ? 'an' : ''}`} aria-pressed=${String(r.ich)} onClick=${liken} aria-label="Gefällt mir">${r.ich ? '♥' : '♡'}<b>${r.likes || ''}</b></button>
       <button class="chip reakt" aria-expanded=${String(offen)} onClick=${umschalten}>💬<b>${r.kommentare.length || ''}</b></button></div>
     ${offen ? html`<div class="kommentare">
-      ${r.kommentare.map((k) => html`<div key=${k.id} class="kommentar"><b>${k.ich ? 'Du' : k.name}</b><span>${k.text}</span>
-        ${k.ich || e.ich ? html`<button class="iconbtn klein" aria-label="Kommentar löschen" onClick=${() => loeschen(k.id)}>${I.zu}</button>` : null}</div>`)}
+      ${r.kommentare.map((k) => html`<div key=${k.id} class="kommentar" ...${langDruck(k)}><b>${k.ich ? 'Du' : k.name}</b><span>${k.text}</span></div>`)}
       <div class="row" style="gap:6px"><input class="text" type="text" maxlength="500" placeholder="Kommentar schreiben …" aria-label="Kommentar" value=${text}
         onInput=${(ev) => setText(ev.currentTarget.value)} onKeyDown=${(ev) => ev.key === 'Enter' && senden()}/>
         <button class="btn btn-chalk btn-sm" disabled=${!text.trim()} onClick=${senden}>Senden</button></div></div>` : null}
@@ -257,8 +272,8 @@ function Reaktionen({ e, r, offen, umschalten, neu }) {
 }
 
 export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], gesehen = () => {}, aktiv = [], zuEinstellungen }) {
-  const [reiter, setReiter] = useState('feed');
-  useUnterReiter('feed', [['feed'], ['freunde']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
+  const [reiter, setReiter] = useState(() => UNTER_VORSCHAU.feed ?? 'feed');
+  useUnterReiter('feed', [['feed'], ['freunde'], ['challenges']], reiter, (k) => { setReiter(k); scrollTo({ top: 0 }); });
   const [stand, setStand] = useState({ laedt: !DEMO, eintraege: DEMO ? demoFeed() : ausCache(), fehler: null, fehlt: false });
   const [offen, setOffen] = useState(null);
   const [uebAuf, setUebAuf] = useState(() => new Set());       // aufgeklappte Übungen (Feed-Eintrag-Id + Index)
@@ -294,6 +309,7 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
     <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde'], ['challenges', 'Challenges']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
+    <div class="unter-inhalt">
     ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : reiter === 'challenges' ? html`<${ChallengesReiter}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
     ${aktiv.length ? html`<section class="card pad stack trainiert-gerade"><span class="viz-t">${deEn('Trainiert gerade', 'Training right now')}</span>
       ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000));
@@ -335,5 +351,6 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
         umschalten=${() => setKommOffen(kommOffen === e.id ? null : e.id)} neu=${(r) => setReakt((alt) => ({ ...alt, [e.id]: r }))}/>` : null}
     </article>`)}
     </div>`}
+    </div>
   </div>`;
 }

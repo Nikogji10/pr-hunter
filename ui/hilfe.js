@@ -6,9 +6,9 @@ export const APP_VERSION = () => document.querySelector('meta[name="prh-version"
 const geraet = () => `${navigator.userAgent.slice(0, 180)} · ${innerWidth}×${innerHeight}`;
 
 /** Feedback, Fehler oder Meldung über einen Nutzer an den Betreiber (Tabelle feedback, Update 24). */
-export function FeedbackSheet({ art: start = 'feedback', betrifft = null, name = null, senden, zu }) {
+export function FeedbackSheet({ art: start = 'feedback', betrifft = null, name = null, vorText = '', senden, zu }) {
   const [art, setArt] = useState(start);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(vorText ? `${vorText}\n\n` : '');
   const [status, setStatus] = useState(null);
   const los = async () => {
     setStatus('…');

@@ -4,7 +4,7 @@
 import { html, useState, fmt, LIFT } from './basis.js';
 import { stufe, STUFEN, erholung, muskelGewichte } from '../js/auswertung.js';
 import { kanon } from '../js/daten.js';
-import { uebung, deEn } from './basis.js';
+import { uebung, deEn, useRef, useEffect, speicher, I } from './basis.js';
 import { HEUTE, plusTage } from './stand.js';
 
 export const MUSKEL_NAME = {
@@ -167,15 +167,49 @@ export function ZielMuskeln({ zonen, neben = [] }) {
 /** Kleine Figur mit hervorgehobenen Zonen. seite 'vorne' | 'hinten' (sonst die Seite, auf der mehr Zonen liegen),
  *  ausschnitt = viewBox des Körperteils (sonst ganze Figur) – vorher wurde z. B. Rücken von vorne (nur Trapez) und
  *  Oberschenkel abgeschnitten gezeigt. */
-export function MiniFigur({ zonen, seite = null, ausschnitt = '0 0 200 430' }) {
+export function MiniFigur({ zonen, seite = null, ausschnitt = '0 0 200 430', farben = null }) {
   const vorne = seite ? seite === 'vorne' : zonen.filter((z) => SUCH_VORNE[z]).length >= zonen.filter((z) => SUCH_HINTEN[z]).length;
-  const farbe = (g) => (zonen.includes(g) ? 'var(--acc)' : 'var(--muskel-leer)');
+  // farben: Zone → Farbe (z. B. Erholungs-Ampel); sonst gewählte Zonen in der Akzentfarbe
+  const farbe = (g) => (farben ? farben[g] ?? 'var(--muskel-leer)' : zonen.includes(g) ? 'var(--acc)' : 'var(--muskel-leer)');
   return html`<div class="mini-figur"><${Figur} teile=${vorne ? SUCH_VORNE : SUCH_HINTEN} linien=${vorne ? LINIEN_VORNE : LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="" farbe=${farbe} ausschnitt=${ausschnitt}/></div>`;
 }
 
 /** 198: Erholung jetzt, kompakt für „Heute“ – nur wenn ein Muskel noch müde ist. Gleiche Rechnung wie Statistik → Profil. */
-export function ErholungKurz({ trainings }) {
-  const eintraege = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4)).flatMap((t) => {
+const ERHOLUNG_WEG = 'prh-erholung-weg', ERHOLUNG_HINWEIS = 'prh-erholung-hinweis';
+export function ErholungKurz({ trainings, oeffnen = null }) {
+  const juengste = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4));
+  // weggewischt bis zum nächsten Training: Kennung = jüngstes Training der letzten Tage
+  const kennung = juengste.map((t) => `${t.datum}:${t.id}`).sort().at(-1) ?? '';
+  const [weg, setWeg] = useState(() => speicher.lies(ERHOLUNG_WEG) === kennung);
+  const [hinweis] = useState(() => Number(speicher.lies(ERHOLUNG_HINWEIS) ?? 0) < 3);
+  const zug = useRef(null), karte = useRef(null), gewischt = useRef(0);
+  // Hinweis nur die ersten drei Male, an denen die Karte wirklich zu sehen war
+  useEffect(() => { if (karte.current && hinweis) speicher.schreib(ERHOLUNG_HINWEIS, String(Number(speicher.lies(ERHOLUNG_HINWEIS) ?? 0) + 1)); }, []);
+  const ausblenden = (richtung = 1) => {
+    const el = karte.current;
+    if (el) { el.style.transition = 'transform .22s ease, opacity .22s ease'; el.style.transform = `translateX(${richtung * 110}%)`; el.style.opacity = '0'; }
+    speicher.schreib(ERHOLUNG_WEG, kennung);
+    setTimeout(() => setWeg(true), 220);
+  };
+  // eigenes Wischen (die Karte ist vom Seitenwechsel ausgenommen: .kein-wisch)
+  const wisch = {
+    ontouchstart: (e) => { const t = e.touches[0]; zug.current = { x: t.clientX, y: t.clientY, dx: 0, waagrecht: null }; },
+    ontouchmove: (e) => {
+      const z = zug.current, el = karte.current; if (!z || !el) return;
+      const t = e.touches[0], dx = t.clientX - z.x, dy = t.clientY - z.y;
+      if (z.waagrecht == null && Math.max(Math.abs(dx), Math.abs(dy)) > 8) z.waagrecht = Math.abs(dx) > Math.abs(dy);
+      if (!z.waagrecht) return;
+      z.dx = dx; el.style.transition = 'none'; el.style.transform = `translateX(${dx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / el.offsetWidth));
+    },
+    ontouchend: () => {
+      const z = zug.current, el = karte.current; zug.current = null; if (!z || !el || !z.waagrecht) return;
+      gewischt.current = Date.now();                       // der folgende Klick öffnet nicht die Statistik
+      if (Math.abs(z.dx) > el.offsetWidth * 0.33) { ausblenden(Math.sign(z.dx)); return; }
+      el.style.transition = 'transform .18s ease, opacity .18s ease'; el.style.transform = ''; el.style.opacity = '';
+    },
+  };
+  if (weg) return null;
+  const eintraege = juengste.flatMap((t) => {
     const zeit = new Date(t.ende ?? t.start ?? `${t.datum}T18:00:00`).getTime();
     return (t.uebungen ?? []).map((u) => ({ zeit, muskeln: muskelGewichte(kanon(u.key), uebung(kanon(u.key)) ?? uebung(u.key)), saetze: (u.saetze ?? []).filter((s) => s.fertig !== false) }));
   });
@@ -184,11 +218,17 @@ export function ErholungKurz({ trainings }) {
   const rot = Object.keys(z).filter((m) => z[m].stufe === 'rot'), gelb = Object.keys(z).filter((m) => z[m].stufe === 'gelb');
   if (!rot.length && !gelb.length) return null;
   const namen = (l) => l.map((m) => MUSKEL_NAME[m] ?? m).join(', ');
-  return html`<section class="card pad erholung-kurz">
-    <${MiniFigur} zonen=${[...rot, ...gelb]} seite=${null}/>
+  // gleiche Ampel wie in Statistik → Profil: rot = stark ermüdet, gelb = teilweise erholt; vorne und hinten
+  const farben = Object.fromEntries([...rot.map((m) => [m, AMPEL.rot[0]]), ...gelb.map((m) => [m, AMPEL.gelb[0]])]);
+  return html`<section ref=${karte} class="card pad erholung-kurz kein-wisch" role=${oeffnen ? 'button' : null} tabIndex=${oeffnen ? '0' : null} ...${wisch}
+    onClick=${(e) => { if (e.target.closest('.ek-zu') || Date.now() - gewischt.current < 400) return; oeffnen?.(); }}>
+    <button class="ek-zu" aria-label=${deEn('Ausblenden', 'Hide')} onClick=${(e) => { e.stopPropagation(); ausblenden(1); }}>${I.zu}</button>
+    <div class="ek-figuren"><${MiniFigur} zonen=${[...rot, ...gelb]} seite="vorne" farben=${farben}/><${MiniFigur} zonen=${[...rot, ...gelb]} seite="hinten" farben=${farben}/></div>
     <div class="stack" style="gap:3px"><span class="eyebrow">${deEn('Erholung jetzt', 'Recovery now')}</span>
       ${rot.length ? html`<span><i class="ek-punkt rot"></i><b>${deEn('Noch müde', 'Still tired')}:</b> ${namen(rot)}</span>` : null}
       ${gelb.length ? html`<span><i class="ek-punkt gelb"></i><b>${deEn('Fast erholt', 'Almost recovered')}:</b> ${namen(gelb)}</span>` : null}
       <small class="muted">${deEn('Alles andere ist frisch – gut für ein freies Training.', 'Everything else is fresh – good for a free workout.')}</small></div>
+    ${oeffnen ? html`<span class="ek-pfeil" aria-hidden="true">›</span>` : null}
+    ${hinweis ? html`<span class="ek-hinweis">${deEn('zur Seite wischen zum Ausblenden', 'swipe aside to hide')}</span>` : null}
   </section>`;
 }

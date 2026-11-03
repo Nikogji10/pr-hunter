@@ -1,7 +1,7 @@
 // PR Hunter · Einstellungen als Menü mit Unterseiten: Training, Körper, Geräte und Einheit, Anzeige, Konto und Daten.
 // Jede Unterseite ist ein eigener Historien-Eintrag (Zurück führt ins Menü).
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
-import { html, useState, useEffect, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep, kopiere } from './basis.js';
+import { html, useState, useEffect, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, TON_GRUPPEN, tonName, piep, kopiere } from './basis.js';
 import { DEMO, DIENSTE } from './stand.js';
 import { APP_VERSION } from './hilfe.js';
 import { sag } from './ansage.js';
@@ -95,7 +95,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     return () => removeEventListener('popstate', zurueckZumMenue);
   }, []);
   const bereiche = {
-    training: ['Training', 'Pausen, Ton, Benachrichtigungen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Ton ${(TOENE[einst.ton] ?? TOENE.piep).name} · Cut ${einst.cut ? 'an' : 'aus'}`],
+    training: ['Training', 'Pausen, Ton, Benachrichtigungen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Ton ${tonName(einst.ton)} · Cut ${einst.cut ? 'an' : 'aus'}`],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
     ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
@@ -165,9 +165,14 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <span class="muted" style="font-size:12.5px">In der Pause über Lautsprecher oder Kopfhörer: „Noch 30 Sekunden“ und am Ende der nächste Satz mit Übung, Gewicht und Wdh. Nur bei offener App.</span></span>
         <input type="checkbox" id="e-ansage" checked=${!!einst.sprachansagen} onChange=${(e) => { setEinst({ ...einst, sprachansagen: e.currentTarget.checked }); if (e.currentTarget.checked) sag(deEn('Sprachansagen sind an.', 'Voice prompts are on.')); }}/></label>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Ton am Pausenende</span>
-        <div class="ton-wahl">${Object.entries(TOENE).map(([id, t]) => html`<button key=${id} class="chip" aria-pressed=${String((einst.ton ?? 'piep') === id)}
-          onClick=${() => { piep(id); setEinst({ ...einst, ton: id }); }}>${t.name}</button>`)}</div>
-        <span class="muted" style="font-size:12.5px">Tippen spielt den Ton zur Probe. Dazu vibriert das Handy (das iPhone kann es nicht).</span></div>
+        <div class="ton-auswahl">
+          <select class="text" aria-label="Ton am Pausenende" value=${einst.ton ?? 'piep'} onChange=${(e) => { const id = e.currentTarget.value; piep(id); setEinst({ ...einst, ton: id }); }}>
+            ${TON_GRUPPEN.map(([g, de, en]) => html`<optgroup key=${g} label=${deEn(de, en)}>${Object.entries(TOENE).filter(([, t]) => t.gruppe === g)
+              .map(([id]) => html`<option key=${id} value=${id} selected=${(einst.ton ?? 'piep') === id}>${tonName(id)}</option>`)}</optgroup>`)}
+          </select>
+          <button class="btn btn-soft btn-sm ton-probe" onClick=${() => piep(einst.ton ?? 'piep')} aria-label="Ton abspielen">▶ Probe</button></div>
+        <span class="muted" style="font-size:12.5px">${deEn(`${Object.keys(TOENE).length - 1} Töne in ${TON_GRUPPEN.length - 1} Gruppen – Auswählen spielt den Ton gleich ab. Dazu vibriert das Handy (das iPhone kann es nicht).`,
+          `${Object.keys(TOENE).length - 1} sounds in ${TON_GRUPPEN.length - 1} groups – choosing one plays it right away. The phone vibrates too (iPhones can't).`)}</span></div>
       <label class="schalter" for="e-vibration"><span><b>Vibration</b><br/>
         <span class="muted" style="font-size:12.5px">Kurz beim Starten und Speichern eines Trainings, am Pausenende und bei Rekorden. Vibriert es beim Antippen von Tabs und Menüs, kommt das nicht von der App, sondern vom Handy: Android → Einstellungen → Töne und Vibration → Systemsteuerung → Berührungen.</span></span>
         <input type="checkbox" id="e-vibration" checked=${einst.vibration !== false} onChange=${(e) => setEinst({ ...einst, vibration: e.currentTarget.checked })}/></label>
@@ -184,8 +189,11 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <span class="muted" style="font-size:12.5px">Ein Satz weniger bei Back-offs, Varianten und Zubehör (mind. 1). Top-Sätze, Tests und Wettkampf-Hauptsätze bleiben. Vorlagen mit eigenen Cut-Regeln (Hybrid) nutzen diese.</span></span>
         <input type="checkbox" id="e-cut" checked=${einst.cut} onChange=${(e) => setEinst({ ...einst, cut: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-aufwaerm"><span><b>Aufwärm-Routine</b><br/>
-        <span class="muted" style="font-size:12.5px">Vor dem ersten Satz eine kurze Mobility-Abfolge (5–8 min) passend zum Trainingstag, mit Timer je Übung. Lässt sich jedes Mal überspringen.</span></span>
-        <input type="checkbox" id="e-aufwaerm" checked=${einst.aufwaermRoutine !== false} onChange=${(e) => setEinst({ ...einst, aufwaermRoutine: e.currentTarget.checked })}/></label>
+        <span class="muted" style="font-size:12.5px">Vor dem ersten Satz eine kurze Mobility-Abfolge (ca. 3 min) passend zum Trainingstag, mit Timer je Übung. Lässt sich jedes Mal überspringen.</span></span>
+        <input type="checkbox" id="e-aufwaerm" checked=${einst.mobility === true} onChange=${(e) => setEinst({ ...einst, mobility: e.currentTarget.checked })}/></label>
+      <label class="schalter" for="e-supersatz"><span><b>Supersätze bilden</b><br/>
+        <span class="muted" style="font-size:12.5px">Unter jeder Übung der Knopf „Supersatz mit nächster“ – zwei Übungen im Wechsel, Pause erst nach der Runde.</span></span>
+        <input type="checkbox" id="e-supersatz" checked=${einst.supersatzKnopf === true} onChange=${(e) => setEinst({ ...einst, supersatzKnopf: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-technik"><span><b>Technik je Satz bewerten</b><br/>
         <span class="muted" style="font-size:12.5px">Nach dem Abhaken 👍 oder 👎 für die Technik. Die Übungsseite zeigt dann, ab welchem Gewicht die Technik leidet.</span></span>
         <input type="checkbox" id="e-technik" checked=${!!einst.technikBewertung} onChange=${(e) => setEinst({ ...einst, technikBewertung: e.currentTarget.checked })}/></label>
@@ -348,23 +356,39 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
 }
 
 /** 211: Kalender-Abo – geheimer Link (Update 30 + Edge Function „kalender“), aktualisiert sich im Kalender von selbst. */
+const ABO_ANLEITUNG = {
+  android: ['Oben „Link kopieren“ tippen.', 'Im Browser (Chrome) calendar.google.com öffnen, Menü ⋮ → „Desktopwebsite“ anhaken – oder am PC.',
+    'Links bei „Weitere Kalender“ auf + → „Per URL“.', 'Link einfügen → „Kalender hinzufügen“.',
+    'Google-Kalender-App → ☰ → Einstellungen → „PR Hunter“ → „Synchronisieren“ einschalten.'],
+  iphone: ['Oben „Link kopieren“ tippen.', 'Einstellungen → Kalender → Accounts → „Account hinzufügen“.', '„Andere“ → „Kalenderabo hinzufügen“.',
+    'Link einfügen → „Weiter“ → „Sichern“.', 'Der Kalender „PR Hunter“ erscheint in der Kalender-App.'],
+  pc: ['Oben „Link kopieren“ (oder den Link an dich selbst schicken).', 'Google: calendar.google.com → „Weitere Kalender“ + → „Per URL“.',
+    'Outlook: Kalender → „Kalender hinzufügen“ → „Aus dem Internet“.', 'Link einfügen und bestätigen.'],
+};
+
 function KalenderAbo() {
   const [link, setLink] = useState(null);
   const [status, setStatus] = useState(null);
+  const [geraet, setGeraet] = useState(() => (/iPhone|iPad/i.test(navigator.userAgent) ? 'iphone' : /Android/i.test(navigator.userAgent) ? 'android' : 'pc'));
   if (!DIENSTE.kalenderLink) return null;
   const holen = async (neu = false) => {
     setStatus('…');
     try { setLink(await DIENSTE.kalenderLink(neu)); setStatus(neu ? deEn('Neuer Link – der alte geht nicht mehr.', 'New link – the old one no longer works.') : null); }
     catch (e) { setStatus(e.message); }
   };
-  const webcal = link ? link.replace(/^https:/, 'webcal:') : null;
   return html`<div class="stack unterteil" style="gap:8px"><span class="eyebrow">Kalender-Abo</span>
-    <span class="muted" style="font-size:12.5px">Geplante und erledigte Trainings als Kalender, der sich alle paar Stunden selbst aktualisiert – in Google, Outlook oder Apple Kalender. Wer den Link hat, sieht deine Trainingstage.</span>
+    <span class="muted" style="font-size:12.5px">Deine Trainings im Handy-Kalender – aktualisiert sich von selbst. Wer den Link hat, sieht deine Trainingstage.</span>
     ${!link ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${() => holen()}>Abo-Link holen</button>`
       : html`<input class="text" type="text" readonly value=${link} onFocus=${(e) => e.currentTarget.select()} aria-label="Kalender-Link"/>
-        <div class="row" style="gap:6px;flex-wrap:wrap"><a class="btn btn-chalk btn-sm" href=${webcal}>Im Kalender öffnen</a>
-          <button class="btn btn-soft btn-sm" onClick=${async () => setStatus((await kopiere(link)) ? deEn('Kopiert – in Google Kalender unter „Per URL hinzufügen“ einfügen.', 'Copied – paste it in Google Calendar under “From URL”.') : deEn('Kopieren gesperrt – Feld markieren und kopieren.', 'Copy blocked – select the field and copy.'))}>Link kopieren</button>
-          <button class="btn btn-soft btn-sm" onClick=${() => holen(true)}>Neuer Link</button></div>`}
-    ${status ? html`<span class="muted" style="font-size:12.5px">${status}</span>` : null}
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button class="btn btn-chalk btn-sm" onClick=${async () => setStatus((await kopiere(link)) ? deEn('Link kopiert ✓', 'Link copied ✓') : deEn('Kopieren gesperrt – Feld markieren und kopieren.', 'Copy blocked – select the field and copy.'))}>Link kopieren</button>
+          <button class="btn btn-soft btn-sm" onClick=${() => holen(true)}>Neuer Link</button></div>
+        ${status ? html`<span class="muted" style="font-size:12.5px">${status}</span>` : null}
+        <div class="abo-anleitung">
+          <div class="seg" role="group" aria-label="Gerät">${[['android', 'Android'], ['iphone', 'iPhone'], ['pc', 'PC / Outlook']].map(([k, n]) => html`<button key=${k} aria-pressed=${String(geraet === k)} onClick=${() => setGeraet(k)}>${n}</button>`)}</div>
+          <ol>${ABO_ANLEITUNG[geraet].map((s, i) => html`<li key=${i}>${s}</li>`)}</ol>
+          <span class="muted" style="font-size:12px">Wichtig: als Abo hinzufügen, nicht als Datei importieren – nur dann aktualisiert es sich (Google etwa alle 8–24 h).</span>
+        </div>`}
+    ${!link && status ? html`<span class="muted" style="font-size:12.5px">${status}</span>` : null}
   </div>`;
 }

@@ -1,4 +1,4 @@
-// PR Hunter · Aufwärm-Routine vor dem ersten Satz (Wunsch 203, Einstellung „Aufwärm-Routine“, standardmäßig an):
+// PR Hunter · Aufwärm-Routine vor dem ersten Satz (Wunsch 203; Einstellung „Aufwärm-Routine“ = einst.mobility, standardmäßig aus):
 // kurze Mobility-Abfolge passend zum Tag – Hüfte bei Kniebeuge/Kreuzheben/Beinen, Schulter und Brustwirbelsäule bei
 // Drücken/Ziehen, sonst gemischt. Timer je Übung, weiter von selbst; jederzeit überspringbar.
 import { html, useState, useEffect, liftVon, uebung, piep, vibriere, mmss, deEn, sprache, useTakt } from './basis.js';
@@ -17,8 +17,9 @@ export function routineFuer(keys) {
   const lifts = keys.map((k) => liftVon(k)), m = keys.flatMap((k) => uebung(k)?.m ?? []);
   const unten = lifts.some((l) => BEIN.has(l)) || m.some((x) => /quad|hamstring|glute|calves|adductor/i.test(x));
   const oben = lifts.includes('bench') || m.some((x) => /chest|shoulder|lats|middle back|triceps|biceps/i.test(x));
-  const teile = unten && oben ? [...HUEFTE.slice(0, 3), ...OBEN.slice(0, 3)] : unten ? HUEFTE : oben ? OBEN : [...HUEFTE.slice(0, 2), ...OBEN.slice(0, 2)];
-  return [...ALLGEMEIN, ...teile];
+  // kurz halten (03.11.): eine allgemeine und drei passende Übungen, ca. 3 min
+  const teile = unten && oben ? [HUEFTE[0], HUEFTE[2], OBEN[2]] : unten ? [HUEFTE[0], HUEFTE[2], HUEFTE[1]] : oben ? [OBEN[0], OBEN[2], OBEN[3]] : [HUEFTE[0], OBEN[0], OBEN[2]];
+  return [ALLGEMEIN[0], ...teile];
 }
 
 export function AufwaermRoutine({ keys, fertig }) {
