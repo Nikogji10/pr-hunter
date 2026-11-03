@@ -6,7 +6,10 @@ import { HEUTE, E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { normiere } from '../js/insights.js';
 import { aktiveBeschwerden, REGIONEN } from '../js/beschwerden.js';
-import { kiText, BEISPIELE, KI_ZIELE } from '../js/kidaten.js';
+import { kiText, BEISPIELE, KI_ZIELE, appLink } from '../js/kidaten.js';
+
+// Android: Intent ohne neues Fenster (sonst ging erst die App und zusätzlich der Browser auf); sonst normaler Link im neuen Tab
+const ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
 
 const IDEEN = [['Wochen-Review', 'Weekly review'], ['Stillstand', 'Plateau'], ['Bereit für Test?', 'Ready to test?'],
   ['Volumen & Erholung', 'Volume & recovery'], ['Schwachstellen', 'Weak points'], ['Nächster Block', 'Next block']];
@@ -50,7 +53,7 @@ function KiFenster({ zu, trainings, einst, block, prog }) {
     <div class="ki-kopf"><span class="ki-icon gross"><${Funkeln}/></span>
       <div><h2 class="h2" style="margin:0">${deEn('Frag die KI', 'Ask AI')}</h2><span class="muted" style="font-size:13px">${deEn('Kostenlos mit ChatGPT, Gemini oder Claude', 'Free with ChatGPT, Gemini or Claude')}</span></div></div>
     <ol class="ki-schritte">${[[deEn('Frage stellen', 'Ask'), deEn('oder eine Idee antippen', 'or tap an idea')], [deEn('Kopieren', 'Copy'), deEn('Frage + Daten zusammen', 'question + data together')],
-      [deEn('Einfügen', 'Paste'), deEn('in der KI lange drücken', 'long-press in the AI')]].map(([t, u], i) => html`<li key=${i} class=${schritt > i + 1 ? 'fertig' : schritt === i + 1 ? 'jetzt' : ''}>
+      [deEn('Einfügen', 'Paste'), deEn('ins Feld tippen → Einfügen', 'tap the field → Paste')]].map(([t, u], i) => html`<li key=${i} class=${schritt > i + 1 ? 'fertig' : schritt === i + 1 ? 'jetzt' : ''}>
       <i>${schritt > i + 1 ? '✓' : i + 1}</i><b>${t}</b><small>${u}</small></li>`)}</ol>
     <label class="ki-feld"><span class="eyebrow">${deEn('Deine Frage', 'Your question')}</span>
       <textarea rows="3" maxlength="1000" placeholder=${deEn('z. B. Warum geht meine Bank seit Wochen nicht hoch?', 'e.g. Why has my bench not gone up for weeks?')} value=${frage} onInput=${(e) => setze(e.currentTarget.value)}></textarea></label>
@@ -61,7 +64,7 @@ function KiFenster({ zu, trainings, einst, block, prog }) {
     <button class=${`btn btn-chalk btn-block ki-kopieren ${kopiert ? 'ok' : ''}`} disabled=${!frage.trim()} onClick=${kopieren}>
       ${kopiert ? deEn('✓ Kopiert – jetzt KI öffnen und einfügen', '✓ Copied – now open the AI and paste') : deEn('Frage + Daten kopieren', 'Copy question + data')}</button>
     ${fehler ? html`<p class="fehler" style="margin:0;font-size:13px">${deEn('Kopieren hat der Browser blockiert – unten unter „Was wird kopiert?“ den Text markieren und kopieren.', 'The browser blocked copying – select and copy the text under “What gets copied?” below.')}</p>` : null}
-    <div class=${`ki-ziele ${kopiert ? 'bereit' : ''}`}>${KI_ZIELE.map((z) => html`<a key=${z.id} class=${`ki-ziel ${z.id}`} href=${z.url} target="_blank" rel="noopener noreferrer"><i></i><span>${z.name}</span><small>${deEn('öffnen', 'open')} ↗</small></a>`)}</div>
+    <div class=${`ki-ziele ${kopiert ? 'bereit' : ''}`}>${KI_ZIELE.map((z) => html`<a key=${z.id} class=${`ki-ziel ${z.id}`} href=${ANDROID ? appLink(z) : z.url} target=${ANDROID ? undefined : '_blank'} rel="noopener noreferrer"><i></i><span>${z.name}</span><small>${deEn('öffnen', 'open')} ↗</small></a>`)}</div>
     <details class="ki-vorschau"><summary>${deEn('Was wird kopiert?', 'What gets copied?')}</summary><pre>${frage.trim() ? text() : deEn('Erst eine Frage stellen.', 'Ask a question first.')}</pre></details>
     <p class="ki-hinweis">${deEn('Nichts wird automatisch verschickt. Kopiert werden nur deine eigenen Trainings – keine Namen von Freunden, keine E-Mail. Die KI kann sich irren: Bei Schmerzen lieber ärztlich abklären.', 'Nothing is sent automatically. Only your own workouts are copied – no friends’ names, no email. AI can be wrong: with pain, see a doctor.')}</p>
   <//>`;

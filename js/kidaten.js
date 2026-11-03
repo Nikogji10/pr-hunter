@@ -89,9 +89,15 @@ export const BEISPIELE = [
   ['Wie sollte mein nächster Block aussehen?', 'What should my next block look like?'],
 ];
 
-/** Wo die KI aufgeht (Startseite des Chats; der Text kommt per Einfügen). */
+/** Wo die KI aufgeht (Startseite des Chats; der Text kommt per Einfügen). paket = Android-App. */
 export const KI_ZIELE = [
-  { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/' },
-  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app' },
-  { id: 'claude', name: 'Claude', url: 'https://claude.ai/new' },
+  { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', paket: 'com.openai.chatgpt' },
+  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', paket: 'com.google.android.apps.bard' },
+  { id: 'claude', name: 'Claude', url: 'https://claude.ai/new', paket: 'com.anthropic.claude' },
 ];
+
+/** Android: Intent-Link – öffnet direkt die installierte App; ist sie nicht da (oder kann den Link nicht), die Webseite. */
+export function appLink(ziel) {
+  const u = new URL(ziel.url);
+  return `intent://${u.host}${u.pathname}#Intent;scheme=https;package=${ziel.paket};S.browser_fallback_url=${encodeURIComponent(ziel.url)};end`;
+}
