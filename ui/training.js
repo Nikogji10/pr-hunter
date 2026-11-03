@@ -376,7 +376,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
           ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}</div>` : null}
         ${einst.technikBewertung && s.erledigt && s.typ !== 'warmup' ? html`<div class="technik-wahl" role="group" aria-label="Technik">
           <span class="muted">Technik</span>${[['gut', '👍'], ['schlecht', '👎']].map(([w, z]) => html`<button key=${w} aria-pressed=${String(s.extra?.technik === w)}
-            aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => satz(ki, gi, si, (x) => { const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined; })}>${z}</button>`)}</div>` : null}
+            aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => aendere((ks) => { const x = ks[ki].gruppen[gi].saetze[si]; const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined; })}>${z}</button>`)}</div>` : null}
       </div>`;
       })}
       ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}

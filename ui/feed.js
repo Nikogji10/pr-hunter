@@ -1,7 +1,7 @@
 // PR Hunter · Feed: Trainings der Freunde (und die eigenen), wie der Feed in Jefit – Dauer, Übungen, Sätze, Volumen,
 // Rekorde und je Übung der beste Satz. Sichtbar nur, was die anderen freigeben (Einstellungen → Konto, Standard an);
 // wer selbst nicht teilt, sieht auch nichts. Daten: public.feed() aus db/15_feed.sql. In der Demo die eigenen Tage.
-import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, deEn, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter, UNTER_VORSCHAU, Sheet, vibriere, zeigeFenster } from './basis.js';
+import { html, useState, useEffect, I, Avatar, datumLang, datumKurz, deEn, gw, gwE, tonnage, minutenText, sprache, nameVon, useUnterReiter, UNTER_VORSCHAU, Sheet, vibriere, zeigeFenster, zwischen } from './basis.js';
 import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
 import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
@@ -145,12 +145,12 @@ const SICHT = [['feed', 'Feed'], ['kalender', 'Kalender'], ['vergleich', 'Vergle
 export const sichtbar = (einst, id, art) => einst.freundeAus?.[id]?.[art] !== false;
 
 function Freunde({ einst, setEinst }) {
-  const [liste, setListe] = useState(null);                 // null = lädt, false = Update 19 fehlt
+  const [liste, setListe] = useState(() => zwischen.lies('freunde'));   // null = lädt, false = Update 19 fehlt; erst gemerkte Liste
   const [q, setQ] = useState('');
   const [treffer, setTreffer] = useState([]);
   const [fehler, setFehler] = useState(null);
   const [offen, setOffen] = useState(null);                  // aufgeklappter Freund (Einstellungen je Freund)
-  const laden = () => DIENSTE.ladeFreunde?.().then((f) => setListe(f ?? false)).catch((e) => setFehler(e.message));
+  const laden = () => DIENSTE.ladeFreunde?.().then((f) => { setListe(f ?? false); if (f) zwischen.schreib('freunde', f); }).catch((e) => setFehler(e.message));
   useEffect(() => { if (!DEMO) laden(); else setListe([]); }, []);
   useEffect(() => {
     if (DEMO || q.trim().length < 2) { setTreffer([]); return; }
@@ -279,9 +279,9 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
   const [uebAuf, setUebAuf] = useState(() => new Set());       // aufgeklappte Übungen (Feed-Eintrag-Id + Index)
   const umschaltenUeb = (id) => setUebAuf((alt) => { const n = new Set(alt); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // 185: Likes und Kommentare (Update 27); null = Update fehlt → Leiste ausgeblendet
-  const [reakt, setReakt] = useState({});
+  const [reakt, setReakt] = useState(() => zwischen.lies('reaktionen') ?? {});
   const [kommOffen, setKommOffen] = useState(null);
-  const reaktionenLaden = (liste) => DIENSTE.ladeReaktionen?.(liste.map((e) => e.id).filter(Boolean)).then((r) => setReakt(r ?? null)).catch(() => {});
+  const reaktionenLaden = (liste) => DIENSTE.ladeReaktionen?.(liste.map((e) => e.id).filter(Boolean)).then((r) => { setReakt(r ?? null); if (r) zwischen.schreib('reaktionen', r); }).catch(() => {});
   const laden = async () => {
     if (DEMO || !DIENSTE.ladeFeed) return;
     setStand((s) => ({ ...s, laedt: true, fehler: null }));

@@ -2,7 +2,7 @@
 // Challenges (Update 30): Titel, Art (Trainings, Tonnen, Sätze, Stunden), Zeitraum, eingeladene Freunde; Wertung rechnet
 // der Server aus den gespeicherten Trainings. Bestenliste: aus dem Vergleich (compare_stats) – je Lift das aktuelle e1RM,
 // Total und DOTS, nur Freunde mit Vergleich-Freigabe.
-import { html, useState, useEffect, fmt, gw, einheit, LIFT, Avatar, deEn, datumKurz, I, Sheet } from './basis.js';
+import { html, useState, useEffect, fmt, gw, einheit, LIFT, Avatar, deEn, datumKurz, I, Sheet, zwischen } from './basis.js';
 import { DIENSTE, HEUTE, plusTage } from './stand.js';
 import { dots } from '../js/punkte.js';
 
@@ -20,10 +20,10 @@ const ZEITRAUM = [
 ];
 
 export function ChallengesReiter() {
-  const [liste, setListe] = useState(undefined);              // undefined = lädt, null = Update fehlt
+  const [liste, setListe] = useState(() => zwischen.lies('challenges') ?? undefined);   // undefined = lädt, null = Update fehlt; erst gemerkte
   const [fehler, setFehler] = useState(null);
   const [neu, setNeu] = useState(false);
-  const laden = () => DIENSTE.ladeChallenges?.().then((l) => { setListe(l); setFehler(null); }).catch((e) => { setListe([]); setFehler(navigator.onLine ? e.message : deEn('Kein Netz.', 'No connection.')); });
+  const laden = () => DIENSTE.ladeChallenges?.().then((l) => { setListe(l); setFehler(null); if (l) zwischen.schreib('challenges', l); }).catch((e) => { setListe([]); setFehler(navigator.onLine ? e.message : deEn('Kein Netz.', 'No connection.')); });
   useEffect(() => { laden(); }, []);
   const antworten = async (c, dabei) => { try { await DIENSTE.challengeAntworten(c.id, dabei); } catch (e) { setFehler(e.message); } laden(); };
   if (!DIENSTE.ladeChallenges) return html`<div class="reiter-inhalt stack" style="gap:12px"><section class="card pad"><p class="muted" style="margin:0">${deEn('Challenges gibt es nur mit Konto.', 'Challenges need an account.')}</p></section><${Bestenliste}/></div>`;
@@ -99,9 +99,9 @@ function NeueChallenge({ zu, fertig }) {
 
 /** 212: Bestenliste – Rangliste je Lift, Total oder DOTS aus dem Vergleich. */
 export function Bestenliste() {
-  const [daten, setDaten] = useState(undefined);
+  const [daten, setDaten] = useState(() => zwischen.lies('vergleich') ?? undefined);
   const [kat, setKat] = useState('total');
-  useEffect(() => { DIENSTE.ladeVergleich?.().then((d) => setDaten(d ?? null)).catch(() => setDaten(null)); }, []);
+  useEffect(() => { DIENSTE.ladeVergleich?.().then((d) => { setDaten(d ?? null); if (d) zwischen.schreib('vergleich', d); }).catch(() => setDaten((x) => x ?? null)); }, []);
   if (!DIENSTE.ladeVergleich || daten === null) return null;
   if (daten === undefined) return null;
   const total = (p) => (['squat', 'bench', 'dead'].every((l) => p.lifts[l]?.aktuell != null) ? ['squat', 'bench', 'dead'].reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);

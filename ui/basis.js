@@ -280,7 +280,7 @@ export function KopfZeit({ timer, start }) {
   // Pause vorbei: „Los!“ leuchtet grün, daneben wie lange schon drüber
   return html`<div class=${`kopf-zeit ${rest > 0 ? '' : 'los'}`}><span class="kopf-punkt" aria-hidden="true"></span>
     <span class="clock kopf-countdown tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</span>
-    <span class="kopf-zeit-neben">${rest > 0 ? (timer.grund ?? 'Pause') : html`Pause vorbei <span class="los-ueber tab-num">${`+${mmss(-rest)}`}</span>`}<small class="tab-num">${uhr((Date.now() - start) / 1000)} Training</small></span></div>`;
+    <span class="kopf-zeit-neben">${rest > 0 ? (timer.grund ?? 'Pause') : html`Pause vorbei <span class="los-ueber tab-num">${`+${mmss(-rest)}`}</span>`}<small class="tab-num kopf-trainingszeit">${`⏱ ${uhr((Date.now() - start) / 1000)}`}</small></span></div>`;
 }
 /** Kopf im Training, laufende Pause: nächster Satz, −30/+30 und dünner grüner Balken – ersetzt die rote Timer-Leiste. */
 export function KopfPause({ timer, setTimer }) {
@@ -452,6 +452,12 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
   };
   return { props, geklickt: () => Date.now() - sperre.current >= 450 };
 }
+
+/** Kleiner Zwischenspeicher (Gerät) für Listen vom Server: sofort zeigen, im Hintergrund neu laden (03.11.). */
+export const zwischen = {
+  lies(k) { try { return JSON.parse(localStorage.getItem(`prh-zw-${k}`)); } catch { return null; } },
+  schreib(k, v) { try { localStorage.setItem(`prh-zw-${k}`, JSON.stringify(v)); } catch { /* voll – egal */ } },
+};
 
 /** Beim Abbilden der Nachbar-Kategorie fürs Wischen: welcher Unterreiter gezeichnet werden soll (sonst leer). */
 export const UNTER_VORSCHAU = {};

@@ -391,17 +391,23 @@ function Heute({ zuStatistik = null, trainings = [], block, prog, tage, erledigt
   </div>`;
 }
 
-// #################################################################
-// Leiste „Training läuft“ (unten, solange man woanders ist)
-// #################################################################
-function LaufLeiste({ training, oeffnen }) {
+/** Leiste ohne laufende Pause (ersetzt „Training läuft“): Trainingszeit groß, nächster Satz, Fortschritt je Übung. */
+function TrainingDock({ training, oeffnen }) {
   useTakt(true, 1000);
-  const s = alleSaetze(training);
-  return html`<button class="live" onClick=${oeffnen} aria-label="Zum laufenden Training">
-    <span class="puls"></span>
-    <div style="min-width:0"><b>${training.bearbeiten ? 'Bearbeitung offen' : 'Training läuft'}</b><span>${training.titel} · ${s.filter((x) => x.erledigt).length}/${s.length} Sätze</span></div>
-    ${training.bearbeiten ? null : html`<span class="zahl tab-num">${uhr((Date.now() - training.start) / 1000)}</span>`}
-  </button>`;
+  const s = alleSaetze(training), fertig = s.filter((x) => x.erledigt).length;
+  const k = training.karten.find((kk) => kk.key && kk.gruppen.some((g) => g.saetze.some((x) => !x.erledigt)));
+  const satz = k?.gruppen.flatMap((g) => g.saetze).find((x) => !x.erledigt);
+  const teile = training.karten.filter((kk) => kk.key).map((kk) => { const ss = kk.gruppen.flatMap((g) => g.saetze); return [ss.filter((x) => x.erledigt).length, ss.length]; }).filter(([, n]) => n);
+  return html`<div class="pdock ruhig">
+    <div class="pdock-haupt" onClick=${oeffnen} role="button" tabIndex="0" aria-label="Zum laufenden Training">
+      <div class="pdock-zeit"><span class="pdock-punkt" aria-hidden="true"></span><b class="tab-num">${training.bearbeiten ? '✎' : uhr((Date.now() - training.start) / 1000)}</b></div>
+      <div class="pdock-info">
+        <b class="pdock-uebung">${k ? nameVon(k.key) : (training.bearbeiten ? 'Bearbeitung offen' : 'Alle Sätze erledigt')}</b>
+        <span class="pdock-meta">${satz ? html`<span class="pdock-satz">${`${gw(satz.kg ?? 0)} ${einheit()} × ${satz.wdh ?? '–'}`}</span>` : null}<span class="pdock-zeitchip">${`${fertig}/${s.length} Sätze`}</span></span>
+      </div>
+    </div>
+    ${teile.length ? html`<div class="pdock-fortschritt">${teile.map(([f, n], i) => html`<span key=${i} style=${`flex:${n}`}><i style=${`transform:scaleX(${f / n})`}></i></span>`)}</div>` : null}
+  </div>`;
 }
 
 /** Nach dem Wegwischen der Leiste: kleiner Knopf unten rechts (gleiches Glas), führt zurück ins Training. */
@@ -409,7 +415,7 @@ function MiniDock({ training, timer, oeffnen, ziehen, pos = null }) {
   useTakt(true, 500);
   const pause = timer && timer.ende > Date.now(), los = timer && !pause;
   return html`<button class=${`dock-mini kein-wisch ziehbar ${pause ? 'pause' : ''} ${los ? 'los' : ''}`} ...${ziehen.props} onClick=${() => { if (ziehen.geklickt()) oeffnen(); }}
-    style=${pos ? `left:calc(${pos.x} * 100vw);top:calc(${pos.y} * 100vh);right:auto;bottom:auto` : ''} aria-label="Zurück zum Training (gedrückt halten: groß)">
+    style=${pos ? `left:${pos.x}px;top:${pos.y}px;right:auto;bottom:auto` : ''} aria-label="Zurück zum Training (gedrückt halten: groß)">
     <span class="pdock-punkt" aria-hidden="true"></span>
     <b class="tab-num">${pause ? mmss((timer.ende - Date.now()) / 1000) : los ? 'Los!' : uhr((Date.now() - training.start) / 1000)}</b>
     ${los ? html`<small class="los-ueber tab-num">${`+${mmss((Date.now() - timer.ende) / 1000)}`}</small>` : null}
@@ -482,13 +488,11 @@ function App() {
   const [dockPos, setDockPosRoh] = useState(() => { try { return JSON.parse(localStorage.getItem('prh-dock-pos')) ?? {}; } catch { return {}; } });
   const setDockPos = (p) => { setDockPosRoh(p); try { localStorage.setItem('prh-dock-pos', JSON.stringify(p)); } catch { /* egal */ } };
   const grenze = (v, a, b) => Math.min(b, Math.max(a, v));
-  // Hinweis in der großen Leiste: die ersten drei Trainings
-  const [dockHinweis] = useState(() => Number(speicher.lies('prh-dock-hinweis') ?? 0) < 3);
-  useEffect(() => { if (training?.id && dockHinweis) speicher.schreib('prh-dock-hinweis', String(Number(speicher.lies('prh-dock-hinweis') ?? 0) + 1)); }, [training?.id]);
   const grossZiehen = useZiehen({ achsen: 'y', wischX: () => setDockKlein(true), lang: () => setDockKlein(true),
-    ablegen: (r) => setDockPos({ ...dockPos, gross: grenze(r.top / innerHeight, 0.01, (innerHeight - r.height - 64) / innerHeight) }) });
+    ablegen: (r) => setDockPos({ ...dockPos, gross: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
   const kleinZiehen = useZiehen({ achsen: 'xy', lang: () => setDockKlein(false),
-    ablegen: (r) => setDockPos({ ...dockPos, klein: { x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0.01, (innerHeight - r.height - 64) / innerHeight) } }) });
+    ablegen: (r) => setDockPos({ ...dockPos, klein: { x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) } }) });
+  const appZoom = () => parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
   const [rbJahr, setRbJahr] = useState(null);
   // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
   // im Menü nur rund um den Jahreswechsel: ab 18.12. das laufende Jahr, im Januar noch das gerade beendete
@@ -1040,7 +1044,7 @@ function App() {
           rahmen.className = 'seite-nachbar unter-nachbar';
           rahmen.setAttribute('aria-hidden', 'true');
           rahmen.style.left = `${r.left / z}px`; rahmen.style.width = `${r.width / z}px`; rahmen.style.top = `${oben}px`;
-          teil.style.transform = `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
+          teil.style.transform = `translateX(${art === 'weiter' ? 'calc(100% + 16px)' : 'calc(-100% - 16px)'})`;
           rahmen.append(teil);
           document.body.append(rahmen);
           ebeneRef.current = teil; unterInhaltRef.current = inhalt;
@@ -1058,7 +1062,7 @@ function App() {
         rahmen.setAttribute('aria-hidden', 'true');
         rahmen.style.left = `${app.offsetLeft}px`; rahmen.style.width = `${app.offsetWidth}px`;
         bild.style.paddingTop = `${app.offsetTop}px`;
-        bild.style.transform = `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
+        bild.style.transform = `translateX(${art === 'weiter' ? 'calc(100% + 16px)' : 'calc(-100% - 16px)'})`;
         rahmen.append(bild);
         document.body.append(rahmen);
         ebeneRef.current = bild;
@@ -1077,7 +1081,7 @@ function App() {
         const d = (art === 'weiter' ? Math.min(0, dx) : Math.max(0, dx)) / z;
         if (zugUnter.current && !ebeneRef.current) { if (hauptRef.current) hauptRef.current.style.transform = `translateX(${d * 0.35}px)`; return; }
         (unterInhaltRef.current ?? hauptRef.current).style.transform = `translateX(${d}px)`;
-        if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100%' : '-100%'} + ${d}px))`;
+        if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100% + 16px' : '-100% - 16px'} + ${d}px))`;
       },
       ende: (art, erfolg) => {
         if (art === 'menue') {
@@ -1100,8 +1104,8 @@ function App() {
           return;
         }
         for (const el of [haupt, ebene]) el?.classList.add('gleitet');
-        if (haupt) haupt.style.transform = erfolg ? `translateX(${art === 'weiter' ? '-100%' : '100%'})` : 'translateX(0)';
-        if (ebene) ebene.style.transform = erfolg ? 'translateX(0)' : `translateX(${art === 'weiter' ? '100%' : '-100%'})`;
+        if (haupt) haupt.style.transform = erfolg ? `translateX(${art === 'weiter' ? 'calc(-100% - 16px)' : 'calc(100% + 16px)'})` : 'translateX(0)';
+        if (ebene) ebene.style.transform = erfolg ? 'translateX(0)' : `translateX(${art === 'weiter' ? 'calc(100% + 16px)' : 'calc(-100% - 16px)'})`;
         setTimeout(() => {
           zugUnter.current = null;
           const key = unterWechsel ? 'unter' : wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
@@ -1118,7 +1122,8 @@ function App() {
             if (haupt) { haupt.style.visibility = 'hidden'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
             if (unterWechsel) unterWechsel(); else gehe(key);
             requestAnimationFrame(() => requestAnimationFrame(() => {
-              for (const a of haupt?.getAnimations?.({ subtree: true }) ?? []) {
+              const neu = unterWechsel ? hauptRef.current?.querySelector('.unter-inhalt') ?? haupt : haupt;
+              for (const a of neu?.getAnimations?.({ subtree: true }) ?? []) {
                 try { if (a.effect?.getComputedTiming?.().iterations !== Infinity) a.finish(); } catch { /* egal */ }
               }
               fertig();
@@ -1482,14 +1487,13 @@ function App() {
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
-    ${leiste && dockKlein ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')} ziehen=${kleinZiehen} pos=${dockPos.klein}/>`
-    : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:calc(${dockPos.gross} * 100vh);bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}><span class="dock-griff" aria-hidden="true"></span>
-      ${dockHinweis ? html`<span class="dock-hinweis">${deEn('Halten = klein · Ziehen = verschieben', 'Hold = small · Drag = move')}</span>` : null}
+    ${leiste && dockKlein ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')} ziehen=${kleinZiehen} pos=${dockPos.klein && { x: (dockPos.klein.x * innerWidth) / appZoom(), y: (dockPos.klein.y * innerHeight) / appZoom() }}/>`
+    : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:${(dockPos.gross * innerHeight) / appZoom()}px;bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}><span class="dock-griff" aria-hidden="true"></span>
       ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}
-      ${leiste && !(timer && !imTraining) ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
+      ${leiste && !(timer && !imTraining) ? html`<${TrainingDock} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}
         fortschritt=${leiste ? () => training.karten.filter((k) => k.key).map((k) => { const s = k.gruppen.flatMap((g) => g.saetze); return [s.filter((x) => x.erledigt).length, s.length]; }).filter(([, n]) => n) : null}
-        zusatz=${leiste ? () => { const s = alleSaetze(training); return `${training.bearbeiten ? 'Bearbeitung' : uhr((Date.now() - training.start) / 1000)} · ${s.filter((x) => x.erledigt).length}/${s.length} Sätze`; } : null}/>` : null}
+        zusatz=${leiste ? () => { const s = alleSaetze(training); return html`<span class="pdock-zeitchip">${training.bearbeiten ? '✎' : `⏱ ${uhr((Date.now() - training.start) / 1000)}`}</span><span>${`${s.filter((x) => x.erledigt).length}/${s.length} Sätze`}</span>`; } : null}/>` : null}
     </div></div>` : null}
     <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
       ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + neuReakt.length > 9 ? '9+' : anfragen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
