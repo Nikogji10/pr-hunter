@@ -67,17 +67,36 @@ export function suche(liste, { q = '', familien = null, muskel = '', equipment =
     .slice(0, max).map(([e]) => e);
 }
 
+/** 209: Stern zum Merken direkt in der Auswahl (gleiche Favoriten wie auf der Übungsseite, im Konto gespeichert). */
+function Stern({ k }) {
+  const [an, setAn] = useState(!!anpassung(k)?.favorit);
+  if (!DIENSTE.speichereAnpassung) return null;
+  const umschalten = () => { const a = anpassung(k) ?? {}; setAn(!an); DIENSTE.speichereAnpassung(k, { ...a, favorit: !an }); };
+  return html`<button class=${`aw-stern ${an ? 'an' : ''}`} aria-pressed=${String(an)} aria-label=${an ? 'Aus den Favoriten nehmen' : 'Zu den Favoriten'} onClick=${umschalten}>${an ? '★' : '☆'}</button>`;
+}
+
+/** 209: Favoriten und zuletzt benutzte Übungen als Schnellwahl oben (nur ohne Suche und Filter). */
+function Schnellwahl({ familien, waehle }) {
+  const passt = (e) => (!familien || familien.includes(e.f)) && !anpassung(e.k)?.versteckt;
+  const liste = katalogListe().filter(passt);
+  const favs = liste.filter((e) => anpassung(e.k)?.favorit).sort((a, b) => (ZULETZT[b.k] ?? '').localeCompare(ZULETZT[a.k] ?? '')).slice(0, 12);
+  const zuletzt = liste.filter((e) => ZULETZT[e.k] && !anpassung(e.k)?.favorit).sort((a, b) => ZULETZT[b.k].localeCompare(ZULETZT[a.k])).slice(0, 10);
+  const reihe = (titel, l) => (l.length ? html`<div class="aw-schnell"><span class="eyebrow">${titel}</span>
+    <div class="aw-schnell-reihe">${l.map((e) => html`<button key=${e.k} class="aw-kachel" onClick=${() => waehle(e.k)}><${UebungsBild} schluessel=${e.k} groesse=${52} zoom=${false}/><span>${nameVon(e.k)}</span></button>`)}</div></div>` : null);
+  return html`${reihe('★ Favoriten', favs)}${reihe('Zuletzt benutzt', zuletzt)}`;
+}
+
 /** Ein Treffer: großes Bild, Name, andere Sprache · Gerät · zuletzt, Familie. */
 function TrefferZeile({ e, waehle }) {
   const fav = anpassung(e.k)?.favorit, zul = ZULETZT[e.k], lift = liftVon(e.k);
-  return html`<button class="aw-treffer" onClick=${() => waehle(e.k)}>
+  return html`<div class="aw-zeile"><button class="aw-treffer" onClick=${() => waehle(e.k)}>
     <${UebungsBild} schluessel=${e.k} groesse=${56}/>
     <span class="aw-text"><b>${fav ? html`<span class="stern" aria-label="Favorit">★</span> ` : null}${nameVon(e.k)}</b>
       <small><span translate="no">${sprache() === 'en' ? e.de : e.en}</span></small>
       <small>${e.eq ? html`<span>${EQUIPMENT[e.eq] ?? e.eq}</span>` : null}${zul ? html` · <span>${`zuletzt ${datumKurz(zul)}`}</span>` : null}${e.eigen ? html` · <span>eigene</span>` : null}</small></span>
     <span class="aw-familie">${lift !== 'andere' ? html`<i class="dot" style=${`background:${LIFT[lift].farbe}`}></i>` : null}<span>${FAMILIE[e.f] ?? e.f}</span>
       <span class="aw-art">${ISO_FAMILIEN.has(e.f) ? 'Isolation' : 'Grundübung'}</span></span>
-  </button>`;
+  </button><${Stern} k=${e.k}/></div>`;
 }
 
 /**
@@ -121,6 +140,7 @@ export function UebungsAuswahl({ titel = 'Übung wählen', familien = null, zone
       <span class="muted aw-zahl">${`${Math.min(treffer.length, max)}${mehr ? '+' : ''} Treffer`}${fam ? ' · passend zum Platz' : ''}${filterZahl ? ` · ${filterZahl} Filter` : ''}</span>
     </div>
     <div class="aw-liste">
+      ${!q.trim() && !filterZahl ? html`<${Schnellwahl} familien=${fam} waehle=${waehle}/>` : null}
       ${treffer.slice(0, max).map((e) => html`<${TrefferZeile} key=${e.k} e=${e} waehle=${waehle}/>`)}
       ${mehr ? html`<button class="btn btn-soft btn-block" onClick=${() => setMax(max + 120)}>Mehr zeigen</button>` : null}
       ${!treffer.length ? html`<p class="muted" style="margin:0;padding:14px 4px">Nichts gefunden. Anderes Wort, Filter lösen${fam ? ' oder „Alle Übungen“ einschalten' : ''}.</p>` : null}

@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'aufwaermRoutine', 'technikBewertung', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -109,7 +109,7 @@ export async function uebungAendern(sb, id, u) {
 
 /** Zeile aus user_exercise_settings (mit exercises(key)) → Anpassung. */
 export const anpassungAusZeile = (r) => ({ key: r.exercises?.key ?? null, name: r.display_name ?? null, pause: r.rest_s ?? null, cues: r.cues ?? null,
-  notiz: r.notes ?? null, rack: r.rack ?? null, favorit: !!r.favorite, versteckt: !!r.hidden, offen: false });
+  notiz: r.notes ?? null, rack: r.rack ?? null, ...(r.geraet ? { geraet: r.geraet } : {}), favorit: !!r.favorite, versteckt: !!r.hidden, offen: false });
 
 export const ladeAnpassungen = async (sb) => Object.fromEntries((await pruefe(await sb.from('user_exercise_settings').select('*, exercises(key)')))
   .map(anpassungAusZeile).filter((a) => a.key).map((a) => [a.key, a]));
@@ -118,8 +118,11 @@ export const ladeAnpassungen = async (sb) => Object.fromEntries((await pruefe(aw
 export async function anpassungHochladen(sb, key, a) {
   const ex = await pruefe(await sb.from('exercises').select('id').eq('key', key).single());
   const zeile = { exercise_id: ex.id, display_name: a.name || null, rest_s: a.pause ?? null, cues: a.cues || null, notes: a.notiz || null,
-    favorite: !!a.favorit, hidden: !!a.versteckt, ...(a.rack ? { rack: a.rack } : {}) };
-  return pruefe(await sb.from('user_exercise_settings').upsert(zeile, { onConflict: 'user_id,exercise_id' }));
+    favorite: !!a.favorit, hidden: !!a.versteckt, ...(a.rack ? { rack: a.rack } : {}), ...(a.geraet && Object.keys(a.geraet).length ? { geraet: a.geraet } : {}) };
+  const r = await sb.from('user_exercise_settings').upsert(zeile, { onConflict: 'user_id,exercise_id' });
+  // 204: ohne Update 30 fehlt die Spalte geraet – dann ohne sie speichern (Geräte-Einstellungen bleiben auf dem Gerät)
+  if (r.error && zeile.geraet && /geraet/i.test(r.error.message)) { delete zeile.geraet; return pruefe(await sb.from('user_exercise_settings').upsert(zeile, { onConflict: 'user_id,exercise_id' })); }
+  return pruefe(r);
 }
 
 /** Server-Anpassungen übernehmen, lokal offene behalten. */
@@ -275,8 +278,11 @@ export async function neueReaktionen(sb) {
 }
 // 191 (Update 29): laufendes Training melden / beenden, Freunde, die gerade trainieren (null ohne Update)
 const ohne29 = (r) => r.error && /training_aktiv|freunde_aktiv/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
-export async function aktivMelden(sb, { seit, titel }) {
-  const r = await sb.from('training_aktiv').upsert({ seit: new Date(seit).toISOString(), titel: titel ?? null, aktualisiert: new Date().toISOString() }, { onConflict: 'user_id' });
+export async function aktivMelden(sb, { seit, titel, stand = null, mit = null }) {
+  const zeile = { seit: new Date(seit).toISOString(), titel: titel ?? null, aktualisiert: new Date().toISOString(), stand, mit };
+  let r = await sb.from('training_aktiv').upsert(zeile, { onConflict: 'user_id' });
+  // ohne Update 30 (Spalten stand/mit) wie bisher melden
+  if (r.error && /stand|mit/i.test(r.error.message) && /column|schema cache/i.test(r.error.message)) { delete zeile.stand; delete zeile.mit; r = await sb.from('training_aktiv').upsert(zeile, { onConflict: 'user_id' }); }
   if (r.error && !ohne29(r)) throw new Error(r.error.message);
 }
 export async function aktivEnde(sb) { const r = await sb.from('training_aktiv').delete().not('user_id', 'is', null); if (r.error && !ohne29(r)) throw new Error(r.error.message); }
@@ -284,8 +290,22 @@ export async function freundeAktiv(sb) {
   const r = await sb.rpc('freunde_aktiv');
   if (ohne29(r)) return null;
   if (r.error) throw new Error(r.error.message);
-  return (r.data ?? []).map((z) => ({ id: z.user_id, name: z.display_name, avatar: z.avatar ?? null, seit: z.seit, titel: z.titel }));
+  return (r.data ?? []).map((z) => ({ id: z.user_id, name: z.display_name, avatar: z.avatar ?? null, seit: z.seit, titel: z.titel, stand: z.stand ?? null, mit: z.mit ?? null }));
 }
+// 200 (Update 30): Challenges unter Freunden; null ohne Update
+const ohne30 = (r) => r.error && /challenge|kalender_token|kalender_abo/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
+export async function ladeChallenges(sb) {
+  const r = await sb.rpc('meine_challenges');
+  if (ohne30(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).map((z) => ({ id: z.id, titel: z.titel, art: z.art, von: z.von, bis: z.bis, ersteller: z.ersteller_name, ichErsteller: !!z.ich_ersteller,
+    status: z.mein_status, stand: (z.stand ?? []).map((s) => ({ ...s, wert: s.wert == null ? null : Number(s.wert) })) }));
+}
+const mit30 = (r) => { if (ohne30(r)) throw new Error('Datenbank-Update 30 fehlt (db/30_lauf2.sql).'); if (r.error) throw new Error(r.error.message); return r.data; };
+export const challengeAnlegen = async (sb, c) => mit30(await sb.rpc('challenge_anlegen', { p_titel: c.titel, p_art: c.art, p_von: c.von, p_bis: c.bis, p_freunde: c.freunde }));
+export const challengeAntworten = async (sb, id, dabei) => mit30(await sb.rpc('challenge_antworten', { p_id: id, p_dabei: dabei }));
+// 211: geheimer Kalender-Link
+export const kalenderToken = async (sb, neu = false) => mit30(await sb.rpc('kalender_token', { neu }));
 export const reaktionenGesehen = async (sb) => { const r = await sb.rpc('reaktionen_gesehen'); if (r.error && !/does not exist|schema cache|could not find/i.test(r.error.message)) throw new Error(r.error.message); };
 
 /** Feed der letzten tage Tage; null, solange Update 15 fehlt. */

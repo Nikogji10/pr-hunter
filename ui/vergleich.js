@@ -1,9 +1,9 @@
 // PR Hunter · Statistik-Karten Zielprognose (Funktionskatalog „Zielprognose“) und Vergleich mit Freunden
 // („Vergleich mit Kumpel“, nur wenn beide in den Einstellungen zustimmen; Daten über public.compare_stats).
-import { html, useState, useEffect, useRef, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld, Avatar } from './basis.js';
-import { zielprognose } from '../js/auswertung.js';
+import { html, useState, useEffect, useRef, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld, Avatar, I, deEn } from './basis.js';
+import { zielprognose, trendAm } from '../js/auswertung.js';
 import { dots } from '../js/punkte.js';
-import { DIENSTE, wochen, e1rmWoche } from './stand.js';
+import { DIENSTE, wochen, e1rmWoche, HEUTE } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { mround } from '../js/rechnen.js';
 
@@ -13,7 +13,7 @@ const LIFTS = ['squat', 'bench', 'dead'];
  * Ziel je Lift: geschätztes Datum aus dem e1RM-Trend. Die Ziele liegen im Profil (einst.ziele, je Übungsschlüssel – dieselben
  * wie auf der Übungsseite); ohne gesetztes Ziel wird aktuelle Form + 7,5 kg (auf 5 gerundet) vorgeschlagen.
  */
-export function Zielprognose({ aktuell, ziele = {}, setZiel = null }) {
+export function Zielprognose({ aktuell, ziele = {}, setZiel = null, wettkampf = null }) {
   const [lift, setLift] = useState(() => speicher.lies('prh-ziel-lift') ?? 'dead');
   const [fenster, setFenster] = useState(26);
   const vorschlag = (l) => (aktuell[l] != null ? mround(aktuell[l] + 7.5, 5) : null);
@@ -36,6 +36,16 @@ export function Zielprognose({ aktuell, ziele = {}, setZiel = null }) {
       : html`<div class="prog-meta"><div><b>${datumKurz(p.datum)}${p.datum.slice(2, 4)}</b><span>geschätzt</span></div><div><b>${p.wochen}</b><span>Wochen</span></div>
           <div><b>+${gw(p.proWoche, 2)}</b><span>${einheit()} je Woche</span></div><div><b>${gw(p.aktuell, 1)}</b><span>Trend jetzt</span></div></div>
         <span class="muted" style="font-size:12.5px">${datumLang(p.datum)} – wenn es so weitergeht wie bisher. Deloads, Urlaub und Cut verschieben das; je weiter weg, desto unsicherer.</span>`}
+    ${(() => {   // 196: Bezug zum Wettkampfdatum (Einstellungen → Training → Wettkampf)
+      if (!wettkampf || !(ziel > 0) || wettkampf < HEUTE) return null;
+      const w = Math.ceil((Date.parse(`${wettkampf}T00:00:00Z`) - Date.parse(`${HEUTE}T00:00:00Z`)) / (7 * 864e5)), t = trendAm(e1rmWoche[lift], w, { fenster });
+      if (!t) return null;
+      const reicht = t.wert >= ziel, noetig = (ziel - (p?.aktuell ?? t.wert - t.proWoche * w)) / Math.max(1, w);
+      return html`<div class=${`hint immer ${reicht ? 'gut' : ''}`}>${reicht ? I.check : I.warn}<span class="t">${deEn(`Zum Wettkampf (${datumKurz(wettkampf)}): ≈ ${gwE(t.wert, 1)}`, `For the meet (${datumKurz(wettkampf)}): ≈ ${gwE(t.wert, 1)}`)}</span><span></span>
+        <p>${reicht ? deEn('Bei deinem Tempo ist das Ziel bis dahin drin.', 'At your current pace, the goal is within reach by then.')
+          : deEn(`Bis dahin unrealistisch – dafür bräuchte es etwa +${gw(noetig, 1)} ${einheit()} je Woche (bisher +${gw(Math.max(0, t.proWoche), 1)}). Ziel als 3. Versuch etwas niedriger ansetzen.`,
+            `Unrealistic by then – it would take about +${gw(noetig, 1)} ${einheit()} per week (so far +${gw(Math.max(0, t.proWoche), 1)}). Set the 3rd attempt a bit lower.`)}</p></div>`;
+    })()}
   </section>`;
 }
 

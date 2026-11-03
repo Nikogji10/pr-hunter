@@ -1,7 +1,8 @@
 // PR Hunter · Wettkampftag (Wunsch 189): Versuche je Lift planen und abhaken (gültig/ungültig), Total und DOTS live,
 // Aufwärmplan bis zum Opener, Wartezeit nach Athleten vor dir. Alles auf einer Seite, gemerkt auf dem Gerät (der
 // Wettkampftag übersteht Neuladen und Wechsel in andere Seiten). Gewichte in der Anzeigeeinheit.
-import { html, useState, fmt, inKg, inAnzeige, stangeKg, scheibenKg, einheit, ZahlFeld, deEn, Scheiben } from './basis.js';
+import { html, useState, fmt, inKg, inAnzeige, stangeKg, scheibenKg, einheit, ZahlFeld, deEn, Scheiben, datumKurz, sprache } from './basis.js';
+import { trendAm } from '../js/auswertung.js';
 import { aufwaermen } from '../js/rechnen.js';
 import { versuche, dots } from '../js/punkte.js';
 
@@ -65,4 +66,39 @@ export function Wettkampftag({ ziele, koerper, inc }) {
       ${opener !== Infinity ? null : html`<span class="muted">Noch keine Versuche.</span>`}
     </section>
   </div>`;
+}
+
+// #################################################################
+// 197/201/196: Wettkampf-Countdown auf „Heute“ – Wochen bis zum Wettkampf, passende Phase, Prognose der Lifts zum Datum
+// aus dem e1RM-Trend und (nur mit Zielklasse) Abstand zur Gewichtsklasse. Ohne Wettkampfdatum unsichtbar.
+// #################################################################
+const PHASE = (w) => (w <= 0 ? ['Heute ist Wettkampftag – viel Erfolg! Werkzeuge → Wettkampftag.', 'It\'s meet day – good luck! Tools → Meet day.']
+  : w <= 1 ? ['Taper-Woche: nur noch Opener-Singles, viel schlafen, Gewicht machen.', 'Taper week: openers only, sleep a lot, make weight.']
+  : w <= 4 ? ['Peaking: schwere Singles bei RPE 8–9, Volumen sinkt, Versuche planen.', 'Peaking: heavy singles at RPE 8–9, volume drops, plan your attempts.']
+  : w <= 10 ? ['Zeit für einen Peaking-Block (z. B. 6–8 Wochen) mit Test am Ende.', 'Time for a peaking block (e.g. 6–8 weeks) with a test at the end.']
+  : ['Noch Zeit für einen Aufbau-Block mit mehr Volumen, danach Peaking.', 'Still time for a volume block, then peaking.']);
+
+export function WettkampfCountdown({ einst, e1rmWoche, koerperKg, heute }) {
+  const datum = einst.wettkampfDatum;
+  if (!datum || datum < heute) return null;
+  const tage = Math.round((Date.parse(`${datum}T00:00:00Z`) - Date.parse(`${heute}T00:00:00Z`)) / 864e5), wochen = Math.ceil(tage / 7);
+  // fallender Trend (Cut, Pause) wird nicht weiter nach unten verlängert – Prognose = heutiger Trendwert
+  const prog = LIFTE.map(([l, n]) => { const p = trendAm(e1rmWoche[l] ?? [], wochen), jetzt = trendAm(e1rmWoche[l] ?? [], 0);
+    return [l, n, p && jetzt ? { ...p, wert: Math.max(p.wert, jetzt.wert) } : p]; }).filter(([, , p]) => p?.wert > 0);
+  const total = prog.length === 3 ? prog.reduce((a, [, , p]) => a + p.wert, 0) : null;
+  const klasse = einst.gewichtsklasse > 0 ? Number(einst.gewichtsklasse) : null, ueber = klasse && koerperKg ? koerperKg - klasse : null;
+  const en = sprache() === 'en';
+  return html`<section class="card pad stack countdown">
+    <div class="row between"><div><span class="eyebrow">${deEn('Wettkampf', 'Meet')} · ${datumKurz(datum)}${datum.slice(2, 4)}</span>
+      <div class="cd-zahl"><b>${tage <= 0 ? deEn('Heute', 'Today') : tage < 14 ? tage : wochen}</b><span>${tage <= 0 ? '' : tage < 14 ? deEn(tage === 1 ? 'Tag' : 'Tage', tage === 1 ? 'day' : 'days') : deEn('Wochen', 'weeks')}</span></div></div>
+      <span class="cd-pokal" aria-hidden="true">🏆</span></div>
+    <span class="muted" style="font-size:13px">${PHASE(wochen)[en ? 1 : 0]}</span>
+    ${prog.length && tage > 0 ? html`<div class="cd-prognose"><span class="eyebrow">${deEn('Prognose zum Wettkampf (e1RM-Trend)', 'Forecast for meet day (e1RM trend)')}</span>
+      <div class="cd-lifts">${prog.map(([l, n, p]) => html`<span key=${l}><small>${n}</small><b>${`${fmt(inAnzeige(p.wert), 0)}`}</b></span>`)}
+        ${total ? html`<span class="cd-total"><small>Total</small><b>${fmt(inAnzeige(total), 0)}</b></span>` : null}</div></div>` : null}
+    ${klasse && ueber != null ? html`<div class=${`cd-klasse ${ueber > 0 ? 'drueber' : ''}`}>${ueber > 0
+      ? deEn(`${fmt(ueber, 1)} kg über der Klasse ${fmt(klasse)} kg${tage > 7 ? ` – etwa ${fmt(ueber / Math.max(1, wochen), 1)} kg pro Woche` : ''}`,
+        `${fmt(ueber, 1)} kg above the ${fmt(klasse)} kg class${tage > 7 ? ` – about ${fmt(ueber / Math.max(1, wochen), 1)} kg per week` : ''}`)
+      : deEn(`${fmt(-ueber, 1)} kg unter dem Limit der Klasse ${fmt(klasse)} kg`, `${fmt(-ueber, 1)} kg under the ${fmt(klasse)} kg limit`)}</div>` : null}
+  </section>`;
 }

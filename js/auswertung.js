@@ -355,3 +355,17 @@ export function gewichtImZeitraum(messwerte, von) {
   return { start: m[0].kg, aktuell: m.at(-1).kg, veraenderung: runde(m.at(-1).kg - m[0].kg, 1), min: Math.min(...m.map((x) => x.kg)),
     max: Math.max(...m.map((x) => x.kg)), proWoche: n >= 3 ? runde(steigung * 7, 2) : null, anzahl: n, seit: m[0].datum };
 }
+
+// #################################################################
+// Trendwert in einigen Wochen (196: Prognose zum Wettkampf): gleiche Regression wie die Zielprognose.
+// Rückgabe { wert, proWoche } oder null (zu wenige Wochen mit Wert).
+// #################################################################
+export function trendAm(werte, wochenSpaeter, { fenster = 26, minPunkte = 6 } = {}) {
+  const pkt = [];
+  for (let i = Math.max(0, werte.length - fenster); i < werte.length; i++) if (werte[i] != null) pkt.push([i, werte[i]]);
+  if (pkt.length < minPunkte) return null;
+  const n = pkt.length, mx = pkt.reduce((a, p) => a + p[0], 0) / n, my = pkt.reduce((a, p) => a + p[1], 0) / n;
+  const sxx = pkt.reduce((a, p) => a + (p[0] - mx) ** 2, 0), sxy = pkt.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0);
+  const steigung = sxx > 0 ? sxy / sxx : 0;
+  return { wert: runde(my + steigung * (werte.length - 1 + wochenSpaeter - mx), 1), proWoche: runde(steigung, 2) };
+}

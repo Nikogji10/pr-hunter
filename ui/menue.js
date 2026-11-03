@@ -91,7 +91,7 @@ const WERKZEUG_TEXT = {
 };
 
 /** Seitenmenü links: Werkzeuge (Rechner) – zieht sich nach links zu, Tipp daneben schließt. */
-export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false, ohneEinblenden = false }) {
+export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false, ohneEinblenden = false, rueckblickJahr = null }) {
   const ref = useRef(null);
   const offen = auf && !vorschau;
   useEffect(() => {
@@ -135,6 +135,9 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
       <span class="eyebrow sm-titel">Werkzeuge</span>
       ${[...RECHNER, ['timer', 'Timer']].filter(([k]) => !einfach || !['punkte', 'versuche', 'wettkampf'].includes(k)).map(([k, t]) => html`<button key=${k} class="sm-punkt" onClick=${() => waehle(k)}>
         <span class="sm-icon">${werkzeugIcon(k)}</span><span class="sm-text"><b>${t}</b><small>${WERKZEUG_TEXT[k]}</small></span><span class="sm-pfeil">›</span></button>`)}
+      ${rueckblickJahr ? html`<span class="eyebrow sm-titel">Rückblick</span>
+      <button class="sm-punkt" onClick=${() => { zu(); setTimeout(() => dispatchEvent(new CustomEvent('prh-rueckblick', { detail: { jahr: rueckblickJahr } })), 120); }}>
+        <span class="sm-icon">🎆</span><span class="sm-text"><b>${`Jahresrückblick ${rueckblickJahr}`}</b><small>Dein Trainingsjahr als Story</small></span><span class="sm-pfeil">›</span></button>` : null}
       <span class="eyebrow sm-titel">Hilfe</span>
       <button class="sm-punkt" onClick=${() => waehle('begriffe')}><span class="sm-icon">?</span><span class="sm-text"><b>Begriffe erklärt</b><small>RPE, e1RM, Back-off, Deload …</small></span><span class="sm-pfeil">›</span></button>
       <span class="muted sm-tipp">Tipp: vom linken Rand nach rechts wischen öffnet dieses Menü überall.</span>

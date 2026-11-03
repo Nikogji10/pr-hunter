@@ -2,7 +2,10 @@
 // jeder Muskel in der Farbe seiner Stärkestufe (aus den beteiligten Lifts), Licht-Verlauf für Plastizität.
 // Eigene Zeichnung (keine Grafik von Symmetric Strength übernommen). Linke Körperhälfte wird gespiegelt.
 import { html, useState, fmt, LIFT } from './basis.js';
-import { stufe, STUFEN } from '../js/auswertung.js';
+import { stufe, STUFEN, erholung, muskelGewichte } from '../js/auswertung.js';
+import { kanon } from '../js/daten.js';
+import { uebung, deEn } from './basis.js';
+import { HEUTE, plusTage } from './stand.js';
 
 export const MUSKEL_NAME = {
   quadrizeps: 'Quadrizeps', gesaess: 'Gesäß', adduktoren: 'Adduktoren', beinbeuger: 'Beinbeuger', ruecken_unten: 'Unterer Rücken',
@@ -168,4 +171,24 @@ export function MiniFigur({ zonen, seite = null, ausschnitt = '0 0 200 430' }) {
   const vorne = seite ? seite === 'vorne' : zonen.filter((z) => SUCH_VORNE[z]).length >= zonen.filter((z) => SUCH_HINTEN[z]).length;
   const farbe = (g) => (zonen.includes(g) ? 'var(--acc)' : 'var(--muskel-leer)');
   return html`<div class="mini-figur"><${Figur} teile=${vorne ? SUCH_VORNE : SUCH_HINTEN} linien=${vorne ? LINIEN_VORNE : LINIEN_HINTEN} werte=${{}} aktiv=${null} waehle=${() => {}} titel="" farbe=${farbe} ausschnitt=${ausschnitt}/></div>`;
+}
+
+/** 198: Erholung jetzt, kompakt für „Heute“ – nur wenn ein Muskel noch müde ist. Gleiche Rechnung wie Statistik → Profil. */
+export function ErholungKurz({ trainings }) {
+  const eintraege = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4)).flatMap((t) => {
+    const zeit = new Date(t.ende ?? t.start ?? `${t.datum}T18:00:00`).getTime();
+    return (t.uebungen ?? []).map((u) => ({ zeit, muskeln: muskelGewichte(kanon(u.key), uebung(kanon(u.key)) ?? uebung(u.key)), saetze: (u.saetze ?? []).filter((s) => s.fertig !== false) }));
+  });
+  if (!eintraege.length) return null;
+  const z = erholung(eintraege, Date.now());
+  const rot = Object.keys(z).filter((m) => z[m].stufe === 'rot'), gelb = Object.keys(z).filter((m) => z[m].stufe === 'gelb');
+  if (!rot.length && !gelb.length) return null;
+  const namen = (l) => l.map((m) => MUSKEL_NAME[m] ?? m).join(', ');
+  return html`<section class="card pad erholung-kurz">
+    <${MiniFigur} zonen=${[...rot, ...gelb]} seite=${null}/>
+    <div class="stack" style="gap:3px"><span class="eyebrow">${deEn('Erholung jetzt', 'Recovery now')}</span>
+      ${rot.length ? html`<span><i class="ek-punkt rot"></i><b>${deEn('Noch müde', 'Still tired')}:</b> ${namen(rot)}</span>` : null}
+      ${gelb.length ? html`<span><i class="ek-punkt gelb"></i><b>${deEn('Fast erholt', 'Almost recovered')}:</b> ${namen(gelb)}</span>` : null}
+      <small class="muted">${deEn('Alles andere ist frisch – gut für ein freies Training.', 'Everything else is fresh – good for a free workout.')}</small></div>
+  </section>`;
 }

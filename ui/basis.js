@@ -76,6 +76,7 @@ export function satzExtras(s, { mitTyp = false } = {}) {
   if (e.baender) teile.push(`Bänder ${e.baender}`);
   if (e.ketten) teile.push(`Ketten ${gw(e.ketten)} ${ANZEIGE.einheit}`);
   if (e.ms) teile.push(`${fmt(e.ms, 2)} m/s`);
+  if (mitTyp && e.technik) teile.push(e.technik === 'gut' ? 'Technik 👍' : 'Technik 👎');
   if (s.notiz) teile.push(`„${s.notiz}“`);
   return teile;
 }
@@ -226,7 +227,7 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null }) {
       <circle cx="20" cy="20" r="16" fill="none" style="stroke:currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 20 20)"/></svg>
     <div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
       <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
-        : `Pause · nächster: ${timer.naechster}`}</div></div></div>
+        : `Pause${timer.grund ? ` (${timer.grund})` : ''} · nächster: ${timer.naechster}`}</div></div></div>
     <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
     <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
     <button onClick=${() => setTimer(null)} aria-label="Pause beenden" style="min-width:40px">${I.zu}</button>
@@ -335,10 +336,11 @@ export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   </div>`;
 }
 
-export function Scheiben({ kg, stange = stangeKg() }) {
-  const s = scheiben(kg, { stange, inventar: scheibenKg() });
-  if (!s.proSeite.length) return html`<span class="muted">leere Stange</span>`;
-  return html`<span class="plates">${s.proSeite.map((w, i) => html`<span key=${i} class="pl" data-w=${w}>${gw(w)}</span>`)}</span>`;
+export function Scheiben({ kg, stange = stangeKg(), liste = null, neuAb = null }) {
+  // liste: feste Beladung (202, Scheibenwechsel sparen); neuAb: ab dieser Stelle frisch aufgesteckt (hervorgehoben)
+  const l = liste ?? scheiben(kg, { stange, inventar: scheibenKg() }).proSeite;
+  if (!l.length) return html`<span class="muted">leere Stange</span>`;
+  return html`<span class="plates">${l.map((w, i) => html`<span key=${i} class=${`pl ${neuAb != null && i >= neuAb ? 'neu' : ''}`} data-w=${w}>${gw(w)}</span>`)}</span>`;
 }
 
 const PH = { 25: 96, 20: 96, 15: 96, 10: 96, 5: 62, 2.5: 50, 1.25: 42 }, PB = { 25: 14, 20: 12, 15: 10, 10: 9, 5: 8, 2.5: 7, 1.25: 6 };

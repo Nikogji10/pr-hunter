@@ -128,6 +128,16 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
     ${zurueckText === 'Zurück zum Training' ? html`<button class="btn btn-soft btn-sm" onClick=${zurueck}>${I.zurueck} Zurück zum Training</button>` : null}
 
     ${reiter === 'verlauf' ? html`
+      ${(() => {   // 205: Technik-Bewertungen – bis wohin sauber, ab wann es kippt
+        const b = einheiten.flatMap((x) => x.saetze).filter((s) => s.extra?.technik && s.kg > 0);
+        if (b.length < 3) return null;
+        const gut = b.filter((s) => s.extra.technik === 'gut').map((s) => s.kg), schlecht = b.filter((s) => s.extra.technik === 'schlecht').map((s) => s.kg);
+        const grenze = schlecht.length ? Math.min(...schlecht) : null, sauber = gut.length ? Math.max(...gut.filter((kg) => grenze == null || kg < grenze), 0) : 0;
+        return html`<section class="card pad stack technik-bilanz"><span class="viz-t">Technik</span>
+          <div class="row" style="gap:14px"><span>👍 <b>${gut.length}</b></span><span>👎 <b>${schlecht.length}</b></span></div>
+          <span class="muted" style="font-size:13px">${grenze == null ? `Alle bewerteten Sätze sauber – bis ${gwE(Math.max(...gut))}.`
+            : sauber ? `Sauber bis ${gwE(sauber)}, ab ${gwE(grenze)} leidet die Technik – dort lieber Gewicht halten und sauber wiederholen.` : `Ab ${gwE(grenze)} leidet die Technik.`}</span></section>`;
+      })()}
       ${!einheiten.length ? html`<section class="card pad"><p class="muted" style="margin:0">Für diese Übung gibt es noch keine Einheiten.</p></section>` : null}
       ${einheiten.slice(0, mehr).map((x) => einheitKarte(x))}
       ${einheiten.length > mehr ? html`<button class="btn btn-soft btn-sm" onClick=${() => setMehr(mehr + 20)}>Ältere Einheiten (${einheiten.length - mehr})</button>` : null}`
@@ -199,8 +209,8 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
           <div><span class="eyebrow">Hauptmuskeln</span><b>${muskeln(e?.m)}</b></div>
           ${(details?.m2 ?? e?.m2)?.length ? html`<div><span class="eyebrow">Nebenmuskeln</span><b>${muskeln(details?.m2 ?? e?.m2)}</b></div>` : null}
         </div>
-        ${a.cues || a.rack || a.notiz || a.pause ? html`<div class="notizen">
-          ${a.cues ? html`<p><b>Cues</b> ${a.cues}</p>` : null}${a.rack ? html`<p><b>Rack</b> ${a.rack}</p>` : null}
+        ${a.cues || a.rack || a.notiz || a.pause || (a.geraet && Object.keys(a.geraet).length) ? html`<div class="notizen">
+          ${a.cues ? html`<p><b>Cues</b> ${a.cues}</p>` : null}${a.rack ? html`<p><b>Rack</b> ${a.rack}</p>` : null}${a.geraet && Object.keys(a.geraet).length ? html`<p><b>Gerät</b> ${Object.entries(a.geraet).map(([k, v]) => `${k} ${v}`).join(' · ')}</p>` : null}
           ${a.pause ? html`<p><b>Pause</b> ${mmss(a.pause)} (eigene)</p>` : null}${a.notiz ? html`<p><b>Notiz</b> ${a.notiz}</p>` : null}</div>` : null}
         ${details?.anleitung?.length ? html`<details><summary class="link" style="cursor:pointer">Anleitung (Englisch, Free Exercise DB)</summary>
           <ol class="anleitung">${details.anleitung.map((t, i) => html`<li key=${i}>${t}</li>`)}</ol></details>` : null}
@@ -244,10 +254,13 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
 function AnpassenSheet({ schluessel, zu }) {
   const alt = anpassung(schluessel) ?? {};
   const [a, setA] = useState({ name: alt.name ?? '', pause: alt.pause ?? null, cues: alt.cues ?? '', rack: alt.rack ?? '', notiz: alt.notiz ?? '', versteckt: !!alt.versteckt });
+  // 204: Geräte-Einstellungen als Paare Name → Wert (Sitz, Lehne, Polster, Griff …)
+  const [geraet, setGeraet] = useState(() => { const g = Object.entries(alt.geraet ?? {}); return g.length ? g : [['Sitz', ''], ['Lehne', '']]; });
+  const geraetObj = Object.fromEntries(geraet.map(([k, v]) => [k.trim(), v.trim()]).filter(([k, v]) => k && v));
   const [fehler, setFehler] = useState(null);
   const pause = (d) => setA((a) => ({ ...a, pause: Math.max(15, Math.min(900, (a.pause ?? 180) + d)) }));
   const speichern = async () => {
-    try { await DIENSTE.speichereAnpassung(schluessel, { ...alt, ...a, name: a.name.trim() || null, cues: a.cues.trim() || null, rack: a.rack.trim() || null, notiz: a.notiz.trim() || null }); zu(); }
+    try { await DIENSTE.speichereAnpassung(schluessel, { ...alt, ...a, name: a.name.trim() || null, cues: a.cues.trim() || null, rack: a.rack.trim() || null, notiz: a.notiz.trim() || null, geraet: Object.keys(geraetObj).length ? geraetObj : null }); zu(); }
     catch (x) { setFehler(x.message); }
   };
   return html`<${Sheet} zu=${zu} label="Übung anpassen">
@@ -263,6 +276,13 @@ function AnpassenSheet({ schluessel, zu }) {
       <textarea id="a-cues" rows="2" placeholder="z. B. Knie raus, Brust hoch, Luft halten" value=${a.cues} onInput=${(e) => { const v = e.currentTarget.value; setA((a) => ({ ...a, cues: v })); }}></textarea></label>
     <label class="field" for="a-rack"><span class="label">Rack und Safety</span>
       <input id="a-rack" class="text" type="text" placeholder="z. B. Rack 11, Safety 4" value=${a.rack} onInput=${(e) => { const v = e.currentTarget.value; setA((a) => ({ ...a, rack: v })); }}/></label>
+    <div class="stack" style="gap:6px"><span class="label">Geräte-Einstellungen</span>
+      ${geraet.map(([k, v], i) => html`<div key=${i} class="geraet-zeile">
+        <input class="text" type="text" aria-label="Einstellung" placeholder="z. B. Sitz" value=${k} onInput=${(e) => { const x = e.currentTarget.value; setGeraet((g) => g.map((p, j) => (j === i ? [x, p[1]] : p))); }}/>
+        <input class="text" type="text" aria-label="Wert" placeholder="z. B. 4" value=${v} onInput=${(e) => { const x = e.currentTarget.value; setGeraet((g) => g.map((p, j) => (j === i ? [p[0], x] : p))); }}/>
+        <button class="iconbtn klein" aria-label="Einstellung entfernen" onClick=${() => setGeraet((g) => g.filter((_, j) => j !== i))}>${I.zu}</button></div>`)}
+      <div class="chips-zeile">${['Sitz', 'Lehne', 'Polster', 'Griff', 'Fußplatte', 'Kabelhöhe'].filter((n) => !geraet.some(([k]) => k === n)).map((n) => html`<button key=${n} class="chip" onClick=${() => setGeraet((g) => [...g, [n, '']])}>${`+ ${n}`}</button>`)}</div>
+      <span class="muted" style="font-size:12px">Steht im Training direkt in der Karte – kein Suchen nach der richtigen Sitzhöhe mehr.</span></div>
     <label class="stack" style="gap:6px" for="a-notiz"><span class="eyebrow">Notiz</span>
       <textarea id="a-notiz" rows="2" value=${a.notiz} onInput=${(e) => { const v = e.currentTarget.value; setA((a) => ({ ...a, notiz: v })); }}></textarea></label>
     <label class="schalter" for="a-weg"><span><b>In der Suche ausblenden</b><br/><span class="muted" style="font-size:13px">Bleibt im Verlauf; über den Filter weiter auffindbar.</span></span>

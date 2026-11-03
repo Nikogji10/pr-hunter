@@ -1863,3 +1863,166 @@ body { overflow-x: hidden; }
 .aktiv-avatar i, .aktiv-punkt { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #34C77B;
   box-shadow: 0 0 0 2px var(--karte, #111), 0 0 0 0 color-mix(in srgb, #34C77B 60%, transparent); animation: puls 1.8s infinite; }
 .tabs .aktiv-punkt { right: auto; left: 56%; top: 6px; bottom: auto; }
+/* 209: Favoriten und zuletzt benutzt in der Übungsauswahl */
+.aw-zeile { display: flex; align-items: center; gap: 4px; }
+.aw-zeile .aw-treffer { flex: 1; min-width: 0; }
+.aw-stern { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; font-size: 20px; color: var(--muted); }
+.aw-stern.an { color: #F2C230; }
+.aw-schnell { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.aw-schnell-reihe { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.aw-kachel { flex: none; width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 6px; border-radius: 14px;
+  border: 1px solid var(--kante); background: var(--raised); font-size: 11.5px; font-weight: 700; text-align: center; line-height: 1.2; }
+.aw-kachel span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* 210: Notiz-Chips */
+.notiz-chips { flex-wrap: wrap; }
+/* 207: Rekord-Vorhersage */
+.rekord-ab { font-size: 12.5px; font-weight: 700; color: #F2C230; }
+/* 197/201: Countdown */
+.countdown { border-color: color-mix(in srgb, #F2C230 40%, var(--kante)); }
+.cd-zahl { display: flex; align-items: baseline; gap: 6px; }
+.cd-zahl b { font: 900 40px/1 var(--f); font-stretch: 115%; }
+.cd-zahl span { font-weight: 700; color: var(--ink-2); }
+.cd-pokal { font-size: 34px; }
+.cd-lifts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cd-lifts span { display: flex; flex-direction: column; padding: 6px 8px; border-radius: 12px; background: var(--raised); min-width: 0; }
+.cd-lifts small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-lifts small { font-size: 11px; color: var(--muted); }
+.cd-lifts b { font-size: 18px; }
+.cd-lifts .cd-total { background: color-mix(in srgb, #F2C230 18%, var(--raised)); }
+.cd-klasse { font-size: 13px; font-weight: 700; color: #34C77B; }
+.cd-klasse.drueber { color: #F2C230; }
+/* 198: Erholung jetzt */
+.erholung-kurz { display: flex; gap: 12px; align-items: center; font-size: 13.5px; }
+.erholung-kurz .mini-figur { width: 54px; height: 70px; flex: none; }
+.ek-punkt { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.ek-punkt.rot { background: var(--ampel-rot); } .ek-punkt.gelb { background: var(--ampel-gelb); }
+/* 208: Stillstand */
+.stillstand { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); }
+.stillstand .row b { font-size: 14px; }
+.stillstand small { font-size: 12.5px; color: var(--ink-2); }
+.stillstand .wochen { font-size: 12px; font-weight: 800; color: #F2C230; }
+.notiz-tage { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.notiz-tage li { display: flex; gap: 10px; }
+.technik-wahl { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; justify-content: flex-end; font-size: 12px; padding: 0 4px 4px; }
+.technik-wahl button { border: 1px solid var(--kante); background: var(--raised); border-radius: 99px; padding: 2px 10px; font-size: 15px; opacity: .55; }
+.technik-wahl button[aria-pressed="true"] { opacity: 1; border-color: var(--acc); background: color-mix(in srgb, var(--acc) 18%, var(--raised)); }
+/* 203: Aufwärm-Routine */
+.aufwaerm-routine { border-color: color-mix(in srgb, #34C77B 40%, var(--kante)); }
+.ar-icon { font-size: 30px; }
+.ar-liste { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.ar-liste li { display: flex; justify-content: space-between; gap: 8px; }
+.ar-name { font-size: 20px; line-height: 1.25; }
+.ar-zeit { display: flex; flex-direction: column; gap: 8px; }
+.ar-zeit b { font: 900 48px/1 var(--f); font-stretch: 115%; text-align: center; }
+.ar-balken { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.ar-balken i { display: block; height: 100%; background: #34C77B; transition: width .25s linear; }
+/* 192: Wenig Zeit */
+.zeit-leiste { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 4px; font-size: 13px; }
+.zeit-wahl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* 202: Scheibenwechsel sparen – frisch aufgesteckte Scheiben hell */
+.plates .pl.neu { outline: 2px solid color-mix(in srgb, #F2C230 80%, transparent); outline-offset: 1px; }
+.warm-tipp { margin: 4px 0 0; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.warm ol li.warm-ziel { font-weight: 800; }
+/* 206: Jahresrückblick als Story */
+.rueckblick { position: fixed; inset: 0; z-index: 90; color: #fff; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  display: flex; flex-direction: column; padding: max(14px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); animation: fade .3s ease; }
+.rb-hintergrund { position: absolute; inset: -20%; background: radial-gradient(circle at 20% 15%, var(--rb-a), transparent 55%), radial-gradient(circle at 85% 80%, var(--rb-b), transparent 55%),
+  linear-gradient(160deg, var(--rb-a), var(--rb-b) 70%, #0B0716); transition: background .8s ease; animation: rb-wabern 14s ease-in-out infinite alternate; z-index: -2; }
+.rb-glanz { position: absolute; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 120%, rgba(0,0,0,.45), transparent 60%),
+  repeating-radial-gradient(circle at 70% 30%, rgba(255,255,255,.05) 0 2px, transparent 2px 60px); }
+@keyframes rb-wabern { from { transform: scale(1) rotate(0deg); } to { transform: scale(1.15) rotate(6deg); } }
+.rb-oben { display: flex; flex-direction: column; gap: 10px; }
+.rb-balken { display: flex; gap: 4px; }
+.rb-balken div { flex: 1; height: 3px; border-radius: 99px; background: rgba(255,255,255,.3); overflow: hidden; }
+.rb-balken i { display: block; height: 100%; background: #fff; }
+.rb-logo { font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; opacity: .85; }
+.rb-zu { width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.25); color: #fff; display: grid; place-items: center; }
+.rb-zu svg { width: 18px; height: 18px; }
+.rb-folie { flex: 1; display: flex; align-items: center; justify-content: center; }
+.rb-mitte { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; max-width: 420px; width: 100%; }
+.rb-mitte > * { animation: rb-rein .6s cubic-bezier(.2, .9, .3, 1.2) both; }
+.rb-mitte > *:nth-child(2) { animation-delay: .1s; } .rb-mitte > *:nth-child(3) { animation-delay: .2s; } .rb-mitte > *:nth-child(4) { animation-delay: .35s; }
+.rb-mitte > *:nth-child(5) { animation-delay: .5s; } .rb-mitte > *:nth-child(6) { animation-delay: .65s; }
+@keyframes rb-rein { from { opacity: 0; transform: translateY(28px) scale(.92); } }
+.rb-emoji { font-size: 54px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.3)); }
+.rb-emoji.gross { font-size: 84px; animation: rb-rein .6s both, rb-wippen 2.4s ease-in-out .6s infinite; }
+@keyframes rb-wippen { 50% { transform: translateY(-8px) rotate(-4deg); } }
+.rb-klein { font-size: 15px; font-weight: 700; opacity: .85; text-transform: uppercase; letter-spacing: .08em; }
+.rb-jahr { font: 900 120px/0.9 var(--f); font-stretch: 125%; text-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.rb-zahl { font: 900 108px/0.95 var(--f); font-stretch: 125%; text-shadow: 0 10px 40px rgba(0,0,0,.3); font-variant-numeric: tabular-nums; }
+.rb-einheit { font-size: 24px; font-weight: 800; margin-top: -4px; }
+.rb-text { font-size: 18px; font-weight: 600; line-height: 1.35; opacity: .95; }
+.rb-name { font: 900 34px/1.1 var(--f); font-stretch: 110%; }
+.rb-titel { font: 900 46px/1.05 var(--f); font-stretch: 120%; text-transform: uppercase; text-shadow: 0 8px 30px rgba(0,0,0,.35); }
+.rb-pille { padding: 6px 14px; border-radius: 99px; background: rgba(0,0,0,.25); font-weight: 800; }
+.rb-pille.auf { background: rgba(255,255,255,.25); }
+.rb-liste { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.rb-zeile { display: flex; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: 16px; background: rgba(255,255,255,.16); backdrop-filter: blur(6px); font-weight: 700; animation: rb-rein .5s both; }
+.rb-zeile span { text-align: left; }
+.rb-bild { border-radius: 28px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.35); border: 4px solid rgba(255,255,255,.8); background: #fff; }
+.rb-bild .uebung-bild { display: block; }
+.rb-saeulen { display: flex; align-items: flex-end; gap: 6px; height: 160px; width: 100%; margin-top: 10px; }
+.rb-saeule { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.rb-saeule i { width: 100%; border-radius: 6px 6px 3px 3px; background: rgba(255,255,255,.4); animation: rb-wachsen .8s cubic-bezier(.2, .9, .3, 1) both; transform-origin: bottom; }
+.rb-saeule.top i { background: #fff; box-shadow: 0 0 20px rgba(255,255,255,.6); }
+.rb-saeule small { font-size: 11px; font-weight: 800; opacity: .8; }
+@keyframes rb-wachsen { from { transform: scaleY(0); } }
+.rb-kacheln, .rb-zusammen { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.rb-kacheln div, .rb-zusammen div { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,.16); text-align: left; }
+.rb-kacheln small, .rb-zusammen small { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+.rb-kacheln b { font-size: 20px; }
+.rb-zusammen b { font: 900 30px/1 var(--f); }
+.rb-zusammen b.klein { font-size: 16px; line-height: 1.2; }
+.rb-lifts { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.rb-lift { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 16px; border-radius: 18px; background: rgba(255,255,255,.16); animation: rb-rein .5s both; text-align: left; font-weight: 700; }
+.rb-lift-zahl { display: flex; align-items: baseline; gap: 6px; } .rb-lift-zahl small { opacity: .75; } .rb-lift-zahl b { font: 900 26px/1 var(--f); }
+.rb-lift em { font-style: normal; font-weight: 900; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.9); color: #1a1a1a; }
+.rb-knoepfe { width: 100%; gap: 10px; }
+.rb-btn, .rb-btn-hell { flex: 1; border: 0; border-radius: 16px; padding: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+.rb-btn { background: #fff; color: #1a1a1a; display: inline-flex; justify-content: center; gap: 8px; } .rb-btn svg { width: 18px; height: 18px; }
+.rb-btn-hell { background: rgba(255,255,255,.2); color: #fff; }
+.rb-hinweis { text-align: center; font-size: 12px; opacity: .6; font-weight: 700; }
+/* Karte auf „Heute“ */
+.rb-karte { position: relative; overflow: hidden; padding: 18px 50px 18px 18px; color: #fff; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #FF3D6E, #7A2CF5 60%, #1E4DD8); box-shadow: 0 16px 40px -14px rgba(122, 44, 245, .7); }
+.rb-karte-glanz { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%); animation: rb-schimmer 3.2s ease-in-out infinite; }
+@keyframes rb-schimmer { from { transform: translateX(-100%); } 60%, to { transform: translateX(100%); } }
+.rb-karte > div { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.rb-karte-klein { font-size: 11.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.rb-karte-titel { font: 900 22px/1.15 var(--f); font-stretch: 110%; }
+.rb-karte-text { font-size: 13.5px; opacity: .9; }
+.rb-karte-zu { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(0,0,0,.25); color: #fff; display: grid; place-items: center; }
+.rb-karte-zu svg { width: 16px; height: 16px; }
+/* 204: Geräte-Einstellungen */
+.geraet-zeile { display: grid; grid-template-columns: 1fr 1fr 36px; gap: 6px; align-items: center; }
+/* 200/212: Challenges und Bestenliste */
+.challenge.vorbei { opacity: .8; }
+.ch-titel { font-size: 18px; display: block; margin-top: 2px; }
+.ch-status { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 99px; background: var(--raised); color: var(--ink-2); white-space: nowrap; }
+.ch-status.laeuft { background: color-mix(in srgb, #34C77B 20%, var(--raised)); color: #34C77B; }
+.ch-einladung { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--acc) 15%, var(--raised)); font-weight: 700; }
+.ch-rang { display: flex; flex-direction: column; gap: 6px; }
+.ch-zeile { display: grid; grid-template-columns: 30px 28px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 12px; }
+.ch-zeile.ich { background: color-mix(in srgb, var(--acc) 12%, transparent); }
+.ch-platz { font-size: 20px; text-align: center; font-weight: 800; }
+.ch-balken-feld { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.ch-balken { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.ch-balken i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--acc), #F2C230); transition: width .6s ease; }
+.ch-sieger { font-weight: 800; color: #F2C230; }
+.ch-arten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ch-art { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; border: 1px solid var(--kante); background: var(--raised); font-size: 12px; }
+.ch-art span { font-size: 22px; }
+.ch-art[aria-pressed="true"] { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 16%, var(--raised)); }
+/* 194: Zusammen trainieren */
+.partner-leiste { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border-color: color-mix(in srgb, #34C77B 45%, var(--kante)); }
+.pl-kopf { display: flex; gap: 10px; align-items: center; }
+.pl-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.pl-text b { font-size: 14px; }
+.pl-zahl { font-weight: 900; font-size: 15px; }
+.pl-balken { height: 5px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.pl-balken i { display: block; height: 100%; background: #34C77B; transition: width .5s ease; }
+.pl-liste { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pl-liste li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.pl-saetze { display: flex; gap: 3px; }
+.pl-saetze i { font-style: normal; min-width: 22px; text-align: center; font-size: 11px; font-weight: 800; padding: 2px 4px; border-radius: 6px; background: var(--raised); color: var(--muted); }
+.pl-saetze i.ok { background: color-mix(in srgb, #34C77B 30%, var(--raised)); color: var(--ink); }

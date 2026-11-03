@@ -7,6 +7,7 @@ import { E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { Timer } from './timer.js';
 import { Wettkampftag } from './wettkampf.js';
+import { zweiGewichte } from '../js/scheibenwechsel.js';
 
 // Werte im Rechner sind schon in der Anzeigeeinheit; das Zahlenfeld rechnet deshalb nicht um
 const Zahl = ({ id, label, wert, setze }) => html`<${ZahlFeld} id=${id} label=${label} wert=${wert} setze=${setze}/>`;
@@ -20,6 +21,7 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
   // 180: im Training mit Klimmzug/Dips gleich den Klimmzug-Rechner mit dem aktuellen Satz öffnen
   const [art, setArt] = useState(startArt ?? (vorlage?.koerper ? 'koerper' : '1rm'));
   const [ziel, setZiel] = useState(() => start(182.5));
+  const [zweites, setZweites] = useState(() => start(160));     // 202: zweites Gewicht an derselben Stange
   // Läuft ein Training: Gewicht und Wdh des aktuellen Satzes; RPE 10 als Standard (Satz bis Versagen)
   const [b, setB] = useState(() => ({ kg: start(!vorlage?.koerper && vorlage?.kg || 180), wdh: !vorlage?.koerper && vorlage?.wdh || 3, rpe: !vorlage?.koerper && vorlage?.rpe || 10 }));
   const [z, setZ] = useState({ wdh: 5, rpe: 8 });
@@ -46,6 +48,20 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
       ${inKg(ziel ?? 0) >= stangeKg() ? html`<${Hantel} kg=${inKg(ziel)}/><div class="row between"><span class="eyebrow">Pro Seite</span><${Scheiben} kg=${inKg(ziel)}/></div>
         <p class="muted" style="margin:0;font-size:13px">Stange ${fmt(inAnzeige(stangeKg()), 1)} ${E}, Scheiben laut Einstellungen.</p>`
         : html`<p class="muted" style="margin:0">Mindestens ${fmt(inAnzeige(stangeKg()), 1)} ${E} (leere Stange).</p>`}
+    </section>
+    <section class="card pad stack">
+      <span class="viz-t">Zwei Gewichte an einer Stange</span>
+      <p class="muted" style="margin:0;font-size:13px">Zu zweit oder Top-Satz und Back-off: das schwere Gewicht so laden, dass das leichte nur durch Abnehmen der äußeren Scheiben entsteht.</p>
+      <${Zahl} id="r-zweites" label=${`Zweites Gewicht (${E})`} wert=${zweites} schritt=${inc} setze=${setZweites}/>
+      ${(() => {
+        const a = inKg(ziel ?? 0), b = inKg(zweites ?? 0);
+        if (!(a > stangeKg()) || !(b >= stangeKg()) || Math.abs(a - b) < 0.01) return null;
+        const z = zweiGewichte(a, b, { stange: stangeKg(), inventar: scheibenKg() });
+        return html`<div class="stack" style="gap:6px">
+          <div class="row between"><span class="eyebrow">${`Schwer · ${fmt(inAnzeige(Math.max(a, b)), 1)} ${E}`}</span><${Scheiben} kg=${Math.max(a, b)} liste=${z.schwer} neuAb=${z.leicht.length}/></div>
+          <div class="row between"><span class="eyebrow">${`Leicht · ${fmt(inAnzeige(Math.min(a, b)), 1)} ${E}`}</span><${Scheiben} kg=${Math.min(a, b)} liste=${z.leicht}/></div>
+          <span class="muted" style="font-size:12.5px">${`Wechsel: ${z.handgriffe} Scheiben je Seite (hell) – mit der üblichen Beladung wären es ${z.handgriffeStandard}.`}</span></div>`;
+      })()}
     </section>`}
 
     ${art === 'rpe' && html`<section class="card pad stack">

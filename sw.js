@@ -2,7 +2,7 @@
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
 // einem eigenen Cache, der Versionswechsel überdauert.
-const VERSION = 'c9b18044dcfd';
+const VERSION = '77dd1f9f6c78';
 const DATEIEN = [
   "./",
   "app.js",
@@ -37,10 +37,15 @@ const DATEIEN = [
   "js/import.js",
   "js/insights.js",
   "js/konto.js",
+  "js/kuerzen.js",
   "js/lokal.js",
+  "js/notizchips.js",
   "js/programm.js",
   "js/punkte.js",
   "js/rechnen.js",
+  "js/rueckblick.js",
+  "js/scheibenwechsel.js",
+  "js/stillstand.js",
   "js/supabase.js",
   "js/sync.js",
   "js/technik.js",
@@ -50,9 +55,12 @@ const DATEIEN = [
   "programme/candito_int_adv_bench.json",
   "programme/pr_hybrid_candito_pana.json",
   "ui/abschluss.js",
+  "ui/ansage.js",
+  "ui/aufwaermroutine.js",
   "ui/basis.js",
   "ui/bbgenerator.js",
   "ui/bereitschaft.js",
+  "ui/challenges.js",
   "ui/diagramme.js",
   "ui/editor.js",
   "ui/eigenerplan.js",
@@ -78,6 +86,7 @@ const DATEIEN = [
   "ui/programme.js",
   "ui/programmtexte.js",
   "ui/rechner.js",
+  "ui/rueckblick.js",
   "ui/sprache.js",
   "ui/stand.js",
   "ui/statistik.js",
@@ -89,6 +98,7 @@ const DATEIEN = [
   "ui/vergleich.js",
   "ui/verlauf.js",
   "ui/wettkampf.js",
+  "ui/zusammen.js",
   "ui/zuschnitt.js",
   "vendor/htm-preact.js",
   "vendor/supabase.js"

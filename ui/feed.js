@@ -6,6 +6,7 @@ import { DEMO, HEUTE, trainingsTage, trainingAm, plusTage } from './stand.js';
 import { DIENSTE } from './stand.js';
 import { useLayoutEffect, useRef } from '../vendor/htm-preact.js';
 import { rekordChronik } from '../js/auswertung.js';
+import { ChallengesReiter } from './challenges.js';
 
 /** Demo: die letzten Trainingstage als eigener Feed (Rekorde wie in der Statistik gezählt). */
 function demoFeed() {
@@ -291,13 +292,14 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
     ${false ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
       <p>Wer seine Trainings nicht teilt, sieht auch die der anderen nicht.</p><span></span>
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
-    <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
+    <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde'], ['challenges', 'Challenges']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
-    ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
+    ${reiter === 'freunde' ? html`<${Freunde} einst=${einst} setEinst=${setEinst}/>` : reiter === 'challenges' ? html`<${ChallengesReiter}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
     ${aktiv.length ? html`<section class="card pad stack trainiert-gerade"><span class="viz-t">${deEn('Trainiert gerade', 'Training right now')}</span>
       ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000));
         return html`<div key=${a.id} class="aktiv-zeile"><span class="aktiv-avatar"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${34}/><i></i></span>
-          <span><b>${a.name}</b><small class="muted">${` · ${deEn(`seit ${min} min`, `for ${min} min`)}${a.titel ? ` · ${a.titel}` : ''}`}</small></span></div>`; })}
+          <span style="flex:1;min-width:0"><b>${a.name}</b><small class="muted">${` · ${deEn(`seit ${min} min`, `for ${min} min`)}${a.titel ? ` · ${a.titel}` : ''}`}</small></span>
+          ${DIENSTE.mitmachen && a.stand?.length ? html`<button class="btn btn-soft btn-sm" onClick=${() => DIENSTE.mitmachen(a)}>${deEn('Mitmachen', 'Join')}</button>` : null}</div>`; })}
     </section>` : null}
     ${neuHier.length ? html`<section class="card pad stack neu-reakt"><span class="viz-t">${deEn(`Neu für dich (${neuHier.length})`, `New for you (${neuHier.length})`)}</span>
       ${neuHier.slice(0, 6).map((x, i) => html`<div key=${i} class="neu-reakt-zeile"><span aria-hidden="true">${x.art === 'like' ? '♥' : '💬'}</span>

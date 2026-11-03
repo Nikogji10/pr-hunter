@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, sprache } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -9,6 +9,12 @@ import { SYMMETRIC_RECHNER } from '../js/verweise.js';
 import { LinienChart, StapelSaeulen, Heatmap, Sparkline, ZonenBalken, Rangliste } from './diagramme.js';
 import { KoerperKarte, ErholungKarte, MUSKEL_NAME, farbeVon } from './koerper.js';
 import { Zielprognose, Vergleich } from './vergleich.js';
+import { Bestenliste } from './challenges.js';
+import { stillstaende } from '../js/stillstand.js';
+import { normiere } from '../js/insights.js';
+import { NOTIZ_CHIPS, chipsAus } from '../js/notizchips.js';
+import { bereitschaftsWert } from '../js/auswertung.js';
+import { ISO_FAMILIEN } from './suche.js';
 import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT } from './stand.js';
 import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
@@ -212,7 +218,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     ${hat(dotsReihe) ? html`<${LinienChart} titel="Punkte" unter="DOTS und IPF GL aus Total und Körpergewicht (zeitlich nächster Messwert)" x=${x}
       serien=${[{ id: 'dots', name: 'DOTS', farbe: 'var(--lift-bench)', werte: ab(dotsReihe) }, { id: 'gl', name: 'IPF GL', farbe: 'var(--lift-squat)', werte: ab(glReihe) }]} einheit="" hoehe=${180}/>` : null}
     ${hat(relativ) ? html`<${LinienChart} titel="Relative Stärke" unter="Total ÷ Körpergewicht" x=${x} serien=${[{ id: 'rel', name: 'Total ÷ KG', farbe: 'var(--lift-dead)', werte: ab(relativ) }]} einheit="×" stellen=${2} hoehe=${170}/>` : null}
-    <${Zielprognose} aktuell=${aktuell} ziele=${einst.ziele ?? {}} setZiel=${setEinst ? (key, kg) => setEinst({ ...einst, ziele: { ...(einst.ziele ?? {}), [key]: kg } }) : null}/>
+    <${StillstandKarte} trainings=${trainings} cut=${!!einst.cut}/>
+    <${Zielprognose} aktuell=${aktuell} wettkampf=${einst.wettkampfDatum ?? null} ziele=${einst.ziele ?? {}} setZiel=${setEinst ? (key, kg) => setEinst({ ...einst, ziele: { ...(einst.ziele ?? {}), [key]: kg } }) : null}/>
     <section class="card pad stack">
       <div class="row between"><span class="viz-t">Neue Rekorde</span><span class="muted" style="font-size:12.5px">e1RM</span></div>
       ${!PR_FEED.length ? html`<p class="muted" style="margin:0;font-size:14px">Noch keine Rekorde in Kniebeuge, Bankdrücken oder Kreuzheben.</p>` : null}
@@ -267,6 +274,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="row wrap"><a class="btn btn-soft btn-sm" href=${SYMMETRIC_RECHNER} target="_blank" rel="noopener">Symmetric Strength ${I.extern}</a>
         <a class="btn btn-soft btn-sm" href="https://strengthlevel.com/strength-standards" target="_blank" rel="noopener">Strength Level ${I.extern}</a></div>
     </section>
+    ${einfach ? null : html`<${Bestenliste}/>`}
     ${einfach ? null : html`<${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
     : reiter === 'belastung' ? html`
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
@@ -300,7 +308,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     <${StapelSaeulen} titel="Trainingszeit" unter=${`Ø Minuten je Trainingstag, gruppiert je ${gruppe > 1 ? `${gruppe} Wochen` : 'Woche'} · ${mitDauer.length} Einheiten mit Dauer`} daten=${zeitSaeulen}
       serien=${[{ id: 'min', name: 'Minuten', farbe: 'var(--acc)' }]} einheit="min"/>` : null}
     <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
-      markiere=${imUrlaub}/>`
+      markiere=${imUrlaub}/>
+    <${SchlafKarte} trainings=${trainings} x=${x}/>
+    <${NotizKarte} trainings=${trainings} von=${x[0] ?? HEUTE}/>`
     : html`
     ${hat(gemessen) ? html`<${KoerperStatistik} x=${x} werte=${ab(gemessen)} von=${x[0]} ziel=${einst.gewichtZiel}/>` : null}
       ${!hat(gemessen) ? html`<section class="card pad"><p class="muted" style="margin:0">Noch kein Körpergewicht im Zeitraum – auf „Heute“ mit −/+ eintragen.</p></section>` : null}
@@ -367,4 +377,56 @@ function GewichtFlaeche({ punkte, ziel }) {
     <text x=${Math.min(B - 30, Math.max(20, px(punkte.indexOf(ma))))} y=${py(ma[1]) - 6} class="gw-wert" text-anchor="middle">${gw(ma[1], 1)}</text>
     ${mi !== ma ? html`<text x=${Math.min(B - 30, Math.max(20, px(punkte.indexOf(mi))))} y=${py(mi[1]) + 14} class="gw-wert" text-anchor="middle">${gw(mi[1], 1)}</text>` : null}
   </svg>`;
+}
+
+/** 208: Stillstand der wichtigsten Übungen mit konkretem Vorschlag. */
+function StillstandKarte({ trainings, cut }) {
+  const liste = stillstaende(normiere(trainings), { heute: HEUTE, cut, istIso: (k) => ISO_FAMILIEN.has(uebung(k)?.f) });
+  return html`<section class="card pad stack">
+    <div><span class="viz-t">${deEn('Stillstand', 'Plateaus')}</span><div class="viz-u">${deEn('Deine meistgenutzten Übungen der letzten 12 Wochen', 'Your most used exercises of the last 12 weeks')}</div></div>
+    ${liste.length ? liste.map((s) => html`<div key=${s.key} class="stillstand">
+      <div class="row between"><b>${nameVon(s.key)}</b><span class="wochen">${deEn(`seit ${s.wochen} Trainingswochen`, `for ${s.wochen} training weeks`)}</span></div>
+      <small>${`${deEn('Bestwert', 'Best')} e1RM ${gwE(s.best, 1)} · ${s.vorschlag[sprache() === 'en' ? 1 : 0]}`}</small></div>`)
+      : html`<p class="muted" style="margin:0;font-size:13.5px">${deEn('Kein Stillstand – deine wichtigsten Übungen machen Fortschritt.', 'No plateaus – your main exercises are progressing.')}</p>`}
+  </section>`;
+}
+
+/** 199: Schlaf und Bereitschaft (Readiness-Check) je Woche, dazu Leistung an guten und schlechten Schlaftagen. */
+function SchlafKarte({ trainings, x }) {
+  const mit = trainings.filter((t) => !t.geloescht && t.bereitschaft && bereitschaftsWert(t.bereitschaft) != null);
+  if (mit.length < 3) return null;
+  const woche = (a) => mit.filter((t) => t.datum >= a && t.datum < plusTage(a, 7));
+  const mittel = (l, f) => { const v = l.map(f).filter((z) => z != null); return v.length ? Math.round((v.reduce((s, z) => s + z, 0) / v.length) * 10) / 10 : null; };
+  const schlaf = x.map((a) => mittel(woche(a), (t) => t.bereitschaft.sleep ?? null)), bereit = x.map((a) => mittel(woche(a), (t) => bereitschaftsWert(t.bereitschaft)));
+  // Leistung: bestes e1RM des Tages je Übung relativ zum Bestwert der 90 Tage davor, gemittelt
+  const E = normiere(trainings), leistung = (t) => {
+    const vorher = E.filter((e) => e.datum < t.datum && e.datum >= plusTage(t.datum, -90)), q = [];
+    for (const u of E.find((e) => e.datum === t.datum)?.uebungen ?? []) {
+      const best = (l) => Math.max(-Infinity, ...l.filter((s) => s.kg > 0 && s.wdh > 0 && s.wdh <= 12 && s.typ !== 'warmup').map((s) => e1rm(s.kg, s.wdh)));
+      const heute = best(u.saetze), alt = Math.max(-Infinity, ...vorher.flatMap((e) => e.uebungen.filter((v) => v.key === u.key)).map((v) => best(v.saetze)));
+      if (Number.isFinite(heute) && Number.isFinite(alt) && alt > 0) q.push(heute / alt);
+    }
+    return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
+  };
+  const gut = mittel(mit.filter((t) => t.bereitschaft.sleep >= 4), leistung), schlecht = mittel(mit.filter((t) => t.bereitschaft.sleep != null && t.bereitschaft.sleep <= 2), leistung);
+  const unterschied = gut != null && schlecht != null ? Math.round((gut - schlecht) * 1000) / 10 : null;
+  return html`<${LinienChart} titel=${deEn('Schlaf und Bereitschaft', 'Sleep and readiness')} unter=${deEn('Ø je Woche aus dem Readiness-Check (1–5, hoch = gut)', 'Weekly average from the readiness check (1–5, high = good)')}
+      x=${x} serien=${[{ id: 'schlaf', name: deEn('Schlaf', 'Sleep'), farbe: '#7C9CFF', werte: schlaf }, { id: 'bereit', name: deEn('Bereitschaft', 'Readiness'), farbe: '#34C77B', werte: bereit }]} einheit="" stellen=${1}/>
+    ${unterschied != null ? html`<section class="hint immer ${unterschied > 0 ? 'gut' : ''}">${I.info ?? I.warn}<span class="t">${deEn('Schlaf und Leistung', 'Sleep and performance')}</span><span></span>
+      <p>${unterschied > 0 ? deEn(`Nach gutem Schlaf (4–5) warst du im Schnitt ${fmt(unterschied, 1)} % stärker als nach schlechtem (1–2).`, `After good sleep (4–5) you were on average ${fmt(unterschied, 1)} % stronger than after poor sleep (1–2).`)
+        : deEn('Zwischen guten und schlechten Schlaftagen zeigt sich bei dir bisher kaum ein Unterschied.', 'So far there is hardly any difference between good and poor sleep days.')}</p></section>` : null}`;
+}
+
+/** 210: Notiz-Chips im Zeitraum – wie oft, an welchen Tagen. */
+function NotizKarte({ trainings, von }) {
+  const [wahl, setWahl] = useState(null);
+  const im = trainings.filter((t) => !t.geloescht && t.datum >= von && t.notiz).map((t) => ({ t, ...chipsAus(t.notiz) }));
+  const zahl = NOTIZ_CHIPS.map(([id, de, en]) => [id, sprache() === 'en' ? en : de, im.filter((x) => x.ids.includes(id)).length]).filter(([, , n]) => n);
+  if (!zahl.length) return null;
+  const treffer = wahl ? im.filter((x) => x.ids.includes(wahl)).sort((a, b) => b.t.datum.localeCompare(a.t.datum)) : [];
+  return html`<section class="card pad stack">
+    <div><span class="viz-t">${deEn('Wie war es?', 'How was it?')}</span><div class="viz-u">${deEn('Notiz-Chips beim Beenden im Zeitraum – antippen zeigt die Tage', 'Note chips from finishing in the period – tap to see the days')}</div></div>
+    <div class="chips-zeile notiz-chips">${zahl.map(([id, text, n]) => html`<button key=${id} class="chip" aria-pressed=${String(wahl === id)} onClick=${() => setWahl(wahl === id ? null : id)} translate="no">${`${text} · ${n}`}</button>`)}</div>
+    ${treffer.length ? html`<ul class="notiz-tage">${treffer.slice(0, 12).map((x) => html`<li key=${x.t.id}><b>${datumKurz(x.t.datum)}</b><span class="muted">${x.rest || ''}</span></li>`)}</ul>` : null}
+  </section>`;
 }

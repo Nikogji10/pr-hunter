@@ -4,6 +4,11 @@ import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVo
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
 import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache } from './basis.js';
 import { technikVon } from '../js/technik.js';
+import { NOTIZ_CHIPS, chipsAus, mitChips } from '../js/notizchips.js';
+import { AufwaermRoutine } from './aufwaermroutine.js';
+import { kuerzeTraining, restMinuten } from '../js/kuerzen.js';
+import { stapelFolge, zweiGewichte } from '../js/scheibenwechsel.js';
+import { PartnerLeiste } from './zusammen.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -71,6 +76,15 @@ export function baueTraining(tag, { leichter = false, koerperKg = 88, autoFuer =
 
 export const alleSaetze = (t) => t.karten.flatMap((k) => k.gruppen.flatMap((g) => g.saetze));
 
+/** 194: Karten aus dem Stand eines Trainingspartners – gleiche Übungen, Satzzahl und Wdh, Gewicht aus der eigenen Form (RPE 8). */
+export function kartenAusStand(stand, koerperKg) {
+  return stand.filter((u) => u.k && u.s?.length).map((u, i) => {
+    const wdh0 = u.s[0][1] || 8, kg = vorschlag(u.k, wdh0, 8, koerperKg);
+    return { id: i, key: u.k, slot: null, gruppen: [{ rolle: null, wdhText: String(wdh0), rpe: null, notiz: null, vorschlag: kg != null, saetzeText: null,
+      saetze: u.s.map(([, wdh]) => ({ kg, kgPlan: kg, wdh: wdh || wdh0, rpe: null, erledigt: false, e1rm: null, pr: false, geaendert: false })) }] };
+  });
+}
+
 /** Übung außerhalb des Plans: 3 × 8, Gewicht aus der aktuellen Form für RPE 8 (ohne e1RM leer). */
 function neueKarte(key, karten, koerperKg) {
   const kg = vorschlag(key, 8, 8, koerperKg);
@@ -89,7 +103,7 @@ function setzeUebung(karte, key, koerperKg) {
   }
 }
 
-export function Training({ t, setT, timer, setTimer, einst, toast, lichter, minimieren, beenden, zuVerlauf }) {
+export function Training({ t, setT, timer, setTimer, einst, toast, lichter, minimieren, beenden, zuVerlauf, partner = [] }) {
   const [sheet, setSheet] = useState(null);
   useTakt(true, 1000);
   const aktuell = (() => {
@@ -102,6 +116,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
   const kg = einst.koerpergewicht;
   const aendere = (f) => setT((alt) => { const karten = structuredClone(alt.karten); f(karten); return { ...alt, karten }; });
   const satz = (ki, gi, si, f) => aendere((ks) => f(ks[ki].gruppen[gi].saetze[si], ks[ki].gruppen[gi], ks[ki]));
+  const pauseFuer = (k, g) => pauseVon(k.key, g.rolle, einst.pausen), istHaupt = (key) => liftVon(key) !== 'andere';   // 192
 
   const abhaken = (ki, gi, si) => {
     const k = t.karten[ki], g = k.gruppen[gi], s = g.saetze[si];
@@ -120,9 +135,18 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
       if (weiter) { setTimer(null); toast({ titel: 'Supersatz', text: `Weiter mit ${nameVon(weiter.key)}` }); return; }
     }
     const naechster = g.saetze[si + 1] ?? k.gruppen[gi + 1]?.saetze[0] ?? t.karten[ki + 1]?.gruppen[0]?.saetze[0];
-    const pause = pauseVon(k.key, g.rolle, einst.pausen);
-    setTimer({ ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false,
-      naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft' });
+    const naechsteKarte = g.saetze[si + 1] || k.gruppen[gi + 1] ? k : t.karten[ki + 1];
+    let pause = pauseVon(k.key, g.rolle, einst.pausen), grund = null;
+    if (t.kurz && liftVon(k.key) === 'andere') { pause = Math.round(pause * 0.7); grund = deEn('Wenig Zeit', 'Short on time'); }   // 192
+    // 195: Pause nach Anstrengung (Einstellung) – RPE 9,5/10 länger, RPE ≤ 6 kürzer; Aufwärmsätze nicht
+    if (einst.pauseNachRpe && s.rpe != null && s.typ !== 'warmup') {
+      if (s.rpe >= 10) { pause += 60; grund = '+60 s · RPE 10'; }
+      else if (s.rpe >= 9.5) { pause += 30; grund = '+30 s · RPE 9,5'; }
+      else if (s.rpe <= 6) { pause = Math.max(30, pause - 30); grund = `−30 s · RPE ${fmt(s.rpe)}`; }
+    }
+    setTimer({ ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,
+      naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft',
+      naechsterUebung: naechster && naechsteKarte?.key ? nameVon(naechsteKarte.key) : null, naechsterKg: naechster?.kg ?? null, naechsterWdh: naechster?.wdh ?? null });
     // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen
     if (k.gruppen.every((gg, gj) => gg.saetze.every((x, sj) => x.erledigt || (gj === gi && sj === si)))) {
       aendere((ks) => {
@@ -151,6 +175,12 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
         })}</div>
     </header>
 
+    ${partner.map((p) => html`<${PartnerLeiste} key=${p.id} p=${p}/>`)}
+    ${!t.bearbeiten && t.karten.some((k) => k.key) && alleSaetze(t).some((s) => !s.erledigt) ? html`<div class="zeit-leiste">
+      <span class="muted">${deEn(`Noch ca. ${restMinuten(t.karten, pauseFuer, { kurz: t.kurz, istHaupt })} min`, `About ${restMinuten(t.karten, pauseFuer, { kurz: t.kurz, istHaupt })} min left`)}</span>
+      <button class="chip" onClick=${() => setSheet({ art: 'zeit' })}>${t.kurz ? deEn('⏱ Gekürzt', '⏱ Shortened') : deEn('⏱ Wenig Zeit?', '⏱ Short on time?')}</button></div>` : null}
+    ${einst.aufwaermRoutine !== false && !t.bearbeiten && !t.aufwaermFertig && t.karten.some((k) => k.key) && !alleSaetze(t).some((s) => s.erledigt)
+      ? html`<${AufwaermRoutine} keys=${t.karten.map((k) => k.key).filter(Boolean)} fertig=${() => setT((alt) => ({ ...alt, aufwaermFertig: true }))}/>` : null}
     ${t.karten.map((k, ki) => k.slot ? html`<section class=${`card ex ${fokus != null ? 'gedimmt' : ''}`} key=${k.id}>
         <div class="ex-head"><div class="badge" style="background:var(--raised);color:var(--muted)">+</div>
           <div style="min-width:0"><p class="ex-title">${k.slot.label}</p>
@@ -176,6 +206,19 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
       <div><div class="eyebrow">Übung tauschen</div><h2 class="h2">${nameVon(t.karten[sheet.ki].key)}</h2></div>
       <${UebungSuche} id="tausch" familien=${[uebung(t.karten[sheet.ki].key)?.f].filter(Boolean)}
         onWahl=${(key) => { aendere((ks) => setzeUebung(ks[sheet.ki], key, kg)); setSheet(null); toast({ titel: 'Übung getauscht', text: nameVon(key) }); }}/>
+    <//>`}
+    ${sheet?.art === 'zeit' && html`<${Sheet} zu=${() => setSheet(null)} label="Wenig Zeit">
+      <h2 class="h2">${deEn('Wie viel Zeit hast du noch?', 'How much time do you have left?')}</h2>
+      <p class="muted" style="margin:0;font-size:13.5px">${deEn('Kniebeuge, Bank und Kreuzheben bleiben wie geplant. Beim Zubehör: höchstens 2 Sätze, paarweise als Supersatz, kürzere Pausen – und wenn es nicht reicht, fallen die letzten Übungen weg.',
+        'Squat, bench and deadlift stay as planned. Accessories: at most 2 sets, paired as supersets, shorter rests – and if that is not enough, the last exercises are dropped.')}</p>
+      <div class="zeit-wahl">${[20, 30, 45, 60].map((m) => html`<button key=${m} class="btn btn-soft" onClick=${() => {
+        const r = kuerzeTraining(t.karten, m, pauseFuer, istHaupt);
+        setT((alt) => ({ ...alt, karten: r.karten, kurz: alt.kurz || r.kurz })); setSheet(null);
+        toast(r.schritte.length ? { titel: deEn(`Auf ca. ${r.minuten} min gekürzt`, `Shortened to about ${r.minuten} min`), text: r.entfernt.length
+          ? deEn(`Weggelassen: ${r.entfernt.map((x) => nameVon(x)).join(', ')}`, `Dropped: ${r.entfernt.map((x) => nameVon(x)).join(', ')}`) : deEn('Zubehör gekürzt, Hauptübungen unverändert.', 'Accessories shortened, main lifts unchanged.') }
+          : r.minuten > m ? { titel: deEn('Nur Hauptübungen offen', 'Only main lifts left'), text: deEn(`Die bleiben wie geplant (ca. ${r.minuten} min). Kürzer nur, wenn du selbst Sätze streichst.`, `They stay as planned (about ${r.minuten} min). Shorter only if you remove sets yourself.`) }
+          : { titel: deEn('Passt schon', 'Fits already'), text: deEn(`Das Training dauert nur noch ca. ${r.minuten} min.`, `The workout only takes about ${r.minuten} more min.`) });
+      }}>${`${m} min`}</button>`)}</div>
     <//>`}
     ${sheet?.art === 'ende' && html`<${EndeSheet} t=${t} zu=${() => setSheet(null)} beenden=${beenden}/>`}
     ${sheet?.art === 'entfernen' && t.karten[sheet.ki] && html`<${Sheet} zu=${() => setSheet(null)} label="Übung entfernen">
@@ -267,8 +310,16 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
             : !letzte ? html`<div class="ex-werte"><span class="erstes-mal">Erstes Mal: leicht anfangen – ein Gewicht, mit dem alle Wdh sauber gehen</span></div>` : null;
         })()
         : BEST_E1RM[k.key] || heute1rm ? html`<div class="ex-werte">${BEST_E1RM[k.key] ? html`<span class="best-1rm" title=${E1RM_QUELLE[k.key]?.best ? datumKurz(E1RM_QUELLE[k.key].best.datum) : ''}>1RM ${gwE(BEST_E1RM[k.key], 1)}${quelleText(E1RM_QUELLE[k.key]?.best)}</span>` : null}${heute1rm ? html`<span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : null}</div>` : null}
+        ${(() => {   // 207: beim aktuellen Satz – ab wie vielen Wdh wäre das ein neues e1RM (nicht bei Powerlifting: dort wird geplant getestet)
+          if (einst.trainingsart !== 'einfach' || bearbeiten || !aktuell || aktuell[0] !== ki || !BEST_E1RM[k.key]) return null;
+          const s = k.gruppen[aktuell[1]]?.saetze[aktuell[2]];
+          if (!(s?.kg > 0) && !koerperUebung(k.key)) return null;
+          const ab = Array.from({ length: 30 }, (_, i) => i + 1).find((r) => (satzE1rm(k.key, { kg: s.kg ?? 0, wdh: r }, einst.koerpergewicht) ?? 0) > BEST_E1RM[k.key]);
+          return ab ? html`<div class="ex-werte"><span class="rekord-ab">${deEn(`🏆 Mit ${gw(s.kg ?? 0)} ${einheit()} × ${ab} wäre das ein neuer Rekord`, `🏆 ${gw(s.kg ?? 0)} ${einheit()} × ${ab} would be a new PR`)}</span></div>` : null;
+        })()}
         ${(() => { const au = k.gruppen.find((g) => g.auto)?.auto; return au ? html`<div class="ex-werte"><span class=${`vorschlag auto ${au.art}`}>${`Auto: ${au.text[sprache() === 'en' ? 1 : 0]}`}</span></div>` : null; })()}
-        ${a?.cues || a?.rack ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}</div>` : null}
+        ${a?.cues || a?.rack || (a?.geraet && Object.keys(a.geraet).length) ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}
+          ${Object.entries(a.geraet ?? {}).map(([n, w]) => html`<span key=${n} class="rack" translate="no">${`${n} ${w}`}</span>`)}</div>` : null}
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">
         <button class="mini akzent" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung">${I.statistik}</button>
@@ -296,8 +347,23 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       </div>` : null}
       ${gi === 0 && aufw.length ? html`<details class="warm">
         <summary><span>Aufwärmen</span><span class="muted" style="font-size:13px">${aufw.length} Sätze bis ${gwE(aufw.at(-1).kg)}</span></summary>
-        <ol>${aufw.map((w, i) => html`<li key=${i}><span class="zahl">${gwE(w.kg)}</span><span class="muted">× ${w.wdh}</span><${Scheiben} kg=${w.kg}/></li>`)}</ol>
+        ${(() => {   // 202: Beladungen so, dass möglichst nur aufgesteckt wird
+          const o = { stange: stangeKg(), inventar: scheibenKg() }, f = stapelFolge([...aufw.map((w) => w.kg), g0.saetze[0].kg], o);
+          let vorher = [];
+          const zeile = (st) => { const gleich = vorher.findIndex((x, j) => st.scheiben[j] !== x); const ab = gleich < 0 ? vorher.length : gleich; vorher = st.scheiben; return ab; };
+          return html`<ol>${f.stufen.map((st, i) => { const ab = zeile(st); return html`<li key=${i} class=${i === aufw.length ? 'warm-ziel' : ''}><span class="zahl">${gwE(st.kg)}</span>
+            <span class="muted">${i < aufw.length ? `× ${aufw[i].wdh}` : deEn('Arbeit', 'work')}</span><${Scheiben} kg=${st.kg} liste=${st.scheiben} neuAb=${ab}/></li>`; })}</ol>
+            ${f.summe < f.summeStandard ? html`<p class="muted warm-tipp">${deEn(`Hell = neu aufstecken. Nur ${f.summe} Handgriffe je Seite statt ${f.summeStandard}.`, `Bright = add. Only ${f.summe} plate moves per side instead of ${f.summeStandard}.`)}</p>` : null}`;
+        })()}
       </details>` : null}
+      ${(() => {   // 202: Top-Satz und Back-offs – schwer laden als „Back-off innen + Rest außen“
+        const g1 = k.gruppen[gi + 1];
+        if (bearbeiten || !stangeVon(k.key) || g.rolle !== 'top' || !g1 || !(g1.saetze[0]?.kg > 0) || !(g.saetze[0]?.kg > g1.saetze[0].kg) || g1.saetze.every((s) => s.erledigt)) return null;
+        const z = zweiGewichte(g.saetze[0].kg, g1.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() });
+        if (z.handgriffe >= z.handgriffeStandard) return null;
+        return html`<p class="muted warm-tipp">${deEn('Tipp: Top-Satz so laden', 'Tip: load the top set like this')} <${Scheiben} kg=${g.saetze[0].kg} liste=${z.schwer} neuAb=${z.leicht.length}/>
+          ${deEn(` – für die Back-offs nur die ${z.aussen.length} hellen außen abnehmen.`, ` – for the back-offs just take off the ${z.aussen.length} bright outer plates.`)}</p>`;
+      })()}
       ${g.saetze.map((s, si) => {
         const extras = satzExtras(s);
         const satz1rm = s.rpe != null && (s.kg > 0 || koerper) ? satzE1rm(k.key, s, einst.koerpergewicht, true) : s.erledigt ? s.e1rm : null;
@@ -314,6 +380,9 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
         ${satz1rm || extras.length ? html`<div class="setinfo">
           ${satz1rm ? html`<span>${s.rpe != null ? '≈ ' : ''}1RM ${gwE(satz1rm, 1)}${koerper ? ` gesamt (Zusatz ${gw(satz1rm - einst.koerpergewicht, 1)})` : ''}</span>` : null}
           ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}</div>` : null}
+        ${einst.technikBewertung && s.erledigt && s.typ !== 'warmup' ? html`<div class="technik-wahl" role="group" aria-label="Technik">
+          <span class="muted">Technik</span>${[['gut', '👍'], ['schlecht', '👎']].map(([w, z]) => html`<button key=${w} aria-pressed=${String(s.extra?.technik === w)}
+            aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => satz(ki, gi, si, (x) => { const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined; })}>${z}</button>`)}</div>` : null}
       </div>`;
       })}
       ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}
@@ -520,8 +589,10 @@ function UebungNotizSheet({ t, ki, zu, aendere }) {
 
 function EndeSheet({ t, zu, beenden }) {
   const [gefuehl, setGefuehl] = useState(t.sessionRpe ?? null);       // beim Bearbeiten: bisherige Angaben vorbelegt
-  const [notiz, setNotiz] = useState(t.notiz ?? '');
+  const [chips, setChips] = useState(() => chipsAus(t.notiz).ids);          // 210: Anlässe mit einem Tipp
+  const [notiz, setNotiz] = useState(() => chipsAus(t.notiz).rest);
   const [loeschFrage, setLoeschFrage] = useState(false);
+  const en = sprache() === 'en';
   const saetze = alleSaetze(t).filter((s) => s.erledigt);
   const tonnage = saetze.reduce((a, s) => a + (s.kg || 0) * (s.wdh || 0), 0);
   const prListe = t.karten.flatMap((k) => k.gruppen.flatMap((g) => g.saetze.filter((s) => s.erledigt && s.pr).map((s) => ({ k, s }))));
@@ -545,10 +616,13 @@ function EndeSheet({ t, zu, beenden }) {
     <div class="stack" style="gap:8px"><span class="eyebrow">Wie anstrengend war das Training? (Session-RPE 1–10)</span>
       <div class="feel">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => html`<button key=${n} aria-pressed=${String(gefuehl === n)} onClick=${() => setGefuehl(n)}>${n}</button>`)}</div>
       <span class="muted" style="font-size:12.5px">Daraus rechnet die Statistik die Trainingsbelastung (Session-RPE × Minuten).</span></div>
+    <div class="stack" style="gap:8px"><span class="eyebrow">Wie war es?</span>
+      <div class="chips-zeile notiz-chips">${NOTIZ_CHIPS.map(([id, de, e]) => html`<button key=${id} class="chip" aria-pressed=${String(chips.includes(id))}
+        onClick=${() => setChips(chips.includes(id) ? chips.filter((x) => x !== id) : [...chips, id])} translate="no">${en ? e : de}</button>`)}</div></div>
     <label class="stack" style="gap:8px" for="ende-notiz"><span class="eyebrow">Notiz</span>
       <textarea id="ende-notiz" placeholder="z. B. Knie heute gut, Bank schnell" value=${notiz} onInput=${(e) => setNotiz(e.currentTarget.value)}></textarea></label>
     <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${zu}>${t.bearbeiten ? 'Weiter ändern' : 'Weiter trainieren'}</button>
-      <button class=${`btn ${saetze.length ? 'btn-go' : 'btn-gefahr'}`} style="flex:1.4" onClick=${() => beenden({ sessionRpe: gefuehl, notiz: notiz.trim() || null })}>${saetze.length ? 'Speichern' : 'Verwerfen'}</button></div>
+      <button class=${`btn ${saetze.length ? 'btn-go' : 'btn-gefahr'}`} style="flex:1.4" onClick=${() => beenden({ sessionRpe: gefuehl, notiz: mitChips(chips, notiz, en) })}>${saetze.length ? 'Speichern' : 'Verwerfen'}</button></div>
     <p class="muted" style="margin:0;font-size:12.5px">${!saetze.length ? (t.bearbeiten ? 'Kein Satz abgehakt – die Änderungen werden verworfen, das gespeicherte Training bleibt.' : 'Kein Satz abgehakt – das Training wird nicht gespeichert.')
       : t.bearbeiten ? 'Ersetzt das gespeicherte Training, auf dem Handy sofort und auf dem Server beim nächsten Abgleich.'
       : 'Das Training wird sofort auf dem Handy gesichert und hochgeladen, sobald Netz da ist.'}</p>

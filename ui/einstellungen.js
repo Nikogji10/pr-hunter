@@ -1,9 +1,10 @@
 // PR Hunter · Einstellungen als Menü mit Unterseiten: Training, Körper, Geräte und Einheit, Anzeige, Konto und Daten.
 // Jede Unterseite ist ein eigener Historien-Eintrag (Zurück führt ins Menü).
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
-import { html, useState, useEffect, fmt, mmss, I, Sheet, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep } from './basis.js';
-import { DEMO } from './stand.js';
+import { html, useState, useEffect, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, piep, kopiere } from './basis.js';
+import { DEMO, DIENSTE } from './stand.js';
 import { APP_VERSION } from './hilfe.js';
+import { sag } from './ansage.js';
 import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnisHolen } from './mitteilung.js';
 import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung, neigungStaerke, setzeNeigungStaerke } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
@@ -144,6 +145,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <${Seg} label="Trainingsart" werte=${[['einfach', 'Einfach / Bodybuilding'], ['powerlifting', 'Powerlifting']]} wert=${einst.trainingsart ?? 'powerlifting'} setze=${(v) => setEinst({ ...einst, trainingsart: v })}/>
       <span class="muted" style="font-size:12.5px">${einst.trainingsart === 'einfach' ? 'Einfache Ansicht: Vorschläge statt 1RM-Zahlen, keine Kraftwerte für Kniebeuge/Bank/Kreuzheben, kein Kraftprofil, keine Punkte.' : 'Alles sichtbar: Trainingsmax, e1RM, Kraftprofil, Punkte, Powerlifting-Generator.'}</span>
       ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
+      <${KalenderAbo}/>
       <span class="viz-t unterteil">Wochenziel</span>
       <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
       <span class="muted" style="font-size:12.5px">Auf „Heute“ steht, wie viele Trainings diese Woche geschafft sind und wie viele Wochen in Folge du trainiert hast (mindestens ein Training pro Woche).</span>
@@ -156,6 +158,12 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
         <div class="row" style="gap:8px"><button class="mini" onClick=${() => aendere(art, -15)} aria-label=${`${text}: 15 Sekunden weniger`}>−15</button>
           <b class="zahl tab-num" style="font-size:22px;min-width:50px;text-align:center">${mmss(einst.pausen[art])}</b>
           <button class="mini" onClick=${() => aendere(art, 15)} aria-label=${`${text}: 15 Sekunden mehr`}>+15</button></div></div>`)}
+      <label class="schalter" for="e-pause-rpe"><span><b>Pause nach Anstrengung</b><br/>
+        <span class="muted" style="font-size:12.5px">Satz mit RPE 9,5 → 30 s länger, RPE 10 → 60 s länger, RPE 6 oder leichter → 30 s kürzer. Ohne eingetragene RPE gilt die normale Pause.</span></span>
+        <input type="checkbox" id="e-pause-rpe" checked=${!!einst.pauseNachRpe} onChange=${(e) => setEinst({ ...einst, pauseNachRpe: e.currentTarget.checked })}/></label>
+      <label class="schalter" for="e-ansage"><span><b>Sprachansagen</b><br/>
+        <span class="muted" style="font-size:12.5px">In der Pause über Lautsprecher oder Kopfhörer: „Noch 30 Sekunden“ und am Ende der nächste Satz mit Übung, Gewicht und Wdh. Nur bei offener App.</span></span>
+        <input type="checkbox" id="e-ansage" checked=${!!einst.sprachansagen} onChange=${(e) => { setEinst({ ...einst, sprachansagen: e.currentTarget.checked }); if (e.currentTarget.checked) sag(deEn('Sprachansagen sind an.', 'Voice prompts are on.')); }}/></label>
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Ton am Pausenende</span>
         <div class="ton-wahl">${Object.entries(TOENE).map(([id, t]) => html`<button key=${id} class="chip" aria-pressed=${String((einst.ton ?? 'piep') === id)}
           onClick=${() => { piep(id); setEinst({ ...einst, ton: id }); }}>${t.name}</button>`)}</div>
@@ -175,6 +183,19 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <label class="schalter" style="border-top:0;padding-top:0" for="e-cut"><span><b>Cut-Modus</b><br/>
         <span class="muted" style="font-size:12.5px">Ein Satz weniger bei Back-offs, Varianten und Zubehör (mind. 1). Top-Sätze, Tests und Wettkampf-Hauptsätze bleiben. Vorlagen mit eigenen Cut-Regeln (Hybrid) nutzen diese.</span></span>
         <input type="checkbox" id="e-cut" checked=${einst.cut} onChange=${(e) => setEinst({ ...einst, cut: e.currentTarget.checked })}/></label>
+      <label class="schalter" for="e-aufwaerm"><span><b>Aufwärm-Routine</b><br/>
+        <span class="muted" style="font-size:12.5px">Vor dem ersten Satz eine kurze Mobility-Abfolge (5–8 min) passend zum Trainingstag, mit Timer je Übung. Lässt sich jedes Mal überspringen.</span></span>
+        <input type="checkbox" id="e-aufwaerm" checked=${einst.aufwaermRoutine !== false} onChange=${(e) => setEinst({ ...einst, aufwaermRoutine: e.currentTarget.checked })}/></label>
+      <label class="schalter" for="e-technik"><span><b>Technik je Satz bewerten</b><br/>
+        <span class="muted" style="font-size:12.5px">Nach dem Abhaken 👍 oder 👎 für die Technik. Die Übungsseite zeigt dann, ab welchem Gewicht die Technik leidet.</span></span>
+        <input type="checkbox" id="e-technik" checked=${!!einst.technikBewertung} onChange=${(e) => setEinst({ ...einst, technikBewertung: e.currentTarget.checked })}/></label>
+      <div class="stack unterteil" style="gap:8px"><span class="eyebrow">Wettkampf</span>
+        <span class="muted" style="font-size:12.5px">Mit Datum zeigt „Heute“ einen Countdown, die passende Phase und eine Prognose deiner Lifts. Mit Gewichtsklasse dazu den Abstand zum Limit.</span>
+        <div class="fields"><label class="field" for="e-wk-datum"><span class="label">Wettkampfdatum</span>
+          <input id="e-wk-datum" class="text" type="date" value=${einst.wettkampfDatum ?? ''} onInput=${(e) => setEinst({ ...einst, wettkampfDatum: e.currentTarget.value || null })}/></label>
+          <label class="field" for="e-wk-klasse"><span class="label">Gewichtsklasse (kg)</span>
+          <input id="e-wk-klasse" class="text" type="text" inputmode="decimal" placeholder="z. B. 83" value=${einst.gewichtsklasse ?? ''}
+            onChange=${(e) => { const v = Number(e.currentTarget.value.replace(',', '.')); setEinst({ ...einst, gewichtsklasse: v > 0 ? v : null }); }}/></label></div></div>
       <label class="schalter" for="e-auto"><span><b>Autoregulation für Zubehör</b><br/>
         <span class="muted" style="font-size:12.5px">Gewicht der Zubehörübungen aus der RPE der letzten Einheit (leichter → mehr, schwerer → weniger); fällt die Leistung dreimal hintereinander, Deload −10 %. Kniebeuge, Bank und Kreuzheben steuert weiter der Plan.</span></span>
         <input type="checkbox" id="e-auto" checked=${!!einst.autoregulation} onChange=${(e) => setEinst({ ...einst, autoregulation: e.currentTarget.checked })}/></label>
@@ -323,5 +344,27 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
           ${loeschen.laeuft ? 'Wird vorgemerkt …' : 'In 14 Tagen löschen'}</button></div>
     <//>` : null}
     <p class="muted app-version">${`Version ${APP_VERSION()}`}</p>
+  </div>`;
+}
+
+/** 211: Kalender-Abo – geheimer Link (Update 30 + Edge Function „kalender“), aktualisiert sich im Kalender von selbst. */
+function KalenderAbo() {
+  const [link, setLink] = useState(null);
+  const [status, setStatus] = useState(null);
+  if (!DIENSTE.kalenderLink) return null;
+  const holen = async (neu = false) => {
+    setStatus('…');
+    try { setLink(await DIENSTE.kalenderLink(neu)); setStatus(neu ? deEn('Neuer Link – der alte geht nicht mehr.', 'New link – the old one no longer works.') : null); }
+    catch (e) { setStatus(e.message); }
+  };
+  const webcal = link ? link.replace(/^https:/, 'webcal:') : null;
+  return html`<div class="stack unterteil" style="gap:8px"><span class="eyebrow">Kalender-Abo</span>
+    <span class="muted" style="font-size:12.5px">Geplante und erledigte Trainings als Kalender, der sich alle paar Stunden selbst aktualisiert – in Google, Outlook oder Apple Kalender. Wer den Link hat, sieht deine Trainingstage.</span>
+    ${!link ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${() => holen()}>Abo-Link holen</button>`
+      : html`<input class="text" type="text" readonly value=${link} onFocus=${(e) => e.currentTarget.select()} aria-label="Kalender-Link"/>
+        <div class="row" style="gap:6px;flex-wrap:wrap"><a class="btn btn-chalk btn-sm" href=${webcal}>Im Kalender öffnen</a>
+          <button class="btn btn-soft btn-sm" onClick=${async () => setStatus((await kopiere(link)) ? deEn('Kopiert – in Google Kalender unter „Per URL hinzufügen“ einfügen.', 'Copied – paste it in Google Calendar under “From URL”.') : deEn('Kopieren gesperrt – Feld markieren und kopieren.', 'Copy blocked – select the field and copy.'))}>Link kopieren</button>
+          <button class="btn btn-soft btn-sm" onClick=${() => holen(true)}>Neuer Link</button></div>`}
+    ${status ? html`<span class="muted" style="font-size:12.5px">${status}</span>` : null}
   </div>`;
 }

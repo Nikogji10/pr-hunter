@@ -5,7 +5,7 @@
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
   PausenTimer, Sheet, incStandard, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER } from './ui/basis.js';
-import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
+import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
 import { GlossarSheet } from './ui/glossar.js';
@@ -13,7 +13,7 @@ import { TrainingsImport, ImportHinweis, importHinweisOffen } from './ui/trainin
 import { GewichtImport } from './ui/gewichtimport.js';
 import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
 import { trainingsSchluessel } from './js/import.js';
-import { Training, baueTraining, alleSaetze } from './ui/training.js';
+import { Training, baueTraining, alleSaetze, kartenAusStand } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
 import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
@@ -39,7 +39,14 @@ import { supabase, codeSenden, codePruefen, sitzung, abmelden, emailAendern } fr
 import * as konto from './js/konto.js';
 import { normiere, wochenSerie } from './js/insights.js';
 import { erfolge, neueAbzeichen } from './js/erfolge.js';
+import { standVon } from './ui/zusammen.js';
+import { SUPABASE_URL } from './js/supabase.js';
 import { autoregulation } from './js/autoregulation.js';
+import { useAnsagen } from './ui/ansage.js';
+import { WettkampfCountdown } from './ui/wettkampf.js';
+import { ErholungKurz } from './ui/koerper.js';
+import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
+import { rueckblick as rueckblickAus } from './js/rueckblick.js';
 
 const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
@@ -276,7 +283,15 @@ function Heute({ trainings = [], block, prog, tage, erledigt, leichter, setLeich
   <${Gruss} vorname=${einst.vorname} art=${einst.trainingsart} datum=${HEUTE} trainingstag=${planHeute && !erledigt.has(HEUTE) ? true : planHeute === false ? false : null}/>
   ${!einst.vorname && !DEMO && speicher.lies('prh-vorname-spaeter') !== HEUTE ? html`<${VornameKarte} speichern=${(v) => setEinst({ ...einst, vorname: v })}/>` : null}
   ${!einst.trainingsart && !DEMO ? html`<${TrainingsartKarte} waehle=${(v) => setEinst({ ...einst, trainingsart: v })}/>` : null}
-  ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}`;
+  ${zuImport && !Object.keys(trainingsTage).length && importHinweisOffen() ? html`<${ImportHinweis} oeffnen=${zuImport}/>` : null}
+  ${(() => {   // 206: Jahresrückblick in der letzten Dezemberwoche
+    const jahr = HEUTE.slice(0, 4), weg = `prh-rueckblick-weg-${jahr}`;
+    if (HEUTE.slice(5, 7) !== '12' || Number(HEUTE.slice(8)) < 25 || speicher.lies(weg) || trainings.filter((t) => !t.geloescht && t.datum.startsWith(jahr)).length < 3) return null;
+    return html`<${RueckblickKarte} jahr=${jahr} oeffnen=${() => dispatchEvent(new CustomEvent('prh-rueckblick', { detail: { jahr: Number(jahr) } }))}
+      weg=${() => { speicher.schreib(weg, '1'); setEinst({ ...einst }); }}/>`;
+  })()}
+  <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
+  ${!training ? html`<${ErholungKurz} trainings=${trainings}/>` : null}`;
   const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${WochenZiel} ziel=${einst.wochenziel ?? 3} trainings=${trainings}/>`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
@@ -410,6 +425,7 @@ function App() {
   const [leichter, setLeichter] = useState(false);
   const [training, setTraining] = useState(null);
   const [timer, setTimer] = useState(null);
+  useAnsagen(timer, !!einst.sprachansagen);                    // 193
   const [toast, setToast] = useState(null);
   // Meldungen zur Seite oder nach oben wegwischen
   const toastZug = useRef(null);
@@ -442,6 +458,11 @@ function App() {
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
   const [abschluss, setAbschluss] = useState(null);
   const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
+  const [rbJahr, setRbJahr] = useState(null);
+  // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
+  const rueckblickMenue = (() => { const j = Number(HEUTE.slice(0, 4)) - (HEUTE.slice(5, 7) === '12' ? 0 : 1); return trainings.some((t) => !t.geloescht && t.datum?.startsWith(String(j))) ? j : null; })();                       // 206: offener Jahresrückblick
+  useEffect(() => { const h = (e) => setRbJahr(e.detail?.jahr ?? null); addEventListener('prh-rueckblick', h); return () => removeEventListener('prh-rueckblick', h); }, []);
+  const rbDaten = useMemo(() => (rbJahr ? rueckblickAus(normiere(trainings), rbJahr, { liftVon }) : null), [rbJahr, trainings]);
   const [aktiveFreunde, setAktiveFreunde] = useState([]);        // 191: Freunde, die gerade trainieren
   const [neuReakt, setNeuReakt] = useState([]);                  // 190: neue Likes/Kommentare unter meinen Trainings
   const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
@@ -826,12 +847,46 @@ function App() {
       if (aktivGemeldet.current) { aktivGemeldet.current = false; konto.aktivEnde(supabase()).catch(() => {}); }
       return;
     }
-    const melden = () => { if (navigator.onLine && !document.hidden) konto.aktivMelden(supabase(), { seit: training.start, titel: training.titel }).then(() => { aktivGemeldet.current = true; }).catch(() => {}); };
+    const melden = () => {
+      const t = trainingRef.current;
+      if (!t || !navigator.onLine || document.hidden) return;
+      konto.aktivMelden(supabase(), { seit: t.start, titel: t.titel, stand: standVon(t), mit: t.mit ?? null }).then(() => { aktivGemeldet.current = true; }).catch(() => {});
+    };
     melden();
     const iv = setInterval(melden, 5 * 60000);
     addEventListener('visibilitychange', melden);
     return () => { clearInterval(iv); removeEventListener('visibilitychange', melden); };
   }, [training?.id, !!training?.bearbeiten, phase]);
+  // 194: abgehakte Sätze ein paar Sekunden später melden – Trainingspartner sehen den Stand fast live
+  const trainingRef = useRef(null);
+  trainingRef.current = training;
+  const erledigtZahl = training && !training.bearbeiten ? alleSaetze(training).filter((s) => s.erledigt).length : -1;
+  useEffect(() => {
+    if (DEMO || phase !== 'bereit' || erledigtZahl < 0) return;
+    const t = setTimeout(() => { const tr = trainingRef.current; if (tr && navigator.onLine) konto.aktivMelden(supabase(), { seit: tr.start, titel: tr.titel, stand: standVon(tr), mit: tr.mit ?? null }).catch(() => {}); }, 8000);
+    return () => clearTimeout(t);
+  }, [erledigtZahl, training?.karten?.length]);
+  // 194: während eines Trainings alle 15 s schauen, was die Freunde machen (Partner-Leiste)
+  useEffect(() => {
+    if (DEMO || phase !== 'bereit' || !training || training.bearbeiten) return;
+    const iv = setInterval(() => { if (!document.hidden && navigator.onLine) konto.freundeAktiv(supabase()).then((a) => setAktiveFreunde(a ?? [])).catch(() => {}); }, 15000);
+    return () => clearInterval(iv);
+  }, [!!training, phase]);
+  const partner = training && !training.bearbeiten && nutzer ? aktiveFreunde.filter((a) => a.id === training.mit || a.mit === nutzer.id) : [];
+  const partnerBekannt = useRef(new Set());
+  useEffect(() => {
+    for (const p of partner) if (!partnerBekannt.current.has(p.id) && p.mit === nutzer?.id) { setToast({ titel: deEn(`${p.name} trainiert mit dir`, `${p.name} is training with you`), text: deEn('Ihr seht euren Stand gegenseitig oben im Training.', 'You see each other\'s progress at the top of the workout.') }); }
+    partnerBekannt.current = new Set(partner.map((p) => p.id));
+  }, [partner.map((p) => p.id).join()]);
+  // 194: einem Freund beitreten – gleiche Übungen und Satzzahl, Gewichte aus der eigenen Form
+  const mitmachen = (a) => {
+    if (training) { setToast({ titel: 'Training läuft', text: 'Erst das laufende Training beenden.' }); gehe('training'); return; }
+    if (!a.stand?.length) { setToast({ titel: deEn('Noch nichts zu sehen', 'Nothing to see yet'), text: deEn(`${a.name} hat noch keine Übungen.`, `${a.name} has no exercises yet.`) }); return; }
+    tonFreigeben(); wachBleiben(); vibriere(120);
+    setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: deEn(`Mit ${a.name}`, `With ${a.name}`), runId: null, bereitschaft: null, mit: a.id,
+      karten: kartenAusStand(a.stand, einstUi.koerpergewicht).map((k, i) => (i > 0 ? { ...k, zu: true } : k)) });
+    gehe('training');
+  };
   const reaktionenGesehen = () => {
     if (!neuReakt.length) return;
     setNeuReakt([]);
@@ -1207,6 +1262,11 @@ function App() {
     planSenden: DEMO ? null : (an, name, def) => konto.planSenden(supabase(), an, name, def),
     geteiltePlaene: DEMO ? null : () => konto.geteiltePlaene(supabase()),
     geteiltenEntfernen: DEMO ? null : (id) => konto.geteiltenEntfernen(supabase(), id),
+    ladeChallenges: DEMO ? null : () => konto.ladeChallenges(supabase()),
+    challengeAnlegen: DEMO ? null : (c) => konto.challengeAnlegen(supabase(), c),
+    challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
+    mitmachen: DEMO ? null : (a) => mitmachen(a),
+    kalenderLink: DEMO ? null : async (neu = false) => `${SUPABASE_URL}/functions/v1/kalender?t=${await konto.kalenderToken(supabase(), neu)}`,
     melden: DEMO ? null : (id, name) => setFeedback({ art: 'meldung', betrifft: id, name }),
     programmSpeichern: async (datei, def) => {
       const p = info[datei];
@@ -1288,7 +1348,7 @@ function App() {
   // Inhalt einer Ansicht – für die aktuelle Seite und beim Wischen für die Nachbarseite, die schon mitläuft
   const seiteFuer = (ansicht) => {
     const imTraining = ansicht === 'training' && training;
-    return imTraining ? html`<${Training} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
+    return imTraining ? html`<${Training} partner=${partner} t=${training} setT=${setTraining} timer=${timer} setTimer=${setTimer} einst=${einstUi} toast=${setToast} lichter=${setLichter}
         minimieren=${() => gehe('heute')} beenden=${beenden} zuVerlauf=${(key) => zuUebung(key, 'training')}/>`
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
           zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
@@ -1348,11 +1408,12 @@ function App() {
     ${neueUebung ? html`<${UebungFormular} modus="neu" start=${neueUebung.text} zu=${() => setNeueUebung(null)}
       fertig=${(e) => { const wahl = neueUebung.beiWahl; setNeueUebung(null); wahl(e.k); }}/>` : null}
     ${abschluss ? html`<${Abschluss} daten=${abschluss} zu=${() => setAbschluss(null)}/>` : null}
+    ${rbJahr && rbDaten ? html`<${Rueckblick} r=${rbDaten} vorname=${einst.vorname} zu=${() => setRbJahr(null)}/>` : null}
     ${lange && training ? html`<${LangeOffenSheet} training=${training} weiter=${() => { setLange(false); setTraining({ ...training, nachgefragt: Date.now() }); }}
       beenden=${(e) => { setLange(false); beenden({ ende: e }); }}/>` : null}
     <${FensterHost}/>
     <${BildLupe}/>
-    <${SeitenMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
+    <${SeitenMenue} rueckblickJahr=${rueckblickMenue} auf=${menue || menueZug} vorschau=${menueZug && !menue} ohneEinblenden=${menueGezogen} zu=${() => { setMenue(false); setMenueGezogen(false); }} einfach=${einst.trainingsart === 'einfach'}
       waehle=${(k) => { if (k === 'begriffe') { history.back(); setTimeout(() => setGlossar(true), 80); return; } setMenue(false); setMenueGezogen(false); gehe('rechner', k, true); }}/>
     ${glossar ? html`<${GlossarSheet} zu=${() => setGlossar(false)}/>` : null}
     ${feedback ? html`<${FeedbackSheet} art=${feedback.art} betrifft=${feedback.betrifft ?? null} name=${feedback.name ?? null} zu=${() => setFeedback(null)}
