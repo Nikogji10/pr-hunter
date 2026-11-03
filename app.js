@@ -1532,7 +1532,7 @@ function App() {
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
     ${leiste && dockKlein ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')} ziehen=${kleinZiehen} pos=${dockPos.klein && { x: (dockPos.klein.x * innerWidth) / appZoom(), y: (dockPos.klein.y * innerHeight) / appZoom() }}/>`
-    : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:${(dockPos.gross * innerHeight) / appZoom()}px;bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}><span class="dock-griff" aria-hidden="true"></span>
+    : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:${(dockPos.gross * innerHeight) / appZoom()}px;bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}>
       ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}
       ${leiste && !(timer && !imTraining) ? html`<${TrainingDock} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}
