@@ -1685,6 +1685,10 @@ export const EN = new Map([
   ["Supersätze bilden", "Build supersets"],
   ["Unter jeder Übung der Knopf „Supersatz mit nächster“ – zwei Übungen im Wechsel, Pause erst nach der Runde.", "Under each exercise the button “Superset with next” – two exercises alternating, rest only after the round."],
   ["🔔 Los – nächster Satz!", "🔔 Go – next set!"],
+  ["Halten = klein · Ziehen = verschieben", "Hold = small · Drag = move"],
+  ["Klein gemacht", "Minimised"],
+  ["Gedrückt halten macht es wieder groß, ziehen verschiebt.", "Press and hold to enlarge, drag to move."],
+  ["Zurück zum Training (gedrückt halten: groß)", "Back to workout (hold: enlarge)"],
 ]);
 
 export const EN_MUSTER = [

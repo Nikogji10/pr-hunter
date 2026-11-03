@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, useWegwischen, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useZiehen, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -405,12 +405,14 @@ function LaufLeiste({ training, oeffnen }) {
 }
 
 /** Nach dem Wegwischen der Leiste: kleiner Knopf unten rechts (gleiches Glas), führt zurück ins Training. */
-function MiniDock({ training, timer, oeffnen }) {
+function MiniDock({ training, timer, oeffnen, ziehen, pos = null }) {
   useTakt(true, 500);
-  const pause = timer && timer.ende > Date.now();
-  return html`<button class=${`dock-mini ${pause ? 'pause' : ''}`} onClick=${oeffnen} aria-label="Zurück zum Training">
+  const pause = timer && timer.ende > Date.now(), los = timer && !pause;
+  return html`<button class=${`dock-mini kein-wisch ziehbar ${pause ? 'pause' : ''} ${los ? 'los' : ''}`} ...${ziehen.props} onClick=${() => { if (ziehen.geklickt()) oeffnen(); }}
+    style=${pos ? `left:calc(${pos.x} * 100vw);top:calc(${pos.y} * 100vh);right:auto;bottom:auto` : ''} aria-label="Zurück zum Training (gedrückt halten: groß)">
     <span class="pdock-punkt" aria-hidden="true"></span>
-    <b class="tab-num">${pause ? mmss((timer.ende - Date.now()) / 1000) : uhr((Date.now() - training.start) / 1000)}</b>
+    <b class="tab-num">${pause ? mmss((timer.ende - Date.now()) / 1000) : los ? 'Los!' : uhr((Date.now() - training.start) / 1000)}</b>
+    ${los ? html`<small class="los-ueber tab-num">${`+${mmss((Date.now() - timer.ende) / 1000)}`}</small>` : null}
     <span class="dock-mini-pfeil" aria-hidden="true">›</span>
   </button>`;
 }
@@ -470,9 +472,23 @@ function App() {
   const [einf, setEinf] = useState(einfuehrungOffen);           // Einführungskarten beim ersten Öffnen (pro Gerät)
   const [abschluss, setAbschluss] = useState(null);
   const [lange, setLange] = useState(false);                    // Training > 4 h offen: nachfragen (153)
-  const [dockKlein, setDockKlein] = useState(null);                 // Leiste weggewischt: Kennung des Trainings (dann nur Mini-Knopf)
-  const dockWisch = useWegwischen(() => setDockKlein(trainingIdRef.current));
-  const trainingIdRef = useRef(null);
+  // Leiste unten (03.11.): groß oder klein entscheidet man selbst (gemerkt); Lage beider Varianten frei verschiebbar und gemerkt
+  const [dockKlein, setDockKleinRoh] = useState(() => speicher.lies('prh-dock-klein') === '1');
+  const setDockKlein = (k) => {
+    setDockKleinRoh(k); speicher.schreib('prh-dock-klein', k ? '1' : '0');
+    const n = Number(speicher.lies('prh-dock-hinweis-klein') ?? 0);
+    if (k && n < 3) { speicher.schreib('prh-dock-hinweis-klein', String(n + 1)); setToast({ titel: deEn('Klein gemacht', 'Minimised'), text: deEn('Gedrückt halten macht es wieder groß, ziehen verschiebt.', 'Press and hold to enlarge, drag to move.') }); }
+  };
+  const [dockPos, setDockPosRoh] = useState(() => { try { return JSON.parse(localStorage.getItem('prh-dock-pos')) ?? {}; } catch { return {}; } });
+  const setDockPos = (p) => { setDockPosRoh(p); try { localStorage.setItem('prh-dock-pos', JSON.stringify(p)); } catch { /* egal */ } };
+  const grenze = (v, a, b) => Math.min(b, Math.max(a, v));
+  // Hinweis in der großen Leiste: die ersten drei Trainings
+  const [dockHinweis] = useState(() => Number(speicher.lies('prh-dock-hinweis') ?? 0) < 3);
+  useEffect(() => { if (training?.id && dockHinweis) speicher.schreib('prh-dock-hinweis', String(Number(speicher.lies('prh-dock-hinweis') ?? 0) + 1)); }, [training?.id]);
+  const grossZiehen = useZiehen({ achsen: 'y', wischX: () => setDockKlein(true), lang: () => setDockKlein(true),
+    ablegen: (r) => setDockPos({ ...dockPos, gross: grenze(r.top / innerHeight, 0.01, (innerHeight - r.height - 64) / innerHeight) }) });
+  const kleinZiehen = useZiehen({ achsen: 'xy', lang: () => setDockKlein(false),
+    ablegen: (r) => setDockPos({ ...dockPos, klein: { x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0.01, (innerHeight - r.height - 64) / innerHeight) } }) });
   const [rbJahr, setRbJahr] = useState(null);
   // im Menü: ab Dezember das laufende Jahr, sonst das vorige (wenn es dort Trainings gab)
   // im Menü nur rund um den Jahreswechsel: ab 18.12. das laufende Jahr, im Januar noch das gerade beendete
@@ -1466,9 +1482,9 @@ function App() {
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
-    ${(() => { trainingIdRef.current = training?.id ?? null; return null; })()}
-    ${leiste && dockKlein === training?.id ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')}/>`
-    : (timer && !imTraining) || leiste ? html`<div class="dock"><div class="dock-wisch kein-wisch" ...${dockWisch.props}>
+    ${leiste && dockKlein ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')} ziehen=${kleinZiehen} pos=${dockPos.klein}/>`
+    : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:calc(${dockPos.gross} * 100vh);bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}><span class="dock-griff" aria-hidden="true"></span>
+      ${dockHinweis ? html`<span class="dock-hinweis">${deEn('Halten = klein · Ziehen = verschieben', 'Hold = small · Drag = move')}</span>` : null}
       ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}
       ${leiste && !(timer && !imTraining) ? html`<${LaufLeiste} training=${training} oeffnen=${() => gehe('training')}/>` : null}
       ${timer && !imTraining ? html`<${PausenTimer} timer=${timer} setTimer=${setTimer} oeffnen=${training ? () => gehe('training') : null}

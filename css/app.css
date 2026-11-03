@@ -2172,3 +2172,56 @@ body { overflow-x: hidden; }
 .dock-mini b, .dock-mini.pause b { color: #5BD68F; }
 .dock-mini .pdock-punkt, .dock-mini:not(.pause) .pdock-punkt { background: #34C77B; box-shadow: 0 0 0 0 color-mix(in srgb, #34C77B 55%, transparent); animation: puls 1.6s infinite; }
 .dock-mini-pfeil { color: #5BD68F; opacity: .7; }
+/* Leiste unten: frei verschiebbar, etwas größer; Pause grün, Satz blau, Fortschritt blau je Übung */
+.dock-wisch, .dock-mini { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.pdock { padding: 10px 9px 11px 16px; gap: 10px; }
+.pdock-zeit b { font-size: 26px; color: #5BD68F; }
+.pdock-punkt { background: #34C77B; box-shadow: 0 0 0 0 color-mix(in srgb, #34C77B 55%, transparent); }
+.pdock-uebung { font-size: 14.5px; }
+.pdock-meta { font-size: 12.5px; }
+.pdock-satz { color: #5AA9FF; }
+.pdock-knoepfe button { height: 36px; width: 36px; min-width: 36px; }
+.pdock-knoepfe button:last-child { background: color-mix(in srgb, #34C77B 22%, transparent); color: #5BD68F; }
+.pdock-balken { background: linear-gradient(90deg, #34C77B, #5BD68F); }
+.pdock-fortschritt i { background: #5AA9FF; }
+.pdock.over .pdock-zeit b { color: #7BEAA8; }
+.pdock.over { border-color: color-mix(in srgb, #34C77B 60%, transparent); }
+/* Kopf im Training: Countdown statt Trainingszeit, darunter eine schlanke Glas-Zeile */
+.kopf-zeit { display: flex; align-items: center; gap: 8px; }
+.kopf-punkt { width: 8px; height: 8px; border-radius: 50%; background: #34C77B; animation: puls 1.6s infinite; flex: none; }
+.kopf-countdown { color: #5BD68F; }
+.kopf-zeit-neben { display: flex; flex-direction: column; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); line-height: 1.25; }
+.kopf-zeit-neben small { font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.kopf-pause { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 6px 8px 12px; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ink) 7%, transparent), transparent 60%), color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent); }
+.kopf-naechster { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; font-size: 13px; white-space: nowrap; overflow: hidden; }
+.kopf-pfeil { color: var(--muted); }
+.kopf-uebung { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.kopf-pause .pdock-knoepfe button { height: 30px; width: 30px; min-width: 30px; font-size: 11px; }
+.kopf-pause .pdock-knoepfe .kopf-zu { background: transparent; box-shadow: none; color: var(--muted); }
+.kopf-balken { position: absolute; left: 12px; right: 12px; bottom: 2px; height: 2px; border-radius: 99px; background: linear-gradient(90deg, #34C77B, #5BD68F); transform-origin: left; transition: transform .25s linear; }
+.kopf-pause.over { border-color: color-mix(in srgb, #34C77B 55%, transparent); }
+/* Griff und Hinweis: zeigt, dass man die Leiste ziehen bzw. klein machen kann */
+.dock-wisch { position: relative; }
+.dock-griff { position: absolute; z-index: 3; top: -9px; left: 50%; width: 34px; height: 4px; margin-left: -17px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 35%, transparent); pointer-events: none; }
+.dock-hinweis { position: absolute; z-index: 3; top: -24px; left: 0; right: 0; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--muted); pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+/* Pause vorbei: „Los!“ leuchtet grün, „+0:12“ zeigt, wie lange schon */
+@keyframes los-leuchten { 0%, 100% { text-shadow: 0 0 0 transparent; } 50% { text-shadow: 0 0 14px color-mix(in srgb, #34C77B 85%, transparent); } }
+.los-ueber { font-size: 11px; font-weight: 700; color: #5BD68F; letter-spacing: 0; text-transform: none; opacity: .9; }
+.kopf-zeit.los .kopf-countdown { color: #7BEAA8; animation: los-leuchten 1.4s ease-in-out infinite; }
+.kopf-zeit.los .kopf-punkt { background: #7BEAA8; }
+.los-block { display: flex; flex-direction: column; line-height: 1; }
+.los-block b { font: 800 24px/1 var(--f); color: #7BEAA8; animation: los-leuchten 1.4s ease-in-out infinite; }
+.los-block small { margin-top: 3px; }
+.pdock.over { border-color: color-mix(in srgb, #34C77B 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #34C77B 22%, transparent), inset 0 1px 0 color-mix(in srgb, var(--ink) 16%, transparent), 0 10px 22px -8px rgba(0, 0, 0, .6); animation: none; }
+.kopf-pause.over { border-color: color-mix(in srgb, #34C77B 65%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, #34C77B 20%, transparent); }
+.dock-mini.los { border-color: #34C77B; box-shadow: 0 0 0 3px color-mix(in srgb, #34C77B 25%, transparent), 0 10px 22px -8px rgba(0, 0, 0, .6); }
+.dock-mini.los b { color: #7BEAA8; animation: los-leuchten 1.4s ease-in-out infinite; }
+/* Kopf im Training: Gewicht und Übung untereinander, Name nicht abschneiden */
+.kopf-naechster { flex-direction: column; align-items: flex-start; gap: 1px; white-space: normal; overflow: visible; }
+.kopf-naechster .kopf-pfeil { display: none; }
+.kopf-naechster .pdock-satz { font-size: 14px; }
+.kopf-uebung { font-size: 12.5px; line-height: 1.25; overflow: visible; text-overflow: clip; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.kopf-pause { padding: 7px 6px 9px 12px; }

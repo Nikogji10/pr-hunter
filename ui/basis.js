@@ -1,5 +1,7 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
 import { html, useState, useEffect, useRef } from '../vendor/htm-preact.js';
+import { pauseAnteil, pausePlus, pauseMinus } from '../js/pausenbalken.js';
+export { pauseAnteil, pausePlus, pauseMinus };
 import { scheiben, KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
 import { pauseFuer, STANDARD_PAUSEN } from '../js/programm.js';
 import { kanon } from '../js/daten.js';
@@ -271,20 +273,45 @@ export const I = {
 };
 
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
+/** Kopf im Training, laufende Pause: Countdown statt Trainingszeit (die steht klein daneben). */
+export function KopfZeit({ timer, start }) {
+  useTakt(true, 250);
+  const rest = (timer.ende - Date.now()) / 1000;
+  // Pause vorbei: „Los!“ leuchtet grün, daneben wie lange schon drüber
+  return html`<div class=${`kopf-zeit ${rest > 0 ? '' : 'los'}`}><span class="kopf-punkt" aria-hidden="true"></span>
+    <span class="clock kopf-countdown tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</span>
+    <span class="kopf-zeit-neben">${rest > 0 ? (timer.grund ?? 'Pause') : html`Pause vorbei <span class="los-ueber tab-num">${`+${mmss(-rest)}`}</span>`}<small class="tab-num">${uhr((Date.now() - start) / 1000)} Training</small></span></div>`;
+}
+/** Kopf im Training, laufende Pause: nächster Satz, −30/+30 und dünner grüner Balken – ersetzt die rote Timer-Leiste. */
+export function KopfPause({ timer, setTimer }) {
+  useTakt(true, 250);
+  const rest = (timer.ende - Date.now()) / 1000, anteil = pauseAnteil(timer);
+  useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
+  return html`<div class=${`kopf-pause ${rest <= 0 ? 'over' : ''}`} role="timer" aria-live="off">
+    <span class="kopf-naechster"><span class="kopf-pfeil">➜</span><b class="pdock-satz">${timer.naechster}</b>${timer.naechsterUebung ? html`<span class="kopf-uebung">${timer.naechsterUebung}</span>` : null}</span>
+    <span class="pdock-knoepfe">
+      <button onClick=${() => setTimer(pauseMinus(timer))} aria-label="30 Sekunden weniger">−30</button>
+      <button onClick=${() => setTimer(pausePlus(timer))} aria-label="30 Sekunden mehr">+30</button>
+      <button class="kopf-zu" onClick=${() => setTimer(null)} aria-label="Pause beenden"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>
+    <i class="kopf-balken" style=${`transform:scaleX(${anteil})`}></i>
+  </div>`;
+}
+
 /** Leiste unten außerhalb des Trainings (03.11.): kompakt, Glasfläche, dünner Fortschrittsbalken; Übungsname ganz. */
 function PausenDock({ timer, setTimer, oeffnen, zusatz, fortschritt = null }) {
-  const rest = (timer.ende - Date.now()) / 1000, anteil = Math.max(0, Math.min(1, rest / timer.dauer)), z = zusatz(), f = fortschritt?.();
+  const rest = (timer.ende - Date.now()) / 1000, anteil = pauseAnteil(timer), z = zusatz(), f = fortschritt?.();
   return html`<div class=${`pdock ${rest <= 0 ? 'over' : ''}`} role="timer" aria-live="off">
     <div class="pdock-haupt" onClick=${oeffnen} role=${oeffnen ? 'button' : null} tabIndex=${oeffnen ? 0 : null} aria-label=${oeffnen ? 'Zum laufenden Training' : null}>
-      <div class="pdock-zeit" title=${timer.grund ?? 'Pause'}><span class="pdock-punkt" aria-hidden="true"></span><b class="tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</b></div>
+      <div class="pdock-zeit" title=${timer.grund ?? 'Pause'}><span class="pdock-punkt" aria-hidden="true"></span>
+        ${rest > 0 ? html`<b class="tab-num">${mmss(rest)}</b>` : html`<span class="los-block"><b>Los!</b><small class="los-ueber tab-num">${`+${mmss(-rest)}`}</small></span>`}</div>
       <div class="pdock-info">
         <b class="pdock-uebung">${timer.naechsterUebung ?? timer.naechster}</b>
         <span class="pdock-meta">${timer.naechsterUebung ? html`<span class="pdock-satz">${timer.naechster}</span>` : null}<span>${z}</span></span>
       </div>
     </div>
     <div class="pdock-knoepfe">
-      <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
-      <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
+      <button onClick=${() => setTimer(pauseMinus(timer))} aria-label="30 Sekunden weniger">−30</button>
+      <button onClick=${() => setTimer(pausePlus(timer))} aria-label="30 Sekunden mehr">+30</button>
     </div>
     ${f?.length ? html`<div class="pdock-fortschritt" role="progressbar" aria-label="Erledigte Sätze je Übung">${f.map(([fertig, alle], i) => html`<span key=${i} style=${`flex:${alle}`}><i style=${`transform:scaleX(${alle ? fertig / alle : 0})`}></i></span>`)}</div>` : null}
     <i class="pdock-balken" style=${`transform:scaleX(${anteil})`}></i>
@@ -295,7 +322,7 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zus
   useTakt(true, 250);
   const rest = (timer.ende - Date.now()) / 1000;
   useEffect(() => { if (rest <= 0 && !timer.fertig) { piep(); setTimer({ ...timer, fertig: true }); } }, [rest <= 0]);
-  const C = 2 * Math.PI * 16, anteil = Math.max(0, Math.min(1, rest / timer.dauer));
+  const C = 2 * Math.PI * 16, anteil = pauseAnteil(timer);
   // 169: außerhalb des Trainings öffnet ein Tipp auf Ring oder Zeit das laufende Training
   const auf = oeffnen ? { onClick: oeffnen, role: 'button', tabIndex: 0, style: 'cursor:pointer', 'aria-label': 'Zum laufenden Training' } : {};
   if (zusatz) return html`<${PausenDock} timer=${timer} setTimer=${setTimer} oeffnen=${oeffnen} zusatz=${zusatz} fortschritt=${fortschritt}/>`;
@@ -310,8 +337,8 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zus
       : html`<div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
       <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
         : `Pause${timer.grund ? ` (${timer.grund})` : ''} · nächster: ${timer.naechster}`}</div></div>`}</div>
-    <button onClick=${() => setTimer({ ...timer, ende: timer.ende - 30000, dauer: Math.max(0, timer.dauer - 30) })} aria-label="30 Sekunden weniger">−30</button>
-    <button onClick=${() => setTimer({ ...timer, ende: Math.max(timer.ende, Date.now()) + 30000, fertig: false, dauer: timer.dauer + 30 })} aria-label="30 Sekunden mehr">+30</button>
+    <button onClick=${() => setTimer(pauseMinus(timer))} aria-label="30 Sekunden weniger">−30</button>
+    <button onClick=${() => setTimer(pausePlus(timer))} aria-label="30 Sekunden mehr">+30</button>
     <button onClick=${() => setTimer(null)} aria-label="Pause beenden" style="min-width:40px">${I.zu}</button>
   </div>`;
 }
@@ -369,6 +396,61 @@ export function useWegwischen(weg) {
     },
   };
   return { props, ausblenden, geklickt: () => Date.now() - gewischt.current > 400 };
+}
+
+/**
+ * Frei verschiebbare Kachel (03.11.): Ziehen verschiebt (achsen 'y' oder 'xy'), waagrechtes Wischen ruft wischX (nur bei
+ * achsen 'y'), gedrückt halten ruft lang. Ein normaler Tipp bleibt ein Klick; nach Ziehen/Halten wird der Klick verschluckt.
+ * ablegen(rect) bekommt die neue Lage. Rückgabe { props, geklickt() }.
+ */
+export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen = null }) {
+  const ref = useRef(null), z = useRef(null), sperre = useRef(0);
+  const ende = (abbruch) => {
+    const s = z.current, el = ref.current; z.current = null;
+    if (!s || !el) return;
+    clearTimeout(s.t);
+    if (!s.art) return;                                       // Tipp: der Klick läuft normal
+    sperre.current = Date.now();
+    if (s.art === 'lang') return;
+    if (s.art === 'wisch') {
+      if (!abbruch && Math.abs(s.dx) > el.offsetWidth * 0.33) {
+        el.style.transition = 'transform .2s ease, opacity .2s ease'; el.style.transform = `translateX(${Math.sign(s.dx) * 110}%)`; el.style.opacity = '0';
+        setTimeout(() => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; wischX?.(); }, 200);
+      } else { el.style.transition = 'transform .18s ease, opacity .18s ease'; el.style.transform = ''; el.style.opacity = ''; }
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    el.style.transition = ''; el.style.transform = '';
+    ablegen?.(r);
+  };
+  const props = {
+    ref,
+    onPointerDown: (e) => {
+      if (e.button > 0 || e.target.closest('button:not(.ziehbar)')) return;      // Knöpfe (−30/+30) nicht
+      const s = { x: e.clientX, y: e.clientY, id: e.pointerId, art: null, dx: 0, dy: 0 };
+      s.t = setTimeout(() => { if (z.current === s && !s.art) { s.art = 'lang'; sperre.current = Date.now(); vibriere(25); lang?.(); } }, 480);
+      z.current = s;
+    },
+    onPointerMove: (e) => {
+      const s = z.current, el = ref.current;
+      if (!s || s.id !== e.pointerId || s.art === 'lang' || !el) return;
+      const dx = e.clientX - s.x, dy = e.clientY - s.y;
+      if (!s.art) {
+        if (Math.hypot(dx, dy) < 9) return;
+        clearTimeout(s.t);
+        s.art = achsen === 'y' && wischX && Math.abs(dx) > Math.abs(dy) ? 'wisch' : 'ziehen';
+        try { el.setPointerCapture(e.pointerId); } catch { /* egal */ }
+      }
+      s.dx = dx; s.dy = dy;
+      el.style.transition = 'none';
+      if (s.art === 'wisch') { el.style.transform = `translateX(${dx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / el.offsetWidth)); }
+      else el.style.transform = achsen === 'y' ? `translateY(${dy}px)` : `translate(${dx}px, ${dy}px)`;
+    },
+    onPointerUp: () => ende(false),
+    onPointerCancel: () => ende(true),
+    onClickCapture: (e) => { if (Date.now() - sperre.current < 450) { e.stopPropagation(); e.preventDefault(); } },
+  };
+  return { props, geklickt: () => Date.now() - sperre.current >= 450 };
 }
 
 /** Beim Abbilden der Nachbar-Kategorie fürs Wischen: welcher Unterreiter gezeichnet werden soll (sonst leer). */

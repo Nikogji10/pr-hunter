@@ -1,7 +1,7 @@
 // PR Hunter · Training (läuft im Hintergrund weiter), Satz-Sheets, Übung tauschen.
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
-  I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
+  I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, KopfZeit, KopfPause, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
 import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache, langhantel } from './basis.js';
 import { technikVon } from '../js/technik.js';
 import { NOTIZ_CHIPS, chipsAus, mitChips } from '../js/notizchips.js';
@@ -144,7 +144,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
       else if (s.rpe >= 9.5) { pause += 30; grund = '+30 s · RPE 9,5'; }
       else if (s.rpe <= 6) { pause = Math.max(30, pause - 30); grund = `−30 s · RPE ${fmt(s.rpe)}`; }
     }
-    setTimer({ ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,
+    setTimer({ beginn: Date.now(), ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,
       naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft',
       naechsterUebung: naechster && naechsteKarte?.key ? nameVon(naechsteKarte.key) : null, naechsterKg: naechster?.kg ?? null, naechsterWdh: naechster?.wdh ?? null });
     // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen
@@ -164,10 +164,11 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
         <button class="iconbtn" onClick=${minimieren} aria-label="Training im Hintergrund weiterlaufen lassen">${I.runter}</button>
         <div style="flex:1;min-width:0"><div class="eyebrow">${t.titel}${einst.cut ? ' · Cut' : ''}</div>
           ${t.bearbeiten ? html`<div class="muted" style="font-size:13px">Gespeichertes Training ändern</div>`
+            : timer ? html`<${KopfZeit} timer=${timer} start=${t.start}/>`
             : html`<div class="row" style="gap:8px;align-items:baseline"><span class="clock">${uhr(dauer)}</span><span class="muted" style="font-size:12px">Trainingszeit</span></div>`}</div>
         <button class="btn btn-chalk btn-sm" onClick=${() => setSheet({ art: 'ende' })}>${t.bearbeiten ? 'Fertig' : 'Beenden'}</button>
       </div>
-      ${timer ? html`<div style="width:100%"><${PausenTimer} timer=${timer} setTimer=${setTimer} kopf=${true}/></div>` : null}
+      ${timer ? html`<div style="width:100%"><${KopfPause} timer=${timer} setTimer=${setTimer}/></div>` : null}
       <div class="fortschritt" style="width:100%" role="progressbar" aria-valuemin="0" aria-valuemax=${gesamt.length} aria-valuenow=${gesamt.filter((s) => s.erledigt).length}
         aria-label="Erledigte Sätze">${t.karten.map((k) => {
           const s = k.gruppen.flatMap((g) => g.saetze);
