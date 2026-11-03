@@ -2,7 +2,7 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache } from './basis.js';
+import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache, langhantel } from './basis.js';
 import { technikVon } from '../js/technik.js';
 import { NOTIZ_CHIPS, chipsAus, mitChips } from '../js/notizchips.js';
 import { AufwaermRoutine } from './aufwaermroutine.js';
@@ -282,7 +282,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
     </section>`;
   }
   const lift = liftVon(k.key), letzte = LETZTES[k.key], g0 = k.gruppen[0], koerper = koerperUebung(k.key), a = anpassung(k.key);
-  const aufw = !bearbeiten && stangeVon(k.key) && g0.saetze[0].kg > 40 ? aufwaermen(g0.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() }) : [];
+  const aufw = !bearbeiten && langhantel(k.key) && g0.saetze[0].kg > 40 ? aufwaermen(g0.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() }) : [];
   const naechste = karten[ki + 1];
   // Errechnetes 1RM heute: bester abgehakter Satz, sonst der aktuelle Satz dieser Übung (live beim Ändern)
   const heute1rm = (() => {
@@ -351,7 +351,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       </details>` : null}
       ${(() => {   // 202: Top-Satz und Back-offs – schwer laden als „Back-off innen + Rest außen“ (Tipp bleibt, 03.11.)
         const g1 = k.gruppen[gi + 1];
-        if (bearbeiten || !stangeVon(k.key) || g.rolle !== 'top' || !g1 || !(g1.saetze[0]?.kg > 0) || !(g.saetze[0]?.kg > g1.saetze[0].kg) || g1.saetze.every((s) => s.erledigt)) return null;
+        if (bearbeiten || !langhantel(k.key) || !['top', 'test'].includes(g.rolle) || !g1 || !(g1.saetze[0]?.kg > 0) || !(g.saetze[0]?.kg > g1.saetze[0].kg) || g1.saetze.every((s) => s.erledigt)) return null;
         const z = zweiGewichte(g.saetze[0].kg, g1.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() });
         if (z.handgriffe >= z.handgriffeStandard) return null;
         return html`<p class="muted warm-tipp">${deEn('Tipp: Top-Satz so laden', 'Tip: load the top set like this')} <${Scheiben} kg=${g.saetze[0].kg} liste=${z.schwer} neuAb=${z.leicht.length}/>

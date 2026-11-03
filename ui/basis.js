@@ -112,6 +112,8 @@ export function liftVon(key) {
 /** Pause: eigene Pause der Übung, sonst nach Satzart (Top-Satz, Back-off, Isolation) aus den Einstellungen. */
 export const pauseVon = (key, rolle = null, pausen = STANDARD_PAUSEN) => anpassung(key)?.pause || pauseFuer(rolle, uebung(key)?.f, pausen);
 export const stangeVon = (key) => uebung(key)?.lt === 'barbell';
+/** Echte Langhantel (nicht Multipresse, SZ-Stange, Trap Bar) – nur dort Aufwärm- und Scheiben-Tipps (03.11.). */
+export const langhantel = (key) => uebung(key)?.lt === 'barbell' && (uebung(key)?.eq ?? 'barbell') === 'barbell';
 export const koerperUebung = (key) => uebung(key)?.lt === 'bodyweight_plus' || uebung(key)?.lt === 'bodyweight_minus';
 export const MUSKEL_DE = {
   abdominals: 'Bauch', abductors: 'Abduktoren', adductors: 'Adduktoren', biceps: 'Bizeps', calves: 'Waden', chest: 'Brust',
