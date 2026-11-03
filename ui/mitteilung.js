@@ -45,13 +45,14 @@ const dauerText = (ms) => { const m = Math.floor(ms / 60000); return m < 60 ? `$
 /** Text der Trainings-Benachrichtigung: das Wichtigste im (fett und größer gezeigten) Titel – laufende Pause als
  *  Countdown, sonst die Trainingszeit; darunter Sätze und der nächste Satz. Wird im Hintergrund alle paar Sekunden neu
  *  gezeigt (sekündlich lässt Android eine Web-App nicht zählen). */
+// 03.11.: auf einen Blick – Countdown mit Emoji vorne im Titel, darunter nur der nächste Satz (Übung, kg × Wdh)
 export function trainingsText(training, { fertig, gesamt, timer = null, jetzt = Date.now() }) {
   const pause = timer && timer.ende > jetzt;
-  const titel = pause
-    ? `${deEn('Pause', 'Rest')} ${mmss((timer.ende - jetzt) / 1000)} · ${deEn('Training', 'Workout')} ${dauerText(jetzt - training.start)}`
-    : `${deEn('Training', 'Workout')} ${dauerText(jetzt - training.start)}`;
-  const text = `${fertig}/${gesamt} ${deEn('Sätze', 'sets')}${pause ? ` · ${deEn('nächster', 'next')}: ${timer.naechster}` : ''}`;
+  const naechster = timer ? [timer.naechster, timer.naechsterUebung].filter(Boolean).join(' · ') : '';
+  const titel = pause ? `⏱️ ${mmss((timer.ende - jetzt) / 1000)}  ${deEn('Pause', 'Rest')}` : `🏋️ ${dauerText(jetzt - training.start)}  ·  ${fertig}/${gesamt} ${deEn('Sätze', 'sets')}`;
+  const text = pause ? `➜ ${naechster}` : deEn('Training läuft', 'Workout running');
   return { titel, text };
 }
 
-export const pauseEndeText = (timer) => ({ titel: deEn('Pause vorbei – los!', 'Rest over – go!'), text: `${deEn('Nächster Satz', 'Next set')}: ${timer.naechster}` });
+export const pauseEndeText = (timer) => ({ titel: deEn('🔔 Los – nächster Satz!', '🔔 Go – next set!'),
+  text: `➜ ${[timer.naechster, timer.naechsterUebung].filter(Boolean).join(' · ')}` });

@@ -1684,6 +1684,7 @@ export const EN = new Map([
   ["zur Seite wischen zum Ausblenden", "swipe aside to hide"],
   ["Supersätze bilden", "Build supersets"],
   ["Unter jeder Übung der Knopf „Supersatz mit nächster“ – zwei Übungen im Wechsel, Pause erst nach der Runde.", "Under each exercise the button “Superset with next” – two exercises alternating, rest only after the round."],
+  ["🔔 Los – nächster Satz!", "🔔 Go – next set!"],
 ]);
 
 export const EN_MUSTER = [

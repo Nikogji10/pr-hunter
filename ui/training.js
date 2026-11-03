@@ -7,8 +7,8 @@ import { technikVon } from '../js/technik.js';
 import { NOTIZ_CHIPS, chipsAus, mitChips } from '../js/notizchips.js';
 import { AufwaermRoutine } from './aufwaermroutine.js';
 import { kuerzeTraining, restMinuten } from '../js/kuerzen.js';
-import { stapelFolge, zweiGewichte } from '../js/scheibenwechsel.js';
 import { PartnerLeiste } from './zusammen.js';
+import { zweiGewichte } from '../js/scheibenwechsel.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -347,16 +347,9 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       </div>` : null}
       ${gi === 0 && aufw.length ? html`<details class="warm">
         <summary><span>Aufwärmen</span><span class="muted" style="font-size:13px">${aufw.length} Sätze bis ${gwE(aufw.at(-1).kg)}</span></summary>
-        ${(() => {   // 202: Beladungen so, dass möglichst nur aufgesteckt wird
-          const o = { stange: stangeKg(), inventar: scheibenKg() }, f = stapelFolge([...aufw.map((w) => w.kg), g0.saetze[0].kg], o);
-          let vorher = [];
-          const zeile = (st) => { const gleich = vorher.findIndex((x, j) => st.scheiben[j] !== x); const ab = gleich < 0 ? vorher.length : gleich; vorher = st.scheiben; return ab; };
-          return html`<ol>${f.stufen.map((st, i) => { const ab = zeile(st); return html`<li key=${i} class=${i === aufw.length ? 'warm-ziel' : ''}><span class="zahl">${gwE(st.kg)}</span>
-            <span class="muted">${i < aufw.length ? `× ${aufw[i].wdh}` : deEn('Arbeit', 'work')}</span><${Scheiben} kg=${st.kg} liste=${st.scheiben} neuAb=${ab}/></li>`; })}</ol>
-            ${f.summe < f.summeStandard ? html`<p class="muted warm-tipp">${deEn(`Hell = neu aufstecken. Nur ${f.summe} Handgriffe je Seite statt ${f.summeStandard}.`, `Bright = add. Only ${f.summe} plate moves per side instead of ${f.summeStandard}.`)}</p>` : null}`;
-        })()}
+        <ol>${aufw.map((w, i) => html`<li key=${i}><span class="zahl">${gwE(w.kg)}</span><span class="muted">× ${w.wdh}</span><${Scheiben} kg=${w.kg}/></li>`)}</ol>
       </details>` : null}
-      ${(() => {   // 202: Top-Satz und Back-offs – schwer laden als „Back-off innen + Rest außen“
+      ${(() => {   // 202: Top-Satz und Back-offs – schwer laden als „Back-off innen + Rest außen“ (Tipp bleibt, 03.11.)
         const g1 = k.gruppen[gi + 1];
         if (bearbeiten || !stangeVon(k.key) || g.rolle !== 'top' || !g1 || !(g1.saetze[0]?.kg > 0) || !(g.saetze[0]?.kg > g1.saetze[0].kg) || g1.saetze.every((s) => s.erledigt)) return null;
         const z = zweiGewichte(g.saetze[0].kg, g1.saetze[0].kg, { stange: stangeKg(), inventar: scheibenKg() });
