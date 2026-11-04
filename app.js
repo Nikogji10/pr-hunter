@@ -1069,12 +1069,55 @@ function App() {
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   const zugZoom = useRef(1);
   const zugSeit = useRef(0);
-  const zugNachholen = useRef(null);                            // schnell hinterher gewischt: nach der Animation ohne Gleiten wechseln
+  const zugNachholen = useRef([]);                              // schnell hinterher gewischt: Warteschlange, nacheinander mit kurzem Gleiten
+  const zugObj = useRef(null);
+  let wischZug;
+  // Deckender Grund für Standbilder: Kopie der Hintergrund-Ebene (bzw. die Seitenfarbe). Damit verdeckt das Standbild die echte
+  // Seite ganz, die darunter schon sichtbar ist und fertig gezeichnet wird – Android zeichnete die lange Statistik sonst erst beim
+  // Austausch in Kacheln, und für ein Bild sah man nur den helleren Hintergrund (Flackern).
+  // deck: das Standbild (liegt schon im DOM). Es kommt über den Seitenkopf (z-index 20) und endet an der Tab-Leiste – sonst lag
+  // der Kopf der neuen Seite für ein paar Bilder über dem alten Inhalt.
+  const deckGrund = (deck) => {
+    deck.style.zIndex = '20';
+    deck.style.bottom = `${document.querySelector('.tabs')?.offsetHeight ?? 0}px`;
+    const bg = document.documentElement.classList.contains('mit-bild') && document.getElementById('hintergrund');
+    let g;
+    if (bg) {
+      // Kopie genau über dem echten Hintergrund (gleiche id → gleiche Regeln: Abdunklung, Weichzeichnung, Neigung)
+      const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, rb = bg.getBoundingClientRect(), rd = deck.getBoundingClientRect();
+      g = bg.cloneNode(true);
+      Object.assign(g.style, { position: 'absolute', inset: 'auto', left: `${(rb.left - rd.left) / z}px`, top: `${(rb.top - rd.top) / z}px`, width: `${rb.width / z}px`, height: `${rb.height / z}px` });
+    } else {
+      g = document.createElement('div');
+      Object.assign(g.style, { position: 'absolute', inset: '0', zIndex: '-1', background: getComputedStyle(document.body).background });
+    }
+    deck.prepend(g);
+  };
+  // Tippen auf einen Tab: kurz ein deckendes Standbild der alten Seite, bis die neue fertig gezeichnet ist
+  const verdecktGehen = (k) => {
+    const haupt = hauptRef.current, app = document.getElementById('app');
+    if (!haupt || !app || zugLaeuft.current || k === jetzt.current.ansicht) { gehe(k); return; }
+    const deck = document.createElement('div');
+    deck.className = 'seite-nachbar'; deck.setAttribute('aria-hidden', 'true');
+    deck.style.left = `${app.offsetLeft}px`; deck.style.width = `${app.offsetWidth}px`;
+    const kopie = haupt.cloneNode(true);
+    kopie.style.paddingTop = `${app.offsetTop}px`; kopie.style.transform = `translateY(${-scrollY}px)`;
+    deck.append(kopie);
+    document.body.append(deck);
+    deckGrund(deck);
+    gehe(k);
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => deck.remove())));
+  };
+  // Warteschlange schnell hintereinander gewischter Gesten: nacheinander mit kurzem Gleiten abarbeiten
+  const naechsteGeste = () => {
+    const nach = zugNachholen.current.shift();
+    if (nach) setTimeout(() => { if (!zugLaeuft.current && zugObj.current.start(nach)) zugObj.current.ende(nach, true, 90); else if (!zugLaeuft.current) zugNachholen.current = []; }, 0);
+  };
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
     seitenWechsel: () => !!wischRef.current.reiter || !!UNTERREITER[jetzt.current.ansicht],   // auch Seiten mit eigenen Reitern (Übung)
-    zug: {
+    zug: wischZug = {
       beschaeftigt: () => zugLaeuft.current && Date.now() - zugSeit.current < 2000,
-      nachholen: (art) => { zugNachholen.current = art; },
+      nachholen: (art) => { if (zugNachholen.current.length < 10) zugNachholen.current.push(art); if (!zugLaeuft.current) naechsteGeste(); },
       // Seitenwechsel per Wischen (Jefit-artig): Die hereinkommende Seite ist ein Bild (DOM-Kopie) – kein Aufbau, keine
       // Nebenwirkungen während des Ziehens. Gebaut wird die echte Seite erst nach dem Einschieben, verdeckt vom Bild.
       // Beide Ebenen bewegen sich in Prozent der eigenen Breite – unabhängig von Schriftgröße (zoom) und Bildschirmbreite.
@@ -1147,7 +1190,7 @@ function App() {
         (unterInhaltRef.current ?? hauptRef.current).style.transform = `translateX(${d}px)`;
         if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100% + 16px' : '-100% - 16px'} + ${d}px))`;
       },
-      ende: (art, erfolg) => {
+      ende: (art, erfolg, dauer = 160) => {
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (l) { l.classList.add('gleitet'); h.classList.add('gleitet'); l.style.transform = erfolg ? 'translateX(0)' : 'translateX(-100%)'; h.style.opacity = erfolg ? '1' : '0'; }
@@ -1167,14 +1210,14 @@ function App() {
           setTimeout(() => { haupt?.classList.remove('gleitet'); if (haupt) haupt.style.transform = ''; }, 160);
           return;
         }
-        for (const el of [haupt, ebene]) el?.classList.add('gleitet');
+        for (const el of [haupt, ebene]) if (el) { el.classList.add('gleitet'); el.style.transitionDuration = `${dauer}ms`; }
         if (haupt) haupt.style.transform = erfolg ? `translateX(${art === 'weiter' ? 'calc(-100% - 16px)' : 'calc(100% + 16px)'})` : 'translateX(0)';
         if (ebene) ebene.style.transform = erfolg ? 'translateX(0)' : `translateX(${art === 'weiter' ? 'calc(100% + 16px)' : 'calc(-100% - 16px)'})`;
         setTimeout(() => {
           zugUnter.current = null;
           const key = unterWechsel ? 'unter' : wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
           const fertig = () => {
-            if (haupt) { haupt.style.visibility = ''; haupt.style.transform = ''; haupt.classList.remove('gleitet'); }
+            if (haupt) { haupt.style.visibility = ''; haupt.style.opacity = ''; haupt.style.transform = ''; haupt.style.transitionDuration = ''; haupt.classList.remove('gleitet'); }
             // Ebene im selben Moment auflösen und das Bild im selben Moment entfernen, in dem die echte Seite erscheint.
             // (04.11. war das Bild 2 Bilder länger liegen geblieben – dann lagen beide halbdurchsichtigen Seiten übereinander
             // und alles wurde kurz heller, auf allen Seiten.)
@@ -1182,29 +1225,34 @@ function App() {
             unterInhaltRef.current = null;
             ebene?.parentElement?.remove(); ebeneRef.current = null;
             zugLaeuft.current = false;
-            const nach = zugNachholen.current; zugNachholen.current = null;
-            if (nach) setTimeout(() => { const u = UNTERREITER[jetzt.current.ansicht]?.[nach]; if (u) u(); else wischRef.current[nach]?.(); }, 0);
+            naechsteGeste();                     // weitere schnell hinterher gewischte Gesten (Warteschlange)
           };
           if (erfolg && key) {
             // Das Bild deckt alles ab, bis die neue Seite gebaut ist. Ihre Einblend-Animationen werden verdeckt sofort zu Ende
             // gespult (das Bild zeigte schon den Endstand) – früher: Klasse aus und nach 0,4 s wieder an, das startete die
             // Animation neu und alle Kacheln sprangen.
-            if (haupt) { haupt.style.visibility = 'hidden'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
+            // fast durchsichtig statt unsichtbar: so zeichnet der Browser die neue Seite schon vor (visibility:hidden zeichnet nichts –
+            // bei der langen Statistik fehlte beim Austausch ein Bild lang Inhalt). Karten haben keine Unschärfe mehr, opacity stört nicht.
+            const rahmen = ebene?.parentElement, deckt = !unterWechsel && rahmen;     // Seitenwechsel: Standbild deckend machen
+            if (deckt) deckGrund(rahmen);
+            if (haupt) { haupt.style.opacity = deckt ? '' : '0.001'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; haupt.style.transitionDuration = ''; }
             if (unterWechsel) unterWechsel(); else gehe(key);
-            requestAnimationFrame(() => requestAnimationFrame(() => {
+            const bilder = deckt ? 3 : 2, nachBildern = (n, f) => (n ? requestAnimationFrame(() => nachBildern(n - 1, f)) : f());
+            nachBildern(bilder, () => {
               const neu = unterWechsel ? hauptRef.current?.querySelector('.unter-inhalt') ?? haupt : haupt;
               for (const a of neu?.getAnimations?.({ subtree: true }) ?? []) {
                 try { if (a.effect?.getComputedTiming?.().iterations !== Infinity) a.finish(); } catch { /* egal */ }
               }
               fertig();
-            }));
+            });
           } else {
             if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
             fertig();
           }
-        }, 170);
+        }, dauer + 10);
       },
     } });
+  zugObj.current = wischZug;
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;
   if (phase === 'laden') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="muted">Lade …</p></div>`;
   if (phase === 'anmelden') return html`<${Anmeldung} angemeldet=${(s) => starte({ id: s.user.id, email: s.user.email })}
@@ -1594,7 +1642,7 @@ function App() {
         fortschritt=${leiste ? () => training.karten.filter((k) => k.key).map((k) => { const s = k.gruppen.flatMap((g) => g.saetze); return [s.filter((x) => x.erledigt).length, s.length]; }).filter(([, n]) => n) : null}
         zusatz=${leiste ? () => { const s = alleSaetze(training); return html`<span class="pdock-zeitchip">${training.bearbeiten ? '✎' : `⏱ ${uhr((Date.now() - training.start) / 1000)}`}</span><span>${`${s.filter((x) => x.erledigt).length}/${s.length} Sätze`}</span>`; } : null}/>` : null}
     </div></div>` : null}
-    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => gehe(k)}>
+    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => verdecktGehen(k)}>
       ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || coachOffen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || coachOffen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + coachOffen + neuReakt.length > 9 ? '9+' : anfragen + coachOffen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>

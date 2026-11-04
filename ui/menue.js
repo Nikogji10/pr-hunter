@@ -42,7 +42,7 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
       // vom Rand immer (außer in Fenstern/Eingaben), sonst nur, wo das Element nicht selbst wischt (Satzkarten, Chip-Leisten …)
       s = e.touches.length === 1 && !document.querySelector('.sheet, .lupe, .seitenmenue.auf')
         && !(rand ? e.target.closest?.('input, textarea, select, [role="slider"]') : eigenesWischen(e.target))
-        ? { x: t.clientX, y: t.clientY, zeit: Date.now(), rand, art: null, dx: 0 } : null;
+        ? { x: t.clientX, y: t.clientY, zeit: Date.now(), rand, art: null, dx: 0, warteAnfang: !!fn.current.zug?.beschaeftigt?.() } : null;
     };
     const zieh = (e) => {
       if (!s) return;
@@ -62,7 +62,8 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
         const wechsel = typeof f.seitenWechsel === 'function' ? f.seitenWechsel() : f.seitenWechsel;
         const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
         // läuft die vorige Wisch-Animation noch, nicht verwerfen – bei der nächsten Bewegung erneut versuchen (schnelles Wischen)
-        if (art && f.zug?.beschaeftigt?.() && art !== 'menue') { s.wartet = art; s.dx = dx; return; }
+        // Geste beginnt während einer laufenden Wisch-Animation: nicht mittendrin einsteigen, sondern einreihen (schnelles Mehrfach-Wischen)
+        if (art && art !== 'menue' && (s.warteAnfang || f.zug?.beschaeftigt?.())) { s.wartet = art; s.dx = dx; return; }
         if (!art || !f.zug?.start(art)) { s.keine = true; return; }
         s.art = art;
         s.ab = dx;                                     // ab hier mitgehen – ohne Sprung um die 12-px-Schwelle
@@ -84,7 +85,9 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
       const dauer = Math.max(1, Date.now() - s.zeit), weg = Math.abs(s.dx);
       const richtig = s.art === 'weiter' ? s.dx < 0 : s.dx > 0;
       const erfolg = richtig && (weg > innerWidth * 0.33 || (weg > 40 && weg / dauer > 0.45));
-      fn.current.zug.ende(s.art, erfolg);
+      // Tempo nach dem Finger: Restweg ÷ Fingergeschwindigkeit, 80–160 ms (schnell wischen = schnell wechseln)
+      const tempo = Math.abs(s.dx) / dauer, rest = Math.max(0, innerWidth - weg);
+      fn.current.zug.ende(s.art, erfolg, erfolg ? Math.round(Math.min(160, Math.max(80, rest / Math.max(tempo, 0.8)))) : 140);
       s = null;
     };
     const weg = () => { if (s?.art) abbrechen(); };
