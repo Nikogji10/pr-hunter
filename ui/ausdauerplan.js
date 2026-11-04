@@ -1,16 +1,18 @@
-// PR Hunter · Ausdauer-Pläne (Wunsch 235/236): Assistent (Ziel, Wochen, Tage, Form), Plan-Karte unter Programme,
-// Einheit mit Schritten (Tempo-/Wattbereiche), „Heute geplant“ auf der Ausdauer-Kachel. Erledigt = Einheit gleicher
-// Sportart am selben Tag (eingetragen, Datei oder intervals.icu/Strava).
+// PR Hunter · Ausdauer-Pläne (Wunsch 235/236, 239–247): Plan-Karte unter Programme → Cardio, Wochenübersicht Kraft +
+// Cardio (Programme → Woche), Einheit mit Schritten (Tempo-/Wattbereiche), „Heute geplant“ auf der Ausdauer-Kachel.
+// Erstellt wird im Planer (ui/planer.js). Erledigt = Einheit gleicher Sportart am selben Tag.
 import { html, useState, Sheet, Portal, deEn, sprache, datumKurz, datumLang, fmt, nameVon, UebungsBild } from './basis.js';
 import { HEUTE } from './stand.js';
-import { ZIELE, erzeugePlan, naechsterMontag, wochentag, erledigt, paceZonen, wattZonen, KRAFT_ERGAENZUNG } from '../js/ausdauerplan.js';
-import { bestzeiten, prognosen, ftpSchaetzung, sichtbar, sportarten, sportVon, dauerText, wochen as wochenSummen, montag } from '../js/ausdauer.js';
+import { ZIELE, wochentag, erledigt, paceZonen, wattZonen, KRAFT_ERGAENZUNG, plusTage } from '../js/ausdauerplan.js';
+import { sichtbar, sportarten, sportVon, dauerText } from '../js/ausdauer.js';
+import { pruefeWoche, hatKraft } from '../js/kombiplan.js';
 
 const WT = [['Mo', 'Mon'], ['Di', 'Tue'], ['Mi', 'Wed'], ['Do', 'Thu'], ['Fr', 'Fri'], ['Sa', 'Sat'], ['So', 'Sun']];
 const L = (de, en) => deEn(de, en);
 const pace = (b) => `${dauerText(b[0])}–${dauerText(b[1])} /km`;
 const watt = (b) => `${b[0]}–${b[1]} W`;
-const TYPNAME = { locker: ['Locker', 'Easy'], lang: ['Lang', 'Long'], tempo: ['Tempo', 'Tempo'], intervalle: ['Intervalle', 'Intervals'], wettkampf: ['Wettkampf', 'Race'] };
+export const WT_NAME = WT;
+const TYPNAME = { locker: ['Locker', 'Easy'], lang: ['Lang', 'Long'], tempo: ['Tempo', 'Tempo'], intervalle: ['Intervalle', 'Intervals'], wettkampf: ['Wettkampf', 'Race'], fahrtspiel: ['Fahrtspiel', 'Fartlek'] };
 const ZONENNAME = { locker: ['locker', 'easy'], lang: ['lange Läufe', 'long runs'], steigerung: ['Steigerungen', 'strides'], marathon: ['Marathontempo', 'marathon pace'], tempo: ['Schwelle', 'threshold'], intervall: ['5-km-Tempo', '5K pace'], sweetspot: ['Sweet Spot', 'sweet spot'], schwelle: ['Schwelle', 'threshold'], vo2: ['VO2max', 'VO2max'] };
 
 /** Text einer geplanten Einheit: Titel, Kurzzeile, Schritte. */
@@ -18,10 +20,24 @@ export function beschreibung(e, plan) {
   const z = plan.zonen?.[e.zone], ziel = z ? (e.sport === 'lauf' ? pace(z) : watt(z)) : '';
   const zn = ZONENNAME[e.zone] ? L(...ZONENNAME[e.zone]) : '';
   const titel = L(...(TYPNAME[e.typ] ?? ['Einheit', 'Session']));
+  const nk = e.nachKraft ? L(' · nach dem Krafttraining', ' · after strength') : '';
+  const b = beschreibungRoh(e, plan, z, ziel, zn, titel);
+  return nk ? { ...b, zeile: b.zeile + nk } : b;
+}
+function beschreibungRoh(e, plan, z, ziel, zn, titel) {
+  if (e.typ === 'wettkampf' && !e.km) return { titel, zeile: L('Dein Wettkampf', 'Your race'), schritte: [L('Locker einfahren bzw. einlaufen, ein paar kurze Steigerungen', 'Easy warm-up with a few short pickups'), L('Viel Erfolg!', 'Good luck!')] };
+  if (e.typ === 'fahrtspiel') return { titel, zeile: `${e.min} min · ${e.wdh} × ${e.dauer} min ${L('zügig', 'fast')}`,
+    schritte: [L('10 min locker', '10 min easy'), L(`${e.wdh} × ${e.dauer} min zügig, dazwischen 2 min locker`, `${e.wdh} × ${e.dauer} min fast, 2 min easy between`), L(`Rest locker – insgesamt ${e.min} min`, `Rest easy – ${e.min} min in total`)] };
+  if (e.sport === 'lauf' && e.min && e.km == null && !e.gesamtKm) {
+    if (e.wdh) return { titel, zeile: `${e.min} min · ${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` · ${ziel}` : ''}`,
+      schritte: [L('10 min locker einlaufen', '10 min easy warm-up'), L(`${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` (${ziel})` : ''}, dazwischen 3 min Trabpause`, `${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` (${ziel})` : ''}, 3 min jog between`), L('Rest locker auslaufen', 'Easy cool-down')] };
+    return { titel, zeile: `${e.min} min${ziel ? ` · ${ziel}` : ''}`, schritte: [e.typ === 'lang' ? L(`${e.min} min ruhig – lieber zu langsam als zu schnell`, `${e.min} min relaxed – better too slow than too fast`)
+      : L(`${e.min} min locker – Unterhaltungstempo`, `${e.min} min easy – conversational pace`)] };
+  }
   if (e.sport === 'rad') {
     if (e.wdh) return { titel, zeile: `${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` · ${ziel}` : ''}`,
       schritte: [L('15 min locker einfahren', '15 min easy warm-up'), L(`${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` (${ziel})` : ''}, dazwischen ${e.pause} min locker`, `${e.wdh} × ${e.dauer} min ${zn}${ziel ? ` (${ziel})` : ''}, ${e.pause} min easy between`), L('10 min ausfahren', '10 min cool-down')] };
-    return { titel, zeile: `${dauerText(e.min * 60)} h ${zn}${ziel ? ` · ${ziel}` : ''}`.replace(':00 h', ' h'), schritte: [L(`${e.min} min gleichmäßig ${zn}${ziel ? ` (${ziel})` : ''} – unterhalten muss gehen`, `${e.min} min steady ${zn}${ziel ? ` (${ziel})` : ''} – you should be able to talk`)] };
+    return { titel, zeile: `${e.min < 60 ? `${e.min} min` : `${dauerText(e.min * 60)} h`.replace(':00 h', ' h')} ${zn}${ziel ? ` · ${ziel}` : ''}`, schritte: [L(`${e.min} min gleichmäßig ${zn}${ziel ? ` (${ziel})` : ''} – unterhalten muss gehen`, `${e.min} min steady ${zn}${ziel ? ` (${ziel})` : ''} – you should be able to talk`)] };
   }
   if (e.typ === 'wettkampf') return { titel, zeile: `${fmt(e.km, 1)} km`, schritte: [L('10–15 min einlaufen mit 3–4 Steigerungen', '10–15 min warm-up with 3–4 strides'), L(`${fmt(e.km, 1)} km – Viel Erfolg!`, `${fmt(e.km, 1)} km – good luck!`)] };
   if (e.wdh) {
@@ -33,63 +49,6 @@ export function beschreibung(e, plan) {
     schritte: [L('2 km locker einlaufen', '2 km easy warm-up'), L(`${fmt(e.km, 1)} km am Stück in ${ziel || zn}`, `${fmt(e.km, 1)} km continuous at ${ziel || zn}`), L('1–2 km auslaufen', '1–2 km cool-down')] };
   return { titel, zeile: `${fmt(e.km, 1)} km${ziel ? ` · ${ziel}` : ''}`, schritte: [e.typ === 'lang' ? L(`${fmt(e.km, 1)} km ruhig (${ziel}) – lieber zu langsam als zu schnell`, `${fmt(e.km, 1)} km relaxed (${ziel}) – better too slow than too fast`)
     : L(`${fmt(e.km, 1)} km locker (${ziel}) – Unterhaltungstempo`, `${fmt(e.km, 1)} km easy (${ziel}) – conversational pace`)] };
-}
-
-/** Assistent: Sportart, Ziel, Wochen, Wochentage, Form → Vorschau → Start. */
-export function PlanAssistent({ wahl, liste, einst, beinTag, starten, zu }) {
-  const sports = sportarten(wahl);
-  const [sport, setSport] = useState(sports[0] ?? 'lauf');
-  const [ziel, setZiel] = useState(sport === 'lauf' ? '10k' : 'ftp');
-  const [wochen, setWochen] = useState(8);
-  const [tage, setTage] = useState([1, 3, 6]);
-  const best = bestzeiten(liste), prog = prognosen(best).find((p) => p.m === 5000);
-  const vorschlag5k = prog?.s ?? 1680;
-  const [t5k, setT5k] = useState([Math.floor(vorschlag5k / 60), vorschlag5k % 60]);
-  const ftpVorschlag = einst.ftp ?? ftpSchaetzung(liste, HEUTE)?.ftp ?? 200;
-  const [ftp, setFtp] = useState(String(ftpVorschlag));
-  const start = naechsterMontag(HEUTE);
-  const startKm = (() => { const w = wochenSummen(liste, { von: montag(new Date(Date.parse(`${HEUTE}T00:00:00Z`) - 28 * 864e5).toISOString().slice(0, 10)), bis: HEUTE }).slice(-4); return w.length ? w.reduce((s, x) => s + x.lauf.km, 0) / w.length : null; })();
-  const plan = erzeugePlan({ sport, ziel, start, wochen, tage, t5k: t5k[0] * 60 + (Number(t5k[1]) || 0), ftp: Number(ftp) || null, startKm, beinTag });
-  const kmWoche = (w) => plan.einheiten.filter((e) => e.woche === w).reduce((s, e) => s + (e.gesamtKm ?? e.km ?? 0), 0);
-  const zeitWoche = (w) => plan.einheiten.filter((e) => e.woche === w).reduce((s, e) => s + (e.min ?? (e.wdh ? e.wdh * (e.dauer + e.pause) + 25 : 0)), 0);
-  const tag = (d) => setTage((t) => (t.includes(d) ? t.filter((x) => x !== d) : [...t, d].sort()));
-  // Schritt für Schritt: eine Frage je Bildschirm
-  const [schritt, setSchritt] = useState(0);
-  const SCHRITTE = [L('Ziel', 'Goal'), L('Dauer', 'Length'), L('Tage', 'Days'), L('Form', 'Form'), L('Plan', 'Plan')];
-  const kannWeiter = schritt !== 2 || tage.length > 0;
-  const inhalt = [
-    html`<div class="stack" style="gap:10px"><b class="ap-frage">${L('Was ist dein Ziel?', 'What is your goal?')}</b>
-      ${sports.length > 1 ? html`<div class="seg">${sports.map((s) => html`<button key=${s} aria-pressed=${String(sport === s)} onClick=${() => { setSport(s); setZiel(s === 'lauf' ? '10k' : 'ftp'); }}>${s === 'lauf' ? L('🏃 Laufen', '🏃 Running') : L('🚴 Rad', '🚴 Cycling')}</button>`)}</div>` : null}
-      <div class="ap-wahl">${ZIELE[sport].map(([id, de, en]) => html`<button key=${id} aria-pressed=${String(ziel === id)} onClick=${() => setZiel(id)}>${L(de, en)}</button>`)}</div></div>`,
-    html`<div class="stack" style="gap:10px"><b class="ap-frage">${L('Wie viele Wochen?', 'How many weeks?')}</b>
-      <div class="ap-wahl">${[6, 8, 10, 12, 16].map((w) => html`<button key=${w} aria-pressed=${String(wochen === w)} onClick=${() => setWochen(w)}>${L(`${w} Wochen`, `${w} weeks`)}</button>`)}</div>
-      <span class="muted" style="font-size:12.5px">${L('Für 5 km reichen 6–8 Wochen, für einen Halbmarathon eher 10–12, für einen Marathon 16.', 'For 5K 6–8 weeks are enough, a half marathon rather 10–12, a marathon 16.')}</span></div>`,
-    html`<div class="stack" style="gap:10px"><b class="ap-frage">${L('An welchen Tagen?', 'On which days?')}</b>
-      <div class="ap-tage">${WT.map(([de, en], i) => html`<button key=${i} aria-pressed=${String(tage.includes(i))} onClick=${() => tag(i)}>${L(de, en)}</button>`)}</div>
-      <span class="muted" style="font-size:12.5px">${L(`${tage.length} pro Woche. Der letzte Tag wird die lange Einheit.`, `${tage.length} per week. The last day becomes the long session.`)}${beinTag ? L(' Harte Einheiten kommen nicht vor deine Beintage im Kraftplan.', ' Hard sessions stay away from the day before your leg days.') : ''}</span></div>`,
-    sport === 'lauf' ? html`<div class="stack" style="gap:10px"><b class="ap-frage">${L('Wie schnell läufst du 5 km?', 'How fast do you run 5K?')}</b>
-      <div class="au-hms" style="grid-template-columns:1fr 1fr">${[0, 1].map((i) => html`<label key=${i}><input class="text" inputmode="numeric" value=${t5k[i]} onInput=${(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setT5k((a) => a.map((x, k) => (k === i ? v : x))); }}/><small>${i ? L('Sek', 's') : 'Min'}</small></label>`)}</div>
-      <span class="muted" style="font-size:12.5px">${prog ? L(`Vorschlag aus deinen Bestzeiten (${prog.aus}). Daraus rechnet die App deine Tempobereiche.`, `Suggested from your best times (${prog.aus}). Your pace zones come from it.`) : L('Ungefähr reicht – daraus rechnet die App deine Tempobereiche.', 'A rough value is fine – your pace zones come from it.')}</span></div>`
-    : html`<div class="stack" style="gap:10px"><b class="ap-frage">${L('Wie hoch ist deine FTP?', 'What is your FTP?')}</b>
-      <label class="field"><span class="label">FTP (W)</span><input class="text" inputmode="numeric" value=${ftp} onInput=${(e) => setFtp(e.currentTarget.value.replace(/\D/g, ''))}/></label>
-      <span class="muted" style="font-size:12.5px">${L('Leistung, die du etwa eine Stunde halten kannst. Daraus rechnet die App deine Wattbereiche.', 'Power you can hold for about an hour. Your power zones come from it.')}</span></div>`,
-    html`<div class="ap-vorschau">
-      <b>${sport === 'lauf' ? L(`${wochen} Wochen · ${tage.length} Läufe/Woche · ${fmt(kmWoche(1), 0)} → ${fmt(Math.max(...Array.from({ length: wochen }, (_, i) => kmWoche(i + 1))), 0)} km/Woche`, `${wochen} weeks · ${tage.length} runs/week · ${fmt(kmWoche(1), 0)} → ${fmt(Math.max(...Array.from({ length: wochen }, (_, i) => kmWoche(i + 1))), 0)} km/week`)
-        : L(`${wochen} Wochen · ${tage.length} Fahrten/Woche · ${dauerText(zeitWoche(1) * 60)} h → ${dauerText(Math.max(...Array.from({ length: wochen }, (_, i) => zeitWoche(i + 1))) * 60)} h`, `${wochen} weeks · ${tage.length} rides/week`)}</b>
-      <span class="muted" style="font-size:12.5px">${L(`Start ${datumKurz(start)} · Woche 1:`, `Start ${datumKurz(start)} · week 1:`)}</span>
-      ${plan.einheiten.filter((e) => e.woche === 1).map((e) => { const b = beschreibung(e, plan); return html`<div key=${e.id} class="ap-zeile"><span>${L(...WT[wochentag(e.datum)])}</span><b>${b.titel}</b><small>${b.zeile}</small></div>`; })}
-    </div>`,
-  ];
-  return html`<${Sheet} zu=${zu} label=${L('Ausdauer-Plan erstellen', 'Create cardio plan')}>
-    <div class="sheet-kopf"><h2 class="h2">${L('Ausdauer-Plan', 'Cardio plan')}</h2>
-      <div class="ap-schritte">${SCHRITTE.map((s, i) => html`<i key=${i} class=${i < schritt ? 'fertig' : i === schritt ? 'jetzt' : ''} title=${s}></i>`)}</div></div>
-    <span class="eyebrow">${L(`Schritt ${schritt + 1} von ${SCHRITTE.length} · ${SCHRITTE[schritt]}`, `Step ${schritt + 1} of ${SCHRITTE.length} · ${SCHRITTE[schritt]}`)}</span>
-    ${inhalt[schritt]}
-    <div class="row" style="gap:8px">
-      ${schritt > 0 ? html`<button class="btn btn-soft" onClick=${() => setSchritt(schritt - 1)}>${L('Zurück', 'Back')}</button>` : null}
-      ${schritt < SCHRITTE.length - 1 ? html`<button class="btn btn-chalk" style="flex:1" disabled=${!kannWeiter} onClick=${() => setSchritt(schritt + 1)}>${L('Weiter', 'Next')}</button>`
-        : html`<button class="btn btn-chalk" style="flex:1" onClick=${() => { starten(plan); zu(); }}>${L('Plan starten', 'Start plan')}</button>`}</div>
-  <//>`;
 }
 
 /** Eine geplante Einheit mit Schritten. */
@@ -105,29 +64,28 @@ export function EinheitSheet({ e, plan, fertig, eintragen, zu }) {
   <//>`;
 }
 
-/** Programme → Ausdauer-Plan: erstellen bzw. aktuellen Plan mit Woche, nächsten Einheiten, allen Wochen. */
-/** 238: Kraft-Ergänzung für Läufer/Radfahrer – Antippen öffnet die Übungsseite. */
-function KraftErgaenzung({ sport, zuUebung }) {
+/** 238/243: Kraft für Läufer/Radfahrer als zwei kurze Einheiten A/B – Antippen öffnet die Übungsseite. */
+export function KraftErgaenzung({ sport, zuUebung }) {
   return html`<details class="au-bereich"><summary>${sport === 'lauf' ? L('💪 Kraft für Läufer · 2× pro Woche', '💪 Strength for runners · 2× per week') : L('💪 Kraft für Radfahrer · 2× pro Woche', '💪 Strength for cyclists · 2× per week')}</summary>
     <div class="stack" style="gap:6px;padding-bottom:10px">
-      <span class="muted" style="font-size:12.5px">${L('Etwa 15 Minuten, gern nach einer lockeren Einheit oder am Ende des Krafttrainings. Beugt den typischen Überlastungen vor.', 'About 15 minutes, e.g. after an easy session or at the end of strength training. Prevents the typical overuse problems.')}</span>
-      ${KRAFT_ERGAENZUNG[sport].map(([k, s, de, en]) => html`<button key=${k} class="ap-uebung" onClick=${() => zuUebung?.(k)}>
-        <${UebungsBild} schluessel=${k} groesse=${40}/><span><b>${nameVon(k, k)}</b><small>${`${s} · ${L(de, en)}`}</small></span><span class="muted">›</span></button>`)}
+      <span class="muted" style="font-size:12.5px">${L('Zwei kurze Einheiten im Wechsel, je etwa 20 Minuten – Grundübungen zuerst, Ober- und Unterkörper abwechselnd. Beugt den typischen Überlastungen vor.', 'Two short sessions in turn, about 20 minutes each – compound lifts first, upper and lower body alternating. Prevents the typical overuse problems.')}</span>
+      ${Object.entries(KRAFT_ERGAENZUNG[sport]).map(([x, liste]) => html`<span key=${x} class="eyebrow">${L(`Einheit ${x}`, `Session ${x}`)}</span>
+        ${liste.map(([k, s, de, en]) => html`<button key=${k} class="ap-uebung" onClick=${() => zuUebung?.(k)}>
+          <${UebungsBild} schluessel=${k} groesse=${40}/><span><b>${nameVon(k, k)}</b><small>${`${s} · ${L(de, en)}`}</small></span><span class="muted">›</span></button>`)}`)}
     </div></details>`;
 }
 
-export function AusdauerPlanKarte({ einst, setEinst, liste, beinTag, eintragen, zuUebung = null }) {
-  const [assistent, setAssistent] = useState(false), [einheit, setEinheit] = useState(null), [alle, setAlle] = useState(false), [beenden, setBeenden] = useState(false);
-  const plan = einst.ausdauerPlan, l = sichtbar(liste, einst.ausdauer);
+/** Programme → Cardio: aktueller Plan mit Woche, nächsten Einheiten, allen Wochen – oder Knopf zum Planer. */
+export function AusdauerPlanKarte({ einst, setEinst, liste, plan = einst.ausdauerPlan, eintragen, zuUebung = null, neu }) {
+  const [einheit, setEinheit] = useState(null), [alle, setAlle] = useState(false), [beenden, setBeenden] = useState(false);
+  const l = sichtbar(liste, einst.ausdauer);
   const ist = (e) => erledigt(e, l, sportVon);
-  const starten = (p) => setEinst({ ...einst, ausdauerPlan: p });
-  const fenster = html`${assistent ? html`<${Portal}><${PlanAssistent} wahl=${einst.ausdauer} liste=${l} einst=${einst} beinTag=${beinTag} starten=${starten} zu=${() => setAssistent(false)}/><//>` : null}
-    ${einheit ? html`<${Portal}><${EinheitSheet} e=${einheit} plan=${plan} fertig=${ist(einheit)} eintragen=${eintragen} zu=${() => setEinheit(null)}/><//>` : null}`;
+  const fenster = html`${einheit ? html`<${Portal}><${EinheitSheet} e=${einheit} plan=${plan} fertig=${ist(einheit)} eintragen=${eintragen} zu=${() => setEinheit(null)}/><//>` : null}`;
   if (!plan) return html`<section class="card pad stack ap-karte">
     <div><span class="viz-t">${L('Ausdauer-Plan', 'Cardio plan')}</span><div class="viz-u">${L('Ziel wählen – die App plant Läufe bzw. Fahrten mit Tempo- oder Wattvorgaben aus deiner Form, passend zum Kraftplan.', 'Pick a goal – the app plans runs or rides with pace or power targets from your form, fitting your strength plan.')}</div></div>
-    <button class="btn btn-chalk btn-block" onClick=${() => setAssistent(true)}>${L('+ Ausdauer-Plan erstellen', '+ Create cardio plan')}</button>
+    <button class="btn btn-chalk btn-block" onClick=${neu}>${L('+ Ausdauer-Plan erstellen', '+ Create cardio plan')}</button>
     ${sportarten(einst.ausdauer).map((s) => html`<${KraftErgaenzung} key=${s} sport=${s} zuUebung=${zuUebung}/>`)}${fenster}</section>`;
-  const zielName = L(...(ZIELE[plan.sport].find(([id]) => id === plan.ziel) ?? ['', '', '']).slice(1, 3));
+  const zielName = L(...(ZIELE[plan.sport].find(([id]) => id === plan.ziel) ?? ['', '', '']).slice(1, 3)) + (plan.rennDatum ? ` · ${datumKurz(plan.rennDatum)}` : '');
   const woche = Math.min(plan.wochen, Math.max(1, Math.floor((Date.parse(`${HEUTE}T00:00:00Z`) - Date.parse(`${plan.start}T00:00:00Z`)) / (7 * 864e5)) + 1));
   const kommend = plan.einheiten.filter((e) => e.datum >= HEUTE).slice(0, 3), geschafft = plan.einheiten.filter((e) => e.datum < HEUTE && ist(e)).length, faellig = plan.einheiten.filter((e) => e.datum < HEUTE).length;
   const zeile = (e) => { const b = beschreibung(e, plan); return html`<button key=${e.id} class="ap-zeile knopf ${ist(e) ? 'fertig' : ''}" onClick=${() => setEinheit(e)}>
@@ -143,6 +101,35 @@ export function AusdauerPlanKarte({ einst, setEinst, liste, beinTag, eintragen, 
     ${beenden ? html`<div class="strava-trennen"><span>${L('Plan beenden? Erledigte Einheiten bleiben im Verlauf.', 'End plan? Completed sessions stay in History.')}</span>
       <button class="btn btn-gefahr btn-sm" onClick=${() => setEinst({ ...einst, ausdauerPlan: null })}>${L('Plan beenden', 'End plan')}</button></div>` : null}
     ${fenster}</section>`;
+}
+
+/** 239/240: Programme → Woche – Kraft und Cardio der aktuellen Woche nebeneinander, mit Erholungs-Hinweisen. */
+export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = [], einst, eintragen, neu }) {
+  const [einheit, setEinheit] = useState(null), [versatz, setVersatz] = useState(0);
+  const mo = plusTage(HEUTE, -wochentag(HEUTE) + 7 * versatz), tage = Array.from({ length: 7 }, (_, i) => plusTage(mo, i));
+  const l = sichtbar(liste, einst.ausdauer);
+  const cardio = (d) => plan?.einheiten.filter((e) => e.datum === d) ?? [];
+  const kraft = (d) => planTage.find((t) => t.datum === d) ?? (kraftTag(d) ? { geplant: true } : null);
+  const woche = tage.map((d) => { const k = !!kraft(d), c = cardio(d).length > 0; return k && c ? 'beides' : k ? 'kraft' : c ? 'cardio' : 'ruhe'; });
+  const hinweise = pruefeWoche(woche, tage.map(beinTag), tage.flatMap((d, i) => cardio(d).map((e) => ({ wt: i, typ: e.typ }))));
+  const leer = !plan && !planTage.length;
+  return html`<section class="card pad stack kw-karte">
+    <div class="row between"><span class="viz-t">${versatz === 0 ? L('Diese Woche', 'This week') : versatz === 1 ? L('Nächste Woche', 'Next week') : `${datumKurz(mo)} – ${datumKurz(tage[6])}`}</span>
+      <span class="row" style="gap:6px"><button class="iconbtn klein" aria-label=${L('Woche zurück', 'Previous week')} disabled=${versatz <= 0} onClick=${() => setVersatz(versatz - 1)}>‹</button>
+        <button class="iconbtn klein" aria-label=${L('Woche vor', 'Next week')} disabled=${versatz >= 8} onClick=${() => setVersatz(versatz + 1)}>›</button></span></div>
+    ${leer ? html`<span class="muted" style="font-size:13px">${L('Noch kein Plan. Im Planer legst du fest, an welchen Tagen Kraft, Cardio oder Ruhe ist.', 'No plan yet. In the planner you choose which days are strength, cardio or rest.')}</span>`
+      : tage.map((d, i) => { const k = kraft(d), c = cardio(d);
+        return html`<div key=${d} class=${`kw-zeile ${d === HEUTE ? 'heute' : ''} ${d < HEUTE ? 'vorbei' : ''}`}>
+          <span class="kw-tag"><b>${L(...WT[i])}</b><small>${datumKurz(d)}</small></span>
+          <span class="kw-inhalt">
+            ${k ? html`<span class="kw-kraft">💪 ${k.label ?? L('Krafttraining', 'Strength')}${beinTag(d) ? html` <small>${L('· Beine', '· legs')}</small>` : null}</span>` : null}
+            ${c.map((e) => { const b = beschreibung(e, plan); return html`<button key=${e.id} class=${`kw-cardio ${erledigt(e, l, sportVon) ? 'fertig' : ''}`} onClick=${() => setEinheit(e)}>${e.sport === 'lauf' ? '🏃' : '🚴'} <b>${b.titel}</b> <small>${b.zeile}</small></button>`; })}
+            ${!k && !c.length ? html`<span class="muted kw-ruhe">${L('Ruhetag', 'Rest day')}</span>` : null}
+          </span></div>`; })}
+    ${leer ? null : html`<div class="stack" style="gap:4px">${hinweise.map((h, i) => html`<span key=${i} class=${`kw-hinweis ${h.art}`}>${h.art === 'warn' ? '⚠️ ' : h.art === 'gut' ? '✓ ' : 'ℹ️ '}${L(h.de, h.en)}</span>`)}</div>`}
+    <button class="btn btn-chalk btn-block" onClick=${neu}>${L('Neuen Plan erstellen', 'Create new plan')}</button>
+    ${einheit ? html`<${Portal}><${EinheitSheet} e=${einheit} plan=${plan} fertig=${erledigt(einheit, l, sportVon)} eintragen=${eintragen} zu=${() => setEinheit(null)}/><//>` : null}
+  </section>`;
 }
 
 /** Für die Ausdauer-Kachel auf „Heute“: heutige bzw. nächste geplante Einheit. */

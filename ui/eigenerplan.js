@@ -9,10 +9,13 @@ const WOCHENTAGE = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1,
 const BUCHSTABE = 'ABCDEFG';
 const FORTLAUFEND = 52;                                     // „fortlaufend“ = ein Jahr, die Woche wiederholt sich
 const neuerTag = (i) => ({ name: deEn(`Tag ${BUCHSTABE[i]}`, `Day ${BUCHSTABE[i]}`), uebungen: [] });
+const WT = [['Mo', 'Mon'], ['Di', 'Tue'], ['Mi', 'Wed'], ['Do', 'Thu'], ['Fr', 'Fri'], ['Sa', 'Sat'], ['So', 'Sun']];
+const wtName = (t) => (Number.isInteger(t.wt) ? `${deEn(...WT[t.wt])} · ` : '');
 
 /** Programm im App-Format aus dem Formular (ohne Maxe). */
 export function eigenerPlanAus({ name, wochen, tage }) {
-  const offsets = WOCHENTAGE[tage.length] ?? WOCHENTAGE[3];
+  // 240: aus dem Planer feste Wochentage je Tag (wt 0–6 ab Montag), sonst verteilt
+  const offsets = tage.every((t) => Number.isInteger(t.wt)) ? tage.map((t) => t.wt) : WOCHENTAGE[tage.length] ?? WOCHENTAGE[3];
   return {
     id: `eigen-${Date.now()}`, name: name || `Eigener Plan ${tage.length}×/Woche`, source: 'Eigener Plan', kategorie: 'eigen', inputs: [],
     weeks: Array.from({ length: wochen }, (_, w) => ({ week: w + 1, title: `Woche ${w + 1}`, typ: 'aufbau',
@@ -28,10 +31,11 @@ export function EigenerPlan({ zurueck, speichern }) {
   const [wochen, setWochen] = useSitzung('prh-gen-eigen-wochen', 6);
   const [tage, setTage] = useSitzung('prh-gen-eigen-tage', () => [neuerTag(0), neuerTag(1), neuerTag(2)]);
   const [suche, setSuche] = useState(null);                  // Tag, für den gerade eine Übung gesucht wird
+  const [tausch, setTausch] = useState(null);                // [Tag, Übung], die gerade getauscht wird (Platz bleibt)
   const [offen, setOffen] = useState(null);                  // 162: nur ein Tag aufgeklappt
   useEffect(() => window.scrollTo(0, 0), [schritt]);
   const aendere = (i, f) => setTage((alt) => alt.map((t, j) => (j === i ? f(structuredClone(t)) : t)));
-  const anzahl = (n) => setTage((alt) => Array.from({ length: n }, (_, i) => alt[i] ?? neuerTag(i)));
+  const anzahl = (n) => setTage((alt) => Array.from({ length: n }, (_, i) => { const t = alt[i] ?? neuerTag(i); const { wt, ...rest } = t; return n === alt.length ? t : rest; }));
   const leer = tage.some((t) => !t.uebungen.length);
   return html`<div class="screen">
     <header class="topbar unter"><button class="iconbtn" onClick=${zurueck} aria-label="Zurück">${I.zurueck}</button>
@@ -51,10 +55,13 @@ export function EigenerPlan({ zurueck, speichern }) {
 
     ${schritt === 2 ? html`${tage.map((t, i) => html`<section key=${i} class=${`card pad stack eigen-tag ${offen === i ? 'auf' : ''}`}>
       <button class="schritt-kopf eigen-tag-kopf" aria-expanded=${String(offen === i)} onClick=${() => { setOffen(offen === i ? null : i); setSuche(null); }}>
-        <span class="rechner-nr">${BUCHSTABE[i]}</span><span class="viz-t">${t.name}</span>
+        <span class="rechner-nr">${BUCHSTABE[i]}</span><span class="viz-t">${wtName(t)}${t.name}</span>
         <span class="muted" style="margin-left:auto;font-size:12.5px">${t.uebungen.length === 1 ? '1 Übung' : `${t.uebungen.length} Übungen`}</span><span class="ed-pfeil">${offen === i ? '▾' : '▸'}</span></button>
       ${offen !== i ? null : t.uebungen.map((u, j) => html`<div key=${j} class="eigen-uebung"><b>${nameVon(u.key, u.key)}</b>
-        <button class="iconbtn klein" aria-label="Übung entfernen" onClick=${() => aendere(i, (x) => ({ ...x, uebungen: x.uebungen.filter((_, k) => k !== j) }))}>${I.zu}</button>
+        <span class="row" style="gap:4px"><button class="iconbtn klein" aria-label=${deEn('Übung tauschen', 'Swap exercise')} aria-pressed=${String(tausch?.[0] === i && tausch?.[1] === j)} onClick=${() => { setTausch(tausch?.[0] === i && tausch?.[1] === j ? null : [i, j]); setSuche(null); }}>⇄</button>
+          <button class="iconbtn klein" aria-label="Übung entfernen" onClick=${() => { setTausch(null); aendere(i, (x) => ({ ...x, uebungen: x.uebungen.filter((_, k) => k !== j) })); }}>${I.zu}</button></span>
+        ${tausch?.[0] === i && tausch?.[1] === j ? html`<div class="eigen-tausch"><${UebungSuche} id=${`eigen-tausch-${i}-${j}`} titel=${deEn(`${nameVon(u.key, u.key)} tauschen`, `Swap ${nameVon(u.key, u.key)}`)}
+          onWahl=${(key) => { aendere(i, (x) => { x.uebungen[j].key = key; return x; }); setTausch(null); }}/></div>` : null}
         <label>Sätze<input class="text" type="text" inputmode="numeric" value=${u.saetze} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].saetze = v; return x; }); }}/></label>
         <label>Wdh<input class="text" type="text" value=${u.wdh} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].wdh = v; return x; }); }}/></label>
         <label>RPE<input class="text" type="text" inputmode="decimal" value=${u.rpe} onInput=${(e) => { const v = e.currentTarget.value; aendere(i, (x) => { x.uebungen[j].rpe = v; return x; }); }}/></label></div>`)}
@@ -63,7 +70,7 @@ export function EigenerPlan({ zurueck, speichern }) {
     </section>`)}` : null}
 
     ${schritt === 3 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">3</span><span class="viz-t">Überblick</span></div>
-      ${tage.map((t, i) => html`<div key=${i} class="wochenplan"><span class="eyebrow">${t.name}</span>
+      ${tage.map((t, i) => html`<div key=${i} class="wochenplan"><span class="eyebrow">${wtName(t)}${t.name}</span>
         ${t.uebungen.length ? t.uebungen.map((u, j) => html`<div key=${j} class="wp-zeile bb-zeile"><span>${nameVon(u.key, u.key)}</span><b>${`${u.saetze} × ${u.wdh}`}</b><span class="muted">${u.rpe ? `RPE ${u.rpe}` : ''}</span></div>`)
           : html`<span class="muted" style="font-size:13px">Noch keine Übung – zurück zu Schritt 2.</span>`}</div>`)}
       <label class="field" for="eigen-name"><span class="label">Name (optional)</span>

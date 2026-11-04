@@ -2,7 +2,8 @@
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
 import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren, deEn } from './basis.js';
 import { UebungSuche } from './suche.js';
-import { AusdauerPlanKarte } from './ausdauerplan.js';
+import { AusdauerPlanKarte, WochenKarte } from './ausdauerplan.js';
+import { Planer } from './planer.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan } from './eigenerplan.js';
 import { EINSTEIGER } from './einsteiger.js';
@@ -51,7 +52,9 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
     <button class="btn btn-chalk btn-sm" onClick=${planen}>Nächsten Block mit diesen Maxen planen</button></div>`;
 }
 
-const ERSTELLER = ['bodybuilding', 'eigen', 'generator'];
+const ERSTELLER = ['bodybuilding', 'eigen', 'generator', 'ziel'];
+// 239: der Planer geht mit der Zurück-Taste erst einen Schritt zurück (liefert true, solange er das selbst erledigt)
+let planerZurueck = null;
 const VORLAGE_STAND = 'prh-gen-vorlage-stand';             // Stand einer unveränderten Vorlage (dann nicht warnen)
 const navi = (k) => k.endsWith('-schritt') || k.endsWith('-seite');      // Position im Ersteller, keine Eingabe
 const genStand = () => JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !navi(k))
@@ -75,7 +78,6 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const setAnsicht = (a) => { if (a == null) sitzungLeeren('prh-gen-'); setAnsichtRoh(a); };
   useEffect(() => window.scrollTo(0, 0), [ansicht?.art]);           // Unterseiten (Generatoren, Detail) beginnen oben
   const [beenden, setBeenden] = useState(false);
-  const [neuOffen, setNeuOffen] = useState(false);         // „Neuen Plan erstellen“ aufgeklappt
   // Unterseiten (Generatoren, Plan, Editor, Import) mit eigenem Verlaufseintrag: die Zurück-Taste des Handys schließt
   // erst die Unterseite, statt die vorige App-Ansicht (z. B. Feed) zu öffnen
   const oeffne = (a) => {
@@ -92,6 +94,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       if (e.state?.unter) return;
       // Zurück-Taste des Handys im Plan-Ersteller: Eintrag wiederherstellen und erst fragen
       const art = ansichtJetzt.current?.art;
+      if (art === 'ziel' && planerZurueck?.()) { history.pushState({ ...e.state, unter: art }, ''); return; }
       if (ERSTELLER.includes(art) && eingabenDa()) { history.pushState({ ...e.state, unter: art }, ''); setVerlassen(true); return; }
       setAnsicht(null);
     };
@@ -100,15 +103,24 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   }, []);
   const schliessen = () => (history.state?.unter ? history.back() : setAnsicht(null));
   // Einsteigerplan: im „Eigenen Plan“ vorbefüllt öffnen (Überblick) – anpassen oder „Plan speichern“, nichts automatisch
-  const vorlageOeffnen = (e) => {
+  // Ersteller vorbefüllt öffnen (Einsteigerplan, Planer → Kraftplan); unverändert gilt nicht als Eingabe
+  const erstellerOeffnen = (art, werte = {}) => {
     sitzungLeeren('prh-gen-');
-    const werte = { 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
-      'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) };
     try {
       for (const [k, v] of Object.entries(werte)) sessionStorage.setItem(k, JSON.stringify(v));
       sessionStorage.setItem(VORLAGE_STAND, genStand());
     } catch { /* ohne Sitzungsspeicher startet der Plan leer */ }
-    oeffne({ art: 'eigen' });
+    oeffne({ art });
+  };
+  const vorlageOeffnen = (e) => erstellerOeffnen('eigen', { 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
+    'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) });
+  // 239: Reiter Kraft · Cardio · Woche, sobald Ausdauer an ist
+  const [bereich, setBereich] = useSitzung('prh-programme-bereich', 'kraft');
+  const planerOeffnen = (ziel = null) => erstellerOeffnen('ziel', ziel ? { 'prh-gen-ziel-wahl': { ziel } } : {});
+  const uebergeben = (art, werte) => {
+    if (art === 'cardio') { sitzungLeeren('prh-gen-'); setBereich('cardio'); schliessen(); return; }
+    if (art === 'einsteiger') { vorlageOeffnen(EINSTEIGER.find((e) => e.id === werte)); return; }
+    erstellerOeffnen(art, werte ?? {});
   };
   // Plan-Ersteller (Generatoren, eigener Plan): beim Verlassen warnen, wenn schon etwas eingegeben ist (dann liegt ein
   // prh-gen-*-Eintrag außer der Ansicht im Sitzungsspeicher – Vorgaben allein werden nicht gespeichert)
@@ -116,8 +128,11 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
     try {
       const d = await importieren(p, herkunft);
+      // 240: aus dem Planer – Block in derselben Woche wie der Cardio-Plan beginnen
+      let ab = start;
+      try { ab = start ?? JSON.parse(sessionStorage.getItem('prh-gen-start') ?? 'null'); } catch { /* ohne Vorgabe */ }
       sitzungLeeren('prh-gen-');
-      oeffne({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start });
+      oeffne({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start: ab });
       toast({ titel: 'Programm gespeichert', text: p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
@@ -135,6 +150,8 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>Weiter bearbeiten</button>
         <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>Verwerfen</button></div>
     <//>` : null;
+  if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} einst=${einst} setEinst=${setEinst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
+    ausdauer=${ausdauer ?? {}} uebergeben=${uebergeben} toast=${toast} setZurueck=${(f) => { planerZurueck = f; }}/>${warnung}`;
   if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu} ausdauer=${einst.ausdauer}/>${warnung}`;
   if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>${warnung}`;
@@ -154,7 +171,8 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const erledigtZahl = sollIst.length ? sollIst.reduce((a, z) => a + z.erledigt, 0) : aktivTage.filter((t) => erledigt.has(t.datum)).length;
   const naechsterTag = aktivTage.find((t) => t.datum >= HEUTE);
   const aktWoche = naechsterTag ? wochen.indexOf(naechsterTag.woche) + 1 : wochen.length;
-  const eigene =Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
+  const reiter = !!(einst.ausdauer && ausdauer), teil = reiter ? bereich : 'kraft';
+  const eigene = Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
   const vorlagen = Object.keys(programme).filter((d) => !eigene.includes(d));
   const karte = (datei) => {
     const p = programme[datei];
@@ -170,6 +188,10 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   };
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Blöcke und Vorlagen</div><h1 class="h1">Programme</h1></div>${DEMO ? html`<span class="proto">Demo</span>` : null}</header>
+    ${reiter ? html`<div class="seg prog-reiter" role="tablist">${[['kraft', deEn('💪 Kraft', '💪 Strength')], ['cardio', deEn('🏃 Cardio', '🏃 Cardio')], ['woche', deEn('📅 Woche', '📅 Week')]].map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => setBereich(k)}>${n}</button>`)}</div>` : null}
+    ${teil === 'cardio' ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} plan=${ausdauer.plan} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}
+    ${teil === 'woche' ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen()}/>` : null}
+    ${teil !== 'kraft' ? null : html`
     ${block ? html`<section class="card pad stack aktiv-block">
       <div class="row between"><span class="status-aktiv"><i></i>Aktiv</span>${einst.cut ? html`<span class="tag">Cut-Modus</span>` : null}</div>
       <div><h2 class="h2 ab-name">${INFO[block.datei].kurz}</h2>
@@ -186,23 +208,9 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Erstelle unten einen neuen Plan.</p></section>`}
     ${/* Seite einfach halten: ein Knopf „Neuen Plan erstellen“ fragt erst dann nach dem Weg; Meine Pläne und Vorlagen zugeklappt */ ''}
     <${GeteiltePlaene} speichernNeu=${speichernNeu} toast=${toast}/>
-    ${ausdauer && einst.ausdauer ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} beinTag=${ausdauer.beinTag} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung}/>` : null}
     <h2 class="abschnitt-titel">Neuer Plan</h2>
-    ${!neuOffen ? html`<button class="btn btn-chalk btn-block" onClick=${() => setNeuOffen(true)}>+ Neuen Plan erstellen</button>`
-      : html`<section class="card pad stack neu-frage"><div class="row between"><span class="viz-t">Wie willst du planen?</span>
-          <button class="iconbtn klein" aria-label="Schließen" onClick=${() => setNeuOffen(false)}>${I.zu}</button></div>
-        <div class="neu-wege">
-          ${/* 163 a: fertige Einsteigerpläne mit einem Tipp (ohne Maxe; Gewichte aus dem Vorschlag im Training) */ ''}
-          ${EINSTEIGER.map((e) => html`<button key=${e.id} class="weg-karte einsteiger" onClick=${() => vorlageOeffnen(e)}>
-            <span class="tag gut">Einsteiger · fertige Vorlage</span><b>${e.name}</b><span>${e.text}</span></button>`)}
-          <button class="weg-karte" onClick=${() => oeffne({ art: 'eigen' })}><span class="tag gut">Einfach</span><b>Eigener Plan</b>
-            <span>Tage festlegen, Übungen selbst wählen, Sätze × Wdh und RPE eintragen – fertig.</span></button>
-          <button class="weg-karte" onClick=${() => oeffne({ art: 'bodybuilding' })}><span class="tag">Fortgeschritten</span><b>Bodybuilding</b>
-            <span>Muskelaufbau: Split wählen, zwei Übungen je Muskel, Tage pro Woche – die App baut den Block.</span></button>
-          ${einst.trainingsart === 'einfach' ? null : html`<button class="weg-karte" onClick=${() => oeffne({ art: 'generator' })}><span class="tag">Fortgeschritten</span><b>Powerlifting</b>
-            <span>Kniebeuge, Bank, Kreuzheben: Häufigkeit je Lift, deine Maxe, Test am Ende – die App baut den Block.</span></button>`}
-        </div>
-        <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} Programm importieren (CSV/JSON)</button></section>`}
+    <button class="btn btn-chalk btn-block" onClick=${() => planerOeffnen()}>${deEn('+ Neuen Plan erstellen', '+ Create new plan')}</button>
+    <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} ${deEn('Programm importieren (CSV/JSON)', 'Import programme (CSV/JSON)')}</button>
     ${(() => {
       // Meine Pläne nach Kategorie (je zugeklappt), danach die Vorlagen (zugeklappt)
       const kat = (d) => programme[d]?.kategorie ?? 'powerlifting';
@@ -213,7 +221,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       const klappe = (k, titel, l, zusatz = null) => html`<details key=${k} class="vorlagen-auf"><summary><span>${titel}</span><span class="muted">${zusatz ?? `${l.length} ${l.length === 1 ? 'Plan' : 'Pläne'}`}</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary>
         <div class="stack" style="gap:12px;margin-top:10px">${l.map(karte)}</div></details>`;
       return gruppen.length ? html`<h2 class="abschnitt-titel">Meine Pläne</h2>${gruppen.map(([k, titel, l]) => klappe(k, titel, l))}` : null;
-    })()}
+    })()}`}
     ${beenden ? html`<${Sheet} zu=${() => setBeenden(false)} label="Block beenden">
       <h2 class="h2">Block beenden?</h2>
       <p style="margin:0">Erledigte Trainings bleiben im Verlauf. Der Plan verschwindet aus „Heute“, bis du einen neuen Block startest.</p>

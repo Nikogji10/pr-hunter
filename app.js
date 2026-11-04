@@ -51,7 +51,8 @@ import { BeschwerdeSheet, BeschwerdeHinweis } from './ui/beschwerde.js';
 import { CoachSeite } from './ui/coach.js';
 import { KiKachel } from './ui/ki.js';
 import { AusdauerKarte, AusdauerListe } from './ui/ausdauer.js';
-import { alsEintrag } from './js/ausdauerplan.js';
+import { alsEintrag, aktuellerPlan, wochentag } from './js/ausdauerplan.js';
+import { hatKraft } from './js/kombiplan.js';
 import { erholungsEintraege, sichtbar } from './js/ausdauer.js';
 import { anpassungFuer, REGIONEN } from './js/beschwerden.js';
 import { chipsAus } from './js/notizchips.js';
@@ -265,7 +266,7 @@ function MaxListe({ werte, zuUebung }) {
   </section>`;
 }
 
-function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = null, geplantEintragen = null, beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+function Heute({ ausdauer = [], ausdauerPlan = null, ausdauerSpeichern = null, ausdauerLoeschen = null, geplantEintragen = null, beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, wiederholen = null, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
@@ -295,7 +296,7 @@ function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = nul
   })()}
   <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
   ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik} ausdauer=${einst.ausdauer ? erholungsEintraege(sichtbar(ausdauer, einst.ausdauer), Date.now()) : []}/>` : null}`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen} plan=${einst.ausdauerPlan} eintragenGeplant=${geplantEintragen}/>` : null}`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen} plan=${ausdauerPlan} eintragenGeplant=${geplantEintragen}/>` : null}`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
@@ -1287,7 +1288,7 @@ function App() {
   const tage = aktiverBlock ? tageMitOptionen(blockTage(blockDef, { ...aktiverBlock, cut: einst.cut }), aktiverBlock) : [];
   // Wer die geplanten Tage sieht, regelt die Freigabe je Freund (Update 21) – hochgeladen wird immer
   planTage.current = tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).slice(0, 40)
-    .map((t) => ({ datum: t.datum, keys: t.uebungen.map((u) => u.key).filter(Boolean) }));
+    .map((t) => ({ datum: t.datum, keys: t.uebungen.map((u) => u.key).filter(Boolean), ...(t.label ? { label: t.label } : {}) }));
   // Erledigt nach Datum des Plantags (bei verschobenen Tagen das neue Datum)
   const datumVon = new Map(tage.map((t) => [t.offset, t.datum]));
   const erledigt = DEMO ? demoErledigt : new Set(trainings.filter((t) => aktiverBlock && t.runId === aktiverBlock.id && t.tagOffset != null && !t.geloescht)
@@ -1410,8 +1411,16 @@ function App() {
   };
   const ausdauerLoeschen = (a) => ausdauerSpeichern({ ...a, geloescht: true });
   // 235/236: geplante Einheit abhaken; Beintage aus dem Kraftplan (Kniebeuge/Kreuzheben) für die Ausdauer-Planung
-  const geplantEintragen = (e) => { if (!einst.ausdauerPlan) return; ausdauerSpeichern(alsEintrag(e, einst.ausdauerPlan, crypto.randomUUID())); setToast({ titel: deEn('Eingetragen', 'Logged'), text: deEn('Zeiten bei Bedarf im Verlauf anpassen.', 'Adjust times in History if needed.') }); };
-  const planBeinTag = (d) => planTage.current.some((t) => t.datum === d && t.keys.some((k) => ['squat', 'dead'].includes(liftVon(k))));
+  const geplantEintragen = (e) => { if (!auPlan) return; ausdauerSpeichern(alsEintrag(e, auPlan, crypto.randomUUID())); setToast({ titel: deEn('Eingetragen', 'Logged'), text: deEn('Zeiten bei Bedarf im Verlauf anpassen.', 'Adjust times in History if needed.') }); };
+  // Beintag: Kniebeuge/Kreuzheben oder mindestens zwei Übungen mit Beinen als Hauptmuskel (Bodybuilding, eigene Pläne)
+  const BEINE = new Set(['quadriceps', 'hamstrings', 'glutes']);
+  const istBeinTag = (t) => t.keys.some((k) => ['squat', 'dead'].includes(liftVon(k))) || t.keys.filter((k) => BEINE.has(uebung(k)?.m?.[0])).length >= 2;
+  // 240/246: Kraft- und Beintage aus dem echten Plan (ab heute, so weit geplant), sonst aus dem Raster des Kombi-Plans
+  const echtBis = planTage.current.at(-1)?.datum ?? null, echt = (d) => echtBis && d >= heuteLokal() && d <= echtBis;
+  const raster = einst.ausdauerPlan?.woche ?? null;
+  const planKraftTag = (d) => (echt(d) ? planTage.current.some((t) => t.datum === d) : !!raster && hatKraft(raster[wochentag(d)]));
+  const planBeinTag = (d) => (echt(d) ? planTage.current.some((t) => t.datum === d && istBeinTag(t)) : !!raster && hatKraft(raster[wochentag(d)]) && einst.ausdauerPlan?.bein?.[wochentag(d)] !== false);
+  const auPlan = aktuellerPlan(einst.ausdauerPlan, { kraftTag: planKraftTag, beinTag: planBeinTag });
   const masseSetzen = (datum, werte) => {
     if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Körpermaße speichert das Konto.' }); return; }
     const alt = masse.find((m) => m.datum === datum);
@@ -1614,7 +1623,7 @@ function App() {
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
           zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
           zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : uebungAnsicht.zurueck === 'heute' ? 'Zurück zu Heute' : 'Zurück zum Verlauf'}/>`
-      : ansicht === 'programme' ? html`<${Programme} ausdauer=${einstUi.ausdauer ? { liste: ausdauer, beinTag: planBeinTag, eintragen: geplantEintragen, zuUebung: (k) => zuUebung(k, 'programme') } : null} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
+      : ansicht === 'programme' ? html`<${Programme} ausdauer=${{ liste: ausdauer, beinTag: planBeinTag, kraftTag: planKraftTag, plan: auPlan, planTage: planTage.current, eintragen: geplantEintragen, zuUebung: (k) => zuUebung(k, 'programme') }} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
           sollIst=${aktiverBlock && !DEMO ? sollIst(tage, trainings, aktiverBlock.id) : []}
           neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
@@ -1642,7 +1651,7 @@ function App() {
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           zuImport=${DEMO ? null : () => gehe('import')} zuGewichtImport=${DEMO ? null : () => gehe('gewicht')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
-      : html`<${Heute} ausdauer=${ausdauer} ausdauerSpeichern=${ausdauerSpeichern} ausdauerLoeschen=${ausdauerLoeschen} geplantEintragen=${geplantEintragen} beschwerdeMelden=${DEMO ? null : () => setBeschwerdeOffen(true)}
+      : html`<${Heute} ausdauer=${ausdauer} ausdauerPlan=${auPlan} ausdauerSpeichern=${ausdauerSpeichern} ausdauerLoeschen=${ausdauerLoeschen} geplantEintragen=${geplantEintragen} beschwerdeMelden=${DEMO ? null : () => setBeschwerdeOffen(true)}
           beschwerdeErledigt=${DEMO ? null : (id) => setEinst({ ...einst, beschwerden: (einst.beschwerden ?? []).filter((b) => b.id !== id) })} zuStatistik=${() => gehe('statistik')} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}

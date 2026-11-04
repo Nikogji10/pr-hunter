@@ -3,6 +3,8 @@
 // Schwelle ≈ 6–9 % langsamer, Intervalle ≈ 5-km-Tempo). Rad: Zonen in % der FTP. Umfang +8 %/Woche, jede 4. Woche leichter,
 // vor Wettkämpfen 2 Wochen Tapering. Harte Einheiten nicht am Tag vor einem schweren Beintag (Hybrid). Pure Funktionen.
 
+import { LAEUFER_KRAFT } from './kombiplan.js';
+
 const TAG = 864e5;
 export const plusTage = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * TAG).toISOString().slice(0, 10);
 export const wochentag = (d) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;          // 0 = Montag
@@ -10,8 +12,20 @@ export const naechsterMontag = (d) => plusTage(d, (7 - wochentag(d)) % 7 || 7);
 
 /** Ziele je Sportart: [id, de, en, Strecke in m | null]. */
 export const ZIELE = {
-  lauf: [['5k', '5 km', '5 km', 5000], ['10k', '10 km', '10 km', 10000], ['hm', 'Halbmarathon', 'Half marathon', 21097], ['m', 'Marathon', 'Marathon', 42195], ['fit', 'Fitter werden', 'Get fitter', null]],
-  rad: [['ftp', 'FTP steigern', 'Raise FTP', null], ['grundlage', 'Grundlage', 'Base fitness', null], ['rennen', 'Rennen / Event', 'Race / event', null]],
+  lauf: [['fit', 'Fit bleiben', 'Stay fit', null], ['ausdauer', 'Ausdauer verbessern', 'Build endurance', null], ['abnehmen', 'Abnehmen', 'Lose weight', null],
+    ['5k', '5 km', '5K', 5000], ['10k', '10 km', '10K', 10000], ['hm', 'Halbmarathon', 'Half marathon', 21097], ['m', 'Marathon', 'Marathon', 42195]],
+  rad: [['fit', 'Fit bleiben', 'Stay fit', null], ['grundlage', 'Ausdauer verbessern', 'Build endurance', null], ['abnehmen', 'Abnehmen', 'Lose weight', null],
+    ['ftp', 'FTP steigern', 'Raise FTP', null], ['rennen', 'Rennen / Event', 'Race / event', null]],
+};
+/** 247: Ziele ohne Strecke laufen nach Zeit (Dauer je Sitzung), Wettkampf-Ziele können ein Datum haben. */
+export const ZEIT_ZIELE = new Set(['fit', 'ausdauer', 'abnehmen']);
+export const RENN_ZIELE = new Set(['5k', '10k', 'hm', 'm', 'rennen']);
+/** Kurzbeschreibung je Ziel (Wizard). */
+export const ZIEL_TEXT = {
+  fit: ['Kurze, lockere Einheiten, einmal pro Woche etwas zügiger.', 'Short easy sessions, once a week a bit faster.'],
+  ausdauer: ['Mehr Umfang Woche für Woche, eine lange und eine zügige Einheit.', 'More volume week by week, one long and one faster session.'],
+  grundlage: ['Mehr Umfang Woche für Woche, eine lange und eine zügige Einheit.', 'More volume week by week, one long and one faster session.'],
+  abnehmen: ['Viel locker im Fettstoffwechsel-Bereich, am Wochenende länger.', 'Mostly easy, fat-burning zone, longer at the weekend.'],
 };
 
 /** Lauf-Tempobereiche (s/km) aus der 5-km-Zeit in s. */
@@ -25,7 +39,7 @@ export function wattZonen(ftp) {
   return { locker: b(0.56, 0.75), tempo: b(0.76, 0.87), sweetspot: b(0.88, 0.94), schwelle: b(0.95, 1.05), vo2: b(1.06, 1.2) };
 }
 
-const MIN_KM = { '5k': 12, '10k': 18, hm: 25, m: 35, fit: 10 };
+const MIN_KM = { '5k': 12, '10k': 18, hm: 25, m: 35, fit: 10, ausdauer: 12, abnehmen: 10 };
 const LANG_MAX = { '5k': 12, '10k': 16, hm: 21, m: 32, fit: 14 };
 const runde = (x, s = 0.5) => Math.round(x / s) * s;
 
@@ -59,50 +73,108 @@ function harteEinheit(ziel, w, zweite = false) {
 const harteKm = (h) => (h.km ?? (h.wdh * h.strecke) / 1000) + 3;     // mit Ein- und Auslaufen
 
 /** Rad-Einheit je Rolle und Woche (Dauer in Minuten). */
-function radEinheit(rolle, ziel, w) {
-  if (rolle === 'lang') return { typ: 'lang', zone: 'locker', min: Math.round(Math.min(240, 90 + w * 12) / 5) * 5 };
-  if (rolle === 'locker') return { typ: 'locker', zone: 'locker', min: Math.round(Math.min(90, 50 + w * 5) / 5) * 5 };
+const fuenf = (x) => Math.max(5, Math.round(x / 5) * 5);
+function radEinheit(rolle, ziel, w, dauer = null, f = 1) {
+  if (rolle === 'lang') return { typ: 'lang', zone: 'locker', min: dauer ? fuenf(Math.min(240, Math.max(dauer + 30, dauer * 1.5 * f))) : fuenf(Math.min(240, 90 + w * 12)) };
+  if (rolle === 'locker') return { typ: 'locker', zone: 'locker', min: dauer ? fuenf(dauer * f) : fuenf(Math.min(90, 50 + w * 5)) };
+  if (ziel === 'fit' || ziel === 'abnehmen') return { typ: 'tempo', zone: 'tempo', wdh: 2, dauer: fuenf(Math.max(5, (dauer ?? 45) / 4)), pause: 5 };
   const vo2 = ziel === 'rennen' ? w % 2 === 0 : ziel === 'ftp' ? w % 3 === 2 : false;
   if (vo2) return { typ: 'intervalle', zone: 'vo2', wdh: Math.min(6, 4 + Math.floor(w / 3)), dauer: 4, pause: 4 };
   if (ziel === 'grundlage') return { typ: 'tempo', zone: 'tempo', wdh: 2, dauer: Math.min(30, 15 + w * 2), pause: 5 };
   return { typ: 'tempo', zone: w % 2 === 0 ? 'sweetspot' : 'schwelle', wdh: w % 2 === 0 ? 3 : 2, dauer: Math.min(20, 10 + w * 2), pause: 5 };
 }
 
+/** Lauf nach Zeit (247): Einheit je Rolle in Minuten; f = Steigerungsfaktor der Woche. */
+function zeitLauf(rolle, ziel, dauer, f, w) {
+  const d = dauer ?? 40, lang = ziel === 'abnehmen' ? 1.5 : 1.6;
+  if (rolle === 'lang') return ziel === 'fit' ? { typ: 'locker', zone: 'locker', min: fuenf(d * f) } : { typ: 'lang', zone: 'lang', min: fuenf(Math.min(150, d * lang * f)) };
+  if (rolle.startsWith('hart')) return ziel === 'ausdauer' ? { typ: 'tempo', zone: 'tempo', min: fuenf(d), wdh: 2, dauer: Math.min(20, 8 + w) }
+    : { typ: 'fahrtspiel', zone: 'locker', min: fuenf(d), wdh: Math.min(10, 6 + Math.floor(w / 2)), dauer: 1 };
+  return { typ: 'locker', zone: 'locker', min: fuenf(d * f) };
+}
+const STEIGERUNG_MAX = { fit: 1.15, abnehmen: 1.3, ausdauer: 1.4, grundlage: 1.4 };
+const HART = (r) => r.startsWith('hart') || r === 'lang';
+
 /**
  * Plan erzeugen. tage: Wochentage 0–6 (Mo–So) der Ausdauer-Einheiten. beinTag(datum) → true, wenn dort ein schweres
- * Beintraining geplant ist (Kniebeuge/Kreuzheben) – harte Einheiten rücken dann auf einen anderen Tag der Woche.
+ * Beintraining geplant ist – harte Einheiten rücken dann auf einen anderen Tag der Woche. kraftTag(datum) → true, wenn
+ * dort Krafttraining ist (Cardio danach: nur locker und kurz). dauer = Minuten je Sitzung (Zeit-Ziele, Obergrenze für
+ * lockere Läufe), fokus kraft|mix|cardio, rennDatum = Wettkampftag (bestimmt die Wochenzahl).
  */
-export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp = null, startKm = null, beinTag = () => false }) {
-  const tg = [...new Set(tage)].sort((a, b) => a - b), n = Math.min(7, tg.length || 3), muster = MUSTER[n];
+export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp = null, startKm = null, beinTag = () => false, kraftTag = () => false,
+  dauer = null, fokus = 'mix', rennDatum = null }) {
+  if (rennDatum) wochen = Math.max(1, Math.floor((Date.parse(`${rennDatum}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / (7 * 864e5)) + 1);
+  const tg = [...new Set(tage)].sort((a, b) => a - b), n = Math.min(7, tg.length || 3);
+  // Fokus Kraft: höchstens eine harte Einheit je Woche
+  const muster = MUSTER[n].map((r) => (fokus === 'kraft' && r === 'hart2' ? 'locker' : r));
+  const fak = { kraft: 0.8, mix: 1, cardio: 1.1 }[fokus] ?? 1;
+  const zeit = ZEIT_ZIELE.has(ziel);
   const rennen = sport === 'lauf' ? ZIELE.lauf.find(([id]) => id === ziel)?.[3] : null;
-  const umfang = sport === 'lauf' ? wochenUmfang(Math.max(startKm ?? 0, MIN_KM[ziel] ?? 12), wochen, { tapering: !!rennen }) : null;
+  const wettkampf = !!rennen || (sport === 'rad' && ziel === 'rennen' && !!rennDatum);
+  const umfang = sport === 'lauf' && !zeit ? wochenUmfang(Math.max(startKm ?? 0, MIN_KM[ziel] ?? 12) * fak, wochen, { tapering: !!rennen }) : null;
+  const steig = wochenUmfang(100, wochen, { tapering: wettkampf }).map((x) => Math.min(STEIGERUNG_MAX[ziel] ?? 1.5, x / 100));
+  const zonen = sport === 'lauf' && t5k ? paceZonen(t5k) : sport === 'rad' && ftp ? wattZonen(ftp) : null;
+  const maxKm = sport === 'lauf' && dauer && zonen ? Math.max(3, runde((dauer * 60) / ((zonen.locker[0] + zonen.locker[1]) / 2))) : null;
   const einheiten = [];
   for (let w = 0; w < wochen; w++) {
-    const mo = plusTage(start, 7 * w);
-    // Rollen auf die Wochentage legen, harte Einheiten nicht vor einem Beintag (Tausch mit einem lockeren Tag)
+    const mo = plusTage(start, 7 * w), tagVon = (i) => plusTage(mo, tg[i] ?? 6);
     const rollen = [...muster];
+    // harte und lange Einheiten nicht an Krafttage (dort nur locker danach) – Tausch mit einem lockeren Tag ohne Kraft
     for (let i = 0; i < rollen.length; i++) {
-      if (!rollen[i].startsWith('hart') || !beinTag(plusTage(mo, tg[i] + 1))) continue;
-      const j = rollen.findIndex((r, k) => r === 'locker' && !beinTag(plusTage(mo, tg[k] + 1)));
+      if (!HART(rollen[i]) || !kraftTag(tagVon(i))) continue;
+      const j = rollen.findIndex((r, k) => r === 'locker' && !kraftTag(tagVon(k)));
+      if (j >= 0) [rollen[i], rollen[j]] = [rollen[j], rollen[i]];
+    }
+    // harte Einheiten nicht vor einem Beintag (Tausch mit einem lockeren Tag)
+    for (let i = 0; i < rollen.length; i++) {
+      if (!HART(rollen[i]) || !beinTag(plusTage(tagVon(i), 1))) continue;
+      const j = rollen.findIndex((r, k) => r === 'locker' && !beinTag(plusTage(tagVon(k), 1)) && (!kraftTag(tagVon(k)) || kraftTag(tagVon(i))));
       if (j >= 0) [rollen[i], rollen[j]] = [rollen[j], rollen[i]];
     }
     const letzte = w === wochen - 1;
-    rollen.forEach((rolle, i) => {
-      const datum = plusTage(mo, tg[i] ?? 6), basis = { id: `${datum}-${i}`, datum, woche: w + 1, sport };
-      if (sport === 'rad') { einheiten.push({ ...basis, ...radEinheit(rolle, ziel, w) }); return; }
+    rollen.forEach((rolle0, i) => {
+      const datum = tagVon(i), nachKraft = kraftTag(datum), basis = { id: `${datum}-${i}`, datum, woche: w + 1, sport, ...(nachKraft ? { nachKraft: true } : {}) };
+      // an Krafttagen bleibt nur eine lockere, kurze Einheit
+      const rolle = nachKraft && HART(rolle0) ? 'locker' : rolle0;
+      if (letzte && wettkampf && !rennDatum && rolle === 'lang') { einheiten.push({ ...basis, typ: 'wettkampf', zone: 'intervall', ...(rennen ? { km: Math.round(rennen / 100) / 10 } : {}) }); return; }
+      if (sport === 'rad') {
+        const e = { ...basis, ...radEinheit(rolle, ziel, w, dauer, steig[w]) };
+        if (nachKraft && e.min) e.min = Math.min(e.min, 30);
+        einheiten.push(e); return;
+      }
+      if (zeit) { const e = { ...basis, ...zeitLauf(rolle, ziel, dauer, steig[w], w) }; if (nachKraft) e.min = Math.min(e.min, 30); einheiten.push(e); return; }
       const km = umfang[w];
-      if (letzte && rennen && rolle === 'lang') { einheiten.push({ ...basis, typ: 'wettkampf', zone: 'intervall', km: Math.round(rennen / 100) / 10 }); return; }
       if (rolle === 'lang') { einheiten.push({ ...basis, typ: 'lang', zone: 'lang', km: Math.max(4, runde(Math.min(LANG_MAX[ziel] ?? 14, km * 0.3), 1)) }); return; }
       if (rolle.startsWith('hart')) { const h = harteEinheit(ziel, w, rolle === 'hart2'); einheiten.push({ ...basis, ...h, gesamtKm: runde(harteKm(h)) }); return; }
       einheiten.push({ ...basis, typ: 'locker', zone: 'locker', km: 0 });             // Rest des Umfangs, unten verteilt
     });
-    if (sport === 'lauf') {
+    if (umfang) {
       const dieWoche = einheiten.filter((e) => e.woche === w + 1), fest = dieWoche.reduce((s, e) => s + (e.typ === 'locker' ? 0 : e.gesamtKm ?? e.km ?? 0), 0);
       const locker = dieWoche.filter((e) => e.typ === 'locker');
-      for (const e of locker) e.km = Math.max(3, runde((umfang[w] - fest) / locker.length));
+      for (const e of locker) e.km = Math.min(e.nachKraft ? 5 : Infinity, maxKm ?? Infinity, Math.max(3, runde((umfang[w] - fest) / locker.length)));
     }
   }
-  return { sport, ziel, start, wochen, tage: tg, t5k, ftp, einheiten, zonen: sport === 'lauf' && t5k ? paceZonen(t5k) : sport === 'rad' && ftp ? wattZonen(ftp) : null };
+  // 242: Wettkampf am eingetragenen Tag – danach nichts mehr, die zwei Tage davor nur locker
+  if (rennDatum) {
+    const vorher = plusTage(rennDatum, -2);
+    for (let i = einheiten.length - 1; i >= 0; i--) {
+      const e = einheiten[i];
+      if (e.datum >= rennDatum) { einheiten.splice(i, 1); continue; }
+      if (e.datum >= vorher && e.typ !== 'locker') {
+        const { wdh, strecke, pause, dauer: _d, gesamtKm, ...rest } = e;
+        einheiten[i] = { ...rest, typ: 'locker', zone: 'locker', ...(sport === 'rad' ? { min: 40 } : e.km == null ? { min: 25 } : { km: 4 }) };
+      }
+    }
+    einheiten.push({ id: `${rennDatum}-r`, datum: rennDatum, woche: wochen, sport, typ: 'wettkampf', zone: 'intervall', ...(rennen ? { km: Math.round(rennen / 100) / 10 } : {}) });
+  }
+  return { sport, ziel, start, wochen, tage: tg, t5k, ftp, einheiten, zonen, ...(rennDatum ? { rennDatum } : {}) };
+}
+
+/** Plan mit dem aktuellen Kraftplan neu rechnen (Parameter gespeichert; Krafttage können sich ändern). */
+export function aktuellerPlan(plan, { kraftTag, beinTag } = {}) {
+  if (!plan?.param) return plan;
+  try { return { ...erzeugePlan({ ...plan.param, kraftTag: kraftTag ?? (() => false), beinTag: beinTag ?? (() => false) }), param: plan.param, woche: plan.woche, bein: plan.bein }; }
+  catch { return plan; }
 }
 
 /** Gehört eine erledigte Einheit (aus der Ausdauer-Liste) zu einer geplanten? Gleicher Tag, gleiche Sportart. */
@@ -111,29 +183,30 @@ export const erledigt = (geplant, liste, sportVon) => liste.some((a) => !a.geloe
 /** Geplante Einheit als Ausdauer-Eintrag (Dauer aus dem Tempo-Mittel geschätzt, beim Rad aus der Planung). */
 export function alsEintrag(e, plan, id) {
   const km = e.gesamtKm ?? e.km ?? null, z = plan.zonen?.[e.zone];
-  const dauer = e.sport === 'rad' ? (e.min ?? (e.wdh ? e.wdh * (e.dauer + e.pause) + 25 : 60)) * 60 : km && z ? Math.round(km * (z[0] + z[1]) / 2) : null;
+  const dauer = e.sport === 'rad' ? (e.min ?? (e.wdh ? e.wdh * (e.dauer + e.pause) + 25 : 60)) * 60 : km && z ? Math.round(km * (z[0] + z[1]) / 2) : e.min ? e.min * 60 : null;
   return { id, quelle: 'manuell', art: e.sport === 'rad' ? 'rennrad' : 'lauf', datum: e.datum, typ: e.typ, titel: null, distanz_m: e.sport === 'lauf' && km ? Math.round(km * 1000) : null, dauer_s: dauer, geloescht: false };
 }
 
-/** 238: Kraft-Ergänzung für Läufer bzw. Radfahrer (2× pro Woche ~15 min): [Katalog-Schlüssel, Sätze × Wdh, wofür de, en]. */
-export const KRAFT_ERGAENZUNG = {
-  lauf: [
-    ['single_leg_calf_raise_dumbbell', '3 × 12–15', 'Waden und Achillessehne – häufigste Laufbeschwerden', 'calves and Achilles – the most common running complaints'],
-    ['dumbbell_bulgarian_split_squat', '3 × 8–10', 'einbeinige Kraft und Kniestabilität', 'single-leg strength and knee stability'],
-    ['single_leg_deadlift_dumbbell', '3 × 8', 'Beinbeuger, Gesäß und Gleichgewicht', 'hamstrings, glutes and balance'],
-    ['copenhagen_plank', '3 × 20–30 s', 'Adduktoren und Leiste', 'adductors and groin'],
-    ['side_plank_hip_abduction', '3 × 10', 'Hüftstabilität (Knie knickt nicht ein)', 'hip stability (knee does not cave in)'],
-    ['tibialis_raise', '2 × 15–20', 'Schienbein – gegen Schienbeinkantensyndrom', 'shins – against shin splints'],
-  ],
-  rad: [
-    ['dumbbell_bulgarian_split_squat', '3 × 8–10', 'Tretkraft je Bein, Ausgleich links/rechts', 'pedalling power per leg, left/right balance'],
-    ['barbell_hip_thrust', '3 × 8–10', 'Gesäß – oft schwach bei Radfahrern', 'glutes – often weak in cyclists'],
-    ['single_leg_deadlift_dumbbell', '3 × 8', 'hintere Kette gegen das viele Sitzen', 'posterior chain against all the sitting'],
-    ['dead_bug', '3 × 10', 'Rumpf für ruhigen Oberkörper', 'core for a quiet upper body'],
-    ['pallof_press', '3 × 10', 'Rumpf gegen Verdrehen', 'core against rotation'],
-    ['standing_calf_raises', '2 × 15', 'Waden für den Druckpunkt', 'calves for the push'],
-  ],
+/** 238/243: Kraft für Läufer bzw. Radfahrer – zwei kurze Einheiten A/B (je 5 Übungen, Grundübungen zuerst, Ober- und
+ * Unterkörper im Wechsel); Übungen aus js/kombiplan.js, hier mit Sätzen und Zweck: { sport: { A|B: [[key, Sätze, de, en]] } }. */
+const KRAFT_ZWECK = {
+  dumbbell_bulgarian_split_squat: ['3 × 8–10', 'einbeinige Kraft und Kniestabilität', 'single-leg strength and knee stability'],
+  pushups: ['3 × 10–15', 'Oberkörper und Rumpfspannung', 'upper body and core tension'],
+  single_leg_deadlift_dumbbell: ['3 × 8', 'Beinbeuger, Gesäß und Gleichgewicht', 'hamstrings, glutes and balance'],
+  'one-arm_dumbbell_row': ['3 × 10', 'Rücken für aufrechte Haltung', 'back for an upright posture'],
+  single_leg_calf_raise_dumbbell: ['3 × 12–15', 'Waden und Achillessehne', 'calves and Achilles'],
+  dumbbell_step_ups: ['3 × 8–10', 'Kraft beim Abdruck', 'push-off power'],
+  'wide-grip_lat_pulldown': ['3 × 10', 'Rücken und Armzug', 'back and arm drive'],
+  single_leg_hip_thrust: ['3 × 10', 'Gesäß – stabilisiert Hüfte und Knie', 'glutes – stabilise hip and knee'],
+  seated_dumbbell_press: ['3 × 10', 'Schultern', 'shoulders'],
+  side_plank_hip_abduction: ['2 × 10', 'Hüftstabilität (Knie knickt nicht ein)', 'hip stability (knee does not cave in)'],
+  barbell_squat: ['3 × 6–8', 'Tretkraft', 'pedalling power'],
+  barbell_hip_thrust: ['3 × 8–10', 'Gesäß – oft schwach bei Radfahrern', 'glutes – often weak in cyclists'],
+  pallof_press: ['2 × 10', 'Rumpf gegen Verdrehen', 'core against rotation'],
+  dead_bug: ['2 × 10', 'Rumpf für ruhigen Oberkörper', 'core for a quiet upper body'],
 };
+export const KRAFT_ERGAENZUNG = Object.fromEntries(Object.entries(LAEUFER_KRAFT).map(([sp, ab]) => [sp,
+  Object.fromEntries(Object.entries(ab).map(([x, l]) => [x, l.map((k) => [k, ...(KRAFT_ZWECK[k] ?? ['3 × 10', '', ''])])]))]));
 
 /** 238: dieselben Ergänzungen als Vorschläge im Bodybuilding-Generator, je Muskelgruppe und Sportart. */
 export const KRAFT_JE_GRUPPE = {

@@ -4,7 +4,7 @@
 // einem eigenen Cache, der Versionswechsel überdauert.
 // 04.11.: Bilder per CORS holen. Vorher kamen sie als „opaque“ (img ohne crossorigin) – Chrome rechnet jede solche Antwort
 // mit ~7 MB an, ein paar hundert Bilder ergaben 3,9 GB „gespeicherte Daten“. bilder-v1 wird deshalb gelöscht.
-const VERSION = 'd0277eaa2b17';
+const VERSION = '5fdeb72fd92f';
 const DATEIEN = [
   "./",
   "app.js",
@@ -43,6 +43,7 @@ const DATEIEN = [
   "js/import.js",
   "js/insights.js",
   "js/kidaten.js",
+  "js/kombiplan.js",
   "js/konto.js",
   "js/kuerzen.js",
   "js/lokal.js",
@@ -101,6 +102,7 @@ const DATEIEN = [
   "ui/mitteilung.js",
   "ui/plan.js",
   "ui/plandruck.js",
+  "ui/planer.js",
   "ui/programme.js",
   "ui/programmtexte.js",
   "ui/rechner.js",

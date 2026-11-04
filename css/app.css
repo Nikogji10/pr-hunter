@@ -2443,13 +2443,13 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 .au-datei { cursor: pointer; }
 /* Ausdauer: Dauer in drei Feldern */
 .au-hms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.au-hms label { position: relative; } .au-hms .text { width: 100%; padding-right: 26px; text-align: right; }
+.au-hms label { position: relative; } .au-hms .text { width: 100%; padding-right: 36px; text-align: right; }
 .au-hms small { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: var(--muted); pointer-events: none; }
 /* Statistik mit 7 Reitern (Ausdauer an): zwei Zeilen statt seitwärts wischen */
 .reiter.viele { flex-wrap: wrap; overflow: visible; }
 .reiter.viele button { flex: 1 0 24%; height: 34px; }
 .au-felder .voll { grid-column: 1 / -1; }
-.au-hms { gap: 8px; } .au-hms .text { padding-right: 34px; } .au-hms small { right: 12px; font-size: 12px; }
+.au-hms { gap: 8px; } .au-hms .text { padding-right: 46px; } .au-hms small { right: 12px; font-size: 12px; }
 /* 230: intervals.icu */
 .iv-ok { font-size: 12.5px; font-weight: 800; color: #22C55E; }
 .iv-schritte { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
@@ -2513,3 +2513,28 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .ap-uebung { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 6px; border-radius: 12px; border: 1px solid var(--kante); background: var(--sunken); color: var(--ink); text-align: left; }
 .ap-uebung span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; } .ap-uebung small { font-size: 12px; color: var(--ink-2); }
 .ueb-fuer { position: absolute; top: 6px; left: 6px; font-size: 13px; line-height: 1; padding: 3px 4px; border-radius: 8px; background: color-mix(in srgb, #F97316 22%, var(--sunken)); }
+/* 239–247: Planer, Wochenraster, Reiter, Wochenübersicht */
+.eigen-uebung { grid-template-columns: repeat(3, 1fr) 74px; } .eigen-uebung > span.row { grid-column: 4; grid-row: 1; justify-content: flex-end; }
+.eigen-tausch { grid-column: 1 / -1; }
+.prog-reiter { margin-bottom: 2px; }
+.planer-schritt { gap: 12px; }
+.ap-wahl button { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 10px 14px; }
+.ap-wahl button small { font-size: 12.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; }
+.kw-raster { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.kw-feld { display: grid; justify-items: center; align-content: start; gap: 3px; min-height: 68px; padding: 6px 2px; border-radius: 12px; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); }
+.kw-feld b { font-size: 12px; } .kw-feld span { font-size: 18px; line-height: 1.1; } .kw-feld small { font-size: 9.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.kw-feld.kraft { border-color: color-mix(in srgb, var(--acc) 55%, var(--kante)); background: color-mix(in srgb, var(--acc) 12%, var(--raised)); }
+.kw-feld.cardio { border-color: color-mix(in srgb, #F97316 55%, var(--kante)); background: color-mix(in srgb, #F97316 12%, var(--raised)); }
+.kw-feld.beides { border-color: color-mix(in srgb, #A855F7 55%, var(--kante)); background: color-mix(in srgb, #A855F7 12%, var(--raised)); }
+.kw-feld.ruhe { opacity: .7; }
+.kw-hinweis { font-size: 12.5px; line-height: 1.4; padding: 6px 10px; border-radius: 10px; background: var(--sunken); }
+.kw-hinweis.warn { background: color-mix(in srgb, #F59E0B 14%, var(--sunken)); } .kw-hinweis.gut { background: color-mix(in srgb, #22C55E 12%, var(--sunken)); }
+.kw-zeile { display: grid; grid-template-columns: 3.4em 1fr; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--line); }
+.kw-zeile.heute .kw-tag b { color: var(--acc); } .kw-zeile.vorbei { opacity: .65; }
+.kw-tag { display: flex; flex-direction: column; } .kw-tag small { font-size: 11px; color: var(--muted); }
+.kw-inhalt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kw-kraft { font-size: 14px; font-weight: 700; } .kw-kraft small { color: var(--muted); font-weight: 600; }
+.kw-cardio { text-align: left; padding: 6px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, #F97316 35%, var(--kante)); background: color-mix(in srgb, #F97316 8%, var(--raised)); color: var(--ink); font-size: 13.5px; }
+.kw-cardio small { color: var(--ink-2); } .kw-cardio.fertig b { color: #22C55E; } .kw-cardio.fertig b::before { content: '✓ '; }
+.kw-ruhe { font-size: 13px; }
+.ap-zeile.kombi { grid-template-columns: 2.6em 1fr; align-items: start; } .ap-zeile.kombi small { white-space: normal; }
