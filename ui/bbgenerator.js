@@ -3,6 +3,8 @@
 import { html, useState, useEffect, I, nameVon, UebungsBild, uebung, useSitzung, deEn } from './basis.js';
 import { UebungSuche, ISO_FAMILIEN } from './suche.js';
 import { MiniFigur } from './koerper.js';
+import { kraftVorschlaege } from '../js/ausdauerplan.js';
+import { sportarten } from '../js/ausdauer.js';
 
 // 145: Muskelgruppe → Zone im Körperdiagramm der großen Übungsauswahl
 const ZONE_VON = { brust: 'brust', ruecken: 'latissimus', schulter: 'schulter_vorn', hintere_schulter: 'schulter_hinten', bizeps: 'bizeps', trizeps: 'trizeps',
@@ -63,7 +65,8 @@ const ordne = (g, liste, zu) => {
   return [...new Set([...aus, ...liste])];
 };
 
-export function BodybuildingGenerator({ zurueck, speichern }) {
+export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
+  const sports = sportarten(ausdauer);   // 238: bei Hybrid Läufer-/Radfahrer-Übungen mit vorschlagen
   const [split, setSplit] = useSitzung('prh-gen-bb-split', 'ppl');
   const [tage, setTage] = useSitzung('prh-gen-bb-tage', 6);
   const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
@@ -125,12 +128,14 @@ export function BodybuildingGenerator({ zurueck, speichern }) {
           <div><span class="eyebrow">${deEn(`Muskelgruppe ${si + 1} von ${seiten.length}`, `Muscle group ${si + 1} of ${seiten.length}`)}</span><h2 class="h2">${akt.name}</h2>
             <span class="muted" style="font-size:12.5px">${akt.text}</span></div></div>
         ${akt.teile.map((t) => { const a = auswahl[t.gruppe], hier = a.filter((k) => gehoert(t, k, teilVon));
+          const fuer = Object.fromEntries(t.teil ? [] : kraftVorschlaege(t.gruppe, sports));
           return html`<div key=${t.teil ?? t.gruppe} class="muskel-wahl"><div class="row between"><b>${t.name ?? MUSKELGRUPPEN[t.gruppe].name}</b>
             <span class=${a.length ? 'muted' : 'warn-text'} style="font-size:12px">${deEn(`${hier.length} gewählt`, `${hier.length} selected`)}</span></div>
-          <div class="ueb-kacheln">${[...new Set([...hier, ...vorschlag(t)])].map((k) => {   // gewählte immer vorne
+          <div class="ueb-kacheln">${[...new Set([...hier, ...Object.keys(fuer), ...vorschlag(t)])].map((k) => {   // gewählte immer vorne, dann 238 Hybrid
             const nr = a.indexOf(k);
             return html`<button key=${k} class=${`ueb-kachel ${nr >= 0 ? 'gewaehlt' : ''}`} aria-pressed=${String(nr >= 0)} onClick=${() => tippe(t, k)}>
-              ${nr >= 0 ? html`<span class="ueb-nr">${nr + 1}</span>` : null}<${UebungsBild} schluessel=${k} groesse=${64} zoom=${false}/><span>${nameVon(k, k)}</span></button>`; })}</div>
+              ${nr >= 0 ? html`<span class="ueb-nr">${nr + 1}</span>` : null}${fuer[k] ? html`<span class="ueb-fuer">${fuer[k].map((s) => (s === 'lauf' ? '🏃' : '🚴')).join('')}</span>` : null}<${UebungsBild} schluessel=${k} groesse=${64} zoom=${false}/><span>${nameVon(k, k)}</span></button>`; })}</div>
+          ${Object.keys(fuer).length ? html`<span class="muted" style="font-size:12px">${sports.length > 1 ? deEn('🏃 🚴 = hilft beim Laufen bzw. Radfahren (einbeinig, Sehnen, Rumpf)', '🏃 🚴 = helps running or cycling (single-leg, tendons, core)') : sports[0] === 'lauf' ? deEn('🏃 = hilft beim Laufen (einbeinig, Sehnen, Rumpf)', '🏃 = helps running (single-leg, tendons, core)') : deEn('🚴 = hilft beim Radfahren (einbeinig, Gesäß, Rumpf)', '🚴 = helps cycling (single-leg, glutes, core)')}</span>` : null}
           <${UebungSuche} id=${`bb-${t.gruppe}-${t.teil ?? ''}`} titel=${`${t.name ?? MUSKELGRUPPEN[t.gruppe].name}: Übung wählen`} zone=${t.zone ?? ZONE_VON[t.gruppe]} platzhalter="Andere Übung aus dem Katalog …" onWahl=${(k) => suchWahl(t, k)}/></div>`; })}
         <div class="bb-seite-fuss">${seitenGruppen.map((g) => { const n = auswahl[g].length, s = saetzeVon(g, { saetze }), richtwert = MUSKELGRUPPEN[g].saetze;
           return html`<div key=${g} class="bb-gruppe-fuss">

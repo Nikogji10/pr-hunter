@@ -5,6 +5,8 @@ import { HEUTE } from './stand.js';
 import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, montag, beinBelastung } from '../js/ausdauer.js';
 import { einheitAusDatei } from '../js/dateiimport.js';
 import { SteigerungHinweis } from './ausdauerstatistik.js';
+import { beschreibung, EinheitSheet, naechsteGeplante } from './ausdauerplan.js';
+import { erledigt as planErledigt } from '../js/ausdauerplan.js';
 
 const name = (x) => (sprache() === 'en' ? x.en : x.de);
 const QUELLE = { strava: 'Strava', intervals: 'intervals.icu', datei: 'Datei' };
@@ -107,7 +109,8 @@ export function AusdauerDetail({ a, wahl, speichern, loeschen, zu }) {
 }
 
 /** Kachel auf „Heute“: Woche in Zahlen, letzte Einheit, Eintragen. */
-export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
+export function AusdauerKarte({ liste, wahl, speichern, loeschen, plan = null, eintragenGeplant = null }) {
+  const [geplantOffen, setGeplantOffen] = useState(null);
   const [offen, setOffen] = useState(null);                       // null | 'neu' | Einheit
   const l = sichtbar(liste, wahl), mo = montag(HEUTE);
   const woche = l.filter((a) => a.datum >= mo && a.datum <= HEUTE);
@@ -122,6 +125,10 @@ export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
       <div><b>${fmt(x.km, x.km >= 100 ? 0 : 1)}<small> km</small></b><span>${x.n ? `${x.n}× · ${dauerText(x.s)}` : deEn('noch nichts', 'nothing yet')}</span></div></div>`; })}</div>
     ${letzte ? html`<button class="au-letzte" onClick=${() => setOffen(letzte)}><span>${art(letzte.art).icon}</span>
       <span class="au-letzte-text"><b>${letzte.titel || name(art(letzte.art))}</b><small>${`${datumKurz(letzte.datum)} · ${kurz(letzte)}`}</small></span><span class="muted">›</span></button>` : null}
+    ${(() => { const g = naechsteGeplante(plan); if (!g) return null; const b = beschreibung(g, plan), fertig = planErledigt(g, l, sportVon);
+      return html`<button class=${`au-geplant ${fertig ? 'fertig' : ''}`} onClick=${() => setGeplantOffen(g)}><span>${g.datum === HEUTE ? deEn('Heute geplant', 'Planned today') : `${deEn('Nächste', 'Next')} · ${datumKurz(g.datum)}`}</span>
+        <b>${fertig ? '✓ ' : ''}${b.titel}</b><small>${b.zeile}</small></button>`; })()}
+    ${geplantOffen ? html`<${Portal}><${EinheitSheet} e=${geplantOffen} plan=${plan} fertig=${planErledigt(geplantOffen, l, sportVon)} eintragen=${eintragenGeplant ?? (() => {})} zu=${() => setGeplantOffen(null)}/><//>` : null}
     <${SteigerungHinweis} liste=${l} wahl=${wahl}/>
     ${beine > 0.5 ? html`<div class="au-beine">🦵 ${beine > 0.8 ? deEn('Beine noch stark belastet – schweres Beintraining heute lieber leichter oder verschieben.', 'Legs still heavily loaded – go lighter on heavy leg work today or move it.')
       : deEn('Beine noch etwas belastet – bei Kniebeuge und Kreuzheben auf die RPE achten.', 'Legs still somewhat loaded – watch the RPE on squats and deadlifts.')}</div>` : null}

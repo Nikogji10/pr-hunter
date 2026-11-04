@@ -2487,3 +2487,29 @@ html.mit-bild :is(.card, .viz, .kachel, .max, .hint) { -webkit-backdrop-filter: 
 html.neigung .deck-bild { inset: calc(-40px - var(--neigung-rand, 14px)); transform: translate3d(var(--px, 0px), var(--py, 0px), 0); }
 .deck-bild::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) calc(var(--bild-dunkel, .55) * 100%), transparent); }
 html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
+/* 235: Ausdauer-Pläne */
+.ap-tage { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.ap-tage button { height: 40px; border-radius: 10px; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); font-weight: 800; font-size: 13px; }
+.ap-tage button[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--on-acc); }
+.ap-vorschau { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); }
+.ap-zeile { display: grid; grid-template-columns: 4.6em auto 1fr; align-items: baseline; gap: 8px; font-size: 13.5px; text-align: left; }
+.ap-zeile small { color: var(--ink-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-zeile.gross { display: block; font-size: 17px; text-align: center; padding: 10px; border-radius: 12px; background: var(--raised); }
+.ap-zeile.knopf { width: 100%; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); }
+.ap-zeile.knopf.fertig { opacity: .6; } .ap-zeile.knopf.fertig b { color: #22C55E; }
+.ap-balken { height: 6px; border-radius: 99px; background: var(--raised); overflow: hidden; } .ap-balken i { display: block; height: 100%; background: linear-gradient(90deg, #F97316, #0EA5E9); }
+.ap-fertig { text-align: center; font-weight: 800; color: #22C55E; padding: 10px; }
+.au-geplant { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, #F97316 40%, var(--kante));
+  background: color-mix(in srgb, #F97316 10%, var(--raised)); color: var(--ink); }
+.au-geplant span { grid-column: 1 / -1; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.au-geplant small { color: var(--ink-2); font-size: 12.5px; align-self: center; } .au-geplant.fertig b { color: #22C55E; }
+.ap-schritte { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+.ap-schritte i { height: 4px; border-radius: 99px; background: var(--raised); } .ap-schritte i.fertig { background: var(--acc); } .ap-schritte i.jetzt { background: color-mix(in srgb, var(--acc) 55%, var(--raised)); }
+.ap-frage { font-size: 18px; }
+.ap-wahl { display: flex; flex-direction: column; gap: 6px; }
+.ap-wahl button { min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); font-size: 15px; font-weight: 700; text-align: left; }
+.ap-wahl button[aria-pressed="true"] { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, var(--raised)); font-weight: 800; }
+/* 238: Kraft-Ergänzung */
+.ap-uebung { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 6px; border-radius: 12px; border: 1px solid var(--kante); background: var(--sunken); color: var(--ink); text-align: left; }
+.ap-uebung span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; } .ap-uebung small { font-size: 12px; color: var(--ink-2); }
+.ueb-fuer { position: absolute; top: 6px; left: 6px; font-size: 13px; line-height: 1; padding: 3px 4px; border-radius: 8px; background: color-mix(in srgb, #F97316 22%, var(--sunken)); }

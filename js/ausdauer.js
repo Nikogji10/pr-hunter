@@ -207,3 +207,20 @@ export function prognosen(best) {
   const basis = [...best].sort((a, b) => (Math.abs(Math.log(a.m / 10000)) - Math.abs(Math.log(b.m / 10000))))[0];
   return STRECKEN.map(([m, name]) => ({ m, name, s: Math.round(basis.s * (m / basis.m) ** 1.06), aus: basis.name, eigen: m === basis.m }));
 }
+
+/** Erholung: Läufe und Radfahrten als Einträge im Format der Muskel-Erholung (js/auswertung.js erholung) – je Einheit
+ *  „Satz-Äquivalente“ aus Dauer × Intensität (+ Höhenmeter), verteilt auf die Beinmuskeln. */
+const BEINE = { lauf: { quadrizeps: 1, waden: 1, beinbeuger: 0.7, gesaess: 0.7 }, rad: { quadrizeps: 1, gesaess: 0.7, waden: 0.4, beinbeuger: 0.3 } };
+const FAKTOR = { locker: 0.5, lang: 0.6, tempo: 0.9, intervalle: 1.1, wettkampf: 1.3 };
+export function erholungsEintraege(liste, jetztMs) {
+  const aus = [];
+  for (const a of liste) {
+    if (a.geloescht || !a.dauer_s) continue;
+    const zeit = a.start ? Date.parse(a.start) + a.dauer_s * 1000 : Date.parse(`${a.datum}T18:00:00`);
+    if (jetztMs - zeit > 72 * 3600e3 || zeit > jetztMs + 3600e3) continue;
+    const f = FAKTOR[a.typ] ?? (a.rpe ? a.rpe / 8 : 0.6);
+    const n = Math.round((a.dauer_s / 60 / 12) * f + (a.hoehe_m ?? 0) / 300);
+    if (n > 0) aus.push({ zeit, muskeln: BEINE[sportVon(a.art)], saetze: Array.from({ length: Math.min(n, 12) }, () => ({ wdh: 1, rpe: 8 })) });
+  }
+  return aus;
+}

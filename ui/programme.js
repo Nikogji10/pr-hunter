@@ -2,6 +2,7 @@
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
 import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren, deEn } from './basis.js';
 import { UebungSuche } from './suche.js';
+import { AusdauerPlanKarte } from './ausdauerplan.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan } from './eigenerplan.js';
 import { EINSTEIGER } from './einsteiger.js';
@@ -63,7 +64,7 @@ const eingabenDa = () => {
   } catch { return false; }
 };
 
-export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null }) {
+export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null, ausdauer = null }) {
   // Vertrauensfaktor der v3-Projektion (rpe10_table): 1,0 bei sauberen Wdh, 0,5 bei unsauberen
   const [vertrauen, setVertrauen] = useState(1);
   const mitVertrauen = programme[block?.datei]?.rules?.projection?.method === 'rpe10_table';
@@ -134,7 +135,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>Weiter bearbeiten</button>
         <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>Verwerfen</button></div>
     <//>` : null;
-  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
+  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu} ausdauer=${einst.ausdauer}/>${warnung}`;
   if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>${warnung}`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
@@ -185,6 +186,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Erstelle unten einen neuen Plan.</p></section>`}
     ${/* Seite einfach halten: ein Knopf „Neuen Plan erstellen“ fragt erst dann nach dem Weg; Meine Pläne und Vorlagen zugeklappt */ ''}
     <${GeteiltePlaene} speichernNeu=${speichernNeu} toast=${toast}/>
+    ${ausdauer && einst.ausdauer ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} beinTag=${ausdauer.beinTag} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung}/>` : null}
     <h2 class="abschnitt-titel">Neuer Plan</h2>
     ${!neuOffen ? html`<button class="btn btn-chalk btn-block" onClick=${() => setNeuOffen(true)}>+ Neuen Plan erstellen</button>`
       : html`<section class="card pad stack neu-frage"><div class="row between"><span class="viz-t">Wie willst du planen?</span>

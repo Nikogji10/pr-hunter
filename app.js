@@ -51,6 +51,8 @@ import { BeschwerdeSheet, BeschwerdeHinweis } from './ui/beschwerde.js';
 import { CoachSeite } from './ui/coach.js';
 import { KiKachel } from './ui/ki.js';
 import { AusdauerKarte, AusdauerListe } from './ui/ausdauer.js';
+import { alsEintrag } from './js/ausdauerplan.js';
+import { erholungsEintraege, sichtbar } from './js/ausdauer.js';
 import { anpassungFuer, REGIONEN } from './js/beschwerden.js';
 import { chipsAus } from './js/notizchips.js';
 import { rueckblick as rueckblickAus } from './js/rueckblick.js';
@@ -263,7 +265,7 @@ function MaxListe({ werte, zuUebung }) {
   </section>`;
 }
 
-function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = null, beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
+function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = null, geplantEintragen = null, beschwerdeMelden = null, beschwerdeErledigt = null, zuStatistik = null, trainings = [], block, prog, tage, erledigt, leichter, setLeichter, training, starten, freiStarten, fortsetzen, einst, setEinst, sync, offen, zuEinstellungen, zuProgrammen, tagOption,
   startenAm, bearbeiten, loeschen, wiederholen = null, zuUebung, menueAuf, zuImport = null }) {
   const [sheet, setSheet] = useState(null);             // 'verschieben' | 'ueberspringen'
   const [mitRest, setMitRest] = useState(true);         // Verschieben: restlichen Block mitnehmen
@@ -292,8 +294,8 @@ function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = nul
       weg=${() => { speicher.schreib(weg, '1'); setEinst({ ...einst }); }}/>`;
   })()}
   <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
-  ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik}/>` : null}`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen}/>` : null}`;
+  ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik} ausdauer=${einst.ausdauer ? erholungsEintraege(sichtbar(ausdauer, einst.ausdauer), Date.now()) : []}/>` : null}`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen} plan=${einst.ausdauerPlan} eintragenGeplant=${geplantEintragen}/>` : null}`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
@@ -1407,6 +1409,9 @@ function App() {
     setAusdauer(neu); sp.current.setzeMeta('ausdauer', neu).then(() => { if (!DEMO) abgleich(); });
   };
   const ausdauerLoeschen = (a) => ausdauerSpeichern({ ...a, geloescht: true });
+  // 235/236: geplante Einheit abhaken; Beintage aus dem Kraftplan (Kniebeuge/Kreuzheben) für die Ausdauer-Planung
+  const geplantEintragen = (e) => { if (!einst.ausdauerPlan) return; ausdauerSpeichern(alsEintrag(e, einst.ausdauerPlan, crypto.randomUUID())); setToast({ titel: deEn('Eingetragen', 'Logged'), text: deEn('Zeiten bei Bedarf im Verlauf anpassen.', 'Adjust times in History if needed.') }); };
+  const planBeinTag = (d) => planTage.current.some((t) => t.datum === d && t.keys.some((k) => ['squat', 'dead'].includes(liftVon(k))));
   const masseSetzen = (datum, werte) => {
     if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'Körpermaße speichert das Konto.' }); return; }
     const alt = masse.find((m) => m.datum === datum);
@@ -1609,7 +1614,7 @@ function App() {
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
           zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
           zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : uebungAnsicht.zurueck === 'heute' ? 'Zurück zu Heute' : 'Zurück zum Verlauf'}/>`
-      : ansicht === 'programme' ? html`<${Programme} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
+      : ansicht === 'programme' ? html`<${Programme} ausdauer=${einstUi.ausdauer ? { liste: ausdauer, beinTag: planBeinTag, eintragen: geplantEintragen, zuUebung: (k) => zuUebung(k, 'programme') } : null} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
           sollIst=${aktiverBlock && !DEMO ? sollIst(tage, trainings, aktiverBlock.id) : []}
           neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`
@@ -1637,7 +1642,7 @@ function App() {
           neuAnmelden=${() => setPhase('anmelden')} kontoLoeschen=${DEMO ? null : kontoLoeschen} anleitung=${() => setEinf(true)} emailAendern=${DEMO ? null : emailAendern}
           zuImport=${DEMO ? null : () => gehe('import')} zuGewichtImport=${DEMO ? null : () => gehe('gewicht')} hilfe=${{ sichern, einspielen, kalender: tage.length ? kalender : null, datenschutz: () => gehe('datenschutz'), feedback: DEMO ? null : () => setFeedback({ art: 'feedback' }) }}
           loeschungAbbrechen=${DEMO ? null : async () => { await konto.kontoLoeschenAbbrechen(supabase()); setEinst({ ...einst, loeschenAb: null, vergleich: true, feedTeilen: true }); setToast({ titel: 'Löschung abgebrochen', text: 'Dein Konto bleibt.' }); }}/>`
-      : html`<${Heute} ausdauer=${ausdauer} ausdauerSpeichern=${ausdauerSpeichern} ausdauerLoeschen=${ausdauerLoeschen} beschwerdeMelden=${DEMO ? null : () => setBeschwerdeOffen(true)}
+      : html`<${Heute} ausdauer=${ausdauer} ausdauerSpeichern=${ausdauerSpeichern} ausdauerLoeschen=${ausdauerLoeschen} geplantEintragen=${geplantEintragen} beschwerdeMelden=${DEMO ? null : () => setBeschwerdeOffen(true)}
           beschwerdeErledigt=${DEMO ? null : (id) => setEinst({ ...einst, beschwerden: (einst.beschwerden ?? []).filter((b) => b.id !== id) })} zuStatistik=${() => gehe('statistik')} trainings=${trainings} block=${aktiverBlock} prog=${blockDef} tage=${tage} erledigt=${erledigt} leichter=${leichter} setLeichter=${setLeichter} training=${training}
           starten=${starten} freiStarten=${freiStarten} fortsetzen=${() => gehe('training')} einst=${einstUi} setEinst=${setEinst} sync=${sync} offen=${offen}
           zuEinstellungen=${() => gehe('einstellungen')} zuProgrammen=${() => gehe('programme')} tagOption=${aktiverBlock && !training ? tagOption : null}

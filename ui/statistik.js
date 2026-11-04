@@ -23,6 +23,7 @@ import { rpeTrend } from '../js/block.js';
 import { MasseKarte } from './masse.js';
 import { ZyklusKarte } from './zyklus.js';
 import { AusdauerStatistik } from './ausdauerstatistik.js';
+import { erholungsEintraege, sichtbar } from '../js/ausdauer.js';
 import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
 
@@ -93,7 +94,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     return (t.uebungen ?? []).map((u) => ({ zeit, muskeln: muskelGewichte(kanon(u.key), uebung(kanon(u.key)) ?? uebung(u.key)),
       saetze: (u.saetze ?? []).filter((s) => s.fertig !== false) }));
   });
-  const erholt = erholung(erholEintraege, jetztMs);
+  // Läufe/Radfahrten zählen für die Beine mit (nur wenn Ausdauer gewählt)
+  const erholt = erholung([...erholEintraege, ...(einst.ausdauer ? erholungsEintraege(sichtbar(ausdauer, einst.ausdauer), jetztMs) : [])], jetztMs);
   const wd = wochenDaten(x);
   const letzte = wd.at(-1);
   // Volumen: bis 26 Wochen je Woche, bei einem Jahr je 4 Wochen zusammengefasst

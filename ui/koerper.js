@@ -178,10 +178,10 @@ export function MiniFigur({ zonen, seite = null, ausschnitt = '0 0 200 430', far
 
 /** 198: Erholung jetzt, kompakt für „Heute“ – nur wenn ein Muskel noch müde ist. Gleiche Rechnung wie Statistik → Profil. */
 const ERHOLUNG_WEG = 'prh-erholung-weg', ERHOLUNG_HINWEIS = 'prh-erholung-hinweis';
-export function ErholungKurz({ trainings, oeffnen = null }) {
+export function ErholungKurz({ trainings, oeffnen = null, ausdauer = [] }) {
   const juengste = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4));
   // weggewischt bis zum nächsten Training: Kennung = jüngstes Training der letzten Tage
-  const kennung = juengste.map((t) => `${t.datum}:${t.id}`).sort().at(-1) ?? '';
+  const kennung = `${juengste.map((t) => `${t.datum}:${t.id}`).sort().at(-1) ?? ''}|${Math.max(0, ...ausdauer.map((e) => e.zeit))}`;   // neuer Lauf zeigt die Karte wieder
   const [weg, setWeg] = useState(() => speicher.lies(ERHOLUNG_WEG) === kennung);
   const [hinweis] = useState(() => Number(speicher.lies(ERHOLUNG_HINWEIS) ?? 0) < 3);
   const zug = useRef(null), karte = useRef(null), gewischt = useRef(0);
@@ -215,6 +215,7 @@ export function ErholungKurz({ trainings, oeffnen = null }) {
     const zeit = new Date(t.ende ?? t.start ?? `${t.datum}T18:00:00`).getTime();
     return (t.uebungen ?? []).map((u) => ({ zeit, muskeln: muskelGewichte(kanon(u.key), uebung(kanon(u.key)) ?? uebung(u.key)), saetze: (u.saetze ?? []).filter((s) => s.fertig !== false) }));
   });
+  eintraege.push(...ausdauer);                                     // Läufe/Radfahrten (schon als Erholungs-Einträge)
   if (!eintraege.length) return null;
   const z = erholung(eintraege, Date.now());
   const rot = Object.keys(z).filter((m) => z[m].stufe === 'rot'), gelb = Object.keys(z).filter((m) => z[m].stufe === 'gelb');
