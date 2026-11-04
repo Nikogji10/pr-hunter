@@ -26,8 +26,29 @@ export function rpeGenauigkeit(einheiten, { liftVon = () => 'andere', fenster = 
     kat(s.key).l.push(abw); alle.push(abw);
   }
   const rund = (l) => Math.round(median(l) * 10) / 10;
+  // Ersatz ohne harte Sätze (04.11.): leichter (≤ 7,5) und schwerer (≥ 8) bewertete Sätze derselben Übung und Woche müssen
+  // über die RPE-Tabelle dasselbe e1RM ergeben. Ergeben die leichten mehr, waren sie in Wahrheit schwerer → zu niedrig angegeben.
+  const woche = (t) => Math.floor((t / TAG + 3) / 7);
+  const gruppen = new Map();
+  for (const s of saetze) {
+    if (s.rpe < 6 || s.rpe > 10) continue;
+    const g = gruppen.get(`${s.key}|${woche(s.t)}`) ?? { key: s.key, leicht: [], schwer: [] };
+    (s.rpe <= 7.5 ? g.leicht : s.rpe >= 8 ? g.schwer : []).push(e1rm(s.kg, s.wdh, s.rpe, 'rpe'));
+    gruppen.set(`${s.key}|${woche(s.t)}`, g);
+  }
+  const vergleich = {}, vAlle = [];
+  const mittel = (l) => l.reduce((a, b) => a + b, 0) / l.length;
+  for (const g of gruppen.values()) {
+    if (!g.leicht.length || !g.schwer.length) continue;
+    const abw = (mittel(g.leicht) / mittel(g.schwer) - 1) / PRO_RPE;
+    if (Math.abs(abw) > 4) continue;
+    (vergleich[liftVon(g.key)] ??= []).push(abw); vAlle.push(abw);
+  }
+  const ergebnis = (k, { l, mitRpe }) => (l.length >= minimumJe ? { abweichung: rund(l), n: l.length, mitRpe }
+    : (vergleich[k]?.length ?? 0) >= minimumJe ? { abweichung: rund(vergleich[k]), n: vergleich[k].length, mitRpe, methode: 'vergleich' }
+    : { abweichung: null, n: l.length, mitRpe, vergleiche: vergleich[k]?.length ?? 0 });
   return {
-    gesamt: alle.length >= minimum ? { abweichung: rund(alle), n: alle.length } : null,
-    je: Object.fromEntries(Object.entries(je).map(([k, { l, mitRpe }]) => [k, { abweichung: l.length >= minimumJe ? rund(l) : null, n: l.length, mitRpe }])),
+    gesamt: alle.length >= minimum ? { abweichung: rund(alle), n: alle.length } : vAlle.length >= minimum ? { abweichung: rund(vAlle), n: vAlle.length, methode: 'vergleich' } : null,
+    je: Object.fromEntries(Object.entries(je).map(([k, v]) => [k, ergebnis(k, v)])),
   };
 }

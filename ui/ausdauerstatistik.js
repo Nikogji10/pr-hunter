@@ -9,6 +9,18 @@ import { sportarten, sichtbar, sportVon, wochen, bestzeiten, leistungskurve, ftp
 const FARBE = { lauf: '#F97316', rad: '#0EA5E9' };
 const ZONE = ['#94A3B8', '#22C55E', '#EAB308', '#F97316', '#EF4444'];
 
+// Zwischenspeicher: gleiche Trainings + gleiche Einheiten + gleicher Zeitraum → sofort (Öffnen des Reiters ruckelte)
+let SPEICHER = { trainings: null, liste: null, von: null, f: null };
+export function formFuer(trainings, liste, von) {
+  if (SPEICHER.trainings === trainings && SPEICHER.liste === liste && SPEICHER.von === von) return SPEICHER.f;
+  // 6 Monate Vorlauf reichen, damit Fitness (42 Tage) eingeschwungen ist – nicht die ganze Geschichte
+  const vorlauf = new Date(Date.parse(`${montag(von)}T00:00:00Z`) - 182 * 864e5).toISOString().slice(0, 10);
+  const l = tageslasten(trainings.filter((t) => t?.datum >= vorlauf), liste.filter((a) => a.datum >= vorlauf));
+  const f = form(l, { von: montag(von), bis: HEUTE, ab: vorlauf });
+  SPEICHER = { trainings, liste, von, f };
+  return f;
+}
+
 /** Tageslasten aus Krafttraining (Minuten × Session-RPE, ohne RPE 6) und Ausdauer (Minuten × RPE bzw. Ersatz nach Typ). */
 export function tageslasten(trainings, liste) {
   const l = {};
@@ -26,8 +38,9 @@ export function AusdauerStatistik({ liste: alle, einst, setEinst, trainings, x }
   const imZeitraum = liste.filter((a) => a.datum >= von);
   const summe = (s) => imZeitraum.filter((a) => sportVon(a.art) === s).reduce((z, a) => ({ km: z.km + (a.distanz_m ?? 0) / 1000, s: z.s + (a.dauer_s ?? 0), hm: z.hm + (a.hoehe_m ?? 0), n: z.n + 1 }), { km: 0, s: 0, hm: 0, n: 0 });
   // Form: Tageslasten über den Zeitraum, je Woche der Stand am Sonntag
-  const f = form(tageslasten(trainings, liste), { von: montag(von), bis: HEUTE });
-  const amEnde = (d) => f.filter((t) => t.datum <= (d < montag(HEUTE) ? new Date(Date.parse(`${d}T00:00:00Z`) + 6 * 864e5).toISOString().slice(0, 10) : HEUTE)).at(-1);
+  const f = formFuer(trainings, alle, von);
+  const nachTag = new Map(f.map((t) => [t.datum, t]));
+  const amEnde = (d) => nachTag.get(d < montag(HEUTE) ? new Date(Date.parse(`${montag(d)}T00:00:00Z`) + 6 * 864e5).toISOString().slice(0, 10) : HEUTE);
   const heute = f.at(-1);
   if (!liste.length) return html`<section class="card pad stack"><span class="viz-t">${deEn('Ausdauer', 'Cardio')}</span>
     <p class="muted" style="margin:0;font-size:14px">${deEn('Noch keine Läufe oder Radfahrten. Auf „Heute“ oder im Verlauf eintragen – oder Strava verbinden (Einstellungen → Konto).', 'No runs or rides yet. Log them on “Today” or in History – or connect Strava (Settings → Account).')}</p></section>`;

@@ -2449,3 +2449,17 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 .reiter.viele button { flex: 1 0 24%; height: 34px; }
 .au-felder .voll { grid-column: 1 / -1; }
 .au-hms { gap: 8px; } .au-hms .text { padding-right: 34px; } .au-hms small { right: 12px; font-size: 12px; }
+/* 230: intervals.icu */
+.iv-ok { font-size: 12.5px; font-weight: 800; color: #22C55E; }
+.iv-schritte { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.iv-schritte a { color: var(--acc-text); font-weight: 700; }
+.au-quelle.intervals { color: #3B82F6; }
+/* 231: Wege + Strava mit eigener App */
+.wege .weg { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--raised); border: 1px solid var(--kante); font-size: 13px; }
+.wege .weg span { color: var(--ink-2); }
+.sv-abo { font-size: 11px; font-weight: 800; color: #FC4C02; letter-spacing: .03em; }
+.sv-schritte li { line-height: 1.45; }
+.sv-felder { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.sv-felder > span { font-size: 12.5px; color: var(--muted); }
+.sv-wert { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--kante); }
+.sv-wert small { font-size: 11px; color: var(--muted); } .sv-wert code { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }

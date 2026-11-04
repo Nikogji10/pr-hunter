@@ -692,10 +692,11 @@ function App() {
       // 222: Ausdauer hochladen und mischen (ohne Update 33 bleibt alles lokal)
       try {
         let au = (await s.meta('ausdauer')) ?? [];
-        // Strava: höchstens alle 30 min neue Aktivitäten holen (der Webhook bringt sie sonst von selbst)
+        // intervals.icu / Strava: höchstens alle 30 min neue Aktivitäten holen
         const zuletzt = Number(speicher.lies('prh-strava-zuletzt') ?? 0);
         if ((await s.meta('einst'))?.ausdauer && Date.now() - zuletzt > 30 * 60_000) {
           speicher.schreib('prh-strava-zuletzt', String(Date.now()));
+          if ((await konto.intervalsStatus(sb))?.verbunden) await konto.intervalsAktion(sb, 'abgleich', SUPABASE_URL).catch(() => {});
           if ((await konto.stravaStatus(sb))?.verbunden) await konto.stravaAktion(sb, 'abgleich', SUPABASE_URL).catch(() => {});
         }
         for (const a of au.filter((x) => x.offen)) if (await konto.ausdauerHochladen(sb, a)) a.offen = false;
@@ -1161,8 +1162,10 @@ function App() {
             // Ebene erst nach dem Wechsel auflösen – beim Austausch selbst kein zusätzliches Neuzeichnen
             for (const el of [haupt, hauptRef.current]) if (el) setTimeout(() => { el.style.willChange = ''; }, 400);
             unterInhaltRef.current = null;
-            ebene?.parentElement?.remove(); ebeneRef.current = null;
-            zugLaeuft.current = false;
+            // Bild erst ein Bild später entfernen: die echte Seite ist dann schon gezeichnet (samt Unschärfe der Karten) –
+            // sonst blitzte das Hintergrundbild für ein Bild scharf durch (vor allem Statistik mit vielen Karten)
+            const rahmen = ebene?.parentElement; ebeneRef.current = null;
+            requestAnimationFrame(() => requestAnimationFrame(() => { rahmen?.remove(); zugLaeuft.current = false; }));
           };
           if (erfolg && key) {
             // Das Bild deckt alles ab, bis die neue Seite gebaut ist. Ihre Einblend-Animationen werden verdeckt sofort zu Ende
@@ -1424,8 +1427,10 @@ function App() {
     challengeAnlegen: DEMO ? null : (c) => konto.challengeAnlegen(supabase(), c),
     challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
     mitmachen: DEMO ? null : (a) => mitmachen(a),
+    intervalsStatus: DEMO ? null : () => konto.intervalsStatus(supabase()),
+    intervalsAktion: DEMO ? null : async (aktion, daten) => { const r = await konto.intervalsAktion(supabase(), aktion, SUPABASE_URL, daten); setTimeout(abgleich, aktion === 'verbinden' ? 8000 : 0); return r; },
     stravaStatus: DEMO ? null : () => konto.stravaStatus(supabase()),
-    stravaAktion: DEMO ? null : async (aktion) => { const r = await konto.stravaAktion(supabase(), aktion, SUPABASE_URL); if (aktion !== 'start') abgleich(); return r; },
+    stravaAktion: DEMO ? null : async (aktion, daten) => { const r = await konto.stravaAktion(supabase(), aktion, SUPABASE_URL, daten); if (aktion !== 'start') abgleich(); return r; },
     coachBeziehungen: DEMO ? null : async () => { const r = await konto.coachBeziehungen(supabase()); setCoachOffen(coachZahl(r)); return r; },
     coachAnfragen: DEMO ? null : (id) => konto.coachAnfragen(supabase(), id),
     coachAntworten: DEMO ? null : (id, ja) => konto.coachAntworten(supabase(), id, ja),

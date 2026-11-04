@@ -143,10 +143,10 @@ export function gewichteteLeistung(watt) {
 }
 
 /** Form-Kurve aus Tageslasten: Fitness (42 Tage), Ermüdung (7 Tage), Frische = Fitness − Ermüdung. lasten: { datum: last } */
-export function form(lasten, { von, bis }) {
+export function form(lasten, { von, bis, ab = null }) {
   let fit = 0, erm = 0;
   const kf = 1 - Math.exp(-1 / 42), ke = 1 - Math.exp(-1 / 7), aus = [];
-  const start = Object.keys(lasten).sort()[0] ?? von;
+  const start = ab ?? Object.keys(lasten).sort()[0] ?? von;
   for (let d = start < von ? start : von; d <= bis; d = plus(d, 1)) {
     const l = lasten[d] ?? 0;
     fit += (l - fit) * kf; erm += (l - erm) * ke;

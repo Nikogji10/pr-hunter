@@ -434,12 +434,29 @@ export async function stravaStatus(sb) {
   if (ohne33(r) || r.error) return null;
   return r.data?.[0] ?? { verbunden: false };
 }
-export async function stravaAktion(sb, aktion, basis) {
+export async function stravaAktion(sb, aktion, basis, daten = null) {
   const { data } = await sb.auth.getSession();
-  const r = await fetch(`${basis}/functions/v1/strava?aktion=${aktion}`, { method: 'POST', headers: { Authorization: `Bearer ${data?.session?.access_token ?? ''}` } });
+  const r = await fetch(`${basis}/functions/v1/strava?aktion=${aktion}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${data?.session?.access_token ?? ''}`, 'content-type': 'application/json' }, body: JSON.stringify(daten ?? {}) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 404 && !j.fehler) throw new Error('Strava-Funktion fehlt (supabase functions deploy strava).');
   if (!r.ok) throw new Error(j.fehler ?? `Strava ${r.status}`);
+  return j;
+}
+// 230 (Update 34): intervals.icu – Status per RPC (ohne Schlüssel), Aktionen über die Edge Function `intervals`
+const ohne34 = (r) => r.error && /intervals/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
+export async function intervalsStatus(sb) {
+  const r = await sb.rpc('intervals_status');
+  if (ohne34(r) || r.error) return null;
+  return r.data?.[0] ?? { verbunden: false };
+}
+export async function intervalsAktion(sb, aktion, basis, daten = null) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(`${basis}/functions/v1/intervals?aktion=${aktion}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${data?.session?.access_token ?? ''}`, 'content-type': 'application/json' }, body: JSON.stringify(daten ?? {}) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.fehler) throw new Error('intervals-Funktion fehlt (supabase functions deploy intervals).');
+  if (!r.ok) throw new Error(j.fehler ?? `intervals.icu ${r.status}`);
   return j;
 }
 /** Server übernehmen, lokal offene (noch nicht hochgeladene) behalten; neueste zuerst. */

@@ -6,6 +6,7 @@ import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh,
 import { einheitAusDatei } from '../js/dateiimport.js';
 
 const name = (x) => (sprache() === 'en' ? x.en : x.de);
+const QUELLE = { strava: 'Strava', intervals: 'intervals.icu', datei: 'Datei' };
 const km = (m) => (m == null ? '–' : `${fmt(m / 1000, m >= 100000 ? 0 : 1)} km`);
 
 /** Kurzzeile einer Einheit: „10,2 km · 52:10 · 5:07 /km“ bzw. „62 km · 2:05:00 · 29,8 km/h · 210 W“ */
@@ -31,7 +32,7 @@ export function AusdauerSheet({ vorlage = null, wahl, speichern, loeschen, zu })
   const ok = (s > 0 || a.distanz_m > 0) && a.datum;
   return html`<${Sheet} zu=${zu} label=${deEn('Ausdauer eintragen', 'Log cardio')}>
     <div class="sheet-kopf"><h2 class="h2">${vorlage ? deEn('Einheit bearbeiten', 'Edit session') : rad && sports.length === 1 ? deEn('Radfahrt eintragen', 'Log ride') : !rad && sports.length === 1 ? deEn('Lauf eintragen', 'Log run') : deEn('Ausdauer eintragen', 'Log cardio')}</h2></div>
-    ${fremd ? html`<p class="muted" style="margin:0;font-size:12.5px">${a.quelle === 'strava' ? deEn('Aus Strava – Änderungen gelten nur in PR Hunter.', 'From Strava – changes only apply in PR Hunter.') : deEn('Aus einer Datei importiert.', 'Imported from a file.')}</p>` : null}
+    ${fremd ? html`<p class="muted" style="margin:0;font-size:12.5px">${a.quelle === 'datei' ? deEn('Aus einer Datei importiert.', 'Imported from a file.') : deEn(`Aus ${QUELLE[a.quelle]} – Änderungen gelten nur in PR Hunter.`, `From ${QUELLE[a.quelle]} – changes only apply in PR Hunter.`)}</p>` : null}
     <div class="chips-zeile au-arten">${ARTEN.filter((x) => sports.includes(x.sport)).map((x) => html`<button key=${x.id} class="chip" aria-pressed=${String(a.art === x.id)} onClick=${() => setze('art', x.id)}>${x.icon} ${name(x)}</button>`)}</div>
     <div class="au-felder">
       <label class="field voll"><span class="label">${deEn('Datum', 'Date')}</span><input type="date" class="text" value=${a.datum} max=${HEUTE} onInput=${(e) => setze('datum', e.currentTarget.value)}/></label>
@@ -89,7 +90,7 @@ export function AusdauerDetail({ a, wahl, speichern, loeschen, zu }) {
     ${d.runden.map((s, i) => html`<div key=${i} class="au-zeile"><span>${i + 1}</span><span>${s.m ? km(s.m) : '–'}</span><span>${s.s ? dauerText(s.s) : '–'}</span><span>${s.puls ?? '–'}</span></div>`)}</div>` : null;
   return html`<${Sheet} zu=${zu} label=${a.titel || name(art(a.art))}>
     <div class="sheet-kopf au-detail-kopf"><span class="au-detail-sym">${art(a.art).icon}</span>
-      <div><h2 class="h2">${a.titel || name(art(a.art))}</h2><small class="muted">${[datumLang(a.datum), typ ? name(typ) : null, a.quelle === 'strava' ? 'Strava' : a.quelle === 'datei' ? deEn('Datei', 'File') : null].filter(Boolean).join(' · ')}</small></div></div>
+      <div><h2 class="h2">${a.titel || name(art(a.art))}</h2><small class="muted">${[datumLang(a.datum), typ ? name(typ) : null, a.quelle === 'datei' ? deEn('Datei', 'File') : QUELLE[a.quelle] ?? null].filter(Boolean).join(' · ')}</small></div></div>
     <div class="au-kacheln">${kacheln.map(([k, v]) => html`<div key=${k}><small>${k}</small><b>${v}</b></div>`)}</div>
     ${bereich(deEn('Kilometer-Splits', 'Splits'), splits)}
     ${bereich(deEn('Bestzeiten', 'Best efforts'), best)}
@@ -99,6 +100,7 @@ export function AusdauerDetail({ a, wahl, speichern, loeschen, zu }) {
     ${a.geraet || a.notiz ? html`<div class="au-notiz">${a.geraet ? html`<span>${rad ? '🚲' : '👟'} ${a.geraet}</span>` : null}${a.notiz ? html`<p>${a.notiz}</p>` : null}</div>` : null}
     <div class="row" style="gap:8px">
       ${a.quelle === 'strava' && a.extern_id ? html`<a class="btn btn-soft" style="flex:1" href=${`https://www.strava.com/activities/${a.extern_id}`} target="_blank" rel="noopener noreferrer">Strava ↗</a>` : null}
+      ${a.quelle === 'intervals' && a.extern_id ? html`<a class="btn btn-soft" style="flex:1" href=${`https://intervals.icu/activities/${a.extern_id}`} target="_blank" rel="noopener noreferrer">intervals.icu ↗</a>` : null}
       <button class="btn btn-soft" style="flex:1" onClick=${() => setBearbeiten(true)}>${deEn('Bearbeiten', 'Edit')}</button></div>
   <//>`;
 }
@@ -150,7 +152,7 @@ export function AusdauerListe({ liste, wahl, speichern, loeschen }) {
     ${meldung ? html`<p class="muted" style="margin:0 0 6px;font-size:12.5px">${meldung}</p>` : null}
     <div class="liste">${l.slice(0, n).map((a) => html`<button key=${a.id} onClick=${() => setOffen(a)}>
       <div class="datum-box"><b>${a.datum.slice(8, 10)}</b><span>${datumLang(a.datum).slice(0, 2)}</span></div>
-      <div style="min-width:0"><div style="font-weight:700">${art(a.art).icon} ${a.titel || name(art(a.art))}${a.quelle === 'strava' ? html` <small class="au-quelle">Strava</small>` : null}</div>
+      <div style="min-width:0"><div style="font-weight:700">${art(a.art).icon} ${a.titel || name(art(a.art))}${QUELLE[a.quelle] && a.quelle !== 'datei' ? html` <small class=${`au-quelle ${a.quelle}`}>${QUELLE[a.quelle]}</small>` : null}</div>
         <div class="muted" style="font-size:13px">${kurz(a)}</div></div>
       <span class="muted" style="font-size:13px">${a.typ ? name(TYPEN.find((t) => t.id === a.typ) ?? TYPEN[0]) : ''}</span></button>`)}
       ${l.length ? null : html`<p class="muted" style="margin:0;font-size:14px">${deEn('Noch keine Läufe oder Radfahrten.', 'No runs or rides yet.')}</p>`}</div>

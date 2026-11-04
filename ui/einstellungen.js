@@ -100,7 +100,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     hilfen: ['Im Training', 'Readiness-Check, Aufwärmen, Supersätze, Technik, Cut-Modus, e1RM', I.blitz, [einst.bereitschaft !== false ? 'Readiness' : null, einst.mobility ? 'Aufwärmen' : null, einst.cut ? 'Cut' : null, einst.autoregulation ? 'Autoregulation' : null].filter(Boolean).join(' · ') || 'Standard'],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
-    verbindungen: ['Kalender und Strava', einst.ausdauer ? 'Kalender-Abo, Termine, Strava' : 'Kalender-Abo, Termine', I.verbindung, ''],
+    verbindungen: ['Kalender und Verbindungen', 'Kalender-Abo, intervals.icu (Garmin, Wahoo …), Strava', I.verbindung, ''],
     ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
       konto: ['Konto und Daten', 'Profilbild, Name, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
   };
@@ -236,7 +236,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
       <${KalenderAbo}/>
     </section>
-    ${einst.ausdauer && !DEMO ? html`<${StravaKarte}/>` : null}`
+    ${!DEMO ? html`<${WegeWahl}/><${IntervalsKarte} aus=${!einst.ausdauer}/><${StravaKarte}/>` : null}`
     : bereich === 'geraete' ? html`
     <section class="card pad stack">
       <${Seg} label="Einheit" werte=${[['kg', 'kg'], ['lb', 'lb']]} wert=${einst.einheit} setze=${(v) => {
@@ -422,41 +422,117 @@ function TonListe({ wert, setze }) {
       onClick=${() => { piep(id); setze(id); }}><span>${tonName(id)}</span>${wert === id ? I.check : null}</button>`)}</div>`)}</div>`;
 }
 
-/** 223: Strava verbinden – Läufe und Radfahrten kommen automatisch (nur für den Nutzer sichtbar). */
-function StravaKarte() {
-  const [st, setSt] = useState(null);                   // null = lädt, false = Update 33 fehlt, sonst { verbunden, zuletzt }
+/** 230: intervals.icu – Schlüssel eintragen, danach kommen Läufe und Radfahrten automatisch (Garmin, Wahoo, Polar, Coros, Zwift). */
+function IntervalsKarte({ aus = false }) {
+  const [st, setSt] = useState(null);
+  const [key, setKey] = useState('');
   const [laeuft, setLaeuft] = useState(null);
   const [meldung, setMeldung] = useState(null);
   const [trennenFragen, setTrennenFragen] = useState(false);
-  const laden = () => DIENSTE.stravaStatus?.().then((s) => setSt(s ?? false)).catch(() => setSt(false));
+  const laden = () => DIENSTE.intervalsStatus?.().then((s) => setSt(s ?? false)).catch(() => setSt(false));
   useEffect(() => { laden(); }, []);
-  const tu = async (aktion) => {
+  const tu = async (aktion, daten) => {
     setLaeuft(aktion); setMeldung(null);
     try {
-      const r = await DIENSTE.stravaAktion(aktion);
+      const r = await DIENSTE.intervalsAktion(aktion, daten);
+      setMeldung(aktion === 'verbinden' ? deEn(`Verbunden${r.name ? ` als ${r.name}` : ''} – die letzten 90 Tage kommen gleich in den Verlauf.`, `Connected${r.name ? ` as ${r.name}` : ''} – the last 90 days arrive in History shortly.`)
+        : aktion === 'abgleich' ? deEn(r.neu ? `${r.neu} neue Aktivitäten geholt.` : 'Alles aktuell.', r.neu ? `${r.neu} new activities.` : 'Up to date.')
+        : deEn('Getrennt – importierte Daten gelöscht.', 'Disconnected – imported data deleted.'));
+      setKey(''); setTrennenFragen(false); laden();
+    } catch (e) { setMeldung(e.message); }
+    setLaeuft(null);
+  };
+  if (!DIENSTE.intervalsStatus) return null;
+  return html`<section class="card pad stack iv-karte">
+    <div class="row between" style="align-items:center"><span class="viz-t">intervals.icu</span>
+      ${st?.verbunden ? html`<span class="iv-ok">● ${deEn('verbunden', 'connected')}</span>` : null}</div>
+    ${aus ? html`<p class="muted" style="margin:0;font-size:12.5px">${deEn('Damit Läufe und Radfahrten angezeigt werden: Einstellungen → Training → „Hybrid: dazu Ausdauer“.', 'To show runs and rides: Settings → Training → “Hybrid: add cardio”.')}</p>` : null}
+    ${st === false ? html`<p class="muted" style="margin:0;font-size:13px">${deEn('Braucht Datenbank-Update 34 (db/34_intervals.sql).', 'Needs database update 34 (db/34_intervals.sql).')}</p>`
+    : st?.verbunden ? html`
+      <span class="muted" style="font-size:13px">${deEn(`Läufe und Radfahrten kommen automatisch${st.name ? ` (${st.name})` : ''}.`, `Runs and rides arrive automatically${st.name ? ` (${st.name})` : ''}.`)}
+        ${st.zuletzt ? ` ${deEn('Zuletzt', 'Last')}: ${datumKurz(st.zuletzt.slice(0, 10))} ${st.zuletzt.slice(11, 16)}` : ''}</span>
+      <div class="row" style="gap:8px"><button class="btn btn-soft" style="flex:1" disabled=${!!laeuft} onClick=${() => tu('abgleich')}>${laeuft === 'abgleich' ? '…' : deEn('Jetzt abgleichen', 'Sync now')}</button>
+        <button class="btn btn-soft" disabled=${!!laeuft} onClick=${() => setTrennenFragen(!trennenFragen)}>${deEn('Trennen', 'Disconnect')}</button></div>
+      ${trennenFragen ? html`<div class="strava-trennen"><span>${deEn('Importierte Daten werden aus PR Hunter gelöscht. In intervals.icu bleibt alles.', 'Imported data is deleted from PR Hunter. Everything stays in intervals.icu.')}</span>
+        <button class="btn btn-gefahr btn-sm" disabled=${!!laeuft} onClick=${() => tu('trennen')}>${deEn('Trennen und löschen', 'Disconnect and delete')}</button></div>` : null}`
+    : st ? html`
+      <span class="muted" style="font-size:13px">${deEn('Kostenlos und automatisch: Uhr → Garmin, Wahoo, Polar, Coros oder Zwift → intervals.icu → PR Hunter.', 'Free and automatic: watch → Garmin, Wahoo, Polar, Coros or Zwift → intervals.icu → PR Hunter.')}</span>
+      <ol class="iv-schritte">
+        <li>${deEn('Kostenloses Konto auf ', 'Create a free account at ')}<a href="https://intervals.icu" target="_blank" rel="noopener noreferrer">intervals.icu</a>${deEn(' anlegen.', '.')}</li>
+        <li>${deEn('Dort unter Settings → Connections deine Uhr verbinden (z. B. Garmin Connect). Wichtig: direkt, nicht über Strava – Strava-Aktivitäten gibt intervals.icu nicht weiter.', 'There, under Settings → Connections, connect your watch (e.g. Garmin Connect). Important: directly, not via Strava – intervals.icu does not pass on Strava activities.')}</li>
+        <li>${deEn('Settings → Developer Settings → „API Key“ anzeigen und kopieren.', 'Settings → Developer Settings → show and copy the “API Key”.')}</li>
+        <li>${deEn('Hier einfügen und verbinden. Die letzten 90 Tage kommen sofort, neue Einheiten von selbst.', 'Paste it here and connect. The last 90 days arrive right away, new sessions by themselves.')}</li></ol>
+      <div class="row" style="gap:8px"><input class="text" style="flex:1" type="password" autocomplete="off" placeholder=${deEn('API-Schlüssel', 'API key')} value=${key} onInput=${(e) => setKey(e.currentTarget.value)}/>
+        <button class="btn btn-chalk" disabled=${key.trim().length < 10 || !!laeuft} onClick=${() => tu('verbinden', { key: key.trim() })}>${laeuft === 'verbinden' ? '…' : deEn('Verbinden', 'Connect')}</button></div>`
+    : html`<span class="muted">…</span>`}
+    ${meldung ? html`<span class="muted" style="font-size:12.5px">${meldung}</span>` : null}
+  </section>`;
+}
+
+/** 223/231: Strava mit eigener Strava-App (Strava-API nur mit Strava-Mitgliedschaft; jede Strava-App gilt für eine Person). */
+const CALLBACK = 'ichfzfvtuzakujcbiuhf.supabase.co';
+function StravaKarte({ aus = false }) {
+  const [st, setSt] = useState(null);                   // null = lädt, false = Update fehlt, sonst { verbunden, eingerichtet, zuletzt, webhook }
+  const [laeuft, setLaeuft] = useState(null);
+  const [meldung, setMeldung] = useState(null);
+  const [trennenFragen, setTrennenFragen] = useState(false);
+  const [offen, setOffen] = useState(false);
+  const [cid, setCid] = useState(''), [geheim, setGeheim] = useState('');
+  const appUrl = `${location.origin}${location.pathname}`;
+  const laden = () => DIENSTE.stravaStatus?.().then((s) => setSt(s && 'eingerichtet' in s ? s : s ? { ...s, eingerichtet: false, alt: true } : false)).catch(() => setSt(false));
+  useEffect(() => { laden(); }, []);
+  const tu = async (aktion, daten) => {
+    setLaeuft(aktion); setMeldung(null);
+    try {
+      const r = await DIENSTE.stravaAktion(aktion, daten);
       if (aktion === 'start') { location.href = r.url; return; }
       setMeldung(aktion === 'abgleich' ? deEn(r.neu ? `${r.neu} neue Aktivitäten geholt.` : 'Alles aktuell.', r.neu ? `${r.neu} new activities.` : 'Up to date.') : deEn('Getrennt – Strava-Daten gelöscht.', 'Disconnected – Strava data deleted.'));
       setTrennenFragen(false); laden();
     } catch (e) { setMeldung(e.message); }
     setLaeuft(null);
   };
+  const kopierFeld = (label, wert) => html`<div class="sv-wert"><small>${label}</small><code>${wert}</code><button class="btn btn-soft btn-sm" onClick=${async () => setMeldung((await kopiere(wert)) ? deEn(`„${label}“ kopiert.`, `“${label}” copied.`) : wert)}>${deEn('Kopieren', 'Copy')}</button></div>`;
   if (!DIENSTE.stravaStatus) return null;
   return html`<section class="card pad stack strava-karte">
     <div class="row between" style="align-items:center"><span class="viz-t">Strava</span>
-      ${st?.verbunden ? html`<span class="strava-ok">● ${deEn('verbunden', 'connected')}</span>` : null}</div>
-    ${st === false ? html`<p class="muted" style="margin:0;font-size:13px">${deEn('Braucht Datenbank-Update 33 (db/33_ausdauer.sql).', 'Needs database update 33 (db/33_ausdauer.sql).')}</p>`
+      ${st?.verbunden ? html`<span class="strava-ok">● ${deEn('verbunden', 'connected')}</span>` : html`<span class="sv-abo">${deEn('braucht Strava-Abo', 'needs Strava subscription')}</span>`}</div>
+    ${aus ? html`<p class="muted" style="margin:0;font-size:12.5px">${deEn('Damit Läufe und Radfahrten angezeigt werden: Einstellungen → Training → „Hybrid: dazu Ausdauer“.', 'To show runs and rides: Settings → Training → “Hybrid: add cardio”.')}</p>` : null}
+    ${st === false || st?.alt ? html`<p class="muted" style="margin:0;font-size:13px">${deEn('Braucht Datenbank-Update 35 (db/35_strava_eigen.sql).', 'Needs database update 35 (db/35_strava_eigen.sql).')}</p>`
     : st?.verbunden ? html`
-      <span class="muted" style="font-size:13px">${deEn('Läufe und Radfahrten kommen automatisch – auch von Garmin, Wahoo und Co., wenn sie zu Strava hochladen.', 'Runs and rides arrive automatically – also from Garmin, Wahoo etc. when they upload to Strava.')}
+      <span class="muted" style="font-size:13px">${deEn('Läufe und Radfahrten aus Strava kommen automatisch. Nur für dich sichtbar, gehen nicht an „Frag die KI“.', 'Runs and rides from Strava arrive automatically. Only visible to you, not sent to “Ask AI”.')}
         ${st.zuletzt ? ` ${deEn('Zuletzt', 'Last')}: ${datumKurz(st.zuletzt.slice(0, 10))} ${st.zuletzt.slice(11, 16)}` : ''}</span>
       <div class="row" style="gap:8px"><button class="btn btn-soft" style="flex:1" disabled=${!!laeuft} onClick=${() => tu('abgleich')}>${laeuft === 'abgleich' ? '…' : deEn('Jetzt abgleichen', 'Sync now')}</button>
         <button class="btn btn-soft" disabled=${!!laeuft} onClick=${() => setTrennenFragen(!trennenFragen)}>${deEn('Trennen', 'Disconnect')}</button></div>
       ${trennenFragen ? html`<div class="strava-trennen"><span>${deEn('Importierte Strava-Daten werden aus PR Hunter gelöscht. In Strava bleibt alles.', 'Imported Strava data is deleted from PR Hunter. Everything stays in Strava.')}</span>
         <button class="btn btn-gefahr btn-sm" disabled=${!!laeuft} onClick=${() => tu('trennen')}>${deEn('Trennen und löschen', 'Disconnect and delete')}</button></div>` : null}`
+    : st && !offen ? html`
+      <span class="muted" style="font-size:13px">${deEn('Für alle, die nur mit der Strava-App aufzeichnen. Strava gibt seine Schnittstelle nur mit Strava-Mitgliedschaft frei – du brauchst ein Abo und legst einmalig eine eigene „Strava-App“ an (ca. 3 Minuten).', 'For anyone who only records with the Strava app. Strava only opens its API with a Strava subscription – you need one and create your own “Strava app” once (about 3 minutes).')}</span>
+      <button class="btn btn-soft btn-block" onClick=${() => setOffen(true)}>${st.eingerichtet ? deEn('Erneut verbinden', 'Connect again') : deEn('Strava einrichten', 'Set up Strava')}</button>`
     : st ? html`
-      <span class="muted" style="font-size:13px">${deEn('Einmal verbinden – danach kommen Läufe und Radfahrten von selbst, mit Splits, Puls und Watt. Nur für dich sichtbar.', 'Connect once – then runs and rides arrive by themselves, with splits, heart rate and power. Only visible to you.')}</span>
-      <button class="strava-knopf" disabled=${!!laeuft} onClick=${() => tu('start')}>${laeuft === 'start' ? '…' : deEn('Mit Strava verbinden', 'Connect with Strava')}</button>`
+      <ol class="iv-schritte sv-schritte">
+        <li>${deEn('Strava-Mitgliedschaft (Abo) aktiv haben.', 'Have an active Strava subscription.')}</li>
+        <li>${deEn('Am Computer oder im Browser ', 'On a computer or in the browser open ')}<a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">strava.com/settings/api</a>${deEn(' öffnen und eine Anwendung erstellen:', ' and create an application:')}
+          <div class="sv-felder"><span>${deEn('Anwendungsname: z. B. „PR Hunter“ · Kategorie: Training · Beschreibung: beliebig', 'Application name: e.g. “PR Hunter” · Category: Training · Description: anything')}</span>
+            ${kopierFeld(deEn('Website', 'Website'), appUrl)}${kopierFeld(deEn('Callback-Domain', 'Callback domain'), CALLBACK)}</div></li>
+        <li>${deEn('Erstellen tippen. Danach zeigt Strava „Client ID“ (Zahl) und „Client Secret“ (anzeigen tippen).', 'Tap create. Strava then shows “Client ID” (a number) and “Client Secret” (tap show).')}</li>
+        <li>${deEn('Beide hier eintragen und verbinden – Strava fragt dann nach der Freigabe.', 'Enter both here and connect – Strava then asks for permission.')}</li></ol>
+      <div class="au-felder">
+        <label class="field"><span class="label">Client ID</span><input class="text" inputmode="numeric" placeholder="123456" value=${cid} onInput=${(e) => setCid(e.currentTarget.value.trim())}/></label>
+        <label class="field"><span class="label">Client Secret</span><input class="text" type="password" autocomplete="off" value=${geheim} onInput=${(e) => setGeheim(e.currentTarget.value.trim())}/></label></div>
+      <button class="strava-knopf" disabled=${!!laeuft || !/^\d{3,10}$/.test(cid) || geheim.length < 20} onClick=${() => tu('start', { client_id: cid, client_secret: geheim, app_url: appUrl })}>${laeuft === 'start' ? '…' : deEn('Mit Strava verbinden', 'Connect with Strava')}</button>
+      <span class="muted" style="font-size:12px">${deEn('Client Secret liegt nur auf dem Server und wird nie angezeigt. Strava-Daten siehst nur du.', 'The client secret is stored only on the server and never shown. Only you see Strava data.')}</span>
+      <button class="link" style="align-self:flex-start" onClick=${() => setOffen(false)}>${deEn('Abbrechen', 'Cancel')}</button>`
     : html`<span class="muted">…</span>`}
     ${meldung ? html`<span class="muted" style="font-size:12.5px">${meldung}</span>` : null}
+  </section>`;
+}
+
+/** Oben in „Kalender und Verbindungen“: welcher Weg passt? */
+function WegeWahl() {
+  return html`<section class="card pad stack wege">
+    <span class="viz-t">${deEn('Läufe und Radfahrten automatisch', 'Runs and rides automatically')}</span>
+    <div class="weg"><b>⌚ ${deEn('Mit Uhr oder Radcomputer', 'With a watch or bike computer')}</b><span>${deEn('Garmin, Wahoo, Polar, Coros, Suunto, Zwift → intervals.icu. Kostenlos.', 'Garmin, Wahoo, Polar, Coros, Suunto, Zwift → intervals.icu. Free.')}</span></div>
+    <div class="weg"><b>📱 ${deEn('Nur mit der Strava-App', 'Only with the Strava app')}</b><span>${deEn('→ Strava. Braucht eine Strava-Mitgliedschaft.', '→ Strava. Needs a Strava subscription.')}</span></div>
   </section>`;
 }
 
