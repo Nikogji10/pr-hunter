@@ -5,6 +5,7 @@
 import { rekorde, wochenSerie, gesamt } from './insights.js';
 import { HAUPT, kanon } from './daten.js';
 import { e1rm } from './rechnen.js';
+import { sichtbar, sportarten, sportVon } from './ausdauer.js';
 
 export const KATEGORIEN = [
   { id: 'trainings', icon: '💪', name: ['Trainings', 'Workouts'], stufen: [1, 10, 25, 50, 100, 200, 300, 500, 750, 1000, 1500, 2000], text: (n) => [`${n} ${n === 1 ? 'Training' : 'Trainings'}`, `${n} ${n === 1 ? 'workout' : 'workouts'}`] },
@@ -15,6 +16,9 @@ export const KATEGORIEN = [
   { id: 'squat', icon: '🥇', pl: true, kg: true, name: ['Kniebeuge', 'Squat'], stufen: [40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300], text: (n) => [`Kniebeuge ${n} kg`, `Squat ${n} kg`] },
   { id: 'bench', icon: '🥇', pl: true, kg: true, name: ['Bankdrücken', 'Bench'], stufen: [30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200], text: (n) => [`Bankdrücken ${n} kg`, `Bench ${n} kg`] },
   { id: 'dead', icon: '🥇', pl: true, kg: true, name: ['Kreuzheben', 'Deadlift'], stufen: [60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 350], text: (n) => [`Kreuzheben ${n} kg`, `Deadlift ${n} kg`] },
+  // 229: Ausdauer – nur, wenn in den Einstellungen gewählt
+  { id: 'laufkm', icon: '🏃', au: 'lauf', name: ['Laufen', 'Running'], stufen: [10, 50, 100, 250, 500, 1000, 1500, 2000, 3000, 5000], text: (n) => [`${n} km gelaufen`, `${n} km run`] },
+  { id: 'radkm', icon: '🚴', au: 'rad', name: ['Radfahren', 'Cycling'], stufen: [100, 500, 1000, 2500, 5000, 7500, 10000, 15000, 20000, 30000], text: (n) => [`${n} km geradelt`, `${n} km ridden`] },
   { id: 'total', icon: '🏅', pl: true, kg: true, name: ['Total', 'Total'], stufen: [150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800], text: (n) => [`Total ${n} kg`, `Total ${n} kg`] },
 ];
 
@@ -40,9 +44,10 @@ export function erfolgsWerte(einheiten) {
 }
 
 /** Je Kategorie: aktueller Wert, erreichte und nächste Stufe, Fortschritt über alle Stufen (0–1); dazu die Abzeichen. */
-export function erfolge(einheiten, { powerlifting = true } = {}) {
-  const w = erfolgsWerte(einheiten);
-  const liste = KATEGORIEN.filter((k) => powerlifting || !k.pl).map((k) => {
+export function erfolge(einheiten, { powerlifting = true, ausdauer = [], wahl = null } = {}) {
+  const w = erfolgsWerte(einheiten), sp = sportarten(wahl), au = sichtbar(ausdauer, wahl);
+  for (const s of ['lauf', 'rad']) w[`${s}km`] = Math.floor(au.filter((a) => sportVon(a.art) === s).reduce((x, a) => x + (a.distanz_m ?? 0), 0) / 1000);
+  const liste = KATEGORIEN.filter((k) => (powerlifting || !k.pl) && (!k.au || sp.includes(k.au))).map((k) => {
     const wert = w[k.id] ?? 0, erreicht = k.stufen.filter((s) => wert >= s), naechste = k.stufen.find((s) => wert < s) ?? null;
     const vorher = erreicht.at(-1) ?? 0, teil = naechste ? Math.max(0, Math.min(1, (wert - vorher) / (naechste - vorher))) : 0;
     return { ...k, wert, stufe: erreicht.at(-1) ?? null, anzahl: erreicht.length, naechste,

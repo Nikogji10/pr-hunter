@@ -160,7 +160,7 @@ export function beinBelastung(liste, jetzt) {
   let summe = 0;
   for (const a of liste) {
     if (a.geloescht) continue;
-    const t = a.start ? Date.parse(a.start) : Date.parse(`${a.datum}T12:00:00Z`);
+    const t = a.start ? Date.parse(a.start) : Math.min(jetzt, Date.parse(`${a.datum}T12:00:00Z`));   // ohne Uhrzeit: mittags, heute höchstens jetzt
     const h = (jetzt - t) / 36e5;
     if (h < 0 || h > 72) continue;
     summe += last(a) * (1 - h / 72) * (sportVon(a.art) === 'lauf' ? 1 : 0.7) * (1 + Math.min(1, (a.hoehe_m ?? 0) / 1000));

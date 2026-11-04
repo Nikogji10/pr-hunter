@@ -6,7 +6,7 @@ import { HEUTE, E1RM_AKTUELL, KOERPERGEWICHT } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { normiere } from '../js/insights.js';
 import { aktiveBeschwerden, REGIONEN } from '../js/beschwerden.js';
-import { kiText, BEISPIELE, KI_ZIELE, appLink } from '../js/kidaten.js';
+import { kiText, BEISPIELE, HYBRID_IDEE, KI_ZIELE, appLink } from '../js/kidaten.js';
 
 // Android: Intent ohne neues Fenster (sonst ging erst die App und zusätzlich der Browser auf); sonst normaler Link im neuen Tab
 const ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
@@ -17,17 +17,17 @@ const Funkeln = () => html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="
   <path d="M19 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="currentColor" opacity=".75"/><path d="M5 16l.6 1.5 1.5.6-1.5.6L5 20.2l-.6-1.5-1.5-.6 1.5-.6z" fill="currentColor" opacity=".55"/></svg>`;
 
 /** Kachel auf „Heute“. */
-export function KiKachel({ trainings, einst, block, prog }) {
+export function KiKachel({ trainings, einst, block, prog, ausdauer = [] }) {
   const [offen, setOffen] = useState(false);
   return html`<button class="ki-kachel" onClick=${() => setOffen(true)}>
       <span class="ki-icon"><${Funkeln}/></span>
       <span class="ki-text"><b>${deEn('Frag die KI', 'Ask AI')}</b><small>${deEn('Deine Frage + deine Trainingsdaten – kostenlos in ChatGPT, Gemini oder Claude', 'Your question + your training data – free in ChatGPT, Gemini or Claude')}</small></span>
       <span class="ki-pfeil" aria-hidden="true">›</span>
     </button>
-    ${offen ? html`<${Portal}><${KiFenster} zu=${() => setOffen(false)} trainings=${trainings} einst=${einst} block=${block} prog=${prog}/><//>` : null}`;
+    ${offen ? html`<${Portal}><${KiFenster} zu=${() => setOffen(false)} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${einst.ausdauer ? ausdauer : []}/><//>` : null}`;
 }
 
-function KiFenster({ zu, trainings, einst, block, prog }) {
+function KiFenster({ zu, trainings, einst, block, prog, ausdauer = [] }) {
   const art = einst.trainingsart === 'einfach' ? 'bb' : 'pl';          // Bodybuilding/Krafttraining oder Powerlifting
   const [frage, setFrage] = useState('');                        // beim Schließen weg – jedes Öffnen beginnt leer
   const [wochen, setWochen] = useState(8);
@@ -46,7 +46,7 @@ function KiFenster({ zu, trainings, einst, block, prog }) {
       e1rm: Object.fromEntries(Object.entries(HAUPT).map(([l, k]) => [l, E1RM_AKTUELL[k] ?? null])),
       beschwerden: aktiveBeschwerden(einst.beschwerden, HEUTE).map((b) => ({ region: regName(b.region), bis: b.bis })), gewichtZiel: einst.gewichtZiel };
   };
-  const text = () => kiText({ frage, einheiten, heute: HEUTE, wochen, profil: profil(), name: (k) => nameVon(k, k), sprache: sprache(), art,
+  const text = () => kiText({ frage, einheiten, heute: HEUTE, wochen, profil: profil(), name: (k) => nameVon(k, k), sprache: sprache(), art, ausdauer,
     muskeln: (k) => (uebung(k)?.m ?? []).map((m) => (sprache() === 'en' ? m : MUSKEL_DE[m] ?? m)) });
   const anzahl = einheiten.filter((e) => e.datum >= new Date(Date.parse(`${HEUTE}T00:00:00Z`) - wochen * 7 * 864e5).toISOString().slice(0, 10)).length;
   const laenge = useMemo(() => text().length, [einheiten, wochen, frage]);
@@ -63,7 +63,7 @@ function KiFenster({ zu, trainings, einst, block, prog }) {
       <i>${schritt > i + 1 ? '✓' : i + 1}</i><b>${t}</b><small>${u}</small></li>`)}</ol>
     <label class="ki-feld"><span class="eyebrow">${deEn('Deine Frage', 'Your question')}</span>
       <textarea rows="3" maxlength="1000" placeholder=${deEn('z. B. Warum geht meine Bank seit Wochen nicht hoch?', 'e.g. Why has my bench not gone up for weeks?')} value=${frage} onInput=${(e) => setze(e.currentTarget.value)}></textarea></label>
-    <div class="ki-ideen">${BEISPIELE[art].map(([de, en, fDe, fEn], i) => html`<button key=${i} class="chip" aria-pressed=${String(frage === deEn(fDe, fEn))} onClick=${() => setze(deEn(fDe, fEn))}>${deEn(de, en)}</button>`)}</div>
+    <div class="ki-ideen">${[...BEISPIELE[art], ...(ausdauer.length ? [HYBRID_IDEE] : [])].map(([de, en, fDe, fEn], i) => html`<button key=${i} class="chip" aria-pressed=${String(frage === deEn(fDe, fEn))} onClick=${() => setze(deEn(fDe, fEn))}>${deEn(de, en)}</button>`)}</div>
     <div class="stack" style="gap:6px"><span class="eyebrow">${deEn('Daten aus den letzten', 'Data from the last')}</span>
       <div class="seg">${[[4, '4 Wochen', '4 weeks'], [8, '8 Wochen', '8 weeks'], [13, '3 Monate', '3 months'], [26, '6 Monate', '6 months']].map(([w, de, en]) => html`<button key=${w} aria-pressed=${String(wochen === w)} onClick=${() => { setWochen(w); setKopiert(false); }}>${deEn(de, en)}</button>`)}</div>
       <span class="muted" style="font-size:12.5px">${art === 'pl' ? deEn(`${anzahl} Trainings mit Sätzen, RPE und Notizen, dazu e1RM-Verlauf, Block und Körpergewicht · ≈ ${laenge.toLocaleString('de-DE')} Zeichen`, `${anzahl} workouts with sets, RPE and notes, plus e1RM trend, block and bodyweight · ≈ ${laenge.toLocaleString('en-GB')} characters`)

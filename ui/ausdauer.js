@@ -2,7 +2,8 @@
 // Einstellungen → Training „Ausdauer“ gewählt ist (Laufen, Rad oder beides).
 import { html, useState, Sheet, Portal, deEn, sprache, datumLang, datumKurz, fmt, I } from './basis.js';
 import { HEUTE } from './stand.js';
-import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, dauerLesen, montag } from '../js/ausdauer.js';
+import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, dauerLesen, montag, beinBelastung } from '../js/ausdauer.js';
+import { einheitAusDatei } from '../js/dateiimport.js';
 
 const name = (x) => (sprache() === 'en' ? x.en : x.de);
 const km = (m) => (m == null ? '–' : `${fmt(m / 1000, m >= 100000 ? 0 : 1)} km`);
@@ -105,6 +106,7 @@ export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
   const woche = l.filter((a) => a.datum >= mo && a.datum <= HEUTE);
   const summe = (sport) => woche.filter((a) => sportVon(a.art) === sport).reduce((s, a) => ({ km: s.km + (a.distanz_m ?? 0) / 1000, s: s.s + (a.dauer_s ?? 0), n: s.n + 1 }), { km: 0, s: 0, n: 0 });
   const letzte = [...l].sort((a, b) => (b.datum + (b.start ?? '')).localeCompare(a.datum + (a.start ?? '')))[0];
+  const beine = beinBelastung(l, Date.now());                   // 227: Lauf/Rad der letzten 72 h
   return html`<section class="card au-karte">
     <div class="au-kopf"><span class="eyebrow">${deEn('Ausdauer · diese Woche', 'Cardio · this week')}</span>
       <button class="au-plus" aria-label=${deEn('Ausdauer eintragen', 'Log cardio')} onClick=${() => setOffen('neu')}>${I.plus ?? '+'}</button></div>
@@ -113,6 +115,8 @@ export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
       <div><b>${fmt(x.km, x.km >= 100 ? 0 : 1)}<small> km</small></b><span>${x.n ? `${x.n}× · ${dauerText(x.s)}` : deEn('noch nichts', 'nothing yet')}</span></div></div>`; })}</div>
     ${letzte ? html`<button class="au-letzte" onClick=${() => setOffen(letzte)}><span>${art(letzte.art).icon}</span>
       <span class="au-letzte-text"><b>${letzte.titel || name(art(letzte.art))}</b><small>${`${datumKurz(letzte.datum)} · ${kurz(letzte)}`}</small></span><span class="muted">›</span></button>` : null}
+    ${beine > 0.5 ? html`<div class="au-beine">🦵 ${beine > 0.8 ? deEn('Beine noch stark belastet – schweres Beintraining heute lieber leichter oder verschieben.', 'Legs still heavily loaded – go lighter on heavy leg work today or move it.')
+      : deEn('Beine noch etwas belastet – bei Kniebeuge und Kreuzheben auf die RPE achten.', 'Legs still somewhat loaded – watch the RPE on squats and deadlifts.')}</div>` : null}
     ${offen ? html`<${Portal}>${offen === 'neu' ? html`<${AusdauerSheet} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>` : html`<${AusdauerDetail} a=${offen} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>`}<//>` : null}
   </section>`;
 }
@@ -121,10 +125,25 @@ export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
 export function AusdauerListe({ liste, wahl, speichern, loeschen }) {
   const [offen, setOffen] = useState(null);
   const [n, setN] = useState(8);
+  const [meldung, setMeldung] = useState(null);
   const l = sichtbar(liste, wahl).sort((a, b) => (b.datum + (b.start ?? '')).localeCompare(a.datum + (a.start ?? '')));
+  // 224: GPX/TCX (Garmin Connect, Wahoo, Strava-Export) – doppelte Dateien werden übersprungen
+  const dateien = async (e) => {
+    const vorhanden = new Set(liste.map((a) => a.extern_id).filter(Boolean)), neu = [];
+    let fehler = 0;
+    for (const f of e.currentTarget.files ?? []) {
+      try { const a = einheitAusDatei(await f.text(), f.name); if (!a) { fehler++; continue; } if (!vorhanden.has(a.extern_id)) { neu.push({ ...a, id: crypto.randomUUID() }); vorhanden.add(a.extern_id); } }
+      catch { fehler++; }
+    }
+    e.currentTarget.value = '';
+    if (neu.length) speichern(neu);
+    setMeldung(deEn(`${neu.length} importiert${fehler ? `, ${fehler} nicht lesbar` : ''}.`, `${neu.length} imported${fehler ? `, ${fehler} unreadable` : ''}.`));
+  };
   return html`<section class="card pad">
-    <div class="row between" style="margin-bottom:4px"><span class="eyebrow">${deEn('Ausdauer', 'Cardio')}</span>
-      <button class="btn btn-soft btn-sm" onClick=${() => setOffen('neu')}>${deEn('+ Eintragen', '+ Log')}</button></div>
+    <div class="row between" style="margin-bottom:4px;gap:6px"><span class="eyebrow">${deEn('Ausdauer', 'Cardio')}</span>
+      <span class="row" style="gap:6px"><label class="btn btn-soft btn-sm au-datei">${deEn('Datei', 'File')}<input type="file" accept=".gpx,.tcx" multiple hidden onChange=${dateien}/></label>
+      <button class="btn btn-soft btn-sm" onClick=${() => setOffen('neu')}>${deEn('+ Eintragen', '+ Log')}</button></span></div>
+    ${meldung ? html`<p class="muted" style="margin:0 0 6px;font-size:12.5px">${meldung}</p>` : null}
     <div class="liste">${l.slice(0, n).map((a) => html`<button key=${a.id} onClick=${() => setOffen(a)}>
       <div class="datum-box"><b>${a.datum.slice(8, 10)}</b><span>${datumLang(a.datum).slice(0, 2)}</span></div>
       <div style="min-width:0"><div style="font-weight:700">${art(a.art).icon} ${a.titel || name(art(a.art))}${a.quelle === 'strava' ? html` <small class="au-quelle">Strava</small>` : null}</div>

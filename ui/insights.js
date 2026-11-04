@@ -29,7 +29,7 @@ function Kopf({ titel, unter }) {
   return html`<div class="ins-kopf"><b>${titel}</b> <span class="ins-analyse">Analyse</span>${unter ? html`<div class="ins-unter">${unter}</div>` : null}</div>`;
 }
 
-export function Insights({ trainings, einst, heute }) {
+export function Insights({ trainings, einst, heute, ausdauer = [] }) {
   const E = useMemo(() => normiere(trainings), [trainings]);
   const muskelnVon = (k) => uebung(k)?.m ?? [];
   const pause = (k) => pauseVon(k, null, einst.pausen);
@@ -40,7 +40,7 @@ export function Insights({ trainings, einst, heute }) {
     m = saetzeJeMuskel(E, sonntag, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
-    <${ErfolgeKarte} E=${E} powerlifting=${einst.trainingsart !== 'einfach'}/>
+    <${ErfolgeKarte} E=${E} powerlifting=${einst.trainingsart !== 'einfach'} ausdauer=${ausdauer} wahl=${einst.ausdauer}/>
     <${EinheitKarte} a=${a} unter=${letzteWoche}/>
     ${r.anzahl ? html`<${EinsRmKarte} r=${r} unter=${letzteWoche}/>` : null}
     ${m.liste.length ? html`<${MuskelKarte} m=${m} unter=${letzteWoche}/>` : null}
@@ -134,9 +134,9 @@ function EinheitKarte({ a, unter }) {
 }
 
 // ---------- Erfolge (184) ----------
-function ErfolgeKarte({ E, powerlifting }) {
+function ErfolgeKarte({ E, powerlifting, ausdauer = [], wahl = null }) {
   const en = sprache() === 'en', sp = en ? 1 : 0;
-  const er = useMemo(() => erfolge(E, { powerlifting }), [E, powerlifting]);
+  const er = useMemo(() => erfolge(E, { powerlifting, ausdauer, wahl }), [E, powerlifting, ausdauer, wahl]);
   // Titel = dein tatsächlicher Wert (nicht die Stufe); Balken = Weg über alle Stufen; Lifts: bestes e1RM der Wettkampf-Übung
   const wertText = (k) => k.text(k.kg ? fmt(k.wert, 1) : fmt(Math.floor(k.wert)))[sp];
   return html`<section class="card pad stack ins">

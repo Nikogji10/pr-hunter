@@ -2432,3 +2432,11 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 .au-geraet-kopf { display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; color: var(--ink); padding: 0; font-size: 14px; text-align: left; }
 .au-geraet-balken { display: block; height: 6px; border-radius: 99px; background: var(--raised); overflow: hidden; } .au-geraet-balken i { display: block; height: 100%; border-radius: 99px; }
 .au-voll { color: #EF4444; font-weight: 800; }
+/* 223: Strava (Farben nach Strava-Vorgabe) */
+.strava-knopf { height: 48px; border: 0; border-radius: 12px; background: #FC4C02; color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .01em; }
+.strava-knopf:active { transform: scale(.98); } .strava-knopf:disabled { opacity: .6; }
+.strava-ok { font-size: 12.5px; font-weight: 800; color: #FC4C02; }
+.strava-trennen { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #EF4444 10%, var(--raised)); font-size: 13px; }
+.strava-trennen .btn { align-self: flex-start; }
+.au-beine { font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, #F59E0B 12%, var(--raised)); color: var(--ink); }
+.au-datei { cursor: pointer; }

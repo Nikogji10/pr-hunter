@@ -293,7 +293,7 @@ function Heute({ ausdauer = [], ausdauerSpeichern = null, ausdauerLoeschen = nul
   })()}
   <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
   ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik}/>` : null}`;
-  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen}/>` : null}`;
+  const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen}/>` : null}`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
@@ -576,6 +576,13 @@ function App() {
       else setPhase('anmelden');
     })().catch((e) => { setFehler(e.message); setPhase('fehler'); });
     if (location.protocol === 'https:' && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    // 223: Rückkehr von der Strava-Freigabe (?strava=ok | abgelehnt | …) – Meldung zeigen, Adresse aufräumen
+    const strava = new URLSearchParams(location.search).get('strava');
+    if (strava) {
+      history.replaceState(history.state, '', location.pathname + location.hash);
+      setToast(strava === 'ok' ? { titel: 'Strava verbunden', text: deEn('Die letzten 90 Tage werden geholt – gleich im Verlauf.', 'Fetching the last 90 days – shortly in History.') }
+        : { titel: 'Strava', text: strava === 'abgelehnt' ? deEn('Freigabe abgebrochen.', 'Authorisation cancelled.') : strava === 'ohne-aktivitaeten' ? deEn('Bitte den Zugriff auf Aktivitäten erlauben.', 'Please allow access to activities.') : deEn('Verbinden hat nicht geklappt – nochmal versuchen.', 'Connecting failed – please try again.') });
+    }
   }, []);
 
   async function starte(n) {
@@ -685,6 +692,12 @@ function App() {
       // 222: Ausdauer hochladen und mischen (ohne Update 33 bleibt alles lokal)
       try {
         let au = (await s.meta('ausdauer')) ?? [];
+        // Strava: höchstens alle 30 min neue Aktivitäten holen (der Webhook bringt sie sonst von selbst)
+        const zuletzt = Number(speicher.lies('prh-strava-zuletzt') ?? 0);
+        if ((await s.meta('einst'))?.ausdauer && Date.now() - zuletzt > 30 * 60_000) {
+          speicher.schreib('prh-strava-zuletzt', String(Date.now()));
+          if ((await konto.stravaStatus(sb))?.verbunden) await konto.stravaAktion(sb, 'abgleich', SUPABASE_URL).catch(() => {});
+        }
         for (const a of au.filter((x) => x.offen)) if (await konto.ausdauerHochladen(sb, a)) a.offen = false;
         au = konto.mischeAusdauer(au, await konto.ladeAusdauer(sb));
         await s.setzeMeta('ausdauer', au); setAusdauer(au);
@@ -1274,7 +1287,7 @@ function App() {
       // 184: Abzeichen vorher/nachher (das neue Training als gespeichertes Format dazu)
       const neu = { datum: t.datum, start: t.start, ende: ende ? Date.parse(ende) : Date.now(), uebungen: t.karten.filter((k) => k.key).map((k) => ({ key: k.key,
         saetze: k.gruppen.flatMap((g) => g.saetze.filter((s) => s.erledigt).map((s) => ({ kg: s.kg, wdh: s.wdh, rpe: s.rpe, typ: s.typ, fertig: true }))) })) };
-      const opt = { powerlifting: einst.trainingsart !== 'einfach' };
+      const opt = { powerlifting: einst.trainingsart !== 'einfach', ausdauer, wahl: einst.ausdauer };
       const abzeichen = neueAbzeichen(erfolge(E, opt), erfolge([...E, ...normiere([neu])], opt));
       const motivation = { vorname: einst.vorname, ziel: einst.wochenziel ?? 3, erstes: !E.length, abzeichen,
         woche: new Set(daten.filter((d) => montagVon(d) === montagVon(t.datum))).size, serie: wochenSerie(daten, t.datum).aktuell,
@@ -1301,8 +1314,9 @@ function App() {
   };
   // 182: Körpermaße eines Tages setzen (ergänzt einen vorhandenen Eintrag), dann abgleichen
   // 222: Ausdauer speichern/löschen – lokal sofort, Konto beim Abgleich
-  const ausdauerSpeichern = (a) => {
-    const neu = [{ ...a, offen: true }, ...ausdauer.filter((x) => x.id !== a.id)].sort((x, y) => y.datum.localeCompare(x.datum));
+  const ausdauerSpeichern = (a) => {                              // eine Einheit oder mehrere (Datei-Import)
+    const liste = (Array.isArray(a) ? a : [a]).map((x) => ({ ...x, offen: true })), ids = new Set(liste.map((x) => x.id));
+    const neu = [...liste, ...ausdauer.filter((x) => !ids.has(x.id))].sort((x, y) => y.datum.localeCompare(x.datum));
     setAusdauer(neu); sp.current.setzeMeta('ausdauer', neu).then(() => { if (!DEMO) abgleich(); });
   };
   const ausdauerLoeschen = (a) => ausdauerSpeichern({ ...a, geloescht: true });
@@ -1410,6 +1424,8 @@ function App() {
     challengeAnlegen: DEMO ? null : (c) => konto.challengeAnlegen(supabase(), c),
     challengeAntworten: DEMO ? null : (id, dabei) => konto.challengeAntworten(supabase(), id, dabei),
     mitmachen: DEMO ? null : (a) => mitmachen(a),
+    stravaStatus: DEMO ? null : () => konto.stravaStatus(supabase()),
+    stravaAktion: DEMO ? null : async (aktion) => { const r = await konto.stravaAktion(supabase(), aktion, SUPABASE_URL); if (aktion !== 'start') abgleich(); return r; },
     coachBeziehungen: DEMO ? null : async () => { const r = await konto.coachBeziehungen(supabase()); setCoachOffen(coachZahl(r)); return r; },
     coachAnfragen: DEMO ? null : (id) => konto.coachAnfragen(supabase(), id),
     coachAntworten: DEMO ? null : (id, ja) => konto.coachAntworten(supabase(), id, ja),

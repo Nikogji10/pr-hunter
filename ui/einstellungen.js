@@ -95,9 +95,12 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     return () => removeEventListener('popstate', zurueckZumMenue);
   }, []);
   const bereiche = {
-    training: ['Training', 'Pausen, Ton, Benachrichtigungen, Cut-Modus, Readiness-Check, e1RM-Formel', I.heute, `Pausen ${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} · Ton ${tonName(einst.ton)} · Cut ${einst.cut ? 'an' : 'aus'}`],
+    training: ['Training', 'Trainingsart, Ausdauer, Wochenziel, Wettkampf', I.heute, `${einst.trainingsart === 'einfach' ? 'Einfach' : 'Powerlifting'}${einst.ausdauer ? ` + ${{ lauf: 'Laufen', rad: 'Rad', beides: 'Laufen/Rad' }[einst.ausdauer]}` : ''} · ${einst.wochenziel ?? 3}× pro Woche`],
+    pausen: ['Pausen und Ton', 'Pausenzeiten, Ton, Ansagen, Vibration, Benachrichtigungen', I.uhr, `${mmss(einst.pausen.top)} / ${mmss(einst.pausen.backoff)} / ${mmss(einst.pausen.isolation)} · ${tonName(einst.ton)}`],
+    hilfen: ['Im Training', 'Readiness-Check, Aufwärmen, Supersätze, Technik, Cut-Modus, e1RM', I.blitz, [einst.bereitschaft !== false ? 'Readiness' : null, einst.mobility ? 'Aufwärmen' : null, einst.cut ? 'Cut' : null, einst.autoregulation ? 'Autoregulation' : null].filter(Boolean).join(' · ') || 'Standard'],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
+    verbindungen: ['Kalender und Strava', einst.ausdauer ? 'Kalender-Abo, Termine, Strava' : 'Kalender-Abo, Termine', I.verbindung, ''],
     ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
       konto: ['Konto und Daten', 'Profilbild, Name, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
   };
@@ -144,16 +147,28 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <span class="viz-t">Trainingsart</span>
       <${Seg} label="Trainingsart" werte=${[['einfach', 'Einfach / Bodybuilding'], ['powerlifting', 'Powerlifting']]} wert=${einst.trainingsart ?? 'powerlifting'} setze=${(v) => setEinst({ ...einst, trainingsart: v })}/>
       <span class="muted" style="font-size:12.5px">${einst.trainingsart === 'einfach' ? 'Einfache Ansicht: Vorschläge statt 1RM-Zahlen, keine Kraftwerte für Kniebeuge/Bank/Kreuzheben, kein Kraftprofil, keine Punkte.' : 'Alles sichtbar: Trainingsmax, e1RM, Kraftprofil, Punkte, Powerlifting-Generator.'}</span>
-      ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
-      <${KalenderAbo}/>
-      <span class="viz-t unterteil">${deEn('Ausdauer', 'Cardio')}</span>
-      <${Seg} label=${deEn('Ausdauer', 'Cardio')} werte=${[['aus', deEn('Aus', 'Off')], ['lauf', deEn('Laufen', 'Running')], ['rad', deEn('Rad', 'Cycling')], ['beides', deEn('Beides', 'Both')]]}
+      <span class="viz-t unterteil">${deEn('Hybrid: dazu Ausdauer', 'Hybrid: add cardio')}</span>
+      <${Seg} label=${deEn('Hybrid: dazu Ausdauer', 'Hybrid: add cardio')} werte=${[['aus', deEn('Nein', 'No')], ['lauf', deEn('Laufen', 'Running')], ['rad', deEn('Rad', 'Cycling')], ['beides', deEn('Beides', 'Both')]]}
         wert=${einst.ausdauer ?? 'aus'} setze=${(v) => setEinst({ ...einst, ausdauer: v === 'aus' ? null : v })}/>
       <span class="muted" style="font-size:12.5px">${deEn('Läufe und Radfahrten neben dem Krafttraining – auf „Heute“, im Verlauf und als eigener Statistik-Reiter. Nur für dich sichtbar.', 'Runs and rides next to strength training – on “Today”, in History and as its own Stats tab. Only visible to you.')}</span>
       <span class="viz-t unterteil">Wochenziel</span>
       <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
       <span class="muted" style="font-size:12.5px">${deEn('Nach jedem Training zeigt die App, wie viele Trainings diese Woche geschafft sind und wie weit es noch bis zum Ziel ist.', 'After each workout the app shows how many workouts you have done this week and how far it is to your goal.')}</span>
     </section>
+    ${einst.trainingsart !== 'einfach' ? html`<section class="card pad stack">
+      <span class="viz-t">Wettkampf</span>
+      <div class="stack unterteil" style="gap:8px">
+        <span class="muted" style="font-size:12.5px">Mit Datum zeigt „Heute“ einen Countdown, die passende Phase und eine Prognose deiner Lifts. Mit Gewichtsklasse dazu den Abstand zum Limit.</span>
+        <div class="fields"><label class="field" for="e-wk-datum"><span class="label">Wettkampfdatum</span>
+          <input id="e-wk-datum" class="text" type="date" value=${einst.wettkampfDatum ?? ''} onInput=${(e) => setEinst({ ...einst, wettkampfDatum: e.currentTarget.value || null })}/></label>
+          <label class="field" for="e-wk-klasse"><span class="label">Gewichtsklasse (kg)</span>
+          <input id="e-wk-klasse" class="text" type="text" inputmode="decimal" placeholder="z. B. 83" value=${einst.gewichtsklasse ?? ''}
+            onChange=${(e) => { const v = Number(e.currentTarget.value.replace(',', '.')); setEinst({ ...einst, gewichtsklasse: v > 0 ? v : null }); }}/></label></div></div>
+      ${einst.trainingsart !== 'einfach' ? html`<label class="schalter" for="e-meets"><span><b>Wettkampf-Ergebnisse</b><br/>
+        <span class="muted" style="font-size:12.5px">„Meine Wettkämpfe“ in Statistik → Kraft: Versuche, Total, DOTS und Verlauf je Meet.</span></span>
+        <input type="checkbox" id="e-meets" checked=${einst.wettkampfErgebnisse !== false} onChange=${(e) => setEinst({ ...einst, wettkampfErgebnisse: e.currentTarget.checked })}/></label>` : null}
+    </section>` : null}`
+    : bereich === 'pausen' ? html`
     <section class="card pad stack">
       <span class="viz-t">Standard-Pausen</span>
       <p class="muted" style="margin:0;font-size:13px">Der Timer startet nach jedem abgehakten Satz mit der Pause dieser Satzart. Eigene Pausen je Übung gehen vor (Übungsseite → Für mich anpassen).</p>
@@ -184,42 +199,44 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       ${!mitteilungMoeglich() ? html`<span class="muted" style="font-size:12.5px">Dieser Browser kann keine Benachrichtigungen. Auf dem iPhone geht es ab iOS 16.4 und nur in der installierten App (Zum Home-Bildschirm).</span>`
         : html`<span class="muted" style="font-size:12.5px">Grenzen einer Web-App: kein sekündlich laufender Timer in der Leiste, und im Hintergrund bremst das Handy die App. Android meldet das Pausenende meist pünktlich, das iPhone oft erst beim Öffnen.</span>`}
       ${mitteilungFehler ? html`<p class="fehler">${mitteilungFehler}</p>` : null}
-    </section>
+    </section>`
+    : bereich === 'hilfen' ? html`
     <section class="card pad stack">
-      <label class="schalter" style="border-top:0;padding-top:0" for="e-cut"><span><b>Cut-Modus</b><br/>
-        <span class="muted" style="font-size:12.5px">Ein Satz weniger bei Back-offs, Varianten und Zubehör (mind. 1). Top-Sätze, Tests und Wettkampf-Hauptsätze bleiben. Vorlagen mit eigenen Cut-Regeln (Hybrid) nutzen diese.</span></span>
-        <input type="checkbox" id="e-cut" checked=${einst.cut} onChange=${(e) => setEinst({ ...einst, cut: e.currentTarget.checked })}/></label>
+      <span class="viz-t">${deEn('Vor dem Training', 'Before the workout')}</span>
+      <label class="schalter" style="border-top:0;padding-top:0" for="e-bereit"><span><b>Readiness-Check</b><br/>
+        <span class="muted" style="font-size:12.5px">Vor jedem Training vier kurze Fragen (Schlaf, Stress, Muskelkater, Energie). Bei schlechten Werten schlägt die App 5 % weniger Gewicht vor.</span></span>
+        <input type="checkbox" id="e-bereit" checked=${einst.bereitschaft !== false} onChange=${(e) => setEinst({ ...einst, bereitschaft: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-aufwaerm"><span><b>Aufwärm-Routine</b><br/>
         <span class="muted" style="font-size:12.5px">Vor dem ersten Satz eine kurze Mobility-Abfolge (ca. 3 min) passend zum Trainingstag, mit Timer je Übung. Lässt sich jedes Mal überspringen.</span></span>
         <input type="checkbox" id="e-aufwaerm" checked=${einst.mobility === true} onChange=${(e) => setEinst({ ...einst, mobility: e.currentTarget.checked })}/></label>
-      <label class="schalter" for="e-supersatz"><span><b>Supersätze bilden</b><br/>
+    </section>
+    <section class="card pad stack">
+      <span class="viz-t">${deEn('Während des Trainings', 'During the workout')}</span>
+      <label class="schalter" style="border-top:0;padding-top:0" for="e-supersatz"><span><b>Supersätze bilden</b><br/>
         <span class="muted" style="font-size:12.5px">Unter jeder Übung der Knopf „Supersatz mit nächster“ – zwei Übungen im Wechsel, Pause erst nach der Runde.</span></span>
         <input type="checkbox" id="e-supersatz" checked=${einst.supersatzKnopf === true} onChange=${(e) => setEinst({ ...einst, supersatzKnopf: e.currentTarget.checked })}/></label>
       <label class="schalter" for="e-technik"><span><b>Technik je Satz bewerten</b><br/>
         <span class="muted" style="font-size:12.5px">Nach dem Abhaken 👍 oder 👎 für die Technik. Die Übungsseite zeigt dann, ab welchem Gewicht die Technik leidet.</span></span>
         <input type="checkbox" id="e-technik" checked=${!!einst.technikBewertung} onChange=${(e) => setEinst({ ...einst, technikBewertung: e.currentTarget.checked })}/></label>
-      ${einst.trainingsart !== 'einfach' ? html`<label class="schalter" for="e-meets"><span><b>Wettkampf-Ergebnisse</b><br/>
-        <span class="muted" style="font-size:12.5px">„Meine Wettkämpfe“ in Statistik → Kraft: Versuche, Total, DOTS und Verlauf je Meet.</span></span>
-        <input type="checkbox" id="e-meets" checked=${einst.wettkampfErgebnisse !== false} onChange=${(e) => setEinst({ ...einst, wettkampfErgebnisse: e.currentTarget.checked })}/></label>` : null}
-      <div class="stack unterteil" style="gap:8px"><span class="eyebrow">Wettkampf</span>
-        <span class="muted" style="font-size:12.5px">Mit Datum zeigt „Heute“ einen Countdown, die passende Phase und eine Prognose deiner Lifts. Mit Gewichtsklasse dazu den Abstand zum Limit.</span>
-        <div class="fields"><label class="field" for="e-wk-datum"><span class="label">Wettkampfdatum</span>
-          <input id="e-wk-datum" class="text" type="date" value=${einst.wettkampfDatum ?? ''} onInput=${(e) => setEinst({ ...einst, wettkampfDatum: e.currentTarget.value || null })}/></label>
-          <label class="field" for="e-wk-klasse"><span class="label">Gewichtsklasse (kg)</span>
-          <input id="e-wk-klasse" class="text" type="text" inputmode="decimal" placeholder="z. B. 83" value=${einst.gewichtsklasse ?? ''}
-            onChange=${(e) => { const v = Number(e.currentTarget.value.replace(',', '.')); setEinst({ ...einst, gewichtsklasse: v > 0 ? v : null }); }}/></label></div></div>
       <label class="schalter" for="e-auto"><span><b>Autoregulation für Zubehör</b><br/>
         <span class="muted" style="font-size:12.5px">Gewicht der Zubehörübungen aus der RPE der letzten Einheit (leichter → mehr, schwerer → weniger); fällt die Leistung dreimal hintereinander, Deload −10 %. Kniebeuge, Bank und Kreuzheben steuert weiter der Plan.</span></span>
         <input type="checkbox" id="e-auto" checked=${!!einst.autoregulation} onChange=${(e) => setEinst({ ...einst, autoregulation: e.currentTarget.checked })}/></label>
-      <label class="schalter" for="e-bereit"><span><b>Readiness-Check</b><br/>
-        <span class="muted" style="font-size:12.5px">Vor jedem Training vier kurze Fragen (Schlaf, Stress, Muskelkater, Energie). Bei schlechten Werten schlägt die App 5 % weniger Gewicht vor.</span></span>
-        <input type="checkbox" id="e-bereit" checked=${einst.bereitschaft !== false} onChange=${(e) => setEinst({ ...einst, bereitschaft: e.currentTarget.checked })}/></label>
-      <div class="stack unterteil" style="gap:6px"><span class="eyebrow">e1RM-Formel</span>
+      <label class="schalter" for="e-cut"><span><b>Cut-Modus</b><br/>
+        <span class="muted" style="font-size:12.5px">Ein Satz weniger bei Back-offs, Varianten und Zubehör (mind. 1). Top-Sätze, Tests und Wettkampf-Hauptsätze bleiben. Vorlagen mit eigenen Cut-Regeln (Hybrid) nutzen diese.</span></span>
+        <input type="checkbox" id="e-cut" checked=${einst.cut} onChange=${(e) => setEinst({ ...einst, cut: e.currentTarget.checked })}/></label>
+    </section>
+    <section class="card pad stack">
+      <div class="stack" style="gap:6px"><span class="viz-t">e1RM-Formel</span>
         <${Seg} label="e1RM-Formel" werte=${[['rpe', 'RPE (RTS)'], ['epley', 'Epley'], ['brzycki', 'Brzycki']]} wert=${einst.formel} setze=${(v) => setEinst({ ...einst, formel: v })}/>
         <span class="muted" style="font-size:12.5px">${einst.formel === 'rpe' ? 'Mit RPE über die Tabelle nach Tuchscherer, ohne RPE nach Epley.' : 'Ohne RPE-Tabelle; ein angegebenes RPE zählt als Wiederholungen in Reserve.'}</span></div>
+    </section>`
+    : bereich === 'verbindungen' ? html`
+    <section class="card pad stack">
+      <span class="viz-t">${deEn('Kalender', 'Calendar')}</span>
+      ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
+      <${KalenderAbo}/>
     </section>
-
-`
+    ${einst.ausdauer && !DEMO ? html`<${StravaKarte}/>` : null}`
     : bereich === 'geraete' ? html`
     <section class="card pad stack">
       <${Seg} label="Einheit" werte=${[['kg', 'kg'], ['lb', 'lb']]} wert=${einst.einheit} setze=${(v) => {
@@ -403,6 +420,44 @@ function TonListe({ wert, setze }) {
     <span class="eyebrow">${deEn(de, en)}</span>
     ${Object.entries(TOENE).filter(([, x]) => x.gruppe === g).map(([id]) => html`<button key=${id} class="ton-punkt" aria-pressed=${String(wert === id)}
       onClick=${() => { piep(id); setze(id); }}><span>${tonName(id)}</span>${wert === id ? I.check : null}</button>`)}</div>`)}</div>`;
+}
+
+/** 223: Strava verbinden – Läufe und Radfahrten kommen automatisch (nur für den Nutzer sichtbar). */
+function StravaKarte() {
+  const [st, setSt] = useState(null);                   // null = lädt, false = Update 33 fehlt, sonst { verbunden, zuletzt }
+  const [laeuft, setLaeuft] = useState(null);
+  const [meldung, setMeldung] = useState(null);
+  const [trennenFragen, setTrennenFragen] = useState(false);
+  const laden = () => DIENSTE.stravaStatus?.().then((s) => setSt(s ?? false)).catch(() => setSt(false));
+  useEffect(() => { laden(); }, []);
+  const tu = async (aktion) => {
+    setLaeuft(aktion); setMeldung(null);
+    try {
+      const r = await DIENSTE.stravaAktion(aktion);
+      if (aktion === 'start') { location.href = r.url; return; }
+      setMeldung(aktion === 'abgleich' ? deEn(r.neu ? `${r.neu} neue Aktivitäten geholt.` : 'Alles aktuell.', r.neu ? `${r.neu} new activities.` : 'Up to date.') : deEn('Getrennt – Strava-Daten gelöscht.', 'Disconnected – Strava data deleted.'));
+      setTrennenFragen(false); laden();
+    } catch (e) { setMeldung(e.message); }
+    setLaeuft(null);
+  };
+  if (!DIENSTE.stravaStatus) return null;
+  return html`<section class="card pad stack strava-karte">
+    <div class="row between" style="align-items:center"><span class="viz-t">Strava</span>
+      ${st?.verbunden ? html`<span class="strava-ok">● ${deEn('verbunden', 'connected')}</span>` : null}</div>
+    ${st === false ? html`<p class="muted" style="margin:0;font-size:13px">${deEn('Braucht Datenbank-Update 33 (db/33_ausdauer.sql).', 'Needs database update 33 (db/33_ausdauer.sql).')}</p>`
+    : st?.verbunden ? html`
+      <span class="muted" style="font-size:13px">${deEn('Läufe und Radfahrten kommen automatisch – auch von Garmin, Wahoo und Co., wenn sie zu Strava hochladen.', 'Runs and rides arrive automatically – also from Garmin, Wahoo etc. when they upload to Strava.')}
+        ${st.zuletzt ? ` ${deEn('Zuletzt', 'Last')}: ${datumKurz(st.zuletzt.slice(0, 10))} ${st.zuletzt.slice(11, 16)}` : ''}</span>
+      <div class="row" style="gap:8px"><button class="btn btn-soft" style="flex:1" disabled=${!!laeuft} onClick=${() => tu('abgleich')}>${laeuft === 'abgleich' ? '…' : deEn('Jetzt abgleichen', 'Sync now')}</button>
+        <button class="btn btn-soft" disabled=${!!laeuft} onClick=${() => setTrennenFragen(!trennenFragen)}>${deEn('Trennen', 'Disconnect')}</button></div>
+      ${trennenFragen ? html`<div class="strava-trennen"><span>${deEn('Importierte Strava-Daten werden aus PR Hunter gelöscht. In Strava bleibt alles.', 'Imported Strava data is deleted from PR Hunter. Everything stays in Strava.')}</span>
+        <button class="btn btn-gefahr btn-sm" disabled=${!!laeuft} onClick=${() => tu('trennen')}>${deEn('Trennen und löschen', 'Disconnect and delete')}</button></div>` : null}`
+    : st ? html`
+      <span class="muted" style="font-size:13px">${deEn('Einmal verbinden – danach kommen Läufe und Radfahrten von selbst, mit Splits, Puls und Watt. Nur für dich sichtbar.', 'Connect once – then runs and rides arrive by themselves, with splits, heart rate and power. Only visible to you.')}</span>
+      <button class="strava-knopf" disabled=${!!laeuft} onClick=${() => tu('start')}>${laeuft === 'start' ? '…' : deEn('Mit Strava verbinden', 'Connect with Strava')}</button>`
+    : html`<span class="muted">…</span>`}
+    ${meldung ? html`<span class="muted" style="font-size:12.5px">${meldung}</span>` : null}
+  </section>`;
 }
 
 function KalenderAbo() {

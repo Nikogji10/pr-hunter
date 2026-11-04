@@ -205,7 +205,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
     <div class="reiter-inhalt statistik-inhalt unter-inhalt" key=${reiter}>
     ${reiter === 'ausdauer' ? html`<${AusdauerStatistik} liste=${ausdauer} einst=${einst} setEinst=${setEinst} trainings=${trainings} x=${x}/>`
-    : reiter === 'analyse' ? html`<${Insights} einst=${einst} heute=${HEUTE} trainings=${DEMO
+    : reiter === 'analyse' ? html`<${Insights} ausdauer=${ausdauer} einst=${einst} heute=${HEUTE} trainings=${DEMO
         // Beispieldaten: Tage mit fester Uhrzeit, damit Dauer und Zeitnutzung etwas zeigen
         ? Object.keys(trainingsTage).map((d) => { const t = trainingAm(d); return t && { datum: d, start: `${d}T17:00:00Z`, ende: new Date(Date.parse(`${d}T17:00:00Z`) + (60 + (Number(d.slice(8)) % 5) * 12) * 60000).toISOString(), uebungen: t.uebungen }; }).filter(Boolean)
         : trainings}/>`

@@ -428,6 +428,20 @@ export async function ausdauerHochladen(sb, a) {
   if (r.error) throw new Error(r.error.message);
   return true;
 }
+// 223: Strava – Status per RPC (ohne Tokens), Aktionen über die Edge Function `strava`
+export async function stravaStatus(sb) {
+  const r = await sb.rpc('strava_status');
+  if (ohne33(r) || r.error) return null;
+  return r.data?.[0] ?? { verbunden: false };
+}
+export async function stravaAktion(sb, aktion, basis) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(`${basis}/functions/v1/strava?aktion=${aktion}`, { method: 'POST', headers: { Authorization: `Bearer ${data?.session?.access_token ?? ''}` } });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.fehler) throw new Error('Strava-Funktion fehlt (supabase functions deploy strava).');
+  if (!r.ok) throw new Error(j.fehler ?? `Strava ${r.status}`);
+  return j;
+}
 /** Server übernehmen, lokal offene (noch nicht hochgeladene) behalten; neueste zuerst. */
 export function mischeAusdauer(lokal, server) {
   if (!server) return lokal;

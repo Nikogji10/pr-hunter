@@ -57,7 +57,7 @@ export function saetzeJeMuskel(liste, wochen, muskeln) {
  *           e1rm: { squat, bench, dead }, beschwerden: [{ region, bis }], gewichtZiel }
  * art: 'pl' (Powerlifting) | 'bb' (Bodybuilding/Krafttraining) – andere Rolle, andere Daten. muskeln(key) → Hauptmuskeln.
  */
-export function kiText({ frage, einheiten, heute, wochen = 8, profil = {}, name = (k) => k, sprache = 'de', art = 'pl', muskeln = () => [] }) {
+export function kiText({ frage, einheiten, heute, wochen = 8, profil = {}, name = (k) => k, sprache = 'de', art = 'pl', muskeln = () => [], ausdauer = [] }) {
   const en = sprache === 'en', L = (de, e) => (en ? e : de), pl = art !== 'bb';
   const von = plus(heute, -7 * wochen), liste = einheiten.filter((e) => e.datum >= von && e.datum <= heute);
   const LIFT = { squat: L('Kniebeuge', 'Squat'), bench: L('Bankdrücken', 'Bench press'), dead: L('Kreuzheben', 'Deadlift') };
@@ -67,6 +67,8 @@ export function kiText({ frage, einheiten, heute, wochen = 8, profil = {}, name 
       'You are an experienced powerlifting coach (squat, bench press, deadlift; RPE-based programming, periodisation, peaking for meets). Below is my training data from my app “PR Hunter”. Answer my question specifically, using numbers from the data (e1RM, sets, RPE). If something is missing, tell me what else you need.')
     : L('Du bist ein erfahrener Coach für Muskelaufbau und Krafttraining (Hypertrophie: Volumen je Muskel, progressive Überlastung, Übungsauswahl, Erholung). Unten stehen meine Trainingsdaten aus meiner App „PR Hunter“. Beantworte meine Frage konkret und mit Zahlen aus den Daten (Sätze je Muskel, Gewichte, Wiederholungen). Wenn etwas fehlt, sag, was du noch wissen musst.',
       'You are an experienced coach for muscle building and strength training (hypertrophy: volume per muscle, progressive overload, exercise selection, recovery). Below is my training data from my app “PR Hunter”. Answer my question specifically, using numbers from the data (sets per muscle, weights, reps). If something is missing, tell me what else you need.'));
+  const au = ausdauer.filter((a) => !a.geloescht && a.quelle !== 'strava' && a.datum >= von && a.datum <= heute);   // Strava-Daten nicht an KI (Strava-Regeln)
+  if (au.length) z.push(L('Ich mache zusätzlich Ausdauertraining (Laufen/Rad) – berücksichtige die Gesamtbelastung und wie sich Kraft und Ausdauer gegenseitig beeinflussen.', 'I also do endurance training (running/cycling) – consider the total load and how strength and endurance affect each other.'));
   z.push('', `## ${L('Meine Frage', 'My question')}`, frage.trim(), '');
   z.push(`## ${L('Profil', 'Profile')} (${L('Stand', 'as of')} ${heute})`);
   if (profil.trainingsart) z.push(`- ${L('Trainingsart', 'Training style')}: ${profil.trainingsart === 'einfach' ? L('Bodybuilding / Krafttraining', 'Bodybuilding / strength') : 'Powerlifting'}`);
@@ -99,6 +101,15 @@ export function kiText({ frage, einheiten, heute, wochen = 8, profil = {}, name 
     for (const w of verlauf) z.push(`${w.woche} | ${Object.keys(LIFT).map((l) => zahl(w[l], en)).join(' | ')}`);
   }
 
+  if (au.length) {
+    z.push('', `## ${L('Ausdauer', 'Endurance')} (${L('neueste zuerst', 'newest first')})`);
+    for (const a of [...au].sort((x, y) => y.datum.localeCompare(x.datum))) {
+      const km = a.distanz_m ? a.distanz_m / 1000 : null, h = a.dauer_s ? a.dauer_s / 3600 : null, lauf = ['lauf', 'trail', 'laufband'].includes(a.art);
+      const tempo = km && h ? (lauf ? `${Math.floor((h * 60) / km)}:${String(Math.round(((h * 60) / km % 1) * 60)).padStart(2, '0')} /km` : `${zahl(km / h, en)} km/h`) : null;
+      z.push(`- ${a.datum} ${a.art}${a.typ ? ` (${a.typ})` : ''}: ${[km ? `${zahl(km, en)} km` : null, a.dauer_s ? `${Math.round(a.dauer_s / 60)} min` : null, tempo, a.hoehe_m ? `${Math.round(a.hoehe_m)} hm` : null,
+        a.puls_avg ? `${L('Puls', 'HR')} ${a.puls_avg}` : null, a.watt_avg ? `${a.watt_avg} W` : null, a.rpe ? `RPE ${zahl(a.rpe, en)}` : null].filter(Boolean).join(', ')}`);
+    }
+  }
   z.push('', `## ${L('Trainings', 'Workouts')} (${L('Sätze × kg × Wdh @RPE, ohne Aufwärmen', 'sets × kg × reps @RPE, no warm-ups')})`);
   for (const t of [...liste].reverse()) {
     const min = t.start && t.ende && t.ende > t.start ? Math.round((t.ende - t.start) / 60000) : null;
@@ -109,6 +120,9 @@ export function kiText({ frage, einheiten, heute, wochen = 8, profil = {}, name 
   if (!liste.length) z.push(L('(keine Trainings im Zeitraum)', '(no workouts in this period)'));
   return z.join('\n');
 }
+
+/** Zusatz-Idee für Hybrid (Kraft + Ausdauer). */
+export const HYBRID_IDEE = ['Kraft + Ausdauer', 'Strength + cardio', 'Wie kombiniere ich Kraft- und Ausdauertraining in meiner Woche am besten, ohne dass das eine das andere bremst?', 'How do I best combine strength and endurance training in my week without one holding back the other?'];
 
 /** Ideen je Trainingsart: [Chip de, Chip en, Frage de, Frage en]. */
 export const BEISPIELE = {
