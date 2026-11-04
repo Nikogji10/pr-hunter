@@ -87,7 +87,7 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
       const erfolg = richtig && (weg > innerWidth * 0.33 || (weg > 40 && weg / dauer > 0.45));
       // Tempo nach dem Finger: Restweg ÷ Fingergeschwindigkeit, 80–160 ms (schnell wischen = schnell wechseln)
       const tempo = Math.abs(s.dx) / dauer, rest = Math.max(0, innerWidth - weg);
-      fn.current.zug.ende(s.art, erfolg, erfolg ? Math.round(Math.min(160, Math.max(80, rest / Math.max(tempo, 0.8)))) : 140);
+      fn.current.zug.ende(s.art, erfolg, erfolg ? Math.round(Math.min(100, Math.max(50, rest / Math.max(tempo, 1.2)))) : 100);
       s = null;
     };
     const weg = () => { if (s?.art) abbrechen(); };

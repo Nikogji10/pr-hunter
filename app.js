@@ -1043,7 +1043,17 @@ function App() {
   };
   // Stand der Daten, aus denen die Seitenbilder entstehen. Vorher galt jedes Bild nach JEDEM Neuzeichnen als veraltet (verglichen
   // wurde die bei jedem Zeichnen neue Seitenfunktion) – die App baute im Hintergrund ständig ganze Seiten neu (Statistik!).
-  const bildStand = useMemo(() => ({}), [trainings, einst, messwerte, masse, ausdauer, block, info, anpassungen, training?.id, phase]);
+  // Seiten mit Reitern beginnen beim Hereinkommen von links mit dem ersten, von rechts mit dem letzten Reiter – „Seite für Seite“.
+  // (Gemerkt wird nur für die aktuelle Seite – fürs Neuladen.) Muss vor den Seitenbildern stehen, die das schon zeigen.
+  useEffect(() => {
+    const i = TABS.findIndex(([k]) => k === ansicht);
+    if (i < 0) return;
+    for (const [k, erster, letzter] of [['feed', 'feed', 'challenges'], ['statistik', 'profil', 'koerper']]) {
+      const j = TABS.findIndex(([x]) => x === k);
+      if (j !== i) try { sessionStorage.setItem(`prh-reiter-${k}`, j > i ? erster : letzter); } catch { /* egal */ }
+    }
+  }, [ansicht]);
+  const bildStand = useMemo(() => ({}), [trainings, einst, messwerte, masse, ausdauer, block, info, anpassungen, training?.id, phase, ansicht]);
   bildStandRef.current = bildStand;
   // Bilder der anderen Reiter im Leerlauf vorbereiten (nur wenn sich Daten geändert haben, Nachbarn zuerst) – der Wischbeginn baut dann nichts
   useEffect(() => {
@@ -1071,28 +1081,29 @@ function App() {
   const zugSeit = useRef(0);
   const zugNachholen = useRef([]);                              // schnell hinterher gewischt: Warteschlange, nacheinander mit kurzem Gleiten
   const zugObj = useRef(null);
+  const tabGedrueckt = useRef(0);                               // Tab wechselt schon beim Berühren (nicht erst beim Loslassen)
   let wischZug;
   // Deckender Grund für Standbilder: Kopie der Hintergrund-Ebene (bzw. die Seitenfarbe). Damit verdeckt das Standbild die echte
   // Seite ganz, die darunter schon sichtbar ist und fertig gezeichnet wird – Android zeichnete die lange Statistik sonst erst beim
   // Austausch in Kacheln, und für ein Bild sah man nur den helleren Hintergrund (Flackern).
-  // deck: das Standbild (liegt schon im DOM). Es kommt über den Seitenkopf (z-index 20) und endet an der Tab-Leiste – sonst lag
-  // der Kopf der neuen Seite für ein paar Bilder über dem alten Inhalt.
-  const deckGrund = (deck) => {
-    deck.style.zIndex = '20';
-    deck.style.bottom = `${document.querySelector('.tabs')?.offsetHeight ?? 0}px`;
+  // Deckender Grund als DAUERHAFTE Ebene (#deck-grund): Kopie des Hintergrunds, fertig gezeichnet und fast unsichtbar (0,001).
+  // Beim Austausch nur einblenden – eine jedes Mal neu eingefügte, weichgezeichnete Kopie war auf dem Handy für ein paar
+  // Millisekunden noch ohne Abdunklung und wirkte hell. Über ihr liegt das Standbild (z 21), unter ihr die echte Seite.
+  const deckEbene = () => {
+    let d = document.getElementById('deck-grund');
+    if (!d) { d = document.createElement('div'); d.id = 'deck-grund'; d.setAttribute('aria-hidden', 'true'); document.body.append(d); }
+    d.style.setProperty('--tabs-h', `${document.querySelector('.tabs')?.offsetHeight ?? 0}px`);
     const bg = document.documentElement.classList.contains('mit-bild') && document.getElementById('hintergrund');
-    let g;
+    let g = d.firstElementChild;
     if (bg) {
-      // Kopie genau über dem echten Hintergrund (gleiche id → gleiche Regeln: Abdunklung, Weichzeichnung, Neigung)
-      const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, rb = bg.getBoundingClientRect(), rd = deck.getBoundingClientRect();
-      g = bg.cloneNode(true);
-      Object.assign(g.style, { position: 'absolute', inset: 'auto', left: `${(rb.left - rd.left) / z}px`, top: `${(rb.top - rd.top) / z}px`, width: `${rb.width / z}px`, height: `${rb.height / z}px` });
-    } else {
-      g = document.createElement('div');
-      Object.assign(g.style, { position: 'absolute', inset: '0', zIndex: '-1', background: getComputedStyle(document.body).background });
-    }
-    deck.prepend(g);
+      if (!g || g.dataset.bild !== bg.style.backgroundImage) { g?.remove(); g = document.createElement('div'); g.className = 'deck-bild'; g.dataset.bild = bg.style.backgroundImage; g.style.backgroundImage = bg.style.backgroundImage; d.prepend(g); }
+      for (const v of ['--px', '--py', '--bild-dunkel']) g.style.setProperty(v, bg.style.getPropertyValue(v));
+      d.classList.remove('ohne-bild');
+    } else { g?.remove(); d.classList.add('ohne-bild'); }
+    return d;
   };
+  const deckAn = () => { const d = deckEbene(); d.classList.add('an'); return () => d.classList.remove('an'); };
+  useEffect(() => { if (phase === 'bereit') setTimeout(deckEbene, 1500); }, [phase, einst.hintergrundDunkel]);   // vorab zeichnen lassen
   // Tippen auf einen Tab: kurz ein deckendes Standbild der alten Seite, bis die neue fertig gezeichnet ist
   const verdecktGehen = (k) => {
     const haupt = hauptRef.current, app = document.getElementById('app');
@@ -1103,15 +1114,20 @@ function App() {
     const kopie = haupt.cloneNode(true);
     kopie.style.paddingTop = `${app.offsetTop}px`; kopie.style.transform = `translateY(${-scrollY}px)`;
     deck.append(kopie);
+    deck.style.zIndex = '21'; deck.style.bottom = `${document.querySelector('.tabs')?.offsetHeight ?? 0}px`;
     document.body.append(deck);
-    deckGrund(deck);
+    const aus = deckAn();
     gehe(k);
-    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => deck.remove())));
+    requestAnimationFrame(() => requestAnimationFrame(() => { deck.remove(); aus(); }));
   };
   // Warteschlange schnell hintereinander gewischter Gesten: nacheinander mit kurzem Gleiten abarbeiten
   const naechsteGeste = () => {
     const nach = zugNachholen.current.shift();
-    if (nach) setTimeout(() => { if (!zugLaeuft.current && zugObj.current.start(nach)) zugObj.current.ende(nach, true, 90); else if (!zugLaeuft.current) zugNachholen.current = []; }, 0);
+    if (!nach) return;
+    setTimeout(() => {
+      if (zugLaeuft.current) { zugNachholen.current.unshift(nach); return; }      // gerade läuft eine andere Geste: danach dran
+      if (zugObj.current.start(nach)) zugObj.current.ende(nach, true, 60); else zugNachholen.current = [];   // Ende der Reiter erreicht
+    }, 0);
   };
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
     seitenWechsel: () => !!wischRef.current.reiter || !!UNTERREITER[jetzt.current.ansicht],   // auch Seiten mit eigenen Reitern (Übung)
@@ -1190,7 +1206,7 @@ function App() {
         (unterInhaltRef.current ?? hauptRef.current).style.transform = `translateX(${d}px)`;
         if (ebeneRef.current) ebeneRef.current.style.transform = `translateX(calc(${art === 'weiter' ? '100% + 16px' : '-100% - 16px'} + ${d}px))`;
       },
-      ende: (art, erfolg, dauer = 160) => {
+      ende: (art, erfolg, dauer = 100) => {
         if (art === 'menue') {
           const l = document.querySelector('.seitenmenue.vorschau .sm-leiste'), h = document.querySelector('.seitenmenue.vorschau .sm-hinter');
           if (l) { l.classList.add('gleitet'); h.classList.add('gleitet'); l.style.transform = erfolg ? 'translateX(0)' : 'translateX(-100%)'; h.style.opacity = erfolg ? '1' : '0'; }
@@ -1234,16 +1250,18 @@ function App() {
             // fast durchsichtig statt unsichtbar: so zeichnet der Browser die neue Seite schon vor (visibility:hidden zeichnet nichts –
             // bei der langen Statistik fehlte beim Austausch ein Bild lang Inhalt). Karten haben keine Unschärfe mehr, opacity stört nicht.
             const rahmen = ebene?.parentElement, deckt = !unterWechsel && rahmen;     // Seitenwechsel: Standbild deckend machen
-            if (deckt) deckGrund(rahmen);
+            let deckAus = null;
+            if (deckt) { rahmen.style.zIndex = '21'; rahmen.style.bottom = `${document.querySelector('.tabs')?.offsetHeight ?? 0}px`; deckAus = deckAn(); }
             if (haupt) { haupt.style.opacity = deckt ? '' : '0.001'; haupt.classList.remove('gleitet'); haupt.style.transform = ''; haupt.style.transitionDuration = ''; }
             if (unterWechsel) unterWechsel(); else gehe(key);
-            const bilder = deckt ? 3 : 2, nachBildern = (n, f) => (n ? requestAnimationFrame(() => nachBildern(n - 1, f)) : f());
+            const bilder = 2, nachBildern = (n, f) => (n ? requestAnimationFrame(() => nachBildern(n - 1, f)) : f());
             nachBildern(bilder, () => {
               const neu = unterWechsel ? hauptRef.current?.querySelector('.unter-inhalt') ?? haupt : haupt;
               for (const a of neu?.getAnimations?.({ subtree: true }) ?? []) {
                 try { if (a.effect?.getComputedTiming?.().iterations !== Infinity) a.finish(); } catch { /* egal */ }
               }
               fertig();
+              deckAus?.();
             });
           } else {
             if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
@@ -1642,7 +1660,7 @@ function App() {
         fortschritt=${leiste ? () => training.karten.filter((k) => k.key).map((k) => { const s = k.gruppen.flatMap((g) => g.saetze); return [s.filter((x) => x.erledigt).length, s.length]; }).filter(([, n]) => n) : null}
         zusatz=${leiste ? () => { const s = alleSaetze(training); return html`<span class="pdock-zeitchip">${training.bearbeiten ? '✎' : `⏱ ${uhr((Date.now() - training.start) / 1000)}`}</span><span>${`${s.filter((x) => x.erledigt).length}/${s.length} Sätze`}</span>`; } : null}/>` : null}
     </div></div>` : null}
-    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${() => vibriere(15)} onClick=${() => verdecktGehen(k)}>
+    <div class="tabs"><nav>${TABS.map(([k, t]) => html`<button key=${k} aria-current=${aktiverTab === k ? 'page' : 'false'} onPointerDown=${(e) => { if (e.button > 0) return; vibriere(15); tabGedrueckt.current = Date.now(); verdecktGehen(k); }} onClick=${() => { if (Date.now() - tabGedrueckt.current > 600) verdecktGehen(k); }}>
       ${I[`tab${k[0].toUpperCase()}${k.slice(1)}`] ?? I[k]}<span>${t}</span>${k === 'heute' && leiste ? html`<i class="lauf"></i>` : null}${k === 'feed' && aktiveFreunde.length && !(anfragen || coachOffen || neuReakt.length) ? html`<i class="aktiv-punkt" aria-label="Freunde trainieren gerade"></i>` : null}${k === 'feed' && (anfragen || coachOffen || neuReakt.length) ? html`<i class="anfrage-punkt">${anfragen + coachOffen + neuReakt.length > 9 ? '9+' : anfragen + coachOffen + neuReakt.length}</i>` : null}</button>`)}</nav></div>
     ${lichter ? html`<div class=${`lichter ${lichter.gold ? 'gold' : ''}`} role="status"><div><div class="lampen"><i></i><i></i><i></i></div><b>${lichter.titel}</b><span>${lichter.text}</span></div>
       ${lichter.gold ? html`<div class="blitz" aria-hidden="true"></div><div class="strahlen" aria-hidden="true"></div>

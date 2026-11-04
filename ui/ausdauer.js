@@ -4,6 +4,7 @@ import { html, useState, Sheet, Portal, deEn, sprache, datumLang, datumKurz, fmt
 import { HEUTE } from './stand.js';
 import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, montag, beinBelastung } from '../js/ausdauer.js';
 import { einheitAusDatei } from '../js/dateiimport.js';
+import { SteigerungHinweis } from './ausdauerstatistik.js';
 
 const name = (x) => (sprache() === 'en' ? x.en : x.de);
 const QUELLE = { strava: 'Strava', intervals: 'intervals.icu', datei: 'Datei' };
@@ -121,6 +122,7 @@ export function AusdauerKarte({ liste, wahl, speichern, loeschen }) {
       <div><b>${fmt(x.km, x.km >= 100 ? 0 : 1)}<small> km</small></b><span>${x.n ? `${x.n}× · ${dauerText(x.s)}` : deEn('noch nichts', 'nothing yet')}</span></div></div>`; })}</div>
     ${letzte ? html`<button class="au-letzte" onClick=${() => setOffen(letzte)}><span>${art(letzte.art).icon}</span>
       <span class="au-letzte-text"><b>${letzte.titel || name(art(letzte.art))}</b><small>${`${datumKurz(letzte.datum)} · ${kurz(letzte)}`}</small></span><span class="muted">›</span></button>` : null}
+    <${SteigerungHinweis} liste=${l} wahl=${wahl}/>
     ${beine > 0.5 ? html`<div class="au-beine">🦵 ${beine > 0.8 ? deEn('Beine noch stark belastet – schweres Beintraining heute lieber leichter oder verschieben.', 'Legs still heavily loaded – go lighter on heavy leg work today or move it.')
       : deEn('Beine noch etwas belastet – bei Kniebeuge und Kreuzheben auf die RPE achten.', 'Legs still somewhat loaded – watch the RPE on squats and deadlifts.')}</div>` : null}
     ${offen ? html`<${Portal}>${offen === 'neu' ? html`<${AusdauerSheet} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>` : html`<${AusdauerDetail} a=${offen} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>`}<//>` : null}
@@ -132,6 +134,7 @@ export function AusdauerListe({ liste, wahl, speichern, loeschen }) {
   const [offen, setOffen] = useState(null);
   const [n, setN] = useState(8);
   const [meldung, setMeldung] = useState(null);
+  const [importOffen, setImport] = useState(false);
   const l = sichtbar(liste, wahl).sort((a, b) => (b.datum + (b.start ?? '')).localeCompare(a.datum + (a.start ?? '')));
   // 224: GPX/TCX (Garmin Connect, Wahoo, Strava-Export) – doppelte Dateien werden übersprungen
   const dateien = async (e) => {
@@ -143,11 +146,12 @@ export function AusdauerListe({ liste, wahl, speichern, loeschen }) {
     }
     e.currentTarget.value = '';
     if (neu.length) speichern(neu);
+    setImport(false);
     setMeldung(deEn(`${neu.length} importiert${fehler ? `, ${fehler} nicht lesbar` : ''}.`, `${neu.length} imported${fehler ? `, ${fehler} unreadable` : ''}.`));
   };
   return html`<section class="card pad">
     <div class="row between" style="margin-bottom:4px;gap:6px"><span class="eyebrow">${deEn('Ausdauer', 'Cardio')}</span>
-      <span class="row" style="gap:6px"><label class="btn btn-soft btn-sm au-datei">${deEn('Datei', 'File')}<input type="file" accept=".gpx,.tcx" multiple hidden onChange=${dateien}/></label>
+      <span class="row" style="gap:6px"><button class="btn btn-soft btn-sm" onClick=${() => setImport(true)}>${deEn('Importieren', 'Import')}</button>
       <button class="btn btn-soft btn-sm" onClick=${() => setOffen('neu')}>${deEn('+ Eintragen', '+ Log')}</button></span></div>
     ${meldung ? html`<p class="muted" style="margin:0 0 6px;font-size:12.5px">${meldung}</p>` : null}
     <div class="liste">${l.slice(0, n).map((a) => html`<button key=${a.id} onClick=${() => setOffen(a)}>
@@ -157,6 +161,16 @@ export function AusdauerListe({ liste, wahl, speichern, loeschen }) {
       <span class="muted" style="font-size:13px">${a.typ ? name(TYPEN.find((t) => t.id === a.typ) ?? TYPEN[0]) : ''}</span></button>`)}
       ${l.length ? null : html`<p class="muted" style="margin:0;font-size:14px">${deEn('Noch keine Läufe oder Radfahrten.', 'No runs or rides yet.')}</p>`}</div>
     ${l.length > n ? html`<button class="link" onClick=${() => setN(n + 20)}>${deEn('Ältere', 'Older')}</button>` : null}
+    ${importOffen ? html`<${Portal}><${Sheet} zu=${() => setImport(false)} label=${deEn('Läufe und Fahrten importieren', 'Import runs and rides')}>
+      <div class="sheet-kopf"><h2 class="h2">${deEn('Aus Datei importieren', 'Import from file')}</h2></div>
+      <p class="muted" style="margin:0;font-size:13.5px">${deEn('Für einzelne Einheiten ohne automatische Verbindung: GPX- oder TCX-Datei mit Strecke, Zeit, Puls und Watt.', 'For single sessions without an automatic connection: GPX or TCX file with route, time, heart rate and power.')}</p>
+      <ol class="iv-schritte">
+        <li>${deEn('Garmin Connect (Browser): Aktivität öffnen → Zahnrad oben rechts → „Als GPX exportieren“ oder „Als TCX exportieren“.', 'Garmin Connect (browser): open the activity → gear icon top right → “Export to GPX” or “Export to TCX”.')}</li>
+        <li>${deEn('Wahoo, Polar, Coros, Strava: in der Aktivität „Exportieren“ bzw. „GPX herunterladen“.', 'Wahoo, Polar, Coros, Strava: “Export” or “Download GPX” in the activity.')}</li>
+        <li>${deEn('Hier die Datei wählen – mehrere auf einmal gehen auch. Doppelte werden übersprungen.', 'Choose the file here – several at once work too. Duplicates are skipped.')}</li></ol>
+      <label class="btn btn-chalk btn-block au-datei">${deEn('Dateien wählen', 'Choose files')}<input type="file" accept=".gpx,.tcx" multiple hidden onChange=${dateien}/></label>
+      <span class="muted" style="font-size:12.5px">${deEn('Automatisch statt einzeln: Einstellungen → Kalender und Verbindungen → intervals.icu.', 'Automatic instead of one by one: Settings → Calendar and connections → intervals.icu.')}</span>
+    <//><//>` : null}
     ${offen ? html`<${Portal}>${offen === 'neu' ? html`<${AusdauerSheet} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>` : html`<${AusdauerDetail} a=${offen} wahl=${wahl} speichern=${speichern} loeschen=${loeschen} zu=${() => setOffen(null)}/>`}<//>` : null}
   </section>`;
 }

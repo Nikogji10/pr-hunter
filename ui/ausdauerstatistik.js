@@ -4,7 +4,7 @@ import { html, useState, deEn, fmt, datumKurz, I } from './basis.js';
 import { HEUTE } from './stand.js';
 import { LinienChart, StapelSaeulen } from './diagramme.js';
 import { normiere, minuten } from '../js/insights.js';
-import { sportarten, sichtbar, sportVon, wochen, bestzeiten, leistungskurve, ftpSchaetzung, last, form, paceSek, dauerText, montag } from '../js/ausdauer.js';
+import { sportarten, sichtbar, sportVon, wochen, bestzeiten, leistungskurve, ftpSchaetzung, last, form, paceSek, dauerText, montag, intensitaet, hfMaxAus, steigerung, prognosen } from '../js/ausdauer.js';
 
 const FARBE = { lauf: '#F97316', rad: '#0EA5E9' };
 const ZONE = ['#94A3B8', '#22C55E', '#EAB308', '#F97316', '#EF4444'];
@@ -49,7 +49,9 @@ export function AusdauerStatistik({ liste: alle, einst, setEinst, trainings, x }
       <div><b>${fmt(z.km, z.km >= 100 ? 0 : 1)}<small> km</small></b><span>${`${z.n}× · ${dauerText(z.s)} · ${fmt(z.hm, 0)} hm`}</span></div></div>`; })}</div>
     <${StapelSaeulen} titel=${deEn('Umfang', 'Volume')} unter=${deEn('Kilometer je Woche', 'Kilometres per week')} daten=${kmSaeulen}
       serien=${sports.map((s) => ({ id: s, name: s === 'lauf' ? deEn('Laufen', 'Running') : deEn('Rad', 'Cycling'), farbe: FARBE[s] }))} einheit="km"/>
+    <${SteigerungHinweis} liste=${liste} wahl=${wahl}/>
     ${heute ? html`<${FormKarte} f=${f} x=${x} amEnde=${amEnde} heute=${heute}/>` : null}
+    <${IntensitaetKarte} liste=${imZeitraum} einst=${einst} setEinst=${setEinst} alle=${liste}/>
     ${sports.includes('lauf') ? html`<${LaufKarten} liste=${liste} x=${x}/>` : null}
     ${sports.includes('rad') ? html`<${RadKarte} liste=${liste} einst=${einst} setEinst=${setEinst}/>` : null}
     <${ZonenKarte} liste=${imZeitraum}/>
@@ -79,7 +81,9 @@ function LaufKarten({ liste, x }) {
     return km ? Math.round((l.reduce((s, a) => s + a.dauer_s, 0) / (km / 1000) / 60) * 100) / 100 : null; });
   return html`
     ${b.length ? html`<section class="card pad stack"><span class="viz-t">${deEn('Bestzeiten Laufen', 'Running PBs')}</span>
-      <div class="au-best">${b.map((z) => html`<div key=${z.m}><small>${z.name}</small><b>${dauerText(z.s)}</b><span>${`${dauerText(z.s / (z.m / 1000))} /km · ${datumKurz(z.datum)}`}</span></div>`)}</div></section>` : null}
+      <div class="au-best">${b.map((z) => html`<div key=${z.m}><small>${z.name}</small><b>${dauerText(z.s)}</b><span>${`${dauerText(z.s / (z.m / 1000))} /km · ${datumKurz(z.datum)}`}</span></div>`)}</div>
+      ${(() => { const p = prognosen(b).filter((x) => !b.some((y) => y.m === x.m)); return p.length ? html`<span class="eyebrow">${deEn(`Prognose (aus ${prognosen(b)[0].aus})`, `Prediction (from ${prognosen(b)[0].aus})`)}</span>
+        <div class="au-best prognose">${p.map((z) => html`<div key=${z.m}><small>${z.name}</small><b>${dauerText(z.s)}</b><span>${`${dauerText(z.s / (z.m / 1000))} /km`}</span></div>`)}</div>` : null; })()}</section>` : null}
     <${LinienChart} titel=${deEn('Pace', 'Pace')} unter=${deEn('Ø Minuten je km und Woche – weniger ist schneller', 'Avg minutes per km per week – lower is faster')} x=${x}
       serien=${[{ id: 'pace', name: 'Pace', farbe: FARBE.lauf, werte: paceWoche }]} einheit="/km" format=${(v) => dauerText(v * 60)} hoehe=${170}/>`;
 }
@@ -131,5 +135,32 @@ function GeraeteKarte({ liste, einst, setEinst }) {
       ${bearb === n ? html`<div class="row" style="gap:6px"><input class="text" inputmode="numeric" placeholder=${deEn('Grenze in km (leer = keine)', 'Limit in km (empty = none)')} value=${wert} onInput=${(e) => setWert(e.currentTarget.value)}/>
         <button class="btn btn-chalk btn-sm" onClick=${() => speichern(n)}>${deEn('Speichern', 'Save')}</button></div>` : null}</div>`; })}
     ${zeilen.some(([n, z]) => grenze(n, z.sport) && z.km >= grenze(n, z.sport)) ? html`<div class="hint">${I.warn}<span class="t">${deEn('Grenze erreicht – Zeit für neue Schuhe?', 'Limit reached – time for new shoes?')}</span><span></span></div>` : null}
+  </section>`;
+}
+
+/** 233: Hinweis bei schneller Steigerung der Lauf-km (über 30 % gegenüber dem Schnitt der 3 Wochen davor). */
+export function SteigerungHinweis({ liste, wahl }) {
+  if (!sportarten(wahl).includes('lauf')) return null;
+  const s = steigerung(liste, HEUTE);
+  if (!s || s.prozent <= 30) return null;
+  return html`<div class="hint warn immer">${I.warn}<span class="t">${deEn(`Lauf-km +${s.prozent} %`, `Running km +${s.prozent} %`)}</span><span></span>
+    <p>${deEn(`Diese Woche ${fmt(s.jetzt, 1)} km statt im Schnitt ${fmt(s.schnitt, 1)} km. Mehr als 30 % Steigerung pro Woche erhöht das Verletzungsrisiko – lieber langsamer aufbauen.`, `This week ${fmt(s.jetzt, 1)} km vs. an average of ${fmt(s.schnitt, 1)} km. More than 30 % per week raises injury risk – build up more slowly.`)}</p></div>`;
+}
+
+/** 232: Verteilung locker / hart (Ziel ~80/20). */
+function IntensitaetKarte({ liste, einst, setEinst, alle }) {
+  const hf = hfMaxAus(alle, einst.hfMax, HEUTE), r = intensitaet(liste, { hfMax: hf });
+  const [offen, setOffen] = useState(false), [wert, setWert] = useState(einst.hfMax ? String(einst.hfMax) : '');
+  if (!r) return null;
+  const gut = r.anteilLocker >= 75, mittel = r.anteilLocker >= 60;
+  return html`<section class="card pad stack">
+    <div class="row between"><div><span class="viz-t">${deEn('Intensität', 'Intensity')}</span><div class="viz-u">${deEn('Locker gegen hart im Zeitraum – bewährt sind etwa 80 % locker, 20 % hart', 'Easy vs hard in the period – about 80 % easy, 20 % hard works best')}</div></div>
+      <div class=${`au-frische ${gut ? 'gut' : mittel ? 'warn' : 'schlecht'}`}><b>${r.anteilLocker}/${100 - r.anteilLocker}</b><span>${gut ? deEn('passt', 'good') : deEn('zu hart', 'too hard')}</span></div></div>
+    <div class="au-intens"><i class="locker" style=${`flex:${r.locker}`}></i><i class="hart" style=${`flex:${r.hart}`}></i><b style="left:80%" aria-hidden="true"></b></div>
+    <div class="row between" style="font-size:12.5px"><span>${deEn(`locker ${dauerText(r.locker * 60)}`, `easy ${dauerText(r.locker * 60)}`)}</span><span>${deEn(`hart ${dauerText(r.hart * 60)}`, `hard ${dauerText(r.hart * 60)}`)}</span></div>
+    ${!gut ? html`<span class="muted" style="font-size:12.5px">${deEn('Viele Einheiten im mittleren Bereich ermüden, ohne viel zu bringen. Lockere Einheiten wirklich locker (Unterhaltungstempo), harte richtig hart.', 'Many sessions in the middle tire you without much gain. Keep easy sessions truly easy (talking pace), hard ones properly hard.')}</span>` : null}
+    <button class="link" style="align-self:flex-start;font-size:12.5px" onClick=${() => setOffen(!offen)}>${hf ? deEn(`Pulsgrenze: HFmax ${hf}${einst.hfMax ? '' : ' (gemessen)'}`, `HR limit: max HR ${hf}${einst.hfMax ? '' : ' (measured)'}`) : deEn('HFmax eintragen', 'Set max HR')}</button>
+    ${offen ? html`<div class="row" style="gap:6px"><input class="text" inputmode="numeric" placeholder="190" value=${wert} onInput=${(e) => setWert(e.currentTarget.value)}/>
+      <button class="btn btn-chalk btn-sm" onClick=${() => { const v = Number(wert); setEinst?.({ ...einst, hfMax: v >= 120 && v <= 230 ? v : null }); setOffen(false); }}>${deEn('Speichern', 'Save')}</button></div>` : null}
   </section>`;
 }

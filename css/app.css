@@ -2473,3 +2473,17 @@ html.mit-bild .screen > :not(.topbar), html.mit-bild .reiter-inhalt { animation:
 html.mit-bild #hintergrund { inset: -40px; filter: blur(calc(var(--glas, 16px) * .6)); }
 html.mit-bild.neigung #hintergrund { inset: calc(-40px - var(--neigung-rand, 14px)); }
 html.mit-bild :is(.card, .viz, .kachel, .max, .hint) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* 232: Intensität */
+.au-intens { position: relative; display: flex; height: 16px; border-radius: 99px; overflow: hidden; gap: 2px; }
+.au-intens .locker { background: #22C55E; } .au-intens .hart { background: #EF4444; }
+.au-intens b { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
+.au-best.prognose div { background: transparent; border-style: dashed; }
+/* Deckender Grund für Standbilder beim Seitenwechsel: immer da, fertig gezeichnet, nur beim Austausch sichtbar */
+#deck-grund { position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: .001; will-change: opacity; overflow: hidden;
+  clip-path: inset(0 0 var(--tabs-h, 0px) 0); }
+#deck-grund.an { opacity: 1; }
+#deck-grund.ohne-bild { background: var(--grund), var(--bg); }
+.deck-bild { position: absolute; inset: -40px; background: center / cover no-repeat; filter: blur(calc(var(--glas, 16px) * .6)); }
+html.neigung .deck-bild { inset: calc(-40px - var(--neigung-rand, 14px)); transform: translate3d(var(--px, 0px), var(--py, 0px), 0); }
+.deck-bild::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) calc(var(--bild-dunkel, .55) * 100%), transparent); }
+html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }

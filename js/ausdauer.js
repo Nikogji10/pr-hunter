@@ -167,3 +167,43 @@ export function beinBelastung(liste, jetzt) {
   }
   return Math.min(1, summe / 600);
 }
+
+/** 232: Intensitätsverteilung (Ziel ~80 % locker / 20 % hart). Je Einheit aus den Pulszonen (Z1–2 locker, ab Z3 hart), sonst aus
+ *  dem Ø-Puls (≤ 80 % HFmax locker) oder der Art (locker/lang locker, sonst hart). Ergebnis in Minuten. */
+export function intensitaet(liste, { hfMax = null } = {}) {
+  let locker = 0, hart = 0;
+  for (const a of liste) {
+    if (a.geloescht || !a.dauer_s) continue;
+    const z = a.details?.zonen;
+    if (z?.length) { z.forEach((x, i) => { if (i < 2) locker += x.s / 60; else hart += x.s / 60; }); continue; }
+    const m = a.dauer_s / 60;
+    const istLocker = hfMax && a.puls_avg ? a.puls_avg <= 0.8 * hfMax : a.typ ? ['locker', 'lang'].includes(a.typ) : (a.rpe ?? 4) <= 5;
+    if (istLocker) locker += m; else hart += m;
+  }
+  const summe = locker + hart;
+  return summe ? { locker: Math.round(locker), hart: Math.round(hart), anteilLocker: Math.round((locker / summe) * 100) } : null;
+}
+
+/** HFmax: eigener Wert oder höchster gemessener Puls der letzten 12 Monate. */
+export function hfMaxAus(liste, eigen = null, heute = null) {
+  if (eigen) return eigen;
+  const ab = heute ? plus(heute, -365) : '0000';
+  const w = liste.filter((a) => !a.geloescht && a.datum >= ab).map((a) => a.puls_max ?? 0);
+  return Math.max(0, ...w) || null;
+}
+
+/** 233: Steigerung der Lauf-km dieser Woche gegenüber dem Schnitt der 3 Wochen davor (Verletzungsrisiko ab etwa +30 %). */
+export function steigerung(liste, heute, sport = 'lauf') {
+  const mo = montag(heute), km = (von, bis) => liste.filter((a) => !a.geloescht && sportVon(a.art) === sport && a.datum >= von && a.datum <= bis).reduce((s, a) => s + (a.distanz_m ?? 0) / 1000, 0);
+  const jetzt = km(mo, heute), vorher = [1, 2, 3].map((w) => km(plus(mo, -7 * w), plus(mo, -7 * w + 6)));
+  const schnitt = vorher.reduce((a, b) => a + b, 0) / 3;
+  if (schnitt < 5) return null;                              // zu wenig Grundlage für eine Aussage
+  return { jetzt: Math.round(jetzt * 10) / 10, schnitt: Math.round(schnitt * 10) / 10, prozent: Math.round((jetzt / schnitt - 1) * 100) };
+}
+
+/** 234: Zeit-Prognosen nach Riegel (T2 = T1 · (D2/D1)^1,06) aus der besten Bestzeit (bevorzugt 5–21 km). */
+export function prognosen(best) {
+  if (!best?.length) return [];
+  const basis = [...best].sort((a, b) => (Math.abs(Math.log(a.m / 10000)) - Math.abs(Math.log(b.m / 10000))))[0];
+  return STRECKEN.map(([m, name]) => ({ m, name, s: Math.round(basis.s * (m / basis.m) ** 1.06), aus: basis.name, eigen: m === basis.m }));
+}
