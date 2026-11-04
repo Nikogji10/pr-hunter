@@ -1070,6 +1070,7 @@ function App() {
           rahmen.append(teil);
           document.body.append(rahmen);
           ebeneRef.current = teil; unterInhaltRef.current = inhalt;
+          inhalt.style.willChange = 'transform';               // eigene Ebene: nicht je Bild neu zeichnen
           zugLaeuft.current = true;
           return true;
         } else {
@@ -1088,6 +1089,7 @@ function App() {
         rahmen.append(bild);
         document.body.append(rahmen);
         ebeneRef.current = bild;
+        if (hauptRef.current) hauptRef.current.style.willChange = 'transform';   // eigene Ebene: nicht je Bild neu zeichnen
         zugLaeuft.current = true;
         return true;
       },
@@ -1133,6 +1135,8 @@ function App() {
           const key = unterWechsel ? 'unter' : wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
           const fertig = () => {
             if (haupt) { haupt.style.visibility = ''; haupt.style.transform = ''; haupt.classList.remove('gleitet'); }
+            // Ebene erst nach dem Wechsel auflösen – beim Austausch selbst kein zusätzliches Neuzeichnen
+            for (const el of [haupt, hauptRef.current]) if (el) setTimeout(() => { el.style.willChange = ''; }, 400);
             unterInhaltRef.current = null;
             ebene?.parentElement?.remove(); ebeneRef.current = null;
             zugLaeuft.current = false;

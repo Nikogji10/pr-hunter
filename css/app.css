@@ -2365,3 +2365,8 @@ body { overflow-x: hidden; }
 .sheet-kopf { position: sticky; top: -10px; z-index: 4; margin: -26px -16px 0; padding: 24px 16px 12px; display: flex; flex-direction: column; gap: 2px;
   background: var(--surface); box-shadow: 0 10px 14px -12px rgba(0, 0, 0, .55); touch-action: none; }   /* deckend: --karte ist halbtransparent */
 .sheet-kopf .h2 { margin: 0; } .sheet-kopf small { font-size: 12.5px; }
+/* Leistung (Statistik ruckelte beim Wischen): Unschärfe hinter Karten nur, wenn ein Hintergrundbild durchscheint – über
+   dem ruhigen Farbverlauf sieht sie gleich aus, kostet aber beim Verschieben jedes Bild neu. Verschachtelte Glasflächen
+   (Kachel in Karte) brauchen sie nie. Kopf, Tab-Leiste, Fenster und Meldungen behalten sie (dort scheint Inhalt durch). */
+html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
+:is(.card, .viz, .kachel, .max, .hint) :is(.card, .viz, .kachel, .max, .hint) { -webkit-backdrop-filter: none; backdrop-filter: none; }

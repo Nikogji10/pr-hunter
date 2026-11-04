@@ -133,7 +133,7 @@ export const BEISPIELE = {
 /** Wo die KI aufgeht (Startseite des Chats; der Text kommt per Einfügen). paket = Android-App. */
 export const KI_ZIELE = [
   { id: 'chatgpt', name: 'ChatGPT', url: 'https://chatgpt.com/', paket: 'com.openai.chatgpt' },
-  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', paket: 'com.google.android.apps.bard' },
+  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/app', paket: 'com.google.android.googlequicksearchbox' },   // Gemini-Links übernimmt die Google-App
   { id: 'claude', name: 'Claude', url: 'https://claude.ai/new', paket: 'com.anthropic.claude' },
 ];
 

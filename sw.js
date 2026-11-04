@@ -2,7 +2,9 @@
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
 // einem eigenen Cache, der Versionswechsel überdauert.
-const VERSION = '977cc436e0cc';
+// 04.11.: Bilder per CORS holen. Vorher kamen sie als „opaque“ (img ohne crossorigin) – Chrome rechnet jede solche Antwort
+// mit ~7 MB an, ein paar hundert Bilder ergaben 3,9 GB „gespeicherte Daten“. bilder-v1 wird deshalb gelöscht.
+const VERSION = '8b25b424b209';
 const DATEIEN = [
   "./",
   "app.js",
@@ -116,7 +118,7 @@ const DATEIEN = [
   "vendor/supabase.js"
 ];
 const CACHE = `prh-${VERSION}`;
-const BILDER = 'bilder-v1';
+const BILDER = 'bilder-v2';
 const BILD_QUELLE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/';
 
 self.addEventListener('install', (e) => {
@@ -125,7 +127,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((alle) => Promise.all(alle.filter((k) => k.startsWith('prh-') && k !== CACHE).map((k) => caches.delete(k))))
+    .then((alle) => Promise.all(alle.filter((k) => (k.startsWith('prh-') && k !== CACHE) || (k.startsWith('bilder-') && k !== BILDER)).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -141,8 +143,11 @@ self.addEventListener('notificationclick', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method === 'GET' && e.request.url.startsWith(BILD_QUELLE)) {
-    e.respondWith(caches.open(BILDER).then((c) => c.match(e.request).then((treffer) => treffer
-      ?? fetch(e.request).then((antwort) => { if (antwort.ok || antwort.type === 'opaque') c.put(e.request, antwort.clone()); return antwort; }))));
+    // nach URL speichern und per CORS laden (echte Größe statt Opaque-Aufschlag); klappt CORS nicht, Bild nur anzeigen, nicht speichern
+    const schluessel = e.request.url;
+    e.respondWith(caches.open(BILDER).then((c) => c.match(schluessel).then((treffer) => treffer
+      ?? fetch(schluessel, { mode: 'cors', credentials: 'omit' }).then((antwort) => { if (antwort.ok) c.put(schluessel, antwort.clone()); return antwort; })
+        .catch(() => fetch(e.request)))));
     return;
   }
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
