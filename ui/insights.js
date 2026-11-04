@@ -29,6 +29,10 @@ function Kopf({ titel, unter }) {
   return html`<div class="ins-kopf"><b>${titel}</b> <span class="ins-analyse">Analyse</span>${unter ? html`<div class="ins-unter">${unter}</div>` : null}</div>`;
 }
 
+// Ergebnisse über den Reiterwechsel hinweg merken (Komponente wird dabei neu aufgebaut, useMemo ginge verloren)
+const MERK = {};
+const merke = (name, eingaben, rechne) => { const m = MERK[name]; if (m && m.e.length === eingaben.length && m.e.every((x, i) => x === eingaben[i])) return m.w; const w = rechne(); MERK[name] = { e: eingaben, w }; return w; };
+
 export function Insights({ trainings, einst, heute, ausdauer = [] }) {
   const E = useMemo(() => normiere(trainings), [trainings]);
   const muskelnVon = (k) => uebung(k)?.m ?? [];
@@ -36,8 +40,8 @@ export function Insights({ trainings, einst, heute, ausdauer = [] }) {
   if (!E.length) return html`<section class="card pad"><p class="muted" style="margin:0">Noch keine Trainings – nach dem ersten Training stehen hier deine Analysen.</p></section>`;
   // Wochen-Analysen gelten für die letzte volle Woche (Mo–So); die laufende kommt erst dran, wenn sie vorbei ist
   const sonntag = plusTage(montagVon(heute), -1), letzteWoche = deEn(`Letzte Woche · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`, `Last week · ${datumKurz(plusTage(sonntag, -6))}–${datumKurz(sonntag)}`);
-  const s = serie(E, heute), a = wochenEinheitAnalyse(E, plusTage(sonntag, -6), sonntag, { muskelnVon, pauseVon: pause }), r = einsRmAnalyse(E, sonntag),
-    m = saetzeJeMuskel(E, sonntag, muskelnVon), w = wochenVergleich(E, heute, { abgeschlossen: true });
+  const { s, a, r, m, w } = merke('analyse', [E, heute, einst.pausen], () => ({ s: serie(E, heute), a: wochenEinheitAnalyse(E, plusTage(sonntag, -6), sonntag, { muskelnVon, pauseVon: pause }),
+    r: einsRmAnalyse(E, sonntag), m: saetzeJeMuskel(E, sonntag, muskelnVon), w: wochenVergleich(E, heute, { abgeschlossen: true }) }));
   return html`<div class="stack insights" style="gap:12px">
     <${SerieKarte} s=${s}/>
     <${ErfolgeKarte} E=${E} powerlifting=${einst.trainingsart !== 'einfach'} ausdauer=${ausdauer} wahl=${einst.ausdauer}/>
@@ -136,7 +140,7 @@ function EinheitKarte({ a, unter }) {
 // ---------- Erfolge (184) ----------
 function ErfolgeKarte({ E, powerlifting, ausdauer = [], wahl = null }) {
   const en = sprache() === 'en', sp = en ? 1 : 0;
-  const er = useMemo(() => erfolge(E, { powerlifting, ausdauer, wahl }), [E, powerlifting, ausdauer, wahl]);
+  const er = merke('erfolge', [E, powerlifting, ausdauer, wahl], () => erfolge(E, { powerlifting, ausdauer, wahl }));
   // Titel = dein tatsächlicher Wert (nicht die Stufe); Balken = Weg über alle Stufen; Lifts: bestes e1RM der Wettkampf-Übung
   const wertText = (k) => k.text(k.kg ? fmt(k.wert, 1) : fmt(Math.floor(k.wert)))[sp];
   return html`<section class="card pad stack ins">

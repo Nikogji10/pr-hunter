@@ -43,6 +43,9 @@ function wochenDaten(x) {
 
 // Reiter: Kraft (Total, Lifts, Verläufe, Ziele, Rekorde) · Profil (Muskeln, Vergleich) · Belastung · Training · Körper
 // Statistik startet mit dem Profil (Erholung + Kraftprofil), dann Kraft, Belastung … (Niko 02.11.)
+// Ergebnisse teurer Karten merken, solange die Eingaben gleich sind (Reiterwechsel rechnete sonst jedes Mal alles neu)
+const MERK = {};
+const merke = (name, eingaben, rechne) => { const m = MERK[name]; if (m && m.e.length === eingaben.length && m.e.every((x, i) => x === eingaben[i])) return m.w; const w = rechne(); MERK[name] = { e: eingaben, w }; return w; };
 const STAT_REITER = [['profil', 'Profil'], ['analyse', 'Analyse'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
 export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null, ausdauer = [] }) {
@@ -394,7 +397,7 @@ function GewichtFlaeche({ punkte, ziel }) {
 
 /** 208: Stillstand der wichtigsten Übungen mit konkretem Vorschlag. */
 function StillstandKarte({ trainings, cut }) {
-  const liste = stillstaende(normiere(trainings), { heute: HEUTE, cut, istIso: (k) => ISO_FAMILIEN.has(uebung(k)?.f) });
+  const liste = merke('still', [trainings, cut, HEUTE], () => stillstaende(normiere(trainings), { heute: HEUTE, cut, istIso: (k) => ISO_FAMILIEN.has(uebung(k)?.f) }));
   return html`<section class="card pad stack">
     <div><span class="viz-t">${deEn('Stillstand', 'Plateaus')}</span><div class="viz-u">${deEn('Deine meistgenutzten Übungen der letzten 12 Wochen', 'Your most used exercises of the last 12 weeks')}</div></div>
     ${liste.length ? liste.map((s) => html`<div key=${s.key} class="stillstand">
@@ -448,7 +451,7 @@ function NotizKarte({ trainings, von }) {
 function RpeKarte({ trainings }) {
   // Kniebeuge, Bank, Kreuzheben (mit Varianten) – übrige Übungen getrennt nach Grundübung (Mehrgelenk) und Isolation
   const art = (k) => { const l = liftVon(k); return l !== 'andere' ? l : ISO_FAMILIEN.has(uebung(k)?.f) ? 'isolation' : 'compound'; };
-  const r = rpeGenauigkeit(normiere(trainings), { liftVon: art });
+  const r = merke('rpe', [trainings], () => rpeGenauigkeit(normiere(trainings), { liftVon: art }));
   const text = (a) => (Math.abs(a) <= 0.3 ? deEn('passt', 'accurate') : a > 0 ? deEn(`≈ ${fmt(a, 1)} zu niedrig`, `≈ ${fmt(a, 1)} too low`) : deEn(`≈ ${fmt(-a, 1)} zu hoch`, `≈ ${fmt(-a, 1)} too high`));
   const klasse = (a) => (Math.abs(a) <= 0.3 ? 'gut' : Math.abs(a) <= 0.8 ? 'mittel' : 'schlecht');
   // alle fünf Zeilen immer zeigen; ohne Ergebnis steht da, was fehlt

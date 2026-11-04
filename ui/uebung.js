@@ -2,7 +2,7 @@
 // je Einheit, Zeitraum, Ziellinie, Min/Max, Zielprognose), Rekorde (bestes Gewicht je Wdh-Zahl), Info (Steckbrief, Bild,
 // Anleitung, persönliche Anpassung, Basisdaten, Zusammenführen). Dazu das Formular zum Anlegen und Ändern von Übungen.
 import { html, useState, useEffect, fmt, gw, gwE, einheit, inAnzeige, I, Sheet, LIFT, liftVon, nameVon, katalogName, uebung, anpassung, MUSKEL_DE,
-  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild } from './basis.js';
+  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild, useUnterReiter, UNTER_VORSCHAU } from './basis.js';
 import { DEMO, DIENSTE, HEUTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, kanon, rekordeVon } from './stand.js';
 import { FAMILIE, EQUIPMENT, UebungSuche, zonePasst } from './suche.js';
 import { ZielMuskeln, ZONE_NAME } from './koerper.js';
@@ -38,7 +38,9 @@ export function einheitenVon(key) {
 // Übungsseite
 // #################################################################
 export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, setEinst = null, reiterStart = 'verlauf', bloecke = [] }) {
-  const [reiter, setReiter] = useState(reiterStart);
+  const [reiter, setReiterRoh] = useState(() => UNTER_VORSCHAU.uebung ?? reiterStart);
+  const setReiter = (k) => { setReiterRoh(k); scrollTo({ top: 0 }); };
+  useUnterReiter('uebung', REITER, reiter, setReiter);          // seitlich wischen zwischen Verlauf, Chart, Rekorde, Info
   const [zeitraum, setZeitraum] = useState(0);              // Standard: Alles
   const [art, setArt] = useState('e1rm');                   // 'e1rm' | 'volumen'
   const [mehr, setMehr] = useState(15);
@@ -127,6 +129,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
     </header>
     ${zurueckText === 'Zurück zum Training' ? html`<button class="btn btn-soft btn-sm" onClick=${zurueck}>${I.zurueck} Zurück zum Training</button>` : null}
 
+    <div class="unter-inhalt" key=${reiter}>   ${/* Wischen zwischen den Reitern (wie Statistik/Feed) */ ''}
     ${reiter === 'verlauf' ? html`
       ${(() => {   // 205: Technik-Bewertungen – bis wohin sauber, ab wann es kippt
         const b = einheiten.flatMap((x) => x.saetze).filter((s) => s.extra?.technik && s.kg > 0);
@@ -220,6 +223,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
           ${e && DIENSTE.zusammenfuehren && DIENSTE.darfAendern(e) ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => { setZiel(null); setSheet('zusammen'); }}>Zusammenführen …</button>` : null}
         </div>
       </section>`}
+    </div>
 
     ${sheet === 'ziel' ? html`<${Sheet} zu=${() => setSheet(null)} label="Ziel für diese Übung">
       <h2 class="h2">Ziel-1RM</h2>

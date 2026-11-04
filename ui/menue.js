@@ -61,6 +61,8 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
         const f = fn.current;
         const wechsel = typeof f.seitenWechsel === 'function' ? f.seitenWechsel() : f.seitenWechsel;
         const art = s.rand && dx > 0 ? 'menue' : !wechsel ? null : dx < 0 ? (f.weiter ? 'weiter' : null) : f.zurueck ? 'zurueck' : 'menue';
+        // läuft die vorige Wisch-Animation noch, nicht verwerfen – bei der nächsten Bewegung erneut versuchen (schnelles Wischen)
+        if (art && f.zug?.beschaeftigt?.() && art !== 'menue') { s.wartet = art; s.dx = dx; return; }
         if (!art || !f.zug?.start(art)) { s.keine = true; return; }
         s.art = art;
         s.ab = dx;                                     // ab hier mitgehen – ohne Sprung um die 12-px-Schwelle
@@ -74,7 +76,11 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
     };
     const ende = () => {
       clearInterval(wache);
-      if (!s?.art) { s = null; return; }
+      // Geste lief komplett, während die vorige Animation noch lief: Wechsel danach nachholen (sehr schnelles Wischen)
+      if (!s?.art) {
+        if (s?.wartet) { const w = Math.abs(s.dx), v = w / Math.max(1, Date.now() - s.zeit); if (w > innerWidth * 0.25 || (w > 40 && v > 0.45)) fn.current.zug.nachholen?.(s.wartet); }
+        s = null; return;
+      }
       const dauer = Math.max(1, Date.now() - s.zeit), weg = Math.abs(s.dx);
       const richtig = s.art === 'weiter' ? s.dx < 0 : s.dx > 0;
       const erfolg = richtig && (weg > innerWidth * 0.33 || (weg > 40 && weg / dauer > 0.45));

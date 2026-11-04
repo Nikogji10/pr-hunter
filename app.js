@@ -465,6 +465,7 @@ function App() {
   const [neueVersion, setNeueVersion] = useState(false);        // 126 g                     // 172: Seitenmenü mit Werkzeugen
   const [rechnerArt, setRechnerArt] = useState(() => { const a = ausAdresse(); return a.ansicht === 'rechner' ? a.key : null; });
   const wischRef = useRef({});
+  const bildStandRef = useRef(null);
   const bilder = useRef({});                                     // Reiter → { el, fuer }: Bild der Seite (DOM-Kopie ihres ersten Aufbaus, ohne Programmlogik)
   const vorbereitung = useRef(0);                                // Nummer der laufenden Bild-Vorbereitung im Leerlauf
   const ebeneRef = useRef(null);                                 // beim Wischen: Ebene mit dem Bild der hereinkommenden Seite
@@ -1008,7 +1009,7 @@ function App() {
         const el = document.createElement('div'); el.className = 'seite-haupt';
         el.append(...[...tmp.childNodes].map((n) => n.cloneNode(true)));
         el.querySelectorAll('.backdrop, .toast').forEach((x) => x.remove());
-        b = bilder.current[key] = { el, fuer };
+        b = bilder.current[key] = { el, fuer, stand: bildStandRef.current };
       } catch { /* dann eben ohne Bild */ }
       finally {
         try { render(null, tmp); } catch { /* egal */ }
@@ -1022,7 +1023,7 @@ function App() {
     const fuer = seiteRef.current;
     if (!fuer || !reiterKey) return null;
     const merk = `${ansichtKey}:${reiterKey}`, b = bilder.current[merk];
-    if (b?.fuer === fuer) return b.el.cloneNode(true);
+    if (b?.stand === bildStandRef.current) return b.el.cloneNode(true);
     const tmp = document.createElement('div'), sitzung = {};
     try { for (let n = 0; n < sessionStorage.length; n++) { const s = sessionStorage.key(n); sitzung[s] = sessionStorage.getItem(s); } } catch { /* egal */ }
     UNTER_VORSCHAU[ansichtKey] = reiterKey;
@@ -1031,7 +1032,7 @@ function App() {
       const el = document.createElement('div'); el.className = 'seite-haupt';
       el.append(...[...tmp.childNodes].map((n) => n.cloneNode(true)));
       el.querySelectorAll('.backdrop, .toast').forEach((x) => x.remove());
-      bilder.current[merk] = { el, fuer };
+      bilder.current[merk] = { el, fuer, stand: bildStandRef.current };
       return el.cloneNode(true);
     } catch { return null; }
     finally {
@@ -1040,7 +1041,11 @@ function App() {
       try { for (const [s, w] of Object.entries(sitzung)) if (sessionStorage.getItem(s) !== w) sessionStorage.setItem(s, w); } catch { /* egal */ }
     }
   };
-  // Bilder der anderen Reiter im Leerlauf vorbereiten (nach jeder Änderung neu, Nachbarn zuerst) – der Wischbeginn baut dann nichts
+  // Stand der Daten, aus denen die Seitenbilder entstehen. Vorher galt jedes Bild nach JEDEM Neuzeichnen als veraltet (verglichen
+  // wurde die bei jedem Zeichnen neue Seitenfunktion) – die App baute im Hintergrund ständig ganze Seiten neu (Statistik!).
+  const bildStand = useMemo(() => ({}), [trainings, einst, messwerte, masse, ausdauer, block, info, anpassungen, training?.id, phase]);
+  bildStandRef.current = bildStand;
+  // Bilder der anderen Reiter im Leerlauf vorbereiten (nur wenn sich Daten geändert haben, Nachbarn zuerst) – der Wischbeginn baut dann nichts
   useEffect(() => {
     const nr = ++vorbereitung.current;
     const i = TABS.findIndex(([k]) => k === ansicht);
@@ -1050,7 +1055,7 @@ function App() {
     const weiter = () => {
       if (nr !== vorbereitung.current) return;
       if (zugLaeuft.current) { setTimeout(weiter, 500); return; }
-      const k = reihe.find((x) => bilder.current[x]?.fuer !== seiteRef.current);
+      const k = reihe.find((x) => bilder.current[x]?.stand !== bildStandRef.current);
       if (k) leer(() => { if (nr !== vorbereitung.current) return; bildVon(k, true); setTimeout(weiter, 40); }, { timeout: 2500 });
     };
     setTimeout(weiter, 350);
@@ -1064,9 +1069,12 @@ function App() {
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   const zugZoom = useRef(1);
   const zugSeit = useRef(0);
+  const zugNachholen = useRef(null);                            // schnell hinterher gewischt: nach der Animation ohne Gleiten wechseln
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
-    seitenWechsel: () => !!wischRef.current.reiter,
+    seitenWechsel: () => !!wischRef.current.reiter || !!UNTERREITER[jetzt.current.ansicht],   // auch Seiten mit eigenen Reitern (Übung)
     zug: {
+      beschaeftigt: () => zugLaeuft.current && Date.now() - zugSeit.current < 2000,
+      nachholen: (art) => { zugNachholen.current = art; },
       // Seitenwechsel per Wischen (Jefit-artig): Die hereinkommende Seite ist ein Bild (DOM-Kopie) – kein Aufbau, keine
       // Nebenwirkungen während des Ziehens. Gebaut wird die echte Seite erst nach dem Einschieben, verdeckt vom Bild.
       // Beide Ebenen bewegen sich in Prozent der eigenen Breite – unabhängig von Schriftgröße (zoom) und Bildschirmbreite.
@@ -1156,7 +1164,7 @@ function App() {
           const unter = zugUnter.current; zugUnter.current = null;
           if (erfolg) { if (haupt) haupt.style.transform = ''; unter(); return; }
           haupt?.classList.add('gleitet'); if (haupt) haupt.style.transform = 'translateX(0)';
-          setTimeout(() => { haupt?.classList.remove('gleitet'); if (haupt) haupt.style.transform = ''; }, 200);
+          setTimeout(() => { haupt?.classList.remove('gleitet'); if (haupt) haupt.style.transform = ''; }, 160);
           return;
         }
         for (const el of [haupt, ebene]) el?.classList.add('gleitet');
@@ -1167,13 +1175,15 @@ function App() {
           const key = unterWechsel ? 'unter' : wischRef.current[art === 'weiter' ? 'weiterKey' : 'zurueckKey'];
           const fertig = () => {
             if (haupt) { haupt.style.visibility = ''; haupt.style.transform = ''; haupt.classList.remove('gleitet'); }
-            // Ebene erst nach dem Wechsel auflösen – beim Austausch selbst kein zusätzliches Neuzeichnen
-            for (const el of [haupt, hauptRef.current]) if (el) setTimeout(() => { el.style.willChange = ''; }, 400);
+            // Ebene im selben Moment auflösen und das Bild im selben Moment entfernen, in dem die echte Seite erscheint.
+            // (04.11. war das Bild 2 Bilder länger liegen geblieben – dann lagen beide halbdurchsichtigen Seiten übereinander
+            // und alles wurde kurz heller, auf allen Seiten.)
+            for (const el of [haupt, hauptRef.current]) if (el) el.style.willChange = '';
             unterInhaltRef.current = null;
-            // Bild erst ein Bild später entfernen: die echte Seite ist dann schon gezeichnet (samt Unschärfe der Karten) –
-            // sonst blitzte das Hintergrundbild für ein Bild scharf durch (vor allem Statistik mit vielen Karten)
-            const rahmen = ebene?.parentElement; ebeneRef.current = null;
-            requestAnimationFrame(() => requestAnimationFrame(() => { rahmen?.remove(); zugLaeuft.current = false; }));
+            ebene?.parentElement?.remove(); ebeneRef.current = null;
+            zugLaeuft.current = false;
+            const nach = zugNachholen.current; zugNachholen.current = null;
+            if (nach) setTimeout(() => { const u = UNTERREITER[jetzt.current.ansicht]?.[nach]; if (u) u(); else wischRef.current[nach]?.(); }, 0);
           };
           if (erfolg && key) {
             // Das Bild deckt alles ab, bis die neue Seite gebaut ist. Ihre Einblend-Animationen werden verdeckt sofort zu Ende
@@ -1192,7 +1202,7 @@ function App() {
             if (haupt) { haupt.classList.remove('gleitet'); haupt.style.transform = ''; }
             fertig();
           }
-        }, 210);
+        }, 170);
       },
     } });
   if (phase === 'fehler') return html`<div class="screen"><span class="logo" style="margin-top:20px"><b>PR</b> Hunter</span><p class="fehler">Start fehlgeschlagen: ${fehler}</p></div>`;

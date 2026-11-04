@@ -1569,7 +1569,7 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 /* .seite-haupt bekommt nur während des Wischens ein transform – sonst wären Fenster (position: fixed) darin gefangen */
 .seite-nachbar { position: fixed; top: 0; bottom: 0; z-index: 6; overflow: hidden; pointer-events: none; }   /* left/width = #app (app.js) */
 .seite-nachbar > .seite-haupt { min-height: 100%; will-change: transform; }
-.seite-haupt.gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
+.seite-haupt.gleitet { transition: transform .16s cubic-bezier(.2, .8, .2, 1); }
 .seitenmenue.vorschau .sm-leiste { animation: none; transform: translateX(-100%); }
 .seitenmenue.vorschau .sm-hinter { animation: none; opacity: 0; }
 .sm-leiste.zieht, .sm-hinter.zieht { transition: none; }
@@ -2044,8 +2044,8 @@ body { overflow-x: hidden; }
 /* Wischen zwischen Unterreitern: nur der Inhalt gleitet, Kopf und Reiter bleiben */
 .seite-nachbar.unter-nachbar { bottom: 0; height: auto; }
 .unter-nachbar > .unter-inhalt { will-change: transform; }
-.unter-inhalt.gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1); }
-.seite-nachbar > .gleitet { transition: transform .2s cubic-bezier(.2, .8, .2, 1) !important; }   /* das Bild selbst gleitet, sein Inhalt nicht */
+.unter-inhalt.gleitet { transition: transform .16s cubic-bezier(.2, .8, .2, 1); }
+.seite-nachbar > .gleitet { transition: transform .16s cubic-bezier(.2, .8, .2, 1) !important; }   /* das Bild selbst gleitet, sein Inhalt nicht */
 .erholung-kurz[role="button"] { cursor: pointer; }
 .ek-figuren { display: flex; gap: 2px; flex: none; }
 .erholung-kurz .ek-figuren .mini-figur { width: 40px; height: 70px; }
@@ -2467,3 +2467,9 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 /* Mit Hintergrundbild keine Einblend-Animation: während Karten per transform animiert werden, verliert ihre Unschärfe auf
    Android kurz den Bezug zum Bild – alles wurde für einen Moment heller (Flackern beim Seitenwechsel, Screenshot 04.11.) */
 html.mit-bild .screen > :not(.topbar), html.mit-bild .reiter-inhalt { animation: none; }
+/* Hintergrundbild selbst weichzeichnen statt Unschärfe je Karte (backdrop-filter): Beim Seitenwechsel rechnete Android die
+   Unschärfe neuer Karten nicht rechtzeitig – alles wurde kurz heller. Ein einmal gezeichnetes, weiches Bild kostet nichts mehr
+   beim Scrollen und Wischen; die halbdurchsichtigen Karten sehen darüber fast gleich aus. Kopf, Tab-Leiste, Fenster behalten ihre. */
+html.mit-bild #hintergrund { inset: -40px; filter: blur(calc(var(--glas, 16px) * .6)); }
+html.mit-bild.neigung #hintergrund { inset: calc(-40px - var(--neigung-rand, 14px)); }
+html.mit-bild :is(.card, .viz, .kachel, .max, .hint) { -webkit-backdrop-filter: none; backdrop-filter: none; }

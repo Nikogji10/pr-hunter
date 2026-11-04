@@ -21,7 +21,16 @@ export const e1 = (s) => (s.kg > 0 && s.wdh > 0 && s.wdh <= 12 ? (s.kg * (30 + s
  * Trainings der App (oder Tage aus den Beispieldaten) → Einheiten: { datum, start, ende (ms), uebungen: [{ key, saetze }] },
  * nur erledigte Arbeitssätze, nach Datum sortiert.
  */
+// Zwischenspeicher je Trainingsliste (gleiche Liste = gleiches Ergebnis; viele Karten rufen das bei jedem Zeichnen auf)
+const NORMIERT = new WeakMap();
 export function normiere(trainings) {
+  const alt = NORMIERT.get(trainings);
+  if (alt) return alt;
+  const neu = normiereNeu(trainings);
+  NORMIERT.set(trainings, neu);
+  return neu;
+}
+function normiereNeu(trainings) {
   return trainings.filter((t) => t && !t.geloescht && t.datum).map((t) => ({
     datum: t.datum, start: ms(t.start), ende: ms(t.ende), sessionRpe: zahl(t.sessionRpe), notiz: t.notiz || null,   // 221: für „Frag die KI“
     uebungen: (t.uebungen ?? []).map((u) => ({ key: u.key, saetze: (u.saetze ?? []).filter((s) => s.fertig !== false && s.typ !== 'warmup')
