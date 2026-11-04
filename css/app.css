@@ -572,13 +572,14 @@ button.plan-item:disabled { cursor: default; }
 /* Glas (Aero): alle Flächen gleich durchscheinend (--deckkraft), mit Unschärfe dahinter; die Unschärfe wächst mit der Deckkraft */
 :root { --glas: calc(3px + 13px * var(--deckkraft, 1)); }
 .card, .viz, .kachel, .max, .sheet, .live, .toast, .hint { -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
-html.mit-bild::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(color-mix(in srgb, var(--bg) calc(var(--bild-dunkel, .55) * 100%), transparent), color-mix(in srgb, var(--bg) calc(var(--bild-dunkel, .55) * 100%), transparent)),
-    var(--bild) center / cover no-repeat; }
+/* Hintergrundbild: eigene feste Ebene (ui/hintergrund.js setzt background-image), darüber die Abdunklung als ::after */
+#hintergrund { display: none; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: center / cover no-repeat; transform: translateZ(0); }
+html.mit-bild #hintergrund { display: block; }
+#hintergrund::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) calc(var(--bild-dunkel, .55) * 100%), transparent); }
 html.mit-bild body { background: var(--bg); }
 /* Neigung (Wunsch 81): Bild etwas größer, damit beim Verschieben kein Rand sichtbar wird */
-html.mit-bild.neigung::before { inset: calc(-1 * var(--neigung-rand, 14px)); transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform .25s linear; will-change: transform; }
-.bild-vorschau { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-md); background: var(--bild, none) center / cover, var(--sunken); border: 1px solid var(--kante); box-shadow: var(--shadow-tief); }
+html.mit-bild.neigung #hintergrund { inset: calc(-1 * var(--neigung-rand, 14px)); transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform .25s linear; will-change: transform; }
+.bild-vorschau { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-md); background: center / cover, var(--sunken); border: 1px solid var(--kante); box-shadow: var(--shadow-tief); }
 
 /* Profilbild */
 .avatar { border-radius: 50%; object-fit: cover; flex: none; display: inline-grid; place-items: center; border: 2px solid var(--acc); box-shadow: 0 0 14px var(--acc-glow); }

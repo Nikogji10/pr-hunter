@@ -1063,6 +1063,7 @@ function App() {
   });
   // 172/178: Wischen – Seitenwechsel auf den Reitern, vom linken Rand überall das Menü
   const zugZoom = useRef(1);
+  const zugSeit = useRef(0);
   useWischen({ zurueck: () => wischRef.current.zurueck?.(), weiter: () => wischRef.current.weiter?.(), menueAuf: () => setMenue(true),
     seitenWechsel: () => !!wischRef.current.reiter,
     zug: {
@@ -1070,7 +1071,14 @@ function App() {
       // Nebenwirkungen während des Ziehens. Gebaut wird die echte Seite erst nach dem Einschieben, verdeckt vom Bild.
       // Beide Ebenen bewegen sich in Prozent der eigenen Breite – unabhängig von Schriftgröße (zoom) und Bildschirmbreite.
       start: (art) => {
-        if (zugLaeuft.current) return false;                  // vorige Wisch-Animation läuft noch
+        // vorige Wisch-Animation läuft noch – hängt sie länger als 2 s (z. B. zweiter Finger, Zurück-Taste), Reste aufräumen
+        if (zugLaeuft.current && Date.now() - zugSeit.current < 2000) return false;
+        if (zugLaeuft.current) {
+          document.querySelectorAll('.seite-nachbar').forEach((x) => x.remove());
+          for (const el of [hauptRef.current, unterInhaltRef.current]) if (el) { el.style.transform = ''; el.style.visibility = ''; el.style.willChange = ''; el.classList.remove('gleitet'); }
+          ebeneRef.current = null; unterInhaltRef.current = null; zugUnter.current = null;
+        }
+        zugSeit.current = Date.now();
         zugZoom.current = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;   // einmal je Geste, nicht je Bewegung
         zugUnter.current = null;
         if (art === 'menue') { setMenueZug(true); return true; }

@@ -28,7 +28,15 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
   fn.current = { zurueck, weiter, menueAuf, seitenWechsel, zug };
   useEffect(() => {
     let s = null, wache = null;
+    // Geste abbrechen (Seite gleitet zurück): zweiter Finger, Zurück-Taste, App im Hintergrund – vorher blieben beide Seiten stehen
+    const abbrechen = () => {
+      clearInterval(wache);
+      const art = s?.art;
+      s = null;
+      if (art) fn.current.zug.ende(art, false);
+    };
     const an = (e) => {
+      if (s?.art || (s && e.touches.length > 1)) { abbrechen(); return; }
       const t = e.touches[0];
       const rand = t.clientX <= RAND;
       // vom Rand immer (außer in Fenstern/Eingaben), sonst nur, wo das Element nicht selbst wischt (Satzkarten, Chip-Leisten …)
@@ -38,6 +46,7 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
     };
     const zieh = (e) => {
       if (!s) return;
+      if (e.touches.length > 1) { abbrechen(); return; }
       const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
       // Richtung früh festlegen (vor der Scroll-Schwelle des Browsers): waagrecht → senkrechtes Scrollen für diese Geste aus
       if (!s.waagrecht) {
@@ -72,11 +81,15 @@ export function useWischen({ zurueck, weiter, menueAuf, seitenWechsel = true, zu
       fn.current.zug.ende(s.art, erfolg);
       s = null;
     };
+    const weg = () => { if (s?.art) abbrechen(); };
+    const sichtbarkeit = () => { if (document.hidden) weg(); };
+    addEventListener('popstate', weg);
+    document.addEventListener('visibilitychange', sichtbarkeit);
     addEventListener('touchstart', an, { passive: true });
     addEventListener('touchmove', zieh, { passive: false });
     addEventListener('touchend', ende, { passive: true });
     addEventListener('touchcancel', ende, { passive: true });
-    return () => { removeEventListener('touchstart', an); removeEventListener('touchmove', zieh); removeEventListener('touchend', ende); removeEventListener('touchcancel', ende); };
+    return () => { removeEventListener('popstate', weg); document.removeEventListener('visibilitychange', sichtbarkeit); removeEventListener('touchstart', an); removeEventListener('touchmove', zieh); removeEventListener('touchend', ende); removeEventListener('touchcancel', ende); };
   }, []);
 }
 

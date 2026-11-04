@@ -278,7 +278,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <div class="stack unterteil" style="gap:6px"><span class="eyebrow">Schriftgröße</span>
         <${Seg} label="Schriftgröße" werte=${SCHRIFT} wert=${einst.zoom ?? 1} setze=${(v) => setEinst({ ...einst, zoom: v })}/></div>
       <div class="stack unterteil" style="gap:8px"><span class="eyebrow">Hintergrundbild</span>
-        ${bild.bild ? html`<div class="bild-vorschau"></div>` : null}
+        ${bild.bild ? html`<div class="bild-vorschau" style=${`background-image:url("${bild.bild}")`}></div>` : null}
         <div class="row" style="gap:8px">
           <label class="btn btn-soft btn-sm" style="flex:1" for="e-bild">${bild.bild ? 'Anderes Bild' : 'Bild wählen'}</label>
           <input id="e-bild" type="file" accept="image/*" hidden onChange=${(e) => { bildWaehlen(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }}/>

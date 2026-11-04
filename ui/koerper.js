@@ -84,14 +84,16 @@ const erholtIn = (h) => (h <= 0 ? 'gleich erholt' : h < 24 ? `erholt in ca. ${h}
 
 export function ErholungKarte({ zustand }) {
   const ermuedet = Object.entries(zustand).filter(([, z]) => z.stufe !== 'grau').sort((a, b) => b[1].last - a[1].last);
-  const [aktiv, setAktiv] = useState(() => ermuedet[0]?.[0] ?? 'quadrizeps');
+  // vorgewählt nur ein ermüdeter Muskel – sonst nichts markiert (vorher leuchtete der Quadrizeps, obwohl alles erholt war)
+  const [aktiv, setAktiv] = useState(() => ermuedet[0]?.[0] ?? null);
   const z = zustand[aktiv];
   const farbe = (g) => AMPEL[zustand[g]?.stufe ?? 'grau'][0];
   return html`<div class="koerper">
     <div class="figuren"><${Figur} teile=${VORNE} linien=${LINIEN_VORNE} werte=${{}} aktiv=${aktiv} waehle=${setAktiv} titel="Vorne" farbe=${farbe}/>
       <${Figur} teile=${HINTEN} linien=${LINIEN_HINTEN} werte=${{}} aktiv=${aktiv} waehle=${setAktiv} titel="Hinten" farbe=${farbe}/></div>
-    <div class="muskel-info"><i style=${`background:${farbe(aktiv)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
-      <span class="muted">${!z || z.stufe === 'grau' ? 'erholt' : `${AMPEL[z.stufe][1]} · ${erholtIn(z.stunden)}`}</span></div>
+    ${aktiv ? html`<div class="muskel-info"><i style=${`background:${farbe(aktiv)}`}></i><b>${MUSKEL_NAME[aktiv]}</b>
+      <span class="muted">${!z || z.stufe === 'grau' ? 'erholt' : `${AMPEL[z.stufe][1]} · ${erholtIn(z.stunden)}`}</span></div>`
+    : html`<div class="muskel-info"><i style="background:var(--muskel-leer)"></i><b>${deEn('Alle Muskeln erholt', 'All muscles recovered')}</b></div>`}
     <div class="stufen-skala">${['rot', 'gelb', 'grau'].map((s) => html`<span key=${s} class="da"><i style=${`background:${AMPEL[s][0]}`}></i>${AMPEL[s][1]}
       ${s !== 'grau' ? ` (${ermuedet.filter(([, x]) => x.stufe === s).length})` : ''}</span>`)}</div>
   </div>`;

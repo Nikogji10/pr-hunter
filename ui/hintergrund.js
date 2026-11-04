@@ -5,17 +5,28 @@ import { speicher } from './basis.js';
 
 const BILD = 'prh-hintergrund', DUNKEL = 'prh-hintergrund-dunkel', STAND = 'prh-hintergrund-stand', OFFEN = 'prh-hintergrund-offen';
 
+// 04.11.: Das Bild liegt auf einer eigenen festen Ebene (#hintergrund), nicht mehr als CSS-Variable auf <html> – die
+// Data-URL (mehrere hundert KB) erbte sonst jedes Element, und beim Seitenwechsel blitzte das Bild kurz auf.
+function ebene() {
+  let e = document.getElementById('hintergrund');
+  if (!e) { e = document.createElement('div'); e.id = 'hintergrund'; e.setAttribute('aria-hidden', 'true'); document.body.prepend(e); }
+  return e;
+}
+let aktuell = null;
+export const hintergrundBild = () => aktuell;
 /** Bild anwenden (oder entfernen mit null). */
 export function setzeHintergrund(dataUrl, dunkel = 0.55) {
-  const el = document.documentElement;
+  const el = document.documentElement, e = ebene();
   if (dataUrl) {
-    el.style.setProperty('--bild', `url("${dataUrl}")`);
-    el.style.setProperty('--bild-dunkel', String(dunkel));
+    if (aktuell !== dataUrl) e.style.backgroundImage = `url("${dataUrl}")`;     // nur bei neuem Bild neu setzen
+    e.style.setProperty('--bild-dunkel', String(dunkel));
     el.classList.add('mit-bild');
   } else {
-    el.style.removeProperty('--bild');
+    e.style.backgroundImage = '';
     el.classList.remove('mit-bild');
   }
+  aktuell = dataUrl || null;
+  el.style.removeProperty('--bild');                                            // Altlast aus früheren Versionen
 }
 
 export const hintergrund = () => ({ bild: speicher.lies(BILD), dunkel: Number(speicher.lies(DUNKEL)) || 0.55, stand: speicher.lies(STAND), offen: speicher.lies(OFFEN) === '1' });
@@ -42,7 +53,7 @@ const bewegung = (e) => {
   if (rahmen) return;
   rahmen = requestAnimationFrame(() => {
     rahmen = 0;
-    const s = document.documentElement.style;
+    const s = (document.getElementById('hintergrund') ?? document.documentElement).style;   // nur die Bild-Ebene, nicht <html> (sonst Stil-Neuberechnung der ganzen Seite je Bild)
     s.setProperty('--px', `${(-x * weg).toFixed(1)}px`); s.setProperty('--py', `${(-y * weg).toFixed(1)}px`);
   });
 };
@@ -52,7 +63,7 @@ export function setzeNeigung(an) {
   if (darf && !neigungAktiv) { addEventListener('deviceorientation', bewegung); neigungAktiv = true; }
   if (!darf && neigungAktiv) {
     removeEventListener('deviceorientation', bewegung); neigungAktiv = false; lage = null;
-    el.style.removeProperty('--px'); el.style.removeProperty('--py');
+    for (const s of [el.style, document.getElementById('hintergrund')?.style]) { s?.removeProperty('--px'); s?.removeProperty('--py'); }
   }
   el.classList.toggle('neigung', darf);
   el.style.setProperty('--neigung-rand', `${Math.ceil(weg) + 2}px`);
