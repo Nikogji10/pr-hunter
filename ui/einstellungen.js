@@ -146,6 +146,10 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <span class="muted" style="font-size:12.5px">${einst.trainingsart === 'einfach' ? 'Einfache Ansicht: Vorschläge statt 1RM-Zahlen, keine Kraftwerte für Kniebeuge/Bank/Kreuzheben, kein Kraftprofil, keine Punkte.' : 'Alles sichtbar: Trainingsmax, e1RM, Kraftprofil, Punkte, Powerlifting-Generator.'}</span>
       ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
       <${KalenderAbo}/>
+      <span class="viz-t unterteil">${deEn('Ausdauer', 'Cardio')}</span>
+      <${Seg} label=${deEn('Ausdauer', 'Cardio')} werte=${[['aus', deEn('Aus', 'Off')], ['lauf', deEn('Laufen', 'Running')], ['rad', deEn('Rad', 'Cycling')], ['beides', deEn('Beides', 'Both')]]}
+        wert=${einst.ausdauer ?? 'aus'} setze=${(v) => setEinst({ ...einst, ausdauer: v === 'aus' ? null : v })}/>
+      <span class="muted" style="font-size:12.5px">${deEn('Läufe und Radfahrten neben dem Krafttraining – auf „Heute“, im Verlauf und als eigener Statistik-Reiter. Nur für dich sichtbar.', 'Runs and rides next to strength training – on “Today”, in History and as its own Stats tab. Only visible to you.')}</span>
       <span class="viz-t unterteil">Wochenziel</span>
       <${Seg} label="Trainings pro Woche" werte=${[[2, '2×'], [3, '3×'], [4, '4×'], [5, '5×'], [6, '6×']]} wert=${einst.wochenziel ?? 3} setze=${(v) => setEinst({ ...einst, wochenziel: v })}/>
       <span class="muted" style="font-size:12.5px">${deEn('Nach jedem Training zeigt die App, wie viele Trainings diese Woche geschafft sind und wie weit es noch bis zum Ziel ist.', 'After each workout the app shows how many workouts you have done this week and how far it is to your goal.')}</span>

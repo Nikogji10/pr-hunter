@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['vorname', 'trainingsart', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['vorname', 'trainingsart', 'ausdauer', 'ftp', 'geraeteGrenze', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -408,6 +408,33 @@ export const ladeMesswerte = async (sb) => (await pruefe(await sb.from('body_met
 
 export const messwertHochladen = async (sb, m) =>
   pruefe(await sb.from('body_metrics').upsert({ date: m.datum, bodyweight_kg: m.kg }, { onConflict: 'user_id,date' }));
+
+// 222 (Update 33): Ausdauer – Läufe und Radfahrten, nur für den Besitzer sichtbar
+const ohne33 = (r) => r.error && /ausdauer|strava/i.test(r.error.message) && /does not exist|schema cache|could not find/i.test(r.error.message);
+const AU_ZAHLEN = ['dauer_s', 'distanz_m', 'hoehe_m', 'puls_avg', 'puls_max', 'watt_avg', 'watt_np', 'watt_max', 'kj', 'kadenz', 'rpe'];
+/** Alle Einheiten vom Server (null = Update 33 fehlt). */
+export async function ladeAusdauer(sb) {
+  const r = await sb.from('ausdauer').select('id, quelle, extern_id, art, datum, start, titel, typ, dauer_s, distanz_m, hoehe_m, puls_avg, puls_max, watt_avg, watt_np, watt_max, watt_echt, kj, kadenz, rpe, geraet, notiz, details, geloescht')
+    .order('datum', { ascending: false }).range(0, 9999);
+  if (ohne33(r)) return null;
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).map((z) => ({ ...z, ...Object.fromEntries(AU_ZAHLEN.map((k) => [k, z[k] == null ? null : Number(z[k])])) }));
+}
+/** Eine Einheit speichern (anlegen oder ändern; Löschen = geloescht). false = Update 33 fehlt. */
+export async function ausdauerHochladen(sb, a) {
+  const { offen: _o, ...zeile } = a;
+  const r = await sb.from('ausdauer').upsert({ ...zeile, updated_at: new Date().toISOString() });
+  if (ohne33(r)) return false;
+  if (r.error) throw new Error(r.error.message);
+  return true;
+}
+/** Server übernehmen, lokal offene (noch nicht hochgeladene) behalten; neueste zuerst. */
+export function mischeAusdauer(lokal, server) {
+  if (!server) return lokal;
+  const nach = new Map(server.map((a) => [a.id, a]));
+  for (const a of lokal) if (a.offen) nach.set(a.id, a);
+  return [...nach.values()].sort((a, b) => b.datum.localeCompare(a.datum));
+}
 
 // 182: Körpermaße (Umfänge in cm) in measurements, Körperfett in body_fat_pct – Zeile je Tag wie das Gewicht
 export const ladeMasse = async (sb) => (await pruefe(await sb.from('body_metrics').select('date, measurements, body_fat_pct').or('measurements.not.is.null,body_fat_pct.not.is.null')))

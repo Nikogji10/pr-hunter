@@ -22,6 +22,7 @@ import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
 import { MasseKarte } from './masse.js';
 import { ZyklusKarte } from './zyklus.js';
+import { AusdauerStatistik } from './ausdauerstatistik.js';
 import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
 
@@ -44,11 +45,13 @@ function wochenDaten(x) {
 // Statistik startet mit dem Profil (Erholung + Kraftprofil), dann Kraft, Belastung … (Niko 02.11.)
 const STAT_REITER = [['profil', 'Profil'], ['analyse', 'Analyse'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
-export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null }) {
+export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null, ausdauer = [] }) {
   // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
-  const reiterListe = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
+  const reiterBasis = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
+  // 225: Reiter „Ausdauer“ nur, wenn gewählt (vor „Körper“)
+  const reiterListe = einst.ausdauer ? [...reiterBasis.slice(0, -1), ['ausdauer', deEn('Ausdauer', 'Cardio')], reiterBasis.at(-1)] : reiterBasis;
   // beim Öffnen der App Profil (Niko 02.11.); Neuladen bleibt beim gewählten Reiter (Sitzung, 03.11.); Wisch-Bild: Nachbar
   const [reiterRoh, setReiterRoh] = useState(() => UNTER_VORSCHAU.statistik ?? (() => { try { return sessionStorage.getItem('prh-reiter-statistik'); } catch { return null; } })() ?? 'profil');
   const setReiter = (k) => { setReiterRoh(k); try { sessionStorage.setItem('prh-reiter-statistik', k); } catch { /* egal */ } };
@@ -201,7 +204,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       ${['profil', 'analyse'].includes(reiter) ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 
     <div class="reiter-inhalt statistik-inhalt unter-inhalt" key=${reiter}>
-    ${reiter === 'analyse' ? html`<${Insights} einst=${einst} heute=${HEUTE} trainings=${DEMO
+    ${reiter === 'ausdauer' ? html`<${AusdauerStatistik} liste=${ausdauer} einst=${einst} setEinst=${setEinst} trainings=${trainings} x=${x}/>`
+    : reiter === 'analyse' ? html`<${Insights} einst=${einst} heute=${HEUTE} trainings=${DEMO
         // Beispieldaten: Tage mit fester Uhrzeit, damit Dauer und Zeitnutzung etwas zeigen
         ? Object.keys(trainingsTage).map((d) => { const t = trainingAm(d); return t && { datum: d, start: `${d}T17:00:00Z`, ende: new Date(Date.parse(`${d}T17:00:00Z`) + (60 + (Number(d.slice(8)) % 5) * 12) * 60000).toISOString(), uebungen: t.uebungen }; }).filter(Boolean)
         : trainings}/>`

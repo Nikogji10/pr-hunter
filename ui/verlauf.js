@@ -1,4 +1,5 @@
 // PR Hunter · Verlauf – Monatskalender (erledigt, geplant, Urlaub), Tag antippen zeigt das Training.
+import { AusdauerListe } from './ausdauer.js';
 import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige, minutenText } from './basis.js';
 import { HEUTE, URLAUB, DEMO, trainingAm, trainingsTage, imUrlaub } from './stand.js';
 
@@ -8,7 +9,7 @@ import { UebungSuche } from './suche.js';
 
 const iso = (j, m, t) => `${j}-${String(m + 1).padStart(2, '0')}-${String(t).padStart(2, '0')}`;
 
-export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = null, loeschen = null, wiederholen = null }) {
+export function Verlauf({ ausdauer = null, planTage, erledigt, startenAm, zuUebung, bearbeiten = null, loeschen = null, wiederholen = null }) {
   const [monat, setMonat] = useState(() => ({ j: Number(HEUTE.slice(0, 4)), m: Number(HEUTE.slice(5, 7)) - 1 }));
   const [tag, setTag] = useState(null);
   const geplant = Object.fromEntries(planTage.map((t) => [t.datum, t]));
@@ -57,6 +58,7 @@ export function Verlauf({ planTage, erledigt, startenAm, zuUebung, bearbeiten = 
           <span class="muted" style="font-size:13px">${t.dauer ? minutenText(t.dauer) : datumKurz(d)}</span></button>`;
       })}${Object.keys(trainingsTage).length ? null : html`<p class="muted" style="margin:0;font-size:14px">Noch keine Trainings gespeichert.</p>`}</div>
     </section>
+    ${ausdauer ? html`<${AusdauerListe} liste=${ausdauer.liste} wahl=${ausdauer.wahl} speichern=${ausdauer.speichern} loeschen=${ausdauer.loeschen}/>` : null}
     ${tag ? html`<${TagSheet} d=${tag} plan=${geplant[tag]} erledigt=${erledigt.has(tag)} zu=${() => setTag(null)} startenAm=${startenAm}
       bearbeiten=${bearbeiten} wiederholen=${wiederholen} loeschen=${loeschen} zuUebung=${zuUebung}/>` : null}
   </div>`;

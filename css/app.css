@@ -2370,3 +2370,65 @@ body { overflow-x: hidden; }
    (Kachel in Karte) brauchen sie nie. Kopf, Tab-Leiste, Fenster und Meldungen behalten sie (dort scheint Inhalt durch). */
 html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 :is(.card, .viz, .kachel, .max, .hint) :is(.card, .viz, .kachel, .max, .hint) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* 222: Ausdauer */
+.au-karte { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.au-kopf { display: flex; align-items: center; justify-content: space-between; }
+.au-plus { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); font-size: 20px; font-weight: 700; display: grid; place-items: center; }
+.au-plus svg { width: 16px; height: 16px; }
+.au-woche { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.au-sport { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--raised); border: 1px solid var(--kante); }
+.au-sport.lauf { background: linear-gradient(135deg, color-mix(in srgb, #F97316 16%, var(--raised)), var(--raised)); }
+.au-sport.rad { background: linear-gradient(135deg, color-mix(in srgb, #0EA5E9 16%, var(--raised)), var(--raised)); }
+.au-sym { font-size: 24px; } .au-sport div { display: flex; flex-direction: column; min-width: 0; }
+.au-sport b { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; } .au-sport b small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.au-sport span:last-child { font-size: 12px; color: var(--ink-2); }
+.au-letzte { display: flex; align-items: center; gap: 10px; padding: 8px 4px 0; border: 0; border-top: 1px solid var(--kante); background: none; color: var(--ink); text-align: left; }
+.au-letzte > span:first-child { font-size: 20px; } .au-letzte-text { flex: 1; min-width: 0; display: flex; flex-direction: column; } .au-letzte-text small { font-size: 12.5px; color: var(--ink-2); }
+.au-felder { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.au-felder .text { width: 100%; }
+.au-vorschau { text-align: center; font-weight: 800; font-size: 16px; padding: 8px; border-radius: 12px; background: var(--raised); font-variant-numeric: tabular-nums; }
+.au-arten, .au-typen { flex-wrap: wrap; }
+.au-rpe { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.au-rpe button { height: 38px; border-radius: 10px; border: 1px solid var(--kante); background: var(--raised); color: var(--ink); font-weight: 800; }
+.au-rpe button[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--on-acc); }
+.au-quelle { font-size: 10.5px; font-weight: 800; color: #FC4C02; letter-spacing: .04em; }
+.au-detail-kopf { flex-direction: row !important; align-items: center; gap: 12px !important; } .au-detail-sym { font-size: 30px; }
+.au-detail-kopf small { font-size: 12.5px; }
+.au-kacheln { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.au-kacheln div { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 12px; background: var(--raised); border: 1px solid var(--kante); min-width: 0; }
+.au-kacheln small { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.au-kacheln b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.au-bereich { border: 1px solid var(--kante); border-radius: 14px; background: var(--raised); padding: 0 12px; }
+.au-bereich summary { cursor: pointer; padding: 12px 0; font-weight: 800; font-size: 14px; list-style: none; display: flex; justify-content: space-between; }
+.au-bereich summary::after { content: "›"; color: var(--muted); transition: transform .2s; } .au-bereich[open] summary::after { transform: rotate(90deg); }
+.au-bereich summary::-webkit-details-marker { display: none; }
+.au-tabelle { display: flex; flex-direction: column; padding-bottom: 10px; font-variant-numeric: tabular-nums; }
+.au-zeile { display: grid; grid-template-columns: 2.5em 1fr 1fr 1fr; gap: 6px; padding: 6px 0; border-top: 1px solid var(--kante); font-size: 13.5px; }
+.au-zeile.zwei { grid-template-columns: 1fr auto; } .au-zeile.kopf { border-top: 0; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.au-zonen { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; }
+.au-zone { display: grid; grid-template-columns: 4.5em 1fr 3.8em; align-items: center; gap: 8px; font-size: 12.5px; }
+.au-zone i { height: 10px; border-radius: 99px; background: #94A3B8; min-width: 4px; } .au-zone small { text-align: right; color: var(--ink-2); }
+.au-notiz { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink-2); } .au-notiz p { margin: 0; }
+/* 225: Statistik Ausdauer */
+.au-gesamt { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.au-gesamt .au-sport { padding: 14px; border-radius: var(--r-xl); }
+.au-frische { display: flex; flex-direction: column; align-items: flex-end; } .au-frische b { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.au-frische span { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.au-frische.gut b, .au-frische.gut span { color: #22C55E; } .au-frische.mittel b, .au-frische.mittel span { color: var(--ink); }
+.au-frische.warn b, .au-frische.warn span { color: #F59E0B; } .au-frische.schlecht b, .au-frische.schlecht span { color: #EF4444; }
+.au-best { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.au-best div { display: flex; flex-direction: column; padding: 10px; border-radius: 12px; background: var(--raised); border: 1px solid var(--kante); }
+.au-best small { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.au-best b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; } .au-best span { font-size: 11px; color: var(--ink-2); }
+.au-ftp { display: flex; flex-direction: column; align-items: flex-end; } .au-ftp small { font-size: 10.5px; font-weight: 800; color: var(--muted); letter-spacing: .06em; }
+.au-ftp b { font-size: 22px; font-weight: 800; line-height: 1.1; color: #0EA5E9; } .au-ftp span { font-size: 12px; color: var(--ink-2); }
+.au-kurve { display: flex; flex-direction: column; gap: 6px; }
+.au-kurve-zeile { display: grid; grid-template-columns: 4em 1fr 4.2em 4.6em; align-items: center; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.au-kurve-zeile i { height: 10px; border-radius: 99px; background: linear-gradient(90deg, #0EA5E9, #6366F1); min-width: 4px; }
+.au-kurve-zeile b { text-align: right; } .au-kurve-zeile small { text-align: right; color: var(--ink-2); }
+.au-ftp-feld .text { max-width: 160px; }
+.au-zonenleiste { display: flex; height: 14px; border-radius: 99px; overflow: hidden; gap: 2px; }
+.au-geraet { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--kante); }
+.au-geraet-kopf { display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; color: var(--ink); padding: 0; font-size: 14px; text-align: left; }
+.au-geraet-balken { display: block; height: 6px; border-radius: 99px; background: var(--raised); overflow: hidden; } .au-geraet-balken i { display: block; height: 100%; border-radius: 99px; }
+.au-voll { color: #EF4444; font-weight: 800; }

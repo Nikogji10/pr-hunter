@@ -57,7 +57,9 @@ function monatsText(d, vorher, jahreUebergreifend) {
  * zeitlich: Abstände nach Datum statt gleichmäßig (für einzelne Einheiten); punkte: jeden Wert als Punkt zeigen.
  */
 export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg', hoehe = 220, referenz = null, stellen = 1, zeitlich = false, punkte = false,
-  tipKopf = (d) => `Woche ab ${datumKurz(d)}`, ohneRahmen = false, beiTipp = null }) {
+  tipKopf = (d) => `Woche ab ${datumKurz(d)}`, ohneRahmen = false, beiTipp = null, format = null }) {
+  // format: eigene Zahlendarstellung (z. B. Pace „4:57“) für Achse, Endwerte, Tipp und Tabelle
+  const zahl = (v, st) => (format && v != null ? format(v) : fmt(v, st));
   const [i, setI] = useState(null);
   const ref = useRef(null);
   const serien = alleSerien.filter((s) => letzterIndex(s.werte) >= 0);
@@ -95,10 +97,10 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
     if (e.type === 'pointerdown') beiTipp?.(best);           // Tippen auf einen Punkt: Aufrufer zeigt diesen Tag
   };
   const tabelle = html`<table class="rec"><thead><tr><th>Woche</th>${serien.map((s) => html`<th key=${s.id}>${s.name}</th>`)}</tr></thead>
-    <tbody>${[...x].reverse().map((d, k) => html`<tr key=${d}><td>${datumKurz(d)}</td>${serien.map((s) => html`<td key=${s.id}>${fmt(s.werte[x.length - 1 - k])}</td>`)}</tr>`)}</tbody></table>`;
+    <tbody>${[...x].reverse().map((d, k) => html`<tr key=${d}><td>${datumKurz(d)}</td>${serien.map((s) => html`<td key=${s.id}>${zahl(s.werte[x.length - 1 - k])}</td>`)}</tr>`)}</tbody></table>`;
   const plot = html`<div class="viz-plot" onPointerLeave=${() => setI(null)}>
       <svg ref=${ref} viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${titel} onPointerMove=${zeige} onPointerDown=${zeige}>
-        ${ticks.map((t) => html`<g key=${t}><line class="g" x1=${L} x2=${W - R} y1=${py(t)} y2=${py(t)}/><text class="ax" x=${L - 6} y=${py(t) + 4} text-anchor="end">${fmt(t, 0)}</text></g>`)}
+        ${ticks.map((t) => html`<g key=${t}><line class="g" x1=${L} x2=${W - R} y1=${py(t)} y2=${py(t)}/><text class="ax" x=${L - 6} y=${py(t) + 4} text-anchor="end">${format ? format(t) : fmt(t, ticks.some((v) => !Number.isInteger(v)) ? 1 : 0)}</text></g>`)}
         ${monatsTicks.map(([d, pos], j) => html`<text key=${d} class="ax" x=${pos} y=${H - 8} text-anchor="middle">${monatsText(d, monatsTicks[j - 1]?.[0], jahre)}</text>`)}
         ${referenz ? html`<g><line x1=${L} x2=${W - R} y1=${py(referenz.wert)} y2=${py(referenz.wert)} style="stroke:var(--warn)" stroke-width="1.5" stroke-dasharray="5 4"/>
           <text class="ax" x=${L + 4} y=${py(referenz.wert) - 5} style="fill:var(--warn)">${referenz.text}</text></g>` : null}
@@ -108,14 +110,14 @@ export function LinienChart({ titel, unter, x, serien: alleSerien, einheit = 'kg
         ${enden.map(({ s, k, y, ly }) => html`<g key=${s.id}>
           <circle cx=${px(k)} cy=${y} r="4.5" style=${`fill:${s.farbe};stroke:var(--surface)`} stroke-width="2"/>
           ${ly ? html`<line x1=${px(k) + 6} y1=${y} x2=${px(k) + 10} y2=${ly} style="stroke:var(--axis)"/>` : null}
-          <text class="end" x=${px(k) + 12} y=${(ly ?? y) + 4}>${fmt(s.werte[k], stellen)}</text></g>`)}
+          <text class="end" x=${px(k) + 12} y=${(ly ?? y) + 4}>${zahl(s.werte[k], stellen)}</text></g>`)}
         ${i != null ? html`<g>
           <line x1=${px(i)} x2=${px(i)} y1=${T} y2=${H - U} style="stroke:var(--axis)"/>
           ${serien.filter((s) => s.werte[i] != null).map((s) => html`<circle key=${s.id} cx=${px(i)} cy=${py(s.werte[i])} r="4.5" style=${`fill:${s.farbe};stroke:var(--surface)`} stroke-width="2"/>`)}</g>` : null}
       </svg>
       ${i != null ? html`<div class="tip" style=${`left:${Math.min(70, Math.max(4, (px(i) / W) * 100 - 15))}%`}>
         <div class="tip-d">${tipKopf(x[i])}</div>
-        ${serien.map((s) => html`<div key=${s.id} class="tip-r"><i class="k-linie" style=${`background:${s.farbe}`}></i><b>${fmt(s.werte[i], stellen)}${einheit ? ` ${einheit}` : ''}</b><span>${s.name}</span></div>`)}
+        ${serien.map((s) => html`<div key=${s.id} class="tip-r"><i class="k-linie" style=${`background:${s.farbe}`}></i><b>${zahl(s.werte[i], stellen)}${einheit ? ` ${einheit}` : ''}</b><span>${s.name}</span></div>`)}
       </div>` : null}
     </div>`;
   if (ohneRahmen) return plot;
