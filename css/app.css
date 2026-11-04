@@ -2464,3 +2464,6 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 .sv-felder > span { font-size: 12.5px; color: var(--muted); }
 .sv-wert { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--kante); }
 .sv-wert small { font-size: 11px; color: var(--muted); } .sv-wert code { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+/* Mit Hintergrundbild keine Einblend-Animation: während Karten per transform animiert werden, verliert ihre Unschärfe auf
+   Android kurz den Bezug zum Bild – alles wurde für einen Moment heller (Flackern beim Seitenwechsel, Screenshot 04.11.) */
+html.mit-bild .screen > :not(.topbar), html.mit-bild .reiter-inhalt { animation: none; }
