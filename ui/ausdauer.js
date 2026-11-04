@@ -2,7 +2,7 @@
 // Einstellungen → Training „Ausdauer“ gewählt ist (Laufen, Rad oder beides).
 import { html, useState, Sheet, Portal, deEn, sprache, datumLang, datumKurz, fmt, I } from './basis.js';
 import { HEUTE } from './stand.js';
-import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, dauerLesen, montag, beinBelastung } from '../js/ausdauer.js';
+import { ARTEN, TYPEN, KURVE, art, sportVon, sportarten, sichtbar, paceSek, kmh, dauerText, paceText, montag, beinBelastung } from '../js/ausdauer.js';
 import { einheitAusDatei } from '../js/dateiimport.js';
 
 const name = (x) => (sprache() === 'en' ? x.en : x.de);
@@ -20,20 +20,23 @@ export function kurz(a) {
 export function AusdauerSheet({ vorlage = null, wahl, speichern, loeschen, zu }) {
   const sports = sportarten(wahl);
   const [a, setA] = useState(() => vorlage ?? { id: crypto.randomUUID(), quelle: 'manuell', art: sports[0] === 'rad' ? 'rennrad' : 'lauf', datum: HEUTE, typ: 'locker' });
-  const [dauer, setDauer] = useState(() => (vorlage?.dauer_s ? dauerText(vorlage.dauer_s) : ''));
+  // Dauer als Std/Min/Sek – die Zahlentastatur auf Android hat oft keinen Doppelpunkt ("45:00" ging nicht)
+  const [hms, setHms] = useState(() => { const d = vorlage?.dauer_s ?? 0; return d ? [Math.floor(d / 3600), Math.floor((d % 3600) / 60), d % 60].map((x, i) => (i === 0 && !x ? '' : String(x))) : ['', '', '']; });
+  const setzeHms = (i, v) => setHms((alt) => alt.map((x, k) => (k === i ? v.replace(/\D/g, '').slice(0, 3) : x)));
   const [mehr, setMehr] = useState(!!(vorlage?.puls_avg || vorlage?.watt_avg || vorlage?.geraet || vorlage?.notiz));
   const setze = (k, v) => setA((x) => ({ ...x, [k]: v }));
   const zahl = (k, faktor = 1) => (e) => { const v = e.currentTarget.value.replace(',', '.'); setze(k, v === '' ? null : Math.round(Number(v) * faktor * 100) / 100); };
-  const s = dauerLesen(dauer), vorschau = { ...a, dauer_s: s };
+  const s = (Number(hms[0]) || 0) * 3600 + (Number(hms[1]) || 0) * 60 + (Number(hms[2]) || 0), vorschau = { ...a, dauer_s: s };
   const rad = sportVon(a.art) === 'rad', fremd = a.quelle !== 'manuell';
-  const ok = s > 0 && a.datum;
+  const ok = (s > 0 || a.distanz_m > 0) && a.datum;
   return html`<${Sheet} zu=${zu} label=${deEn('Ausdauer eintragen', 'Log cardio')}>
     <div class="sheet-kopf"><h2 class="h2">${vorlage ? deEn('Einheit bearbeiten', 'Edit session') : rad && sports.length === 1 ? deEn('Radfahrt eintragen', 'Log ride') : !rad && sports.length === 1 ? deEn('Lauf eintragen', 'Log run') : deEn('Ausdauer eintragen', 'Log cardio')}</h2></div>
     ${fremd ? html`<p class="muted" style="margin:0;font-size:12.5px">${a.quelle === 'strava' ? deEn('Aus Strava – Änderungen gelten nur in PR Hunter.', 'From Strava – changes only apply in PR Hunter.') : deEn('Aus einer Datei importiert.', 'Imported from a file.')}</p>` : null}
     <div class="chips-zeile au-arten">${ARTEN.filter((x) => sports.includes(x.sport)).map((x) => html`<button key=${x.id} class="chip" aria-pressed=${String(a.art === x.id)} onClick=${() => setze('art', x.id)}>${x.icon} ${name(x)}</button>`)}</div>
     <div class="au-felder">
-      <label class="field"><span class="label">${deEn('Datum', 'Date')}</span><input type="date" class="text" value=${a.datum} max=${HEUTE} onInput=${(e) => setze('datum', e.currentTarget.value)}/></label>
-      <label class="field"><span class="label">${deEn('Dauer', 'Time')}</span><input class="text" inputmode="numeric" placeholder="0:45:00" value=${dauer} onInput=${(e) => setDauer(e.currentTarget.value)}/></label>
+      <label class="field voll"><span class="label">${deEn('Datum', 'Date')}</span><input type="date" class="text" value=${a.datum} max=${HEUTE} onInput=${(e) => setze('datum', e.currentTarget.value)}/></label>
+      <div class="field voll"><span class="label">${deEn('Dauer', 'Time')}</span><div class="au-hms">${[[deEn('Std', 'h'), '0'], ['Min', '45'], [deEn('Sek', 's'), '00']].map(([n, p], i) => html`<label key=${i}>
+        <input class="text" inputmode="numeric" placeholder=${p} value=${hms[i]} onInput=${(e) => setzeHms(i, e.currentTarget.value)} aria-label=${n}/><small>${n}</small></label>`)}</div></div>
       <label class="field"><span class="label">${deEn('Distanz (km)', 'Distance (km)')}</span><input class="text" inputmode="decimal" placeholder=${rad ? '60' : '10'} value=${a.distanz_m != null ? String(Math.round(a.distanz_m) / 1000).replace('.', ',') : ''} onInput=${zahl('distanz_m', 1000)}/></label>
       <label class="field"><span class="label">${deEn('Höhenmeter', 'Elevation (m)')}</span><input class="text" inputmode="numeric" placeholder="0" value=${a.hoehe_m ?? ''} onInput=${zahl('hoehe_m')}/></label>
     </div>
@@ -50,7 +53,8 @@ export function AusdauerSheet({ vorlage = null, wahl, speichern, loeschen, zu })
       </div>
       <label class="field"><span class="label">${deEn('Notiz', 'Note')}</span><input class="text" maxlength="300" value=${a.notiz ?? ''} onInput=${(e) => setze('notiz', e.currentTarget.value || null)}/></label>`
     : html`<button class="link" style="align-self:flex-start" onClick=${() => setMehr(true)}>${deEn('+ Puls, Watt, Schuh/Rad, Notiz', '+ Heart rate, power, shoe/bike, note')}</button>`}
-    <button class="btn btn-chalk btn-block" disabled=${!ok} onClick=${() => { speichern({ ...a, dauer_s: s }); zu(); }}>${deEn('Speichern', 'Save')}</button>
+    ${!ok ? html`<span class="muted" style="font-size:12.5px;text-align:center">${deEn('Dauer oder Distanz eintragen', 'Enter time or distance')}</span>` : null}
+    <button class="btn btn-chalk btn-block" disabled=${!ok} onClick=${() => { speichern({ ...a, dauer_s: s || null }); zu(); }}>${deEn('Speichern', 'Save')}</button>
     ${vorlage && loeschen ? html`<button class="btn btn-soft btn-block" onClick=${() => { loeschen(a); zu(); }}>${deEn('Löschen', 'Delete')}</button>` : null}
   <//>`;
 }

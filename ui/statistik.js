@@ -199,7 +199,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Dein Fortschritt</div><h1 class="h1">Statistik</h1></div>${DEMO ? html`<span class="proto">Beispieldaten</span>` : null}
-      <nav class="reiter" role="tablist" aria-label="Bereich">${reiterListe.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
+      <nav class=${`reiter ${reiterListe.length > 6 ? 'viele' : ''}`} role="tablist" aria-label="Bereich">${reiterListe.map(([k, t]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => waehleReiter(k)}>${t}</button>`)}</nav>
       ${/* Zeitraum im feststehenden Kopf: bleibt beim Scrollen sichtbar und filtert alles darunter (Wunsch 123) */ ''}
       ${['profil', 'analyse'].includes(reiter) ? null : html`<div class="filter einreihig kopf-filter" role="group" aria-label="Zeitraum">${bereiche.map(([t, w]) => html`<button key=${t} class="chip" aria-pressed=${String(bereich === w)} onClick=${() => setBereich(w)}>${t}</button>`)}</div>`}</header>
 

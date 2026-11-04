@@ -2440,3 +2440,12 @@ html:not(.mit-bild) :is(.card, .viz, .kachel, .max, .hint),
 .strava-trennen .btn { align-self: flex-start; }
 .au-beine { font-size: 13px; line-height: 1.4; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, #F59E0B 12%, var(--raised)); color: var(--ink); }
 .au-datei { cursor: pointer; }
+/* Ausdauer: Dauer in drei Feldern */
+.au-hms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.au-hms label { position: relative; } .au-hms .text { width: 100%; padding-right: 26px; text-align: right; }
+.au-hms small { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: var(--muted); pointer-events: none; }
+/* Statistik mit 7 Reitern (Ausdauer an): zwei Zeilen statt seitwärts wischen */
+.reiter.viele { flex-wrap: wrap; overflow: visible; }
+.reiter.viele button { flex: 1 0 24%; height: 34px; }
+.au-felder .voll { grid-column: 1 / -1; }
+.au-hms { gap: 8px; } .au-hms .text { padding-right: 34px; } .au-hms small { right: 12px; font-size: 12px; }
