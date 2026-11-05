@@ -189,9 +189,22 @@ export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp 
 
 /** Plan mit dem aktuellen Kraftplan neu rechnen (Parameter gespeichert; Krafttage können sich ändern). */
 export function aktuellerPlan(plan, { kraftTag, beinTag } = {}) {
-  if (!plan?.param) return plan;
-  try { return { ...erzeugePlan({ ...plan.param, kraftTag: kraftTag ?? (() => false), beinTag: beinTag ?? (() => false) }), param: plan.param, woche: plan.woche, bein: plan.bein }; }
-  catch { return plan; }
+  if (!plan) return plan;
+  let p = plan;
+  if (plan.param) {
+    try { p = { ...plan, ...erzeugePlan({ ...plan.param, kraftTag: kraftTag ?? (() => false), beinTag: beinTag ?? (() => false) }) }; }
+    catch { p = plan; }
+  }
+  return mitAnpassungen(p);
+}
+
+/** Eigene Änderungen aus der Wochenübersicht: { [id]: { datum } | { weg: true } } – verschoben bzw. weggelassen. */
+export function mitAnpassungen(plan) {
+  const a = plan?.anpassungen;
+  if (!a || !Object.keys(a).length) return plan;
+  const einheiten = plan.einheiten.filter((e) => !a[e.id]?.weg).map((e) => (a[e.id]?.datum ? { ...e, datum: a[e.id].datum, verschoben: true } : e))
+    .sort((x, y) => x.datum.localeCompare(y.datum));
+  return { ...plan, einheiten };
 }
 
 /** Gehört eine erledigte Einheit (aus der Ausdauer-Liste) zu einer geplanten? Gleicher Tag, gleiche Sportart. */

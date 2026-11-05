@@ -738,10 +738,19 @@ function App() {
   useEffect(() => {
     const start = ausAdresse();
     history.replaceState({ wurzel: true }, '', adresse(start.ansicht, start.key));
-    history.pushState(start, '', adresse(start.ansicht, start.key));
+    history.pushState({ ...start, erste: true }, '', adresse(start.ansicht, start.key));
+    // Nicht aus der App fallen: Chrome überspringt beim Zurück Einträge, die ohne Antippen entstanden sind. Deshalb beim
+    // nächsten Antippen auf dem ersten Eintrag einen weiteren anlegen (mit Nutzer-Aktion – der zählt).
+    let schutzFehlt = true;
+    const antippen = () => {
+      if (!schutzFehlt || !history.state?.erste) return;
+      history.pushState({ ...history.state }, '', location.href);
+      schutzFehlt = false;
+    };
+    addEventListener('pointerdown', antippen, true);
     const zurueck = (e) => {
       const st = e.state;
-      if (!st?.ansicht) { history.pushState(jetzt.current, '', adresse(jetzt.current.ansicht, jetzt.current.key)); return; }
+      if (!st?.ansicht) { history.pushState({ ...jetzt.current, erste: true }, '', adresse(jetzt.current.ansicht, jetzt.current.key)); schutzFehlt = true; return; }
       scrollPos.current[jetzt.current.ansicht] = scrollY;
       setAnsicht(st.ansicht);
       const y = scrollPos.current[st.ansicht] ?? 0;
@@ -753,7 +762,7 @@ function App() {
     // Neuladen/Herunterziehen: Ansicht steht in der Adresse, die Scrollposition merken wir uns hier
     const merken = () => { try { sessionStorage.setItem('prh-scroll', JSON.stringify({ hash: location.hash, y: scrollY })); } catch { /* egal */ } };
     addEventListener('pagehide', merken);
-    return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); };
+    return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); removeEventListener('pointerdown', antippen, true); };
   }, []);
   // Startbild aus index.html ausblenden, sobald die App steht (mindestens 0,48 s nach dem Öffnen, damit die Animation durchläuft; 177)
   useEffect(() => {
@@ -1288,7 +1297,7 @@ function App() {
   const tage = aktiverBlock ? tageMitOptionen(blockTage(blockDef, { ...aktiverBlock, cut: einst.cut }), aktiverBlock) : [];
   // Wer die geplanten Tage sieht, regelt die Freigabe je Freund (Update 21) – hochgeladen wird immer
   planTage.current = tage.filter((t) => t.datum >= heuteLokal() && !t.uebersprungen).slice(0, 40)
-    .map((t) => ({ datum: t.datum, keys: t.uebungen.map((u) => u.key).filter(Boolean), ...(t.label ? { label: t.label } : {}) }));
+    .map((t) => ({ datum: t.datum, offset: t.offset, keys: t.uebungen.map((u) => u.key).filter(Boolean), ...(t.label ? { label: t.label } : {}) }));
   // Erledigt nach Datum des Plantags (bei verschobenen Tagen das neue Datum)
   const datumVon = new Map(tage.map((t) => [t.offset, t.datum]));
   const erledigt = DEMO ? demoErledigt : new Set(trainings.filter((t) => aktiverBlock && t.runId === aktiverBlock.id && t.tagOffset != null && !t.geloescht)
@@ -1623,7 +1632,7 @@ function App() {
       : ansicht === 'uebung' && uebungAnsicht ? html`<${UebungsSeite} key=${uebungAnsicht.key} schluessel=${uebungAnsicht.key} einst=${einstUi} setEinst=${setEinst} bloecke=${bloecke}
           zurueck=${() => gehe(uebungAnsicht.zurueck === 'training' && training ? 'training' : uebungAnsicht.zurueck === 'heute' ? 'heute' : 'verlauf')}
           zurueckText=${uebungAnsicht.zurueck === 'training' && training ? 'Zurück zum Training' : uebungAnsicht.zurueck === 'heute' ? 'Zurück zu Heute' : 'Zurück zum Verlauf'}/>`
-      : ansicht === 'programme' ? html`<${Programme} ausdauer=${{ liste: ausdauer, beinTag: planBeinTag, kraftTag: planKraftTag, plan: auPlan, planTage: planTage.current, eintragen: geplantEintragen, zuUebung: (k) => zuUebung(k, 'programme') }} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
+      : ansicht === 'programme' ? html`<${Programme} ausdauer=${{ liste: ausdauer, beinTag: planBeinTag, kraftTag: planKraftTag, plan: auPlan, planTage: planTage.current, eintragen: geplantEintragen, kraftVerschieben: aktiverBlock && !training ? tagOption : null, zuUebung: (k) => zuUebung(k, 'programme') }} programme=${programme} info=${info} block=${aktiverBlock} setBlock=${blockSetzen} erledigt=${erledigt} toast=${setToast}
           sollIst=${aktiverBlock && !DEMO ? sollIst(tage, trainings, aktiverBlock.id) : []}
           neueMaxeFuer=${aktiverBlock && !DEMO ? (vertrauen) => neueMaxe(blockDef, aktiverBlock, trainings, projiziere, incStandard(), { vertrauen }) : null}
           zuHeute=${() => gehe('heute')} einst=${einstUi} setEinst=${setEinst} importieren=${importieren}/>`

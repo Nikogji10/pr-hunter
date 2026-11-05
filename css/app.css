@@ -2617,3 +2617,20 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .modern .vorlagen-auf > summary { font-weight: 650; }
 .modern .seg button[aria-pressed="true"] { box-shadow: var(--shadow); color: var(--ink); }
 .modern .prog-reiter button { font-size: 13.5px; font-weight: 650; }
+/* Knöpfe app-weit modern (05.11.): gleiche Farben wie vorher, aber ohne Großbuchstaben, Sperrung und Riffelmuster */
+.btn { text-transform: none; letter-spacing: 0; font-stretch: 100%; font-weight: 700; font-size: 15px; border-radius: 14px; }
+.btn-sm { height: 38px; font-size: 13.5px; font-weight: 650; border-radius: 11px; letter-spacing: 0; }
+.btn-chalk { background: linear-gradient(180deg, var(--acc-hi) 0%, var(--acc) 100%); border-color: transparent;
+  box-shadow: 0 10px 24px -14px var(--acc-glow, var(--acc)), inset 0 1px 0 rgba(255,255,255,.22); }
+.btn-go { background: linear-gradient(180deg, #4ED98A 0%, var(--ok) 100%); border-color: transparent; color: #06180D;
+  box-shadow: 0 10px 24px -12px var(--ok), inset 0 1px 0 rgba(255,255,255,.25); }
+.btn-soft { background: color-mix(in srgb, var(--ink) 7%, var(--raised)); border: 1px solid var(--kante); box-shadow: none; color: var(--ink); }
+.btn-gefahr { background: transparent; border-width: 1.5px; }
+.pl-datum { display: flex; gap: 8px; align-items: center; } .pl-datum .text { flex: 1; }
+.pl-tag-fest { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--ink-2);
+  background: color-mix(in srgb, var(--ink) 5%, transparent); border: 1px solid var(--line); }
+.pl-tag-fest.kraft { border-color: color-mix(in srgb, var(--acc) 45%, var(--line)); } .pl-tag-fest.cardio { border-color: color-mix(in srgb, #F97316 50%, var(--line)); }
+.pl-tag-fest.beides { border-color: color-mix(in srgb, #A855F7 50%, var(--line)); } .pl-tag-fest.ruhe { opacity: .7; }
+.kw-aendern { margin-top: 4px; align-self: flex-start; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--acc-text, var(--acc)); font-size: 11px; font-weight: 700; }
+.kw-zeile { grid-template-columns: 4.2em 1fr; }
+.kw-cardio small { display: block; }

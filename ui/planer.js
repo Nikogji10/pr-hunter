@@ -22,9 +22,9 @@ const ZIELE_KRAFT = [
   ['powerlifting', '🏆', ['Maximalkraft', 'Max strength'], ['Powerlifting: Kniebeuge, Bank, Kreuzheben, Test am Ende', 'Powerlifting: squat, bench, deadlift, test at the end']],
 ];
 const FOKUS_WAHL = [
-  ['kraft', '💪', ['Kraft', 'Strength'], ['Cardio als Ergänzung: weniger Umfang, höchstens eine harte Einheit pro Woche', 'Cardio on the side: less volume, at most one hard session a week']],
-  ['mix', '⚖️', ['Ausgeglichen', 'Balanced'], ['Kraft und Ausdauer gleich wichtig', 'Strength and endurance equally important']],
-  ['cardio', '🏃', ['Ausdauer', 'Endurance'], ['Kraft unterstützt das Laufen bzw. Radfahren: kurze Einheiten', 'Strength supports running or cycling: short sessions']],
+  ['kraft', '💪', ['Kraft', 'Strength'], ['Erst der Kraftplan – Cardio kommt Woche für Woche auf deine Ruhetage, mit weniger Umfang', 'Strength plan first – cardio goes onto your rest days week by week, with less volume']],
+  ['mix', '⚖️', ['Ausgeglichen', 'Balanced'], ['Beides gleich wichtig – du verteilst die Woche selbst', 'Both equally important – you lay out the week yourself']],
+  ['cardio', '🏃', ['Ausdauer', 'Endurance'], ['Erst Cardio – Krafttraining kommt um deine Läufe bzw. Fahrten herum, kurze Einheiten', 'Cardio first – strength training goes around your runs or rides, short sessions']],
 ];
 
 /** Auswahlzeile: Symbol, Titel, Beschreibung, Markierung rechts. */
@@ -63,7 +63,14 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
   const nKraft = nurCardio ? 0 : fest ? fest.length : w.nKraft;
   const vorlage = w.ziel === 'einfach' && nKraft ? kraftVorlage({ anzahl: nKraft, fokus, sport, en }) : null;
   const hart = w.nCardio >= 5 && fokus !== 'kraft' ? 2 : 1;
-  const woche = w.woche ?? wochenVorschlag(nKraft, w.nCardio, { fest, bein: beinFest, beinFolge: vorlage?.map((x) => x.bein) ?? null, hart });
+  // Reihenfolge nach Fokus: Kraft zuerst (Cardio Woche für Woche auf die Ruhetage), Cardio zuerst (Kraft um die
+  // gewählten Cardio-Tage, nur beim einfachen Training – Bodybuilding/Powerlifting haben feste Tage), sonst frei
+  const kraftZuerst = !nurCardio && !zumBlock && fokus === 'kraft';
+  const cardioZuerst = !nurCardio && !zumBlock && fokus === 'cardio' && w.ziel === 'einfach';
+  const beinFolge = vorlage?.map((x) => x.bein) ?? null;
+  const vorschlagWoche = wochenVorschlag(nKraft, w.nCardio, { fest, bein: beinFest, beinFolge, hart });
+  const cardioWahl = w.cardioWahl ?? vorschlagWoche.map((a, i) => (hatCardio(a) ? i : null)).filter((x) => x != null);
+  const woche = kraftZuerst ? vorschlagWoche : cardioZuerst ? wochenVorschlag(nKraft, cardioWahl.length, { festCardio: cardioWahl, beinFolge, hart }) : w.woche ?? vorschlagWoche;
   const kraftIdx = woche.map((a, i) => (hatKraft(a) ? i : null)).filter((x) => x != null);
   const bein = beinFest ? woche.map((a, i) => hatKraft(a) && beinFest[i]) : woche.map((a, i) => hatKraft(a) && (vorlage ? vorlage[kraftIdx.indexOf(i)]?.bein !== false : true));
   const cardioTage = woche.map((a, i) => (hatCardio(a) ? i : null)).filter((x) => x != null);
@@ -77,13 +84,13 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
   const wochen = rennDatum ? wochenBis(start, rennDatum) : w.wochen;
   const kraftTag = (d) => hatKraft(woche[wochentag(d)]);
   const beinTag = (d) => kraftTag(d) && bein[wochentag(d)];
-  const param = { sport, ziel: zweck ?? (sport === 'lauf' ? 'fit' : 'grundlage'), start, wochen, tage: cardioTage, t5k: Number(t5k[0]) * 60 + (Number(t5k[1]) || 0), ftp: Number(ftp) || null, startKm, dauer: w.dauer, fokus, rennDatum, ...(nurCardio ? {} : { jeWoche: cardioTage.length, raster: woche }) };
+  const param = { sport, ziel: zweck ?? (sport === 'lauf' ? 'fit' : 'grundlage'), start, wochen, tage: cardioTage, t5k: Number(t5k[0]) * 60 + (Number(t5k[1]) || 0), ftp: Number(ftp) || null, startKm, dauer: w.dauer, fokus, rennDatum, ...(nurCardio ? {} : { jeWoche: cardioTage.length, raster: kraftZuerst ? null : woche }) };
   const plan = mitCardio && cardioTage.length ? erzeugePlan({ ...param, kraftTag, beinTag }) : null;
   const woche1 = plan?.einheiten.filter((e) => e.woche === 1) ?? [];
   const hinweise = pruefeWoche(woche, bein, woche1.map((e) => ({ wt: wochentag(e.datum), typ: e.typ })));
 
   // Schritte je nach Antworten
-  const ids = ['ziel', 'cardio', ...(mitCardio ? ['cardioZiel', ...(nurCardio ? [] : ['fokus']), 'umfang', 'woche', 'form'] : []), 'fertig'];
+  const ids = ['ziel', 'cardio', ...(mitCardio ? [...(nurCardio ? [] : ['fokus']), 'cardioZiel', 'umfang', 'woche', 'form'] : []), 'fertig'];
   const si = Math.min(Math.max(1, schritt), ids.length), id = ids[si - 1];
   useEffect(() => window.scrollTo(0, 0), [id]);
   // Zurück (Handy und Pfeil oben): erst einen Schritt zurück; in Schritt 1 entscheidet Programme (Warnung bei Eingaben)
@@ -96,6 +103,7 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
   const cardioIcon = sportIcon(sport);
   const artIcon = (a) => (a === 'ruhe' ? '😴' : a === 'kraft' ? '💪' : a === 'cardio' ? cardioIcon : `💪${cardioIcon}`);
   const erlaubt = (i) => (nurCardio ? ['ruhe', 'cardio'] : fest ? (fest.includes(i) ? ['kraft', 'beides'] : ['ruhe', 'cardio']) : ['ruhe', 'kraft', 'cardio', 'beides']);
+  const cardioTagWahl = (i, an) => { const neu = [...new Set(an ? [...cardioWahl, i] : cardioWahl.filter((x) => x !== i))].sort((a, b) => a - b); if (neu.length) setze({ cardioWahl: neu, nCardio: neu.length }); };
   const setzeTag = (i, a) => { const neu = [...woche]; neu[i] = a; setze({ woche: neu, ...(fest ? {} : { nKraft: neu.filter(hatKraft).length || w.nKraft }), nCardio: neu.filter(hatCardio).length }); };
   const kraftName = (i) => (vorlage ? vorlage[kraftIdx.indexOf(i)]?.name : zumBlock ? planTage.find((t) => t.datum === startWoche[i])?.label ?? blockName : w.ziel === 'bodybuilding' ? 'Bodybuilding' : 'Powerlifting');
   const kraftWerte = w.ziel === 'powerlifting' ? PL_TAGE : w.ziel === 'bodybuilding' ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6];
@@ -122,8 +130,9 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
       ${sports.length > 1 ? html`<${Chips} aria=${L('Plan für', 'Plan for')} werte=${sports} aktiv=${sport} label=${(s) => `${sportIcon(s)} ${sportName(s)}`} setzen=${(s) => setze({ sport: s, zweck: null })}/>` : null}
       <div class="pl-optionen">${ZIELE[sport].map(([z, de, enName]) => html`<${Option} key=${z} aktiv=${zweck === z} titel=${L(de, enName)}
         text=${ZIEL_TEXT[z] ? L(...ZIEL_TEXT[z]) : RENN_ZIELE.has(z) ? L('Wettkampf – mit Datum plant die App bis zu diesem Tag', 'Race – with a date the app plans up to that day') : null} onClick=${() => setze({ zweck: z })}/>`)}</div>
-      ${rennen ? html`<label class="field"><span class="label">${L('Wettkampftag (optional)', 'Race day (optional)')}</span>
-        <input class="text" type="date" min=${plusTage(start, 7)} value=${w.rennDatum} onInput=${(e) => setze({ rennDatum: e.currentTarget.value })}/></label>` : null}`,
+      ${rennen ? html`<div class="field"><label class="label" for="pl-renn">${L('Wettkampftag (optional)', 'Race day (optional)')}</label>
+        <div class="pl-datum"><input id="pl-renn" class="text" type="date" min=${plusTage(start, 7)} value=${w.rennDatum} onInput=${(e) => setze({ rennDatum: e.currentTarget.value })}/>
+          ${w.rennDatum ? html`<button class="iconbtn" aria-label=${L('Wettkampftag entfernen', 'Remove race day')} onClick=${() => setze({ rennDatum: '' })}>${I.zu}</button>` : null}</div></div>` : null}`,
     fokus: html`${frage(L('Worauf liegt dein Fokus?', 'Where is your focus?'))}
       <div class="pl-optionen">${FOKUS_WAHL.map(([f, icon, titel, text]) => html`<${Option} key=${f} aktiv=${fokus === f} icon=${icon} titel=${L(...titel)} text=${L(...text)} onClick=${() => setze({ fokus: f })}/>`)}</div>`,
     umfang: html`${frage(L('Wie lange pro Cardio-Einheit?', 'How long per cardio session?'), ZEIT_ZIELE.has(zweck) || sport === 'rad' ? L('Die lange Einheit am Wochenende darf länger sein, an Krafttagen bleibt Cardio kurz.', 'The long weekend session may be longer, on strength days cardio stays short.')
@@ -133,19 +142,25 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
           ${wochen < (MIN_WOCHEN[zweck] ?? 0) ? html`<span class="warn-text">${L(`Knapp – ${MIN_WOCHEN[zweck]} Wochen oder mehr wären besser. Der Plan wird kürzer und vorsichtiger.`, `Tight – ${MIN_WOCHEN[zweck]} weeks or more would be better. The plan gets shorter and more careful.`)}</span>` : null}</div>`
       : html`<h3 class="pl-zwischen">${L('Wie viele Wochen?', 'How many weeks?')}</h3>
         <${Chips} aria=${L('Wochen', 'Weeks')} werte=${[4, 6, 8, 12, 16]} aktiv=${w.wochen} label=${(n) => L(`${n} Wo.`, `${n} wk`)} setzen=${(n) => setze({ wochen: n })}/>`}`,
-    woche: html`${frage(L('Wie sieht deine Woche aus?', 'What does your week look like?'),
-        zumBlock ? L('Krafttage aus deinem Block. Wähle, wo Cardio hinkommt.', 'Strength days from your block. Choose where cardio goes.')
-        : w.ziel === 'powerlifting' ? L(`Tage wie im Powerlifting-Generator (Kniebeuge und Kreuzheben je ${pl.proWoche.squat}×, Bank 2×). Ändert sich dort etwas, passt sich Cardio an.`, `Days as in the powerlifting generator (squat and deadlift ${pl.proWoche.squat}× each, bench 2×). If you change them there, cardio adapts.`)
+    woche: html`${frage(kraftZuerst ? L('Kraft zuerst – Cardio passt sich an', 'Strength first – cardio adapts') : cardioZuerst ? L('Cardio zuerst – Kraft passt sich an', 'Cardio first – strength adapts') : L('Wie sieht deine Woche aus?', 'What does your week look like?'),
+        kraftZuerst ? L('Die Krafttage kommen aus deinem Kraftplan. Cardio legt die App jede Woche auf die Ruhetage – auch wenn sich Krafttage verschieben.', 'Strength days come from your strength plan. The app puts cardio on that week’s rest days – even when strength days move.')
+        : cardioZuerst ? L('Wähle deine Cardio-Tage. Die Krafttage legt die App drumherum – Beine nicht vor harten Einheiten.', 'Choose your cardio days. The app places strength around them – no legs before hard sessions.')
+        : zumBlock ? L('Krafttage aus deinem Block. Wähle, wo Cardio hinkommt; wechseln die Krafttage, wandert Cardio auf die Ruhetage.', 'Strength days from your block. Choose where cardio goes; if strength days change, cardio moves to rest days.')
+        : w.ziel === 'powerlifting' ? L(`Tage wie im Powerlifting-Generator (Kniebeuge und Kreuzheben je ${pl.proWoche.squat}×, Bank 2×).`, `Days as in the powerlifting generator (squat and deadlift ${pl.proWoche.squat}× each, bench 2×).`)
         : w.ziel === 'bodybuilding' ? L('Tage wie im Bodybuilding-Generator. Wähle, wo Cardio hinkommt.', 'Days as in the bodybuilding generator. Choose where cardio goes.')
         : nurCardio ? null : L('Die App schlägt eine Verteilung vor – pro Tag änderbar.', 'The app suggests a layout – adjustable per day.'))}
-      ${nurCardio ? null : html`<p class="pl-unter">${L('Wechseln deine Krafttage von Woche zu Woche, legt die App Cardio jede Woche neu auf deine Ruhetage.', 'If your strength days change from week to week, the app moves cardio onto that week’s rest days.')}</p>`}
       ${nurCardio || zumBlock ? null : html`<div class="pl-zeile"><span>${L('Krafttage', 'Strength days')}</span><${Chips} aria=${L('Krafttage', 'Strength days')} werte=${kraftWerte} aktiv=${nKraft} label=${(n) => `${n}×`} setzen=${(n) => setze({ nKraft: n, woche: null })}/></div>`}
-      <div class="pl-zeile"><span>${L('Cardio', 'Cardio')}</span><${Chips} aria=${L('Cardio-Einheiten', 'Cardio sessions')} werte=${nurCardio ? [2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]} aktiv=${cardioTage.length} label=${(n) => `${n}×`} setzen=${(n) => setze({ nCardio: n, woche: null })}/></div>
+      <div class="pl-zeile"><span>${L('Cardio', 'Cardio')}</span><${Chips} aria=${L('Cardio-Einheiten', 'Cardio sessions')} werte=${nurCardio ? [2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]} aktiv=${cardioTage.length} label=${(n) => `${n}×`} setzen=${(n) => setze({ nCardio: n, woche: null, cardioWahl: null })}/></div>
       <div class="pl-woche">${woche.map((a, i) => html`<div key=${i} class="pl-tag">
         <span class="pl-tagname"><b>${L(...WT_NAME[i])}</b>${bein[i] ? html`<small>${L('Beine', 'Legs')}</small>` : null}</span>
-        <div class="pl-seg" role="group" aria-label=${L(...WT_NAME[i])}>${erlaubt(i).map((x) => html`<button key=${x} class=${x === a ? `an ${x}` : ''} aria-pressed=${String(x === a)} onClick=${() => setzeTag(i, x)}>
-          <span aria-hidden="true">${artIcon(x)}</span><small>${L(...ART_NAME[x])}</small></button>`)}</div></div>`)}</div>
-      ${w.woche ? html`<button class="pl-link" onClick=${() => setze({ woche: null })}>${L('Vorschlag wiederherstellen', 'Restore suggestion')}</button>` : null}
+        ${kraftZuerst ? html`<div class=${`pl-tag-fest ${a}`}><span aria-hidden="true">${artIcon(a)}</span><small>${L(...ART_NAME[a])}</small></div>`
+          : cardioZuerst ? html`<div class="pl-seg" role="group" aria-label=${L(...WT_NAME[i])}>${['ruhe', 'cardio'].map((x) => { const an = x === 'cardio' ? hatCardio(a) : !hatCardio(a);
+              return html`<button key=${x} class=${an ? `an ${x === 'cardio' ? (hatKraft(a) ? 'beides' : 'cardio') : hatKraft(a) ? 'kraft' : 'ruhe'}` : ''} aria-pressed=${String(an)} onClick=${() => cardioTagWahl(i, x === 'cardio')}>
+                <span aria-hidden="true">${x === 'cardio' ? cardioIcon : hatKraft(a) ? '💪' : '😴'}</span><small>${x === 'cardio' ? (hatKraft(a) ? L('Cardio + Kraft', 'Cardio + strength') : 'Cardio') : hatKraft(a) ? L('Kraft', 'Strength') : L('Ruhe', 'Rest')}</small></button>`; })}</div>`
+          : html`<div class="pl-seg" role="group" aria-label=${L(...WT_NAME[i])}>${erlaubt(i).map((x) => html`<button key=${x} class=${x === a ? `an ${x}` : ''} aria-pressed=${String(x === a)} onClick=${() => setzeTag(i, x)}>
+          <span aria-hidden="true">${artIcon(x)}</span><small>${L(...ART_NAME[x])}</small></button>`)}</div>`}</div>`)}</div>
+      ${w.woche && !kraftZuerst && !cardioZuerst ? html`<button class="pl-link" onClick=${() => setze({ woche: null })}>${L('Vorschlag wiederherstellen', 'Restore suggestion')}</button>` : null}
+      ${w.cardioWahl && cardioZuerst ? html`<button class="pl-link" onClick=${() => setze({ cardioWahl: null, nCardio: w.nCardio })}>${L('Vorschlag wiederherstellen', 'Restore suggestion')}</button>` : null}
       ${plan ? html`<${Hinweise} liste=${hinweise}/>` : null}`,
     form: sport === 'lauf' ? html`${frage(L('Wie schnell läufst du 5 km?', 'How fast do you run 5K?'), prog ? L(`Vorschlag aus deinen Bestzeiten (${prog.aus}). Daraus rechnet die App deine Tempobereiche.`, `Suggested from your best times (${prog.aus}). Your pace zones come from it.`) : L('Ungefähr reicht – daraus rechnet die App deine Tempobereiche.', 'A rough value is fine – your pace zones come from it.'))}
       <div class="au-hms" style="grid-template-columns:1fr 1fr">${[0, 1].map((i) => html`<label key=${i}><input class="text" inputmode="numeric" value=${t5k[i]} onInput=${(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setze({ t5k: t5k.map((x, k) => (k === i ? v : x)) }); }}/><small>${i ? L('Sek', 's') : 'Min'}</small></label>`)}</div>`
@@ -184,6 +199,7 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
           : w.ziel === 'bodybuilding' ? L(`Als Nächstes: Übungen im Bodybuilding-Generator wählen (${nKraft} Tage pro Woche).`, `Next: pick exercises in the bodybuilding generator (${nKraft} days per week).`)
           : L('Als Nächstes: Maxe und Test im Powerlifting-Generator.', 'Next: maxes and test in the powerlifting generator.')}
           ${plan ? L(' Der Cardio-Plan startet, sobald du den Kraftplan speicherst.', ' The cardio plan starts as soon as you save the strength plan.') : ''}</p>` : null}
+        ${plan ? html`<p class="pl-unter">${L('Einzelne Wochen passt du danach unter Programme → Woche an: Einheiten verschieben oder weglassen.', 'Adjust single weeks later under Programmes → Week: move or drop sessions.')}</p>` : null}
         <button class="pl-weiter voll" disabled=${mitCardio && !plan} onClick=${abschliessen}>${nurCardio || zumBlock ? L('Plan starten', 'Start plan') : L('Weiter zum Kraftplan', 'On to strength plan')}</button>`}`;
 
   return html`<div class="screen planer">

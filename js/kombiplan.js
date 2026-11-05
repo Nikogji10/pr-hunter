@@ -48,11 +48,11 @@ export function wertung(woche, bein = woche.map(() => true), { hart = 1 } = {}) 
  */
 const MERKER = new Map();
 export function wochenVorschlag(nKraft, nCardio, opt = {}) {
-  const schluessel = JSON.stringify([nKraft, nCardio, opt.fest ?? null, opt.bein ?? null, opt.beinFolge ?? null, opt.hart ?? 1]);
+  const schluessel = JSON.stringify([nKraft, nCardio, opt.fest ?? null, opt.bein ?? null, opt.beinFolge ?? null, opt.hart ?? 1, opt.festCardio ?? null]);
   if (!MERKER.has(schluessel)) { if (MERKER.size > 500) MERKER.clear(); MERKER.set(schluessel, suche(nKraft, nCardio, opt)); }
   return [...MERKER.get(schluessel)];
 }
-function suche(nKraft, nCardio, { fest = null, bein = null, beinFolge = null, hart = 1 } = {}) {
+function suche(nKraft, nCardio, { fest = null, bein = null, beinFolge = null, hart = 1, festCardio = null } = {}) {
   let beste = null, besteS = Infinity;
   const w = new Array(7);
   const b = bein ? [...bein] : new Array(7).fill(true);
@@ -72,6 +72,7 @@ function suche(nKraft, nCardio, { fest = null, bein = null, beinFolge = null, ha
     for (let i = 0; i < 7; i++) { w[i] = ARTEN[c % 4]; c = Math.floor(c / 4); if (hatKraft(w[i])) k++; if (hatCardio(w[i])) z++; }
     if (k !== nKraft || z !== nCardio) continue;
     if (fest && w.some((a, i) => hatKraft(a) !== fest.includes(i))) continue;
+    if (festCardio && w.some((a, i) => hatCardio(a) !== festCardio.includes(i))) continue;
     if (beinFolge) { let j = 0; for (let i = 0; i < 7; i++) b[i] = hatKraft(w[i]) ? beinFolge[j++] !== false : false; }
     const s = wertung(w, b, { hart });
     if (s < besteS - 1e-9) { besteS = s; beste = [...w]; }

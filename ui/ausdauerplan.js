@@ -106,8 +106,27 @@ export function AusdauerPlanKarte({ einst, setEinst, liste, plan = einst.ausdaue
 }
 
 /** 239/240: Programme → Woche – Kraft und Cardio der aktuellen Woche nebeneinander, mit Erholungs-Hinweisen. */
-export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = [], einst, eintragen, neu }) {
-  const [einheit, setEinheit] = useState(null), [versatz, setVersatz] = useState(0);
+/** Einen Tag der Woche anpassen: Krafttag oder Cardio-Einheit auf einen anderen Tag dieser Woche, Cardio weglassen. */
+function TagAnpassen({ datum, tage, kraft, cardio, plan, einst, setEinst, kraftVerschieben, zu }) {
+  const anpassungen = einst.ausdauerPlan?.anpassungen ?? {};
+  const setze = (id, wert) => { const a = { ...anpassungen }; if (wert) a[id] = wert; else delete a[id]; setEinst({ ...einst, ausdauerPlan: { ...einst.ausdauerPlan, anpassungen: a } }); };
+  const ziele = tage.filter((d) => d !== datum && d >= HEUTE);
+  const tagKnoepfe = (wahl) => html`<div class="pl-chips">${ziele.map((d) => html`<button key=${d} onClick=${() => { wahl(d); zu(); }}>${`${L(...WT[wochentag(d)])} ${datumKurz(d)}`}</button>`)}</div>`;
+  return html`<${Sheet} zu=${zu} label=${L('Tag anpassen', 'Adjust day')}>
+    <div class="sheet-kopf"><h2 class="h2">${datumLang(datum)}</h2></div>
+    ${kraft ? html`<div class="stack" style="gap:8px"><b>💪 ${kraft.label ?? L('Krafttraining', 'Strength')}</b>
+      ${kraftVerschieben && kraft.offset != null ? html`<span class="muted" style="font-size:12.5px">${L('Auf einen anderen Tag dieser Woche:', 'To another day this week:')}</span>${tagKnoepfe((d) => kraftVerschieben(kraft.offset, { datum: d }))}`
+        : html`<span class="muted" style="font-size:12.5px">${L('Krafttage verschiebst du, sobald der Block läuft (und kein Training offen ist).', 'You can move strength days once the block is running (and no workout is open).')}</span>`}</div>` : null}
+    ${cardio.map((e) => { const b = beschreibung(e, plan); return html`<div key=${e.id} class="stack" style="gap:8px"><b>${e.sport === 'lauf' ? '🏃' : '🚴'} ${b.titel} <small class="muted">${b.zeile}</small></b>
+      ${einst.ausdauerPlan ? html`<span class="muted" style="font-size:12.5px">${L('Auf einen anderen Tag dieser Woche:', 'To another day this week:')}</span>${tagKnoepfe((d) => setze(e.id, { datum: d }))}
+        <div class="row" style="gap:8px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => { setze(e.id, { weg: true }); zu(); }}>${L('Diese Woche weglassen', 'Skip this week')}</button>
+          ${e.verschoben ? html`<button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => { setze(e.id, null); zu(); }}>${L('Zurück auf den Plan', 'Back to plan')}</button>` : null}</div>` : null}</div>`; })}
+    ${!kraft && !cardio.length ? html`<span class="muted">${L('Ruhetag – nichts geplant.', 'Rest day – nothing planned.')}</span>` : null}
+  <//>`;
+}
+
+export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = [], einst, setEinst = null, kraftVerschieben = null, eintragen, neu }) {
+  const [einheit, setEinheit] = useState(null), [versatz, setVersatz] = useState(0), [anpassen, setAnpassen] = useState(null);
   const mo = plusTage(HEUTE, -wochentag(HEUTE) + 7 * versatz), tage = Array.from({ length: 7 }, (_, i) => plusTage(mo, i));
   const l = sichtbar(liste, einst.ausdauer);
   const cardio = (d) => plan?.einheiten.filter((e) => e.datum === d) ?? [];
@@ -122,7 +141,7 @@ export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = []
     ${leer ? html`<span class="muted" style="font-size:13px">${L('Noch kein Plan. Im Planer legst du fest, an welchen Tagen Kraft, Cardio oder Ruhe ist.', 'No plan yet. In the planner you choose which days are strength, cardio or rest.')}</span>`
       : tage.map((d, i) => { const k = kraft(d), c = cardio(d);
         return html`<div key=${d} class=${`kw-zeile ${d === HEUTE ? 'heute' : ''} ${d < HEUTE ? 'vorbei' : ''}`}>
-          <span class="kw-tag"><b>${L(...WT[i])}</b><small>${datumKurz(d)}</small></span>
+          <span class="kw-tag"><b>${L(...WT[i])}</b><small>${datumKurz(d)}</small>${setEinst && d >= HEUTE ? html`<button class="kw-aendern" onClick=${() => setAnpassen(d)}>${L('Ändern', 'Edit')}</button>` : null}</span>
           <span class="kw-inhalt">
             ${k ? html`<span class="kw-kraft">💪 ${k.label ?? L('Krafttraining', 'Strength')}${beinTag(d) ? html` <small>${L('· Beine', '· legs')}</small>` : null}</span>` : null}
             ${c.map((e) => { const b = beschreibung(e, plan); return html`<button key=${e.id} class=${`kw-cardio ${erledigt(e, l, sportVon) ? 'fertig' : ''}`} onClick=${() => setEinheit(e)}>${e.sport === 'lauf' ? '🏃' : '🚴'} <b>${b.titel}</b> <small>${b.zeile}</small></button>`; })}
@@ -131,6 +150,8 @@ export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = []
     ${leer ? null : html`<div class="stack" style="gap:4px">${hinweise.map((h, i) => html`<span key=${i} class=${`kw-hinweis ${h.art}`}>${h.art === 'warn' ? '⚠️ ' : h.art === 'gut' ? '✓ ' : 'ℹ️ '}${L(h.de, h.en)}</span>`)}</div>`}
     <button class="btn btn-chalk btn-block" onClick=${neu}>${L('Neuen Plan erstellen', 'Create new plan')}</button>
     ${einheit ? html`<${Portal}><${EinheitSheet} e=${einheit} plan=${plan} fertig=${erledigt(einheit, l, sportVon)} eintragen=${eintragen} zu=${() => setEinheit(null)}/><//>` : null}
+    ${anpassen ? html`<${Portal}><${TagAnpassen} datum=${anpassen} tage=${tage} kraft=${planTage.find((t) => t.datum === anpassen) ?? null} cardio=${cardio(anpassen)} plan=${plan}
+      einst=${einst} setEinst=${setEinst} kraftVerschieben=${kraftVerschieben} zu=${() => setAnpassen(null)}/><//>` : null}
   </section>`;
 }
 

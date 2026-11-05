@@ -115,6 +115,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       const ziel = e.state?.unter ?? null, art = ansichtJetzt.current?.art ?? null;
       const ab = abwicklung.current;
       if (ab) { if (ab.weiterWenn(ziel)) { history.back(); return; } abwicklung.current = null; ab.danach(ziel, e.state); return; }
+      if (!art && !ziel) { aktuell.current.setBereich(e.state?.progReiter ?? 'kraft'); return; }   // Reiter Kraft/Cardio/Woche
       if (!art || ziel === art) return;                       // Liste, oder ein Schritt innerhalb derselben Unterseite
       const zurueckAuf = { ...e.state, unter: art, unterAnsicht: ansichtJetzt.current };
       if (art === 'ziel' && planerZurueck?.()) { history.pushState(zurueckAuf, ''); return; }
@@ -145,9 +146,17 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   // Seitlich wischen wie bei Statistik/Feed; von links hereinkommend Kraft, von rechts Woche (App setzt prh-reiter-programme)
   const [bereichRoh, setBereichRoh] = useState(() => UNTER_VORSCHAU.programme ?? (() => { try { return sessionStorage.getItem('prh-reiter-programme'); } catch { return null; } })() ?? 'kraft');
   const setBereich = (k) => { setBereichRoh(k); try { sessionStorage.setItem('prh-reiter-programme', k); } catch { /* egal */ } };
+  aktuell.current.setBereich = setBereich;
   const PROG_REITER = [['kraft', deEn('💪 Kraft', '💪 Strength')], ['cardio', deEn('🏃 Cardio', '🏃 Cardio')], ['woche', deEn('📅 Woche', '📅 Week')]];
   const mitReitern = !!(einst.ausdauer && ausdauer), bereich = PROG_REITER.some(([k]) => k === bereichRoh) ? bereichRoh : 'kraft';
-  useUnterReiter('programme', mitReitern && !ansicht ? PROG_REITER : [], bereich, (k) => { setBereich(k); scrollTo({ top: 0 }); });
+  // Reiter mit Verlaufseintrag: Zurück auf Cardio/Woche führt erst zu Kraft, statt die Seite zu verlassen
+  const reiterWahl = (k) => {
+    const st = history.state ?? {};
+    if (k === 'kraft') { if (st.progReiter && !st.unter) history.back(); else setBereich(k); return; }
+    if (st.progReiter) history.replaceState({ ...st, progReiter: k }, ''); else history.pushState({ ...st, progReiter: k }, '');
+    setBereich(k);
+  };
+  useUnterReiter('programme', mitReitern && !ansicht ? PROG_REITER : [], bereich, (k) => { reiterWahl(k); scrollTo({ top: 0 }); });
   const planerOeffnen = (ziel = null) => erstellerOeffnen('ziel', ziel ? { 'prh-gen-ziel-wahl': { ziel } } : {});
   const cardioStarten = (a) => {
     if (!a?.plan) return;
@@ -155,7 +164,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     toast({ titel: deEn('Cardio-Plan gestartet', 'Cardio plan started'), text: deEn(`${a.plan.wochen} Wochen ab ${datumKurz(a.start)}`, `${a.plan.wochen} weeks from ${datumKurz(a.start)}`) });
   };
   const uebergeben = (art, { werte = {}, vorgabe = null, ausstehend = null, id = null } = {}) => {
-    if (art === 'cardio') { setBereich('cardio'); abwickeln((z) => !!z, () => setAnsicht(null)); return; }
+    if (art === 'cardio') { abwickeln((z) => !!z, () => { setAnsicht(null); reiterWahl('cardio'); }); return; }
     try { if (ausstehend) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(ausstehend)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ }
     if (art === 'einsteiger') { erstellerOeffnen('eigen', einsteigerWerte(EINSTEIGER.find((e) => e.id === id)), { vonPlaner: true }); return; }
     erstellerOeffnen(art, werte, { vonPlaner: true, vorgabe });
@@ -221,9 +230,9 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   };
   return html`<div class="screen modern">
     <header class="topbar"><div><div class="eyebrow">Blöcke und Vorlagen</div><h1 class="h1">Programme</h1></div>${DEMO ? html`<span class="proto">Demo</span>` : null}</header>
-    ${reiter ? html`<div class="seg prog-reiter" role="tablist">${PROG_REITER.map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => setBereich(k)}>${n}</button>`)}</div>` : null}
+    ${reiter ? html`<div class="seg prog-reiter" role="tablist">${PROG_REITER.map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => reiterWahl(k)}>${n}</button>`)}</div>` : null}
     ${teil === 'cardio' ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} plan=${ausdauer.plan} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}
-    ${teil === 'woche' ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen()}/>` : null}
+    ${teil === 'woche' ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} setEinst=${setEinst} kraftVerschieben=${ausdauer.kraftVerschieben} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen()}/>` : null}
     ${teil !== 'kraft' ? null : html`
     ${block ? html`<section class="card pad stack aktiv-block">
       <div class="row between"><span class="status-aktiv"><i></i>Aktiv</span>${einst.cut ? html`<span class="tag">Cut-Modus</span>` : null}</div>
@@ -243,7 +252,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     <${GeteiltePlaene} speichernNeu=${speichernNeu} toast=${toast}/>
     <h2 class="abschnitt-titel">Neuer Plan</h2>
     <button class="btn btn-chalk btn-block" onClick=${() => planerOeffnen()}>${deEn('+ Neuen Plan erstellen', '+ Create new plan')}</button>
-    <button class="link" style="justify-self:start" onClick=${() => oeffne({ art: 'import' })}>${I.import} ${deEn('Programm importieren (CSV/JSON)', 'Import programme (CSV/JSON)')}</button>
+    <button class="btn btn-soft btn-block" onClick=${() => oeffne({ art: 'import' })}>${I.import} ${deEn('Plan importieren – per KI oder Datei', 'Import a plan – via AI or file')}</button>
     ${(() => {
       // Meine Pläne nach Kategorie (je zugeklappt), danach die Vorlagen (zugeklappt)
       const kat = (d) => programme[d]?.kategorie ?? 'powerlifting';
@@ -451,7 +460,6 @@ export function UebungenZuordnen({ liste, fertig, abbrechen, platz = true }) {
 }
 
 /** Programm importieren: per KI als CSV (Anleitung kopieren, Antwort einfügen) oder direkt als JSON im App-Format. */
-const KRAFT_ARTEN = [['powerlifting', 'Powerlifting'], ['bodybuilding', 'Bodybuilding'], ['eigen', deEn('Eigener', 'Own')], [null, deEn('Keine', 'None')]];
 const mitSport = (alt, neu) => (!alt ? neu : alt === 'beides' || alt === neu ? alt : 'beides');
 
 function Import({ zurueck, speichern, cardioNur, ausdauerAlt = null }) {
@@ -486,11 +494,18 @@ function Import({ zurueck, speichern, cardioNur, ausdauerAlt = null }) {
     <div class="seg" role="group" aria-label="Format"><button aria-pressed=${String(art === 'csv')} onClick=${() => { setArt('csv'); setErgebnis(null); }}>Per KI (CSV)</button>
       <button aria-pressed=${String(art === 'json')} onClick=${() => { setArt('json'); setErgebnis(null); if (!kraft) setKraft('powerlifting'); setCardio(false); }}>JSON</button></div>
     <section class="card pad stack">
-      <span class="viz-t">${deEn('Was enthält dein Plan?', 'What does your plan contain?')}</span>
-      <div class="pl-zeile"><span>${deEn('Kraft', 'Strength')}</span><div class="pl-chips" role="group" aria-label=${deEn('Kraft', 'Strength')}>
-        ${KRAFT_ARTEN.filter(([k]) => art === 'csv' || k).map(([k, n]) => html`<button key=${String(k)} class=${kraft === k ? 'an' : ''} aria-pressed=${String(kraft === k)} onClick=${() => inhaltWahl(k, cardio)}>${n}</button>`)}</div></div>
-      ${art === 'csv' ? html`<div class="pl-zeile"><span>Cardio</span><div class="pl-chips" role="group" aria-label="Cardio">
-        ${[[false, deEn('Ohne', 'Without')], [true, deEn('Laufen / Rad dabei', 'With running / cycling')]].map(([c, n]) => html`<button key=${String(c)} class=${cardio === c ? 'an' : ''} aria-pressed=${String(cardio === c)} disabled=${!c && !kraft} onClick=${() => inhaltWahl(kraft, c)}>${n}</button>`)}</div></div>` : null}
+      <span class="viz-t">${deEn('Was importierst du?', 'What are you importing?')}</span>
+      <div class="pl-optionen">
+        ${[['powerlifting', '🏆', 'Powerlifting', deEn('Kniebeuge, Bank, Kreuzheben mit Prozenten', 'Squat, bench, deadlift with percentages')],
+          ['bodybuilding', '🏋️', 'Bodybuilding', deEn('Muskelaufbau mit Split', 'Hypertrophy with a split')],
+          ['eigen', '💪', deEn('Anderer Kraftplan', 'Other strength plan'), deEn('z. B. Ganzkörper oder Einsteigerplan', 'e.g. full body or beginner plan')],
+          ...(art === 'csv' ? [[null, '🏃', deEn('Nur Cardio', 'Cardio only'), deEn('Lauf- oder Radplan ohne Krafttraining', 'Running or cycling plan without strength')]] : [])]
+          .map(([k, icon, titel, text]) => html`<button key=${String(k)} class=${`pl-opt ${kraft === k ? 'an' : ''}`} aria-pressed=${String(kraft === k)} onClick=${() => inhaltWahl(k, k ? cardio : true)}>
+            <span class="pl-ico" aria-hidden="true">${icon}</span><span class="pl-txt"><b>${titel}</b><small>${text}</small></span><span class="pl-radio" aria-hidden="true"></span></button>`)}
+      </div>
+      ${art === 'csv' && kraft ? html`<label class="schalter" for="imp-cardio"><span><b>${deEn('Mit Laufen oder Radfahren', 'With running or cycling')}</b><br/>
+        <span class="muted" style="font-size:12.5px">${deEn('Der Plan enthält auch Cardio-Einheiten – die kommen in deinen Cardio-Plan.', 'The plan also has cardio sessions – they go into your cardio plan.')}</span></span>
+        <input type="checkbox" id="imp-cardio" checked=${cardio} onChange=${(e) => inhaltWahl(kraft, e.currentTarget.checked)}/></label>` : null}
     </section>
     ${art === 'csv' ? html`<section class="card pad stack">
       <span class="viz-t">1 · Anleitung für die KI kopieren</span>
