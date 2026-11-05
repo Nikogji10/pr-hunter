@@ -1313,7 +1313,9 @@ function App() {
     const y = a === 'training' ? scrollPos.current.training ?? 0 : 0;
     scrollTo(0, 0); if (y) setTimeout(() => scrollTo(0, y), 30);
     const st = { ansicht: a, key };
-    if (ersetzen || (history.state?.ansicht === a && history.state?.key === key)) history.replaceState(st, '', adresse(a, key));
+    // beim Ersetzen die Markierung der obersten Ebene behalten (Schutz gegen Schließen der App)
+    const ebene = { ...(history.state?.wurzel ? { wurzel: true } : {}), ...(history.state?.schutz ? { schutz: history.state.schutz } : {}) };
+    if (ersetzen || (history.state?.ansicht === a && history.state?.key === key)) history.replaceState({ ...st, ...ebene }, '', adresse(a, key));
     else history.pushState(st, '', adresse(a, key));
   };
   const zuUebung = (key, zurueck) => { setUebungAnsicht({ key, zurueck }); gehe('uebung', key); };

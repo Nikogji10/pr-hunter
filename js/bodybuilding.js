@@ -80,7 +80,8 @@ export function generiereBodybuilding(e) {
         const keys = [...new Set(Array.from({ length: plaetze }, (_, j) => alle[(n * plaetze + j) % alle.length]))];
         // Sätze je Übung: Wochenziel der Gruppe ÷ (Häufigkeit × Übungen); +1 ab der zweiten Hälfte (Volumen steigt)
         const ziel = saetzeVon(g, e) + (w >= Math.ceil(wochen / 2) && !deload ? 2 : 0);
-        const jeUebung = Math.max(2, Math.min(6, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
+        // höchstens 4 Arbeitssätze je Übung (mehr bringt kaum etwas; bei wenigen Tagen sinkt dann eben das Wochenvolumen)
+        const jeUebung = Math.max(2, Math.min(4, Math.round(ziel / ((h[g] ?? 1) * Math.max(1, keys.length)))));
         return keys.map((key) => {
           const a = art(g, key, e.arten), grund = a.includes('g'), maschine = a.includes('m');
           const saetze = deload ? Math.max(1, Math.ceil(jeUebung / 2)) : jeUebung;

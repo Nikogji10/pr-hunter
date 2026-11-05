@@ -206,7 +206,11 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     umstellen=${(v) => { setBlock({ ...block, version: v }); toast({ titel: `Block auf Version ${v} umgestellt`, text: 'Gilt ab der nächsten Einheit; erledigte Trainings bleiben, wie sie waren.' }); }}
     bearbeiten=${(d) => oeffne({ art: 'editor', datei: d }, { ersetzen: true })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
     zumGenerator=${(vorgabe) => oeffne({ art: 'generator', vorgabe }, { ersetzen: true })}
-    starten=${(b) => { setBlock(b); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); abwickeln((z) => !!z, () => { setAnsicht(null); zuHeute(); }); }}/>`;
+    starten=${(b) => { setBlock(b);
+      // mit Cardio-Plan: gleich die Wochenübersicht (Kraft und Cardio Woche für Woche), sonst zu Heute
+      const mitCardio = !!(einst.ausdauer && einst.ausdauerPlan);
+      toast({ titel: 'Block gestartet', text: mitCardio ? deEn('Hier deine Wochen mit Kraft und Cardio – Tage antippen zum Ändern.', 'Here are your weeks with strength and cardio – tap a day to change it.') : `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` });
+      abwickeln((z) => !!z, () => { setAnsicht(null); if (mitCardio) reiterWahl('woche'); else zuHeute(); }); }}/>`;
   const aktivTage = block ? blockTage(programme[block.datei], { ...block, cut: einst.cut }) : [];
   const wochen = wochenListe(aktivTage);
   // Stand: erledigt laut Soll-Ist (zählt auch Trainings ohne Planbezug), sonst die aus dem Plan gestarteten

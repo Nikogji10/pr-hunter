@@ -29,7 +29,7 @@ const FOKUS_WAHL = [
 
 /** Auswahlzeile: Symbol, Titel, Beschreibung, Markierung rechts. */
 const Option = ({ aktiv, onClick, icon = null, titel, text = null }) => html`<button class=${`pl-opt ${aktiv ? 'an' : ''}`} aria-pressed=${String(!!aktiv)} onClick=${onClick}>
-  ${icon ? html`<span class="pl-ico" aria-hidden="true">${icon}</span>` : null}
+  ${icon ? html`<span class=${`pl-ico ${Array.from(icon).length > 1 ? 'doppelt' : ''}`} aria-hidden="true">${icon}</span>` : null}
   <span class="pl-txt"><b>${titel}</b>${text ? html`<small>${text}</small>` : null}</span><span class="pl-radio" aria-hidden="true"></span></button>`;
 /** Kleine Auswahl-Pillen. */
 const Chips = ({ werte, aktiv, setzen, label = (x) => x, aria }) => html`<div class="pl-chips" role="group" aria-label=${aria}>
