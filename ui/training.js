@@ -12,7 +12,9 @@ import { zweiGewichte } from '../js/scheibenwechsel.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
-import { BEST_E1RM, E1RM_AKTUELL, LETZTES, E1RM_QUELLE } from './stand.js';
+import { BEST_E1RM, E1RM_AKTUELL, LETZTES, E1RM_QUELLE, AUSRUESTUNG as GEAR_ZULETZT, DIENSTE } from './stand.js';
+import { AnpassenSheet } from './uebung.js';
+import { Portal } from './basis.js';
 import { InfoKnopf } from './glossar.js';
 // 163 f: Vorschlag aus dem letzten Mal – obere Wdh-Zahl geschafft → mehr Gewicht, sonst eine Wdh mehr
 function naechstesMal(letzter, wdhText, inc) {
@@ -107,13 +109,43 @@ export function kartenAusStand(stand, koerperKg) {
   });
 }
 
+/** 248: Ausrüstung vom letzten Mal (Gürtel, Bandagen …) je Arbeitssatz übernehmen; mehr Sätze als letztes Mal → wie der
+ *  letzte. Nur offene Sätze ohne eigene Angabe; ersetzen = bisherige Angabe offener Sätze vorher entfernen (Übung getauscht). */
+export function ausruestungUebernehmen(karte, { ersetzen = false } = {}) {
+  const letzte = GEAR_ZULETZT[karte.key];
+  let n = 0;
+  for (const g of karte.gruppen ?? []) for (const s of g.saetze) {
+    if (s.typ === 'warmup' || s.erledigt) continue;
+    if (ersetzen && s.extra?.gear) { const { gear, ...rest } = s.extra; s.extra = rest; }
+    const gear = letzte?.length ? letzte[Math.min(n, letzte.length - 1)] : null;
+    n++;
+    if (gear?.length && !s.extra?.gear?.length) s.extra = { ...(s.extra ?? {}), gear: [...gear] };
+  }
+  return karte;
+}
+
+/** 249: Cues, Rack und Geräte-Einstellungen in der Karte – antippen öffnet „Übung anpassen“; bei Geräten, Kabel und
+ *  Langhantel ohne Eintrag ein kleiner Knopf, damit Sitzhöhe & Co. gleich im Training gespeichert werden können. */
+function GeraetZeile({ k, a }) {
+  const [auf, setAuf] = useState(false), [, neu] = useState(0);
+  const geraet = Object.entries(a?.geraet ?? {}), hat = !!(a?.cues || a?.rack || geraet.length);
+  const kann = !!DIENSTE.speichereAnpassung && !!k.key;
+  const passt = ['machine', 'cable', 'barbell', 'smith machine'].includes(uebung(k.key)?.eq);
+  if (!hat && !(kann && passt)) return null;
+  const inhalt = html`${a?.cues ? html`<span>${a.cues}</span>` : null}${a?.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}
+    ${geraet.map(([n, w]) => html`<span key=${n} class="rack" translate="no">${`${n} ${w}`}</span>`)}`;
+  return html`${hat ? (kann ? html`<button class="cue cue-knopf" onClick=${() => setAuf(true)} aria-label=${deEn('Einstellungen bearbeiten', 'Edit settings')}>${inhalt}</button>` : html`<div class="cue">${inhalt}</div>`)
+      : html`<button class="ex-geraet" onClick=${() => setAuf(true)}>⚙ ${deEn('Sitzhöhe & Co. speichern', 'Save seat height etc.')}</button>`}
+    ${auf ? html`<${Portal}><${AnpassenSheet} schluessel=${k.key} zu=${() => { setAuf(false); neu((x) => x + 1); }}/><//>` : null}`;
+}
+
 /** Übung außerhalb des Plans: 3 × 8, Gewicht aus der aktuellen Form für RPE 8 (ohne e1RM leer). */
 function neueKarte(key, karten, koerperKg) {
   const kg = vorschlag(key, 8, 8, koerperKg);
-  return { id: Math.max(-1, ...karten.map((k) => k.id)) + 1, key, slot: null, gruppen: [{
+  return ausruestungUebernehmen({ id: Math.max(-1, ...karten.map((k) => k.id)) + 1, key, slot: null, gruppen: [{
     rolle: null, wdhText: '8', rpe: null, notiz: null, vorschlag: kg != null, saetzeText: null,
     saetze: Array.from({ length: 3 }, () => ({ kg, wdh: 8, rpe: null, erledigt: false, e1rm: null, pr: false, geaendert: false })),
-  }] };
+  }] });
 }
 
 function setzeUebung(karte, key, koerperKg) {
@@ -123,6 +155,7 @@ function setzeUebung(karte, key, koerperKg) {
     g.vorschlag = kg != null;
     for (const s of g.saetze) if (!s.erledigt) { s.kg = kg; s.geaendert = false; }   // ohne e1RM leer lassen statt 0 kg
   }
+  ausruestungUebernehmen(karte, { ersetzen: true });
 }
 
 export function Training({ t, setT, timer, setTimer, einst, toast, lichter, minimieren, beenden, zuVerlauf, partner = [] }) {
@@ -341,8 +374,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
           return ab ? html`<div class="ex-werte"><span class="rekord-ab">${deEn(`🏆 Mit ${gw(s.kg ?? 0)} ${einheit()} × ${ab} wäre das ein neuer Rekord`, `🏆 ${gw(s.kg ?? 0)} ${einheit()} × ${ab} would be a new PR`)}</span></div>` : null;
         })()}
         ${(() => { const au = k.gruppen.find((g) => g.auto)?.auto; return au ? html`<div class="ex-werte"><span class=${`vorschlag auto ${au.art}`}>${`Auto: ${au.text[sprache() === 'en' ? 1 : 0]}`}</span></div>` : null; })()}
-        ${a?.cues || a?.rack || (a?.geraet && Object.keys(a.geraet).length) ? html`<div class="cue">${a.cues ? html`<span>${a.cues}</span>` : null}${a.rack ? html`<span class="rack">Rack ${a.rack}</span>` : null}
-          ${Object.entries(a.geraet ?? {}).map(([n, w]) => html`<span key=${n} class="rack" translate="no">${`${n} ${w}`}</span>`)}</div>` : null}
+        <${GeraetZeile} k=${k} a=${a}/>
         ${k.notiz ? html`<div class="cue notiz">${k.notiz}</div>` : null}</div>
       <div class="ex-akt">
         <button class="mini akzent" onClick=${() => zuVerlauf(k.key)} aria-label="Verlauf und Chart dieser Übung">${I.statistik}</button>

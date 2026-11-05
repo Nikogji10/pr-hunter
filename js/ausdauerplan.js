@@ -129,7 +129,14 @@ export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp 
     for (let i = 0; i < rollen.length; i++) {
       if (!HART(rollen[i]) || !beinTag(plusTage(tagVon(i), 1))) continue;
       const j = rollen.findIndex((r, k) => r === 'locker' && !beinTag(plusTage(tagVon(k), 1)) && (!kraftTag(tagVon(k)) || kraftTag(tagVon(i))));
-      if (j >= 0) [rollen[i], rollen[j]] = [rollen[j], rollen[i]];
+      if (j >= 0) { [rollen[i], rollen[j]] = [rollen[j], rollen[i]]; continue; }
+      // kein lockerer Tag frei: die lange Einheit tauscht mit einer harten auf einem freien Tag; harte Einheiten, die
+      // trotzdem vor dem Beintag landen, werden locker (Beine sollen zum schweren Training frisch sein)
+      if (rollen[i] === 'lang') {
+        const h = rollen.findIndex((r, k) => r.startsWith('hart') && !beinTag(plusTage(tagVon(k), 1)) && !kraftTag(tagVon(k)));
+        if (h >= 0) [rollen[i], rollen[h]] = [rollen[h], rollen[i]];
+      }
+      if (rollen[i].startsWith('hart')) rollen[i] = 'locker';
     }
     const letzte = w === wochen - 1;
     rollen.forEach((rolle0, i) => {
@@ -222,4 +229,32 @@ export function kraftVorschlaege(gruppe, sports) {
   const m = new Map();
   for (const s of sports) for (const k of KRAFT_JE_GRUPPE[gruppe]?.[s] ?? []) m.set(k, [...(m.get(k) ?? []), s]);
   return [...m];
+}
+
+/**
+ * 237: geplante Einheit als intervals.icu-Workout (Textformat, je Schritt eine Zeile „- Dauer/Strecke Ziel“). Mit
+ * „Upload planned workouts“ in der Garmin-Verbindung von intervals.icu landet es auf der Uhr. Laufen mit Tempobereich
+ * (mm:ss/km Pace), Rad mit Watt; ohne Bereiche Zonen (Z2 …). Liefert { name, typ, text, dauer_s }.
+ */
+export function intervalsWorkout(e, plan) {
+  const z = plan?.zonen ?? null, lauf = e.sport === 'lauf';
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  const ziel = (zone, ersatz) => {
+    const b = z?.[zone];
+    if (!b) return ersatz;
+    return lauf ? `${mmss(b[0])}-${mmss(b[1])}/km Pace` : `${b[0]}-${b[1]}w`;
+  };
+  const locker = ziel('locker', lauf ? 'Z2 Pace' : 'Z2');
+  const strecke = (m) => (m >= 1000 ? `${Math.round(m / 100) / 10}km` : `${m}mtr`);
+  const NAME = { locker: 'Locker', lang: 'Lang', tempo: 'Tempo', intervalle: 'Intervalle', fahrtspiel: 'Fahrtspiel', wettkampf: 'Wettkampf' };
+  const zeilen = [];
+  if (e.typ === 'wettkampf') zeilen.push(e.km ? `- ${e.km}km ${ziel('intervall', 'Z4 Pace')}` : `- 60m ${ziel('schwelle', 'Z4')}`);
+  else if (e.typ === 'fahrtspiel') zeilen.push(`- 10m ${locker}`, '', `${e.wdh}x`, `- ${e.dauer}m ${ziel('tempo', 'Z4 Pace')}`, `- 2m ${locker}`, '', `- ${Math.max(5, e.min - 10 - e.wdh * (e.dauer + 2))}m ${locker}`);
+  else if (lauf && e.wdh && e.strecke) zeilen.push(`- 2km ${locker}`, '', `${e.wdh}x`, `- ${strecke(e.strecke)} ${ziel(e.zone, 'Z4 Pace')}`, `- ${Math.round(e.pause / 60 * 10) / 10}m ${locker}`, '', `- 1.5km ${locker}`);
+  else if (e.wdh && e.dauer) zeilen.push(`- ${lauf ? 10 : 15}m ${locker}`, '', `${e.wdh}x`, `- ${e.dauer}m ${ziel(e.zone, lauf ? 'Z4 Pace' : 'Z4')}`, `- ${lauf ? 3 : e.pause}m ${locker}`, '', `- 10m ${locker}`);
+  else if (e.typ === 'tempo' && e.km) zeilen.push(`- 2km ${locker}`, `- ${e.km}km ${ziel(e.zone, 'Z3 Pace')}`, `- 1.5km ${locker}`);
+  else if (e.km) zeilen.push(`- ${e.km}km ${ziel(e.zone, 'Z2 Pace')}`);
+  else zeilen.push(`- ${e.min ?? 45}m ${ziel(e.zone, lauf ? 'Z2 Pace' : 'Z2')}`);
+  const eintrag = alsEintrag(e, plan ?? {}, null);
+  return { name: `PR Hunter · ${NAME[e.typ] ?? 'Einheit'}`, typ: lauf ? 'Run' : 'Ride', text: zeilen.join('\n'), dauer_s: eintrag.dauer_s ?? null };
 }

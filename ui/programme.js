@@ -45,7 +45,7 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
       <button aria-pressed=${String(vertrauen === 1)} onClick=${() => setVertrauen(1)}>Wdh sauber (100 %)</button>
       <button aria-pressed=${String(vertrauen === 0.5)} onClick=${() => setVertrauen(0.5)}>Wdh unsauber (50 %)</button></div>
       <span class="muted" style="font-size:12px">Unsauber: das neue Max geht nur den halben Weg vom alten zum projizierten Wert.</span>` : null}
-    <table class="rec"><thead><tr><th>Lift</th><th>Test</th><th>bisher</th><th>neu</th></tr></thead>
+    <table class="rec"><thead><tr><th>Lift</th><th>Test</th><th>${deEn('bisher', 'before')}</th><th>${deEn('neu', 'new')}</th></tr></thead>
       <tbody>${liste.map(([l, m]) => html`<tr key=${l}><td>${MAX_NAME[l]}</td><td class="muted">${gw(m.kg)} × ${m.wdh}</td><td>${gw(m.alt)}</td>
         <td class="k">${m.neuesMax != null ? gw(m.neuesMax) : 'von Hand'}${m.projiziert != null && m.neuesMax !== m.projiziert ? html` <span class="muted">(${gw(m.projiziert)})</span>` : null}</td></tr>`)}</tbody></table>
     <span class="muted" style="font-size:12px">In Klammern der projizierte Wert, wenn die Regel des Programms das neue Max davon abweichen lässt.</span>
@@ -53,19 +53,20 @@ function NeueMaxe({ maxe, planen, vertrauen = null, setVertrauen }) {
 }
 
 const ERSTELLER = ['bodybuilding', 'eigen', 'generator', 'ziel'];
-// 239: der Planer geht mit der Zurück-Taste erst einen Schritt zurück (liefert true, solange er das selbst erledigt)
+// Sitzungsschlüssel je Ersteller. „Eingaben“ = Abweichung vom Stand beim Öffnen (Vorbefülltes zählt nicht als Eingabe)
+const PRAEFIX = { ziel: 'prh-gen-ziel-', bodybuilding: 'prh-gen-bb-', eigen: 'prh-gen-eigen-', generator: 'prh-gen-pl-' };
+const AUSSTEHEND = 'prh-gen-ziel-ausdauer';               // Cardio-Plan aus dem Planer – startet mit dem Kraftplan
+// 239: der Planer geht mit Zurück erst einen Schritt zurück (liefert true, solange er das selbst erledigt)
 let planerZurueck = null;
-const VORLAGE_STAND = 'prh-gen-vorlage-stand';             // Stand einer unveränderten Vorlage (dann nicht warnen)
 const navi = (k) => k.endsWith('-schritt') || k.endsWith('-seite');      // Position im Ersteller, keine Eingabe
-const genStand = () => JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k) && !navi(k))
-  .sort().map((k) => [k, sessionStorage.getItem(k)]));
-const eingabenDa = () => {
-  try {
-    if (sessionStorage.getItem(VORLAGE_STAND) === genStand()) return false;
-    return Object.keys(sessionStorage).some((k) => k.startsWith('prh-gen-') && ![VORLAGE_STAND, 'prh-gen-ansicht'].includes(k)
-      && !(k.endsWith('-schritt') && sessionStorage.getItem(k) === '1') && !(k.endsWith('-seite') && sessionStorage.getItem(k) === '0'));
-  } catch { return false; }
+const standVon = (art) => {
+  const p = PRAEFIX[art];
+  if (!p) return '[]';
+  try { return JSON.stringify(Object.keys(sessionStorage).filter((k) => k.startsWith(p) && !navi(k) && k !== AUSSTEHEND).sort().map((k) => [k, sessionStorage.getItem(k)])); } catch { return '[]'; }
 };
+const merkeStand = (art) => { try { sessionStorage.setItem(`prh-gen-stand-${art}`, standVon(art)); } catch { /* egal */ } };
+const eingabenDa = (art) => { if (!PRAEFIX[art]) return false; try { return standVon(art) !== (sessionStorage.getItem(`prh-gen-stand-${art}`) ?? '[]'); } catch { return false; } };
+const lies = (k) => { try { return JSON.parse(sessionStorage.getItem(k) ?? 'null'); } catch { return null; } };
 
 export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null, ausdauer = null }) {
   // Vertrauensfaktor der v3-Projektion (rpe10_table): 1,0 bei sauberen Wdh, 0,5 bei unsauberen
@@ -80,91 +81,114 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const [beenden, setBeenden] = useState(false);
   // Unterseiten (Generatoren, Plan, Editor, Import) mit eigenem Verlaufseintrag: die Zurück-Taste des Handys schließt
   // erst die Unterseite, statt die vorige App-Ansicht (z. B. Feed) zu öffnen
-  const oeffne = (a) => {
-    if (!history.state?.unter) history.pushState({ ...history.state, unter: a.art }, '');
-    else history.replaceState({ ...history.state, unter: a.art }, '');
+  // Verlauf: jede Unterseite hat einen Eintrag { unter, unterAnsicht }; Schritte der Ersteller liegen darüber mit
+  // demselben unter. Zurück (Handy und Pfeil oben) entscheidet zentral im popstate: Schritt zurück, Warnung oder verlassen.
+  const oeffne = (a, { ersetzen = false } = {}) => {
+    const st = { ...(history.state ?? {}), unter: a.art, unterAnsicht: a };
+    delete st.schritt; delete st.seite; delete st.sheet;
+    if (ersetzen && history.state?.unter) history.replaceState(st, ''); else history.pushState(st, '');
     setAnsicht(a);
   };
   const [verlassen, setVerlassen] = useState(false);
   // Ersteller zu → Warnung zu (beim Zurückspringen zeichnet Preact die Liste, bevor das Fenster sein popstate bekommt)
   useEffect(() => { if (!ERSTELLER.includes(ansicht?.art)) setVerlassen(false); }, [ansicht?.art]);
   const ansichtJetzt = useRef(ansicht); ansichtJetzt.current = ansicht;
+  // Mehrere Einträge auf einmal zurück (Verwerfen, Speichern): so lange zurück, wie weiterWenn(unter) gilt, dann danach()
+  const abwicklung = useRef(null);
+  const abwickeln = (weiterWenn, danach) => {
+    const z = history.state?.unter ?? null;
+    if (!weiterWenn(z)) { danach(z, history.state); return; }
+    abwicklung.current = { weiterWenn, danach };
+    history.back();
+  };
+  // Unterseite verlassen: Eingaben dieses Erstellers verwerfen; vom Ersteller zurück in den Planer, sonst zur Liste
+  const weg = (art, ziel, st) => {
+    if (PRAEFIX[art] && art !== 'ziel') { sitzungLeeren(PRAEFIX[art]); try { sessionStorage.removeItem(`prh-gen-stand-${art}`); } catch { /* egal */ } }
+    if (ziel === 'ziel' && art !== 'ziel') { setAnsichtRoh(st?.unterAnsicht ?? { art: 'ziel' }); return; }
+    setAnsicht(null);
+    if (ziel) abwickeln((z) => !!z, () => {});              // übrige Einträge der Unterseiten entfernen
+  };
+  const aktuell = useRef({}); aktuell.current = { weg };
   useEffect(() => {
     const zurueck = (e) => {
-      if (e.state?.unter) return;
-      // Zurück-Taste des Handys im Plan-Ersteller: Eintrag wiederherstellen und erst fragen
-      const art = ansichtJetzt.current?.art;
-      if (art === 'ziel' && planerZurueck?.()) { history.pushState({ ...e.state, unter: art }, ''); return; }
-      if (ERSTELLER.includes(art) && eingabenDa()) { history.pushState({ ...e.state, unter: art }, ''); setVerlassen(true); return; }
-      setAnsicht(null);
+      const ziel = e.state?.unter ?? null, art = ansichtJetzt.current?.art ?? null;
+      const ab = abwicklung.current;
+      if (ab) { if (ab.weiterWenn(ziel)) { history.back(); return; } abwicklung.current = null; ab.danach(ziel, e.state); return; }
+      if (!art || ziel === art) return;                       // Liste, oder ein Schritt innerhalb derselben Unterseite
+      const zurueckAuf = { ...e.state, unter: art, unterAnsicht: ansichtJetzt.current };
+      if (art === 'ziel' && planerZurueck?.()) { history.pushState(zurueckAuf, ''); return; }
+      if (eingabenDa(art)) { history.pushState(zurueckAuf, ''); setVerlassen(true); return; }
+      aktuell.current.weg(art, ziel, e.state);
     };
     addEventListener('popstate', zurueck);
     return () => removeEventListener('popstate', zurueck);
   }, []);
-  const schliessen = () => (history.state?.unter ? history.back() : setAnsicht(null));
-  // Einsteigerplan: im „Eigenen Plan“ vorbefüllt öffnen (Überblick) – anpassen oder „Plan speichern“, nichts automatisch
-  // Ersteller vorbefüllt öffnen (Einsteigerplan, Planer → Kraftplan); unverändert gilt nicht als Eingabe
-  const erstellerOeffnen = (art, werte = {}) => {
-    sitzungLeeren('prh-gen-');
-    try {
-      for (const [k, v] of Object.entries(werte)) sessionStorage.setItem(k, JSON.stringify(v));
-      sessionStorage.setItem(VORLAGE_STAND, genStand());
-    } catch { /* ohne Sitzungsspeicher startet der Plan leer */ }
-    oeffne({ art });
+  // Pfeil oben: wie die Zurück-Taste des Handys; ohne eigenen Verlaufseintrag (z. B. nach einem Seitenwechsel) direkt
+  const zurListe = () => {
+    const art = ansicht?.art;
+    if (history.state?.unter === art && !history.state?.sheet) { history.back(); return; }
+    if (art === 'ziel' && planerZurueck?.()) return;
+    if (eingabenDa(art)) { setVerlassen(true); return; }
+    weg(art, null);
   };
-  const vorlageOeffnen = (e) => erstellerOeffnen('eigen', { 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
+  // Ersteller öffnen, vorbefüllt (Einsteigerplan, Planer → Kraftplan); aus dem Planer bleiben dessen Eingaben erhalten
+  const erstellerOeffnen = (art, werte = {}, { vonPlaner = false, vorgabe = null } = {}) => {
+    sitzungLeeren(vonPlaner ? PRAEFIX[art] : 'prh-gen-');
+    try { for (const [k, v] of Object.entries(werte)) sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* ohne Sitzungsspeicher startet der Plan leer */ }
+    merkeStand(art);
+    oeffne({ art, ...(vorgabe ? { vorgabe } : {}) });
+  };
+  const einsteigerWerte = (e) => ({ 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
     'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) });
   // 239: Reiter Kraft · Cardio · Woche, sobald Ausdauer an ist
   const [bereich, setBereich] = useSitzung('prh-programme-bereich', 'kraft');
   const planerOeffnen = (ziel = null) => erstellerOeffnen('ziel', ziel ? { 'prh-gen-ziel-wahl': { ziel } } : {});
-  const uebergeben = (art, werte) => {
-    if (art === 'cardio') { sitzungLeeren('prh-gen-'); setBereich('cardio'); schliessen(); return; }
-    if (art === 'einsteiger') { vorlageOeffnen(EINSTEIGER.find((e) => e.id === werte)); return; }
-    erstellerOeffnen(art, werte ?? {});
+  const cardioStarten = (a) => {
+    if (!a?.plan) return;
+    setEinst({ ...einst, ausdauer: a.ausdauer, ausdauerPlan: a.plan });
+    toast({ titel: deEn('Cardio-Plan gestartet', 'Cardio plan started'), text: deEn(`${a.plan.wochen} Wochen ab ${datumKurz(a.start)}`, `${a.plan.wochen} weeks from ${datumKurz(a.start)}`) });
   };
-  // Plan-Ersteller (Generatoren, eigener Plan): beim Verlassen warnen, wenn schon etwas eingegeben ist (dann liegt ein
-  // prh-gen-*-Eintrag außer der Ansicht im Sitzungsspeicher – Vorgaben allein werden nicht gespeichert)
-  const zurListe = () => (ERSTELLER.includes(ansicht?.art) && eingabenDa() ? setVerlassen(true) : schliessen());
+  const uebergeben = (art, { werte = {}, vorgabe = null, ausstehend = null, id = null } = {}) => {
+    if (art === 'cardio') { setBereich('cardio'); abwickeln((z) => !!z, () => setAnsicht(null)); return; }
+    try { if (ausstehend) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(ausstehend)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ }
+    if (art === 'einsteiger') { erstellerOeffnen('eigen', einsteigerWerte(EINSTEIGER.find((e) => e.id === id)), { vonPlaner: true }); return; }
+    erstellerOeffnen(art, werte, { vonPlaner: true, vorgabe });
+  };
+  // Gespeichert: wartender Cardio-Plan aus dem Planer startet mit; Verlauf bis zur Liste abbauen, dann der Plan
   const speichernNeu = async (p, { bearbeiten = false, werte = null, start = null, ...herkunft } = {}) => {
     try {
       const d = await importieren(p, herkunft);
-      // 240: aus dem Planer – Block in derselben Woche wie der Cardio-Plan beginnen
-      let ab = start;
-      try { ab = start ?? JSON.parse(sessionStorage.getItem('prh-gen-start') ?? 'null'); } catch { /* ohne Vorgabe */ }
-      sitzungLeeren('prh-gen-');
-      oeffne({ art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start: ab });
-      toast({ titel: 'Programm gespeichert', text: p.name });
+      const aus = lies(AUSSTEHEND);
+      if (aus?.plan) setEinst({ ...einst, ausdauer: aus.ausdauer, ausdauerPlan: aus.plan });
+      const neu = { art: bearbeiten ? 'editor' : 'detail', datei: d, werte, start: start ?? aus?.start ?? null };
+      abwickeln((z) => !!z, () => { sitzungLeeren('prh-gen-'); oeffne(neu); });
+      toast({ titel: deEn('Programm gespeichert', 'Programme saved'), text: aus?.plan ? deEn(`${p.name} · Cardio-Plan gestartet`, `${p.name} · cardio plan started`) : p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
   if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} speichern=${(p) => speichernNeu(p, { quelle: 'import' })}/>`;
-  // Verwerfen: Eingaben löschen, dann alle Verlaufseinträge des Erstellers auf einmal zurück (Fenster + Schritte + Unterseite);
-  // das Zurück schließt das Fenster und – ohne Eingaben – den Ersteller (einzelne back()-Aufrufe kamen sich in die Quere)
-  const verwerfen = () => {
-    const st = history.state ?? {};
-    sitzungLeeren('prh-gen-');
-    history.go(-(st.unter ? (st.schritt ?? 1) + (st.seite ?? 0) + 1 : 1));
-  };
-  const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label="Eingaben verwerfen">
-      <h2 class="h2">Eingaben verwerfen?</h2>
-      <p style="margin:0">Was du hier eingegeben hast, geht verloren, wenn du den Plan-Ersteller jetzt verlässt.</p>
-      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>Weiter bearbeiten</button>
-        <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>Verwerfen</button></div>
+  // Verwerfen: zurück bis unter dieser Unterseite (das schließt auch das Fenster), dann verlassen
+  const verwerfen = () => { const art = ansicht?.art; abwickeln((z) => z === art, (z, st) => weg(art, z, st)); };
+  const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label=${deEn('Eingaben verwerfen', 'Discard input')}>
+      <h2 class="h2">${deEn('Eingaben verwerfen?', 'Discard your input?')}</h2>
+      <p style="margin:0">${deEn('Was du hier eingegeben hast, geht verloren, wenn du jetzt zurückgehst.', 'What you entered here is lost if you go back now.')}</p>
+      <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>${deEn('Weiter bearbeiten', 'Keep editing')}</button>
+        <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>${deEn('Verwerfen', 'Discard')}</button></div>
     <//>` : null;
-  if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} einst=${einst} setEinst=${setEinst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
-    ausdauer=${ausdauer ?? {}} uebergeben=${uebergeben} toast=${toast} setZurueck=${(f) => { planerZurueck = f; }}/>${warnung}`;
-  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu} ausdauer=${einst.ausdauer}/>${warnung}`;
+  if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} einst=${einst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
+    ausdauer=${ausdauer ?? {}} uebergeben=${uebergeben} cardioStarten=${cardioStarten} setZurueck=${(f) => { planerZurueck = f; }}/>${warnung}`;
+  if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu} ausdauer=${einst.ausdauer || lies(AUSSTEHEND)?.ausdauer}/>${warnung}`;
   if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
   if (ansicht?.art === 'generator') return html`<${GeneratorAnsicht} zurueck=${zurListe} einst=${einst} speichern=${speichernNeu} vorlagen=${programme} vorgabe=${ansicht.vorgabe}/>${warnung}`;
   if (ansicht?.art === 'editor' && programme[ansicht.datei]) return html`<${Editor} key=${ansicht.datei} datei=${ansicht.datei} programm=${programme[ansicht.datei]}
     start=${block?.datei === ansicht.datei ? block.start : null}
-    zurueck=${() => oeffne({ art: 'detail', datei: ansicht.datei })} toast=${toast}/>`;
+    zurueck=${() => oeffne({ art: 'detail', datei: ansicht.datei }, { ersetzen: true })} toast=${toast}/>`;
   if (ansicht?.art === 'detail' && programme[ansicht.datei]) return html`<${Detail} key=${ansicht.datei} datei=${ansicht.datei} prog=${programme[ansicht.datei]} vorgabe=${ansicht.werte}
     ausTest=${!!ansicht.ausTest} startVorschlag=${ansicht.start} block=${block} einst=${einst} setEinst=${setEinst} toast=${toast} zurueck=${zurListe}
     neueVersion=${block?.datei === ansicht.datei && info[ansicht.datei]?.version != null && block.version != null && info[ansicht.datei].version !== block.version ? info[ansicht.datei].version : null}
     umstellen=${(v) => { setBlock({ ...block, version: v }); toast({ titel: `Block auf Version ${v} umgestellt`, text: 'Gilt ab der nächsten Einheit; erledigte Trainings bleiben, wie sie waren.' }); }}
-    bearbeiten=${(d) => oeffne({ art: 'editor', datei: d })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
-    zumGenerator=${(vorgabe) => oeffne({ art: 'generator', vorgabe })}
-    starten=${(b) => { setBlock(b); setAnsicht(null); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); zuHeute(); }}/>`;
+    bearbeiten=${(d) => oeffne({ art: 'editor', datei: d }, { ersetzen: true })} kopieBearbeiten=${(p) => speichernNeu(p, { bearbeiten: true, quelle: 'kopie', datei: ansicht.datei })}
+    zumGenerator=${(vorgabe) => oeffne({ art: 'generator', vorgabe }, { ersetzen: true })}
+    starten=${(b) => { setBlock(b); toast({ titel: 'Block gestartet', text: `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` }); abwickeln((z) => !!z, () => { setAnsicht(null); zuHeute(); }); }}/>`;
   const aktivTage = block ? blockTage(programme[block.datei], { ...block, cut: einst.cut }) : [];
   const wochen = wochenListe(aktivTage);
   // Stand: erledigt laut Soll-Ist (zählt auch Trainings ohne Planbezug), sonst die aus dem Plan gestarteten

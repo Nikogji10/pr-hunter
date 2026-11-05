@@ -1,6 +1,8 @@
 // PR Hunter · Kraft + Cardio kombinieren (Wünsche 239–247): Wochenraster (je Tag Kraft, Cardio, beides oder Ruhetag),
 // Vorschlag einer erholungsfreundlichen Verteilung, Prüfung der Woche und Kraft-Vorlagen für Hybrid-Athleten
 // (Grundübungen zuerst, Isolationen zuletzt, Muskelgruppen im Wechsel, Oberkörper dabei). Pure Funktionen.
+import { UNTEN_TAGE, OBEN_TAGE } from './generator.js';
+import { SPLITS } from './bodybuilding.js';
 
 /** Tagesarten im Raster; Antippen wechselt in dieser Reihenfolge. */
 export const ARTEN = ['ruhe', 'kraft', 'cardio', 'beides'];
@@ -24,7 +26,7 @@ export function wertung(woche, bein = woche.map(() => true), { hart = 1 } = {}) 
   const nur = woche.map((a) => a === 'cardio'), lang = nur.lastIndexOf(true);
   const beinTag = (i) => hatKraft(woche[(i + 7) % 7]) && bein[(i + 7) % 7];
   woche.forEach((a, i) => {
-    if (a === 'beides') s += 3;
+    if (a === 'beides') s += bein[i] ? 4 : 3;             // Cardio nach dem Krafttraining lieber an Oberkörpertagen
     if (beinTag(i) && beinTag(i + 1)) s += 2;
     else if (hatKraft(a) && hatKraft(woche[(i + 1) % 7])) s += 0.5;
     if (nur[i] && beinTag(i + 1)) s += 0.7;
@@ -68,16 +70,42 @@ export function pruefeWoche(woche, bein, einheiten = []) {
   const WT = [['Mo', 'Mon'], ['Di', 'Tue'], ['Mi', 'Wed'], ['Do', 'Thu'], ['Fr', 'Fri'], ['Sa', 'Sat'], ['So', 'Sun']];
   const aus = [], beinTag = (i) => hatKraft(woche[(i + 7) % 7]) && bein[(i + 7) % 7];
   if (!woche.includes('ruhe')) aus.push({ art: 'warn', de: 'Kein Ruhetag – mindestens einer pro Woche hilft der Erholung.', en: 'No rest day – at least one per week helps recovery.' });
-  for (let i = 0; i < 7; i++) if (beinTag(i) && beinTag(i + 1)) aus.push({ art: 'warn', de: `${WT[i][0]} und ${WT[(i + 1) % 7][0]}: zwei Beintage hintereinander.`, en: `${WT[i][1]} and ${WT[(i + 1) % 7][1]}: two leg days in a row.` });
+  // gleiche Hinweise in einer Zeile zusammenfassen (z. B. „Mo–Di, Do–Fr“)
+  const paare = [];
+  for (let i = 0; i < 7; i++) if (beinTag(i) && beinTag(i + 1)) paare.push(i);
+  const liste = (sp) => paare.map((i) => `${WT[i][sp]}–${WT[(i + 1) % 7][sp]}`).join(', ');
+  if (paare.length) aus.push({ art: 'warn', de: `Beintage direkt hintereinander: ${liste(0)}.`, en: `Leg days back to back: ${liste(1)}.` });
+  const vorBein = einheiten.filter((e) => ['intervalle', 'tempo', 'lang', 'wettkampf'].includes(e.typ) && beinTag(e.wt + 1));
+  if (vorBein.length) aus.push({ art: 'warn', de: `Harte oder lange Cardio-Einheit am Tag vor dem Beintag: ${vorBein.map((e) => WT[e.wt][0]).join(', ')}.`, en: `Hard or long cardio the day before leg day: ${vorBein.map((e) => WT[e.wt][1]).join(', ')}.` });
   for (const e of einheiten) {
-    const hart = ['intervalle', 'tempo', 'lang', 'wettkampf'].includes(e.typ);
-    if (hart && beinTag(e.wt + 1)) aus.push({ art: 'warn', de: `${WT[e.wt][0]}: harte oder lange Einheit am Tag vor dem Beintag.`, en: `${WT[e.wt][1]}: hard or long session the day before leg day.` });
-    if (e.typ === 'lang' && beinTag(e.wt + 1)) continue;
-    if (e.typ === 'lang' && hatKraft(woche[(e.wt + 1) % 7])) aus.push({ art: 'info', de: `${WT[(e.wt + 1) % 7][0]}: Krafttraining nach der langen Einheit – Oberkörper geht gut.`, en: `${WT[(e.wt + 1) % 7][1]}: strength after the long session – upper body works well.` });
+    if (e.typ !== 'lang' || beinTag(e.wt + 1) || !hatKraft(woche[(e.wt + 1) % 7])) continue;
+    aus.push({ art: 'info', de: `${WT[(e.wt + 1) % 7][0]}: Krafttraining nach der langen Einheit – Oberkörper geht gut.`, en: `${WT[(e.wt + 1) % 7][1]}: strength after the long session – upper body works well.` });
   }
   if (woche.includes('beides')) aus.push({ art: 'info', de: 'Kraft + Cardio am selben Tag: erst Kraft, dann Cardio – kurz und locker.', en: 'Strength + cardio on the same day: strength first, then easy, short cardio.' });
   if (!aus.some((x) => x.art === 'warn')) aus.unshift({ art: 'gut', de: 'Erholung passt: harte Einheiten liegen nicht vor Beintagen.', en: 'Recovery looks good: hard sessions stay away from leg days.' });
   return aus;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Krafttage wie die Generatoren sie legen (Wochentag 0 = Montag = Blockstart) – mit den echten Beintagen
+// ---------------------------------------------------------------------------------------------------------------
+/** Bodybuilding-Generator: Tage je Anzahl (wie js/bodybuilding.js) und passender Split. */
+export const BB_WT = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
+export const bbSplit = (n) => (n <= 3 ? 'gk' : n === 4 ? 'ul' : 'ppl');
+const BEIN_GRUPPEN = new Set(['quads', 'beinbeuger', 'gesaess']);
+export function bbTage(n, split = bbSplit(n)) {
+  const tage = BB_WT[Math.min(6, Math.max(2, n))], s = SPLITS[split] ?? SPLITS.gk;
+  const bein = new Array(7).fill(false);
+  tage.forEach((wt, i) => { bein[wt] = s.tage[i % s.tage.length][1].some((g) => BEIN_GRUPPEN.has(g)); });
+  return { tage, bein, split };
+}
+/** Powerlifting-Generator: n = 3, 4 oder 5 Tage → Kniebeuge/Kreuzheben je (n − 2)× pro Woche, Bank 2×; Beine nur an den Unterkörpertagen. */
+export const PL_TAGE = [3, 4, 5];
+export function plTage(n) {
+  const L = Math.min(3, Math.max(1, n - 2)), unten = UNTEN_TAGE[L], oben = OBEN_TAGE[L];
+  const bein = new Array(7).fill(false);
+  for (const wt of unten) bein[wt] = true;
+  return { tage: [...new Set([...unten, ...oben])].sort((a, b) => a - b), bein, proWoche: { squat: L, dead: L, bench: 2 } };
 }
 
 /** Wochen von start (Montag) bis zum Wettkampfdatum, die Woche des Wettkampfs eingeschlossen. */

@@ -67,6 +67,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
   const sortiert = trainings.filter((t) => !t.geloescht && t.datum)
     .sort((a, b) => a.datum.localeCompare(b.datum) || String(a.start ?? '').localeCompare(String(b.start ?? '')));
   const tage = new Map();
+  const AUSRUESTUNG = {};                              // 248: key → Ausrüstung je Arbeitssatz im letzten Training
   for (const t of sortiert) {
     const koerper = t.koerpergewicht ?? koerperAm(t.datum, messwerte) ?? koerpergewicht;
     const uebungen = [];
@@ -74,6 +75,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
       const key = kanon(u.key);
       const fertig = (u.saetze ?? []).filter((s) => s.fertig !== false).map((s) => satzWerte(s, art.get(u.key) ?? art.get(key), koerper, formel));
       if (!fertig.length) continue;
+      AUSRUESTUNG[key] = (u.saetze ?? []).filter((s) => s.fertig !== false && s.typ !== 'warmup').map((s) => s.extra?.gear ?? []);
       uebungen.push({ key, lift: liftVon(key), saetze: fertig.filter((s) => s.typ !== 'warmup'), aufwaermen: fertig.filter((s) => s.typ === 'warmup'),
         e1rm: null, notiz: u.notiz ?? null, supersatz: u.supersatz ?? null });
     }
@@ -218,7 +220,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
   const gewichte = [...messwerte, ...sortiert.filter((t) => t.koerpergewicht > 0).map((t) => ({ datum: t.datum, kg: t.koerpergewicht }))]
     .filter((m) => m.kg > 0 && m.datum <= heute).sort((a, b) => a.datum.localeCompare(b.datum));
   return {
-    HEUTE: heute, URLAUB: urlaub, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT, E1RM_QUELLE,
+    HEUTE: heute, URLAUB: urlaub, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT, E1RM_QUELLE, AUSRUESTUNG,
     KOERPERGEWICHT: gewichte.at(-1)?.kg ?? koerpergewicht, KOERPERVERLAUF: gewichte,
     trainingAm: (d) => tage.get(d) ?? null,
     verlaufUebung: (key) => reihe(kanon(key)),

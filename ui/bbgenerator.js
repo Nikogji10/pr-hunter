@@ -69,6 +69,7 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
   const sports = sportarten(ausdauer);   // 238: bei Hybrid Läufer-/Radfahrer-Übungen mit vorschlagen
   const [split, setSplit] = useSitzung('prh-gen-bb-split', 'ppl');
   const [tage, setTage] = useSitzung('prh-gen-bb-tage', 6);
+  const [vorgabe] = useSitzung('prh-gen-bb-vorgabe', null);           // aus dem Planer: Tage pro Woche stehen fest
   const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
   const [deload, setDeload] = useSitzung('prh-gen-bb-deload', true);
   const [auswahlRoh, setAuswahl] = useSitzung('prh-gen-bb-auswahl', standardAuswahl);
@@ -119,7 +120,7 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
     <${Schritte} schritt=${schritt} namen=${SCHRITTE}/>
     ${schritt === 1 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">1</span><span class="viz-t">Split wählen</span></div>
       <div class="split-wahl">${Object.entries(SPLITS).map(([k, s]) => html`<button key=${k} class="split-karte" aria-pressed=${String(split === k)}
-        onClick=${() => { setSplit(k); setTage(TAGE_STANDARD[k]); }}><b>${s.name}</b><span>${s.text}</span></button>`)}</div></section>` : null}
+        onClick=${() => { setSplit(k); if (!vorgabe) setTage(TAGE_STANDARD[k]); }}><b>${s.name}</b><span>${s.text}</span></button>`)}</div></section>` : null}
 
     ${schritt === 2 ? html`<div class="bb-fortschritt" aria-label=${`Muskelgruppe ${si + 1} von ${seiten.length}`}>
         ${seiten.map((s, i) => html`<button key=${s.id} class=${i < si ? 'ok' : i === si ? 'jetzt' : ''} disabled=${i >= si} onClick=${() => springe(i)} aria-label=${s.name}><i></i></button>`)}</div>
@@ -148,7 +149,8 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
 
     ${schritt === 3 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">3</span><span class="viz-t">Wie oft und wie lange</span></div>
       <span class="eyebrow">Trainingstage pro Woche</span>
-      <div class="seg" role="group" aria-label="Trainingstage pro Woche">${[2, 3, 4, 5, 6].map((n) => html`<button key=${n} aria-pressed=${String(tage === n)} onClick=${() => setTage(n)}>${`${n}×`}</button>`)}</div>
+      ${vorgabe ? html`<div class="pl-info"><b>${deEn(`${tage} Tage pro Woche`, `${tage} days per week`)}</b><span class="muted">${deEn('Aus deinem Plan mit Cardio – ändern geht im Planer.', 'From your plan with cardio – change it in the planner.')}</span></div>`
+        : html`<div class="seg" role="group" aria-label="Trainingstage pro Woche">${[2, 3, 4, 5, 6].map((n) => html`<button key=${n} aria-pressed=${String(tage === n)} onClick=${() => setTage(n)}>${`${n}×`}</button>`)}</div>`}
       <div class="haeufigkeit">${gruppen.map((g) => html`<span key=${g} class=${(h[g] ?? 0) >= 2 ? 'gut' : ''}>${MUSKELGRUPPEN[g].name} <b>${`${h[g] ?? 0}×`}</b></span>`)}</div>
       <span class="muted" style="font-size:12.5px">Grün = jede Woche mindestens 2× – das bringt für Muskelaufbau meist mehr als 1× mit vielen Sätzen.</span>
       <span class="eyebrow">Aufbauwochen</span>

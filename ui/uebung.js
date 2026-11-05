@@ -2,7 +2,7 @@
 // je Einheit, Zeitraum, Ziellinie, Min/Max, Zielprognose), Rekorde (bestes Gewicht je Wdh-Zahl), Info (Steckbrief, Bild,
 // Anleitung, persönliche Anpassung, Basisdaten, Zusammenführen). Dazu das Formular zum Anlegen und Ändern von Übungen.
 import { html, useState, useEffect, fmt, gw, gwE, einheit, inAnzeige, I, Sheet, LIFT, liftVon, nameVon, katalogName, uebung, anpassung, MUSKEL_DE,
-  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild, useUnterReiter, UNTER_VORSCHAU } from './basis.js';
+  datumKurz, datumLang, koerperUebung, mmss, katalogListe, ZahlFeld, UebungsBild, bilderVon, zeigeBild, useUnterReiter, UNTER_VORSCHAU, deEn } from './basis.js';
 import { DEMO, DIENSTE, HEUTE, trainingsTage, trainingAm, wochen, verlaufUebung, plusTage, kanon, rekordeVon } from './stand.js';
 import { FAMILIE, EQUIPMENT, UebungSuche, zonePasst } from './suche.js';
 import { ZielMuskeln, ZONE_NAME } from './koerper.js';
@@ -218,7 +218,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
         ${details?.anleitung?.length ? html`<details><summary class="link" style="cursor:pointer">Anleitung (Englisch, Free Exercise DB)</summary>
           <ol class="anleitung">${details.anleitung.map((t, i) => html`<li key=${i}>${t}</li>`)}</ol></details>` : null}
         <div class="row wrap">
-          ${DIENSTE.speichereAnpassung ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('anpassen')}>Für mich anpassen</button>` : null}
+          ${DIENSTE.speichereAnpassung ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('anpassen')}>${deEn('Anpassen · Sitzhöhe, Rack, Cues', 'Customise · seat, rack, cues')}</button>` : null}
           ${e && DIENSTE.uebungAendern && DIENSTE.darfAendern(e) ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('aendern')}>Basisdaten ändern</button>` : null}
           ${e && DIENSTE.zusammenfuehren && DIENSTE.darfAendern(e) ? html`<button class="btn btn-gefahr btn-sm" onClick=${() => { setZiel(null); setSheet('zusammen'); }}>Zusammenführen …</button>` : null}
         </div>
@@ -255,7 +255,7 @@ export function UebungsSeite({ schluessel, zurueck, zurueckText, einst = {}, set
 // #################################################################
 // Persönliche Anpassung (gilt nur für den Nutzer)
 // #################################################################
-function AnpassenSheet({ schluessel, zu }) {
+export function AnpassenSheet({ schluessel, zu }) {
   const alt = anpassung(schluessel) ?? {};
   const [a, setA] = useState({ name: alt.name ?? '', pause: alt.pause ?? null, cues: alt.cues ?? '', rack: alt.rack ?? '', notiz: alt.notiz ?? '', versteckt: !!alt.versteckt });
   // 204: Geräte-Einstellungen als Paare Name → Wert (Sitz, Lehne, Polster, Griff …)

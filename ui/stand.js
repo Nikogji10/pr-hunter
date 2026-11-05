@@ -14,6 +14,7 @@ export let LETZTES = {};
 export let BEST_E1RM = {};
 export let E1RM_AKTUELL = {};
 export let E1RM_QUELLE = {};                   // key → { best, aktuell: { datum, satz } } (170)
+export let AUSRUESTUNG = {};                   // 248: key → Ausrüstung je Arbeitssatz im letzten Training
 export let ZULETZT = {};                       // key → Datum des letzten Trainings mit dieser Übung
 export let KOERPERGEWICHT = null;
 export let KOERPERVERLAUF = [];                // [{ datum, kg }] aufsteigend
@@ -24,7 +25,7 @@ export let rekordeVon = () => ({ wdh: Array(10).fill(null), e1rm: null });
 
 export function setzeStand(s) {
   ({ HEUTE, URLAUB = null, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL,
-    ZULETZT = {}, E1RM_QUELLE = {}, KOERPERGEWICHT = null, KOERPERVERLAUF = [], DEMO = false, trainingAm, verlaufUebung,
+    ZULETZT = {}, E1RM_QUELLE = {}, AUSRUESTUNG = {}, KOERPERGEWICHT = null, KOERPERVERLAUF = [], DEMO = false, trainingAm, verlaufUebung,
     rekordeVon = () => ({ wdh: Array(10).fill(null), e1rm: null }) } = s);
 }
 

@@ -1,40 +1,46 @@
 // PR Hunter · Planer (Wünsche 239–247): Schritt für Schritt vom Ziel zum Plan. Erst das Ziel (einfaches Training,
 // Bodybuilding, Powerlifting, Cardio zum aktiven Block, nur Ausdauer), dann ob Cardio dazukommt, Cardio-Ziel (auch mit
-// Wettkampfdatum), Fokus Kraft/Ausgeglichen/Ausdauer, Dauer je Sitzung, Wochenraster (Kraft, Cardio, beides, Ruhetag –
-// mit Vorschlag und Erholungs-Prüfung), Form. Am Ende startet der Cardio-Plan, und der passende Kraft-Ersteller öffnet sich
-// vorbefüllt – die Übungen wählt man dort selbst. Eingaben liegen im Sitzungsspeicher (prh-gen-ziel-*): Verlassen fragt.
-import { html, useEffect, deEn, useSitzung, datumKurz, fmt, sprache, I } from './basis.js';
+// Wettkampfdatum), Fokus Kraft/Ausgeglichen/Ausdauer, Dauer je Sitzung, Woche (je Tag Ruhe, Kraft, Cardio oder beides –
+// Krafttage und Beintage so, wie der jeweilige Generator sie legt), Form, Überblick.
+// Mit Kraftplan: der passende Ersteller öffnet sich vorbefüllt; der Cardio-Plan startet erst, wenn der Kraftplan
+// gespeichert wird (bis dahin wartet er im Sitzungsspeicher). Zurück aus dem Ersteller führt wieder hierher.
+// Nur Cardio / Cardio zum Block: „Plan starten“ startet sofort. Eingaben liegen im Sitzungsspeicher (prh-gen-ziel-*).
+import { html, useEffect, deEn, useSitzung, datumKurz, sprache, I } from './basis.js';
 import { HEUTE } from './stand.js';
 import { ZIELE, ZIEL_TEXT, RENN_ZIELE, ZEIT_ZIELE, erzeugePlan, naechsterMontag, wochentag, plusTage } from '../js/ausdauerplan.js';
-import { wochenVorschlag, pruefeWoche, hatKraft, hatCardio, kraftVorlage, wochenBis, MIN_WOCHEN } from '../js/kombiplan.js';
-import { bestzeiten, prognosen, ftpSchaetzung, sichtbar, dauerText, wochen as wochenSummen, montag } from '../js/ausdauer.js';
+import { wochenVorschlag, pruefeWoche, hatKraft, hatCardio, kraftVorlage, wochenBis, MIN_WOCHEN, plTage, bbTage, PL_TAGE } from '../js/kombiplan.js';
+import { bestzeiten, prognosen, ftpSchaetzung, sichtbar, wochen as wochenSummen, montag } from '../js/ausdauer.js';
 import { beschreibung, WT_NAME } from './ausdauerplan.js';
 
 const L = (de, en) => deEn(de, en);
-const BB_WT = { 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
-const BB_SPLIT = (n) => (n <= 3 ? 'gk' : n === 4 ? 'ul' : 'ppl');
 const START = { ziel: null, cardio: null, sport: null, zweck: null, rennDatum: '', fokus: null, dauer: 45, wochen: 8, nKraft: 3, nCardio: 3, woche: null, t5k: null, ftp: null };
-const ICON = { kraft: '💪', ruhe: '😴' };
+const ART_NAME = { ruhe: ['Ruhe', 'Rest'], kraft: ['Kraft', 'Strength'], cardio: ['Cardio', 'Cardio'], beides: ['Beides', 'Both'] };
 
 const ZIELE_KRAFT = [
-  ['einfach', '💪', ['Fit und stark', 'Fit and strong'], ['Einfaches Training: Ganzkörper, wenige Übungen, ohne Maxe.', 'Simple training: full body, few exercises, no maxes.']],
-  ['bodybuilding', '🏋️', ['Muskelaufbau', 'Build muscle'], ['Bodybuilding: Split wählen, Übungen je Muskel – die App baut den Block.', 'Bodybuilding: pick a split, exercises per muscle – the app builds the block.']],
-  ['powerlifting', '🏆', ['Maximalkraft', 'Max strength'], ['Powerlifting: Kniebeuge, Bank, Kreuzheben mit deinen Maxen und Test am Ende.', 'Powerlifting: squat, bench, deadlift with your maxes and a test at the end.']],
+  ['einfach', '💪', ['Fit und stark', 'Fit and strong'], ['Ganzkörper, wenige Übungen, ohne Maxe', 'Full body, few exercises, no maxes']],
+  ['bodybuilding', '🏋️', ['Muskelaufbau', 'Build muscle'], ['Bodybuilding mit Split und Übungen je Muskel', 'Bodybuilding with a split and exercises per muscle']],
+  ['powerlifting', '🏆', ['Maximalkraft', 'Max strength'], ['Powerlifting: Kniebeuge, Bank, Kreuzheben, Test am Ende', 'Powerlifting: squat, bench, deadlift, test at the end']],
 ];
 const FOKUS_WAHL = [
-  ['kraft', ['Kraft', 'Strength'], ['Cardio als Ergänzung: weniger Umfang, höchstens eine harte Einheit pro Woche.', 'Cardio on the side: less volume, at most one hard session per week.']],
-  ['mix', ['Ausgeglichen', 'Balanced'], ['Kraft und Ausdauer gleich wichtig.', 'Strength and endurance equally important.']],
-  ['cardio', ['Ausdauer', 'Endurance'], ['Kraft unterstützt das Laufen bzw. Radfahren: kurze Einheiten mit 5 Übungen.', 'Strength supports running or cycling: short sessions with 5 exercises.']],
+  ['kraft', '💪', ['Kraft', 'Strength'], ['Cardio als Ergänzung: weniger Umfang, höchstens eine harte Einheit pro Woche', 'Cardio on the side: less volume, at most one hard session a week']],
+  ['mix', '⚖️', ['Ausgeglichen', 'Balanced'], ['Kraft und Ausdauer gleich wichtig', 'Strength and endurance equally important']],
+  ['cardio', '🏃', ['Ausdauer', 'Endurance'], ['Kraft unterstützt das Laufen bzw. Radfahren: kurze Einheiten', 'Strength supports running or cycling: short sessions']],
 ];
 
-export function Planer({ zurueck, einst, setEinst, block = null, blockName = '', ausdauer = {}, uebergeben, toast, setZurueck }) {
+/** Auswahlzeile: Symbol, Titel, Beschreibung, Markierung rechts. */
+const Option = ({ aktiv, onClick, icon = null, titel, text = null }) => html`<button class=${`pl-opt ${aktiv ? 'an' : ''}`} aria-pressed=${String(!!aktiv)} onClick=${onClick}>
+  ${icon ? html`<span class="pl-ico" aria-hidden="true">${icon}</span>` : null}
+  <span class="pl-txt"><b>${titel}</b>${text ? html`<small>${text}</small>` : null}</span><span class="pl-radio" aria-hidden="true"></span></button>`;
+/** Kleine Auswahl-Pillen. */
+const Chips = ({ werte, aktiv, setzen, label = (x) => x, aria }) => html`<div class="pl-chips" role="group" aria-label=${aria}>
+  ${werte.map((x) => html`<button key=${x} class=${x === aktiv ? 'an' : ''} aria-pressed=${String(x === aktiv)} onClick=${() => setzen(x)}>${label(x)}</button>`)}</div>`;
+const Hinweise = ({ liste }) => html`<div class="pl-hinweise">${liste.map((h, i) => html`<div key=${i} class=${`pl-hinweis ${h.art}`}><i aria-hidden="true">${h.art === 'warn' ? '!' : h.art === 'gut' ? '✓' : 'i'}</i><span>${L(h.de, h.en)}</span></div>`)}</div>`;
+
+export function Planer({ zurueck, einst, block = null, blockName = '', ausdauer = {}, uebergeben, cardioStarten, setZurueck }) {
   const [wahl, setWahl] = useSitzung('prh-gen-ziel-wahl', () => START);
   const [schritt, setSchritt] = useSitzung('prh-gen-ziel-schritt', 1);
   const w = { ...START, ...(wahl ?? {}) };
   const setze = (patch) => setWahl({ ...w, ...patch });
-  useEffect(() => window.scrollTo(0, 0), [schritt]);
-  // Zurück-Taste des Handys: einen Schritt zurück (erst in Schritt 1 fragt Programme, ob verworfen werden soll)
-  useEffect(() => { setZurueck?.(() => (schritt > 1 ? (setSchritt(schritt - 1), true) : false)); return () => setZurueck?.(null); });
 
   const en = sprache() === 'en';
   const start = naechsterMontag(HEUTE);
@@ -46,16 +52,20 @@ export function Planer({ zurueck, einst, setEinst, block = null, blockName = '',
   const rennen = zweck && RENN_ZIELE.has(zweck), rennDatum = rennen && w.rennDatum > start ? w.rennDatum : null;
   const fokus = nurCardio ? 'cardio' : w.fokus ?? (zumBlock || w.ziel === 'bodybuilding' || w.ziel === 'powerlifting' ? 'kraft' : 'mix');
 
-  // Krafttage: aktiver Block → echte Tage der Startwoche; Bodybuilding → feste Tage des Generators; sonst frei
+  // Krafttage: aktiver Block → echte Tage der Startwoche; Powerlifting/Bodybuilding → so, wie der Generator sie legt
+  // (mit den echten Beintagen); einfaches Training → frei, Beintage aus der Vorlage
   const startWoche = Array.from({ length: 7 }, (_, i) => plusTage(start, i));
   const planTage = ausdauer.planTage ?? [];
-  const fest = zumBlock ? startWoche.map((d, i) => (planTage.some((t) => t.datum === d) ? i : null)).filter((x) => x != null)
-    : w.ziel === 'bodybuilding' ? BB_WT[Math.min(6, Math.max(2, w.nKraft))] : null;
+  const pl = w.ziel === 'powerlifting' ? plTage(PL_TAGE.includes(w.nKraft) ? w.nKraft : 4) : null;
+  const bb = w.ziel === 'bodybuilding' ? bbTage(Math.min(6, Math.max(2, w.nKraft))) : null;
+  const fest = zumBlock ? startWoche.map((d, i) => (planTage.some((t) => t.datum === d) ? i : null)).filter((x) => x != null) : pl?.tage ?? bb?.tage ?? null;
+  const beinFest = zumBlock ? startWoche.map((d) => !!ausdauer.beinTag?.(d)) : pl?.bein ?? bb?.bein ?? null;
   const nKraft = nurCardio ? 0 : fest ? fest.length : w.nKraft;
   const vorlage = w.ziel === 'einfach' && nKraft ? kraftVorlage({ anzahl: nKraft, fokus, sport, en }) : null;
-  const woche = w.woche ?? wochenVorschlag(nKraft, w.nCardio, { fest, beinFolge: vorlage?.map((x) => x.bein) ?? (zumBlock ? fest.map((i) => !!ausdauer.beinTag?.(startWoche[i])) : null), hart: w.nCardio >= 5 && fokus !== 'kraft' ? 2 : 1 });
+  const hart = w.nCardio >= 5 && fokus !== 'kraft' ? 2 : 1;
+  const woche = w.woche ?? wochenVorschlag(nKraft, w.nCardio, { fest, bein: beinFest, beinFolge: vorlage?.map((x) => x.bein) ?? null, hart });
   const kraftIdx = woche.map((a, i) => (hatKraft(a) ? i : null)).filter((x) => x != null);
-  const bein = woche.map((a, i) => (zumBlock ? !!ausdauer.beinTag?.(startWoche[i]) : hatKraft(a) && (vorlage ? vorlage[kraftIdx.indexOf(i)]?.bein !== false : true)));
+  const bein = beinFest ? woche.map((a, i) => hatKraft(a) && beinFest[i]) : woche.map((a, i) => hatKraft(a) && (vorlage ? vorlage[kraftIdx.indexOf(i)]?.bein !== false : true));
   const cardioTage = woche.map((a, i) => (hatCardio(a) ? i : null)).filter((x) => x != null);
 
   // Form: 5-km-Zeit bzw. FTP (Vorschlag aus den eigenen Einheiten)
@@ -74,116 +84,115 @@ export function Planer({ zurueck, einst, setEinst, block = null, blockName = '',
 
   // Schritte je nach Antworten
   const ids = ['ziel', 'cardio', ...(mitCardio ? ['cardioZiel', ...(nurCardio ? [] : ['fokus']), 'umfang', 'woche', 'form'] : []), 'fertig'];
-  const si = Math.min(schritt, ids.length), id = ids[si - 1];
-  const NAMEN = { ziel: L('Ziel', 'Goal'), cardio: 'Cardio', cardioZiel: L('Cardio-Ziel', 'Cardio goal'), fokus: L('Fokus', 'Focus'), umfang: L('Umfang', 'Volume'), woche: L('Woche', 'Week'), form: L('Form', 'Form'), fertig: L('Überblick', 'Overview') };
-  const kannWeiter = { ziel: !!w.ziel, cardio: !!w.cardio && (!(nurCardio || zumBlock) || w.cardio !== 'nein'), cardioZiel: !!zweck, fokus: true, umfang: true, woche: cardioTage.length > 0 || !mitCardio, form: true }[id] ?? true;
-  const weiter = () => setSchritt(si + 1);
+  const si = Math.min(Math.max(1, schritt), ids.length), id = ids[si - 1];
+  useEffect(() => window.scrollTo(0, 0), [id]);
+  // Zurück (Handy und Pfeil oben): erst einen Schritt zurück; in Schritt 1 entscheidet Programme (Warnung bei Eingaben)
+  useEffect(() => { setZurueck?.(() => (si > 1 ? (setSchritt(si - 1), true) : false)); return () => setZurueck?.(null); });
+  const NAMEN = { ziel: L('Dein Ziel', 'Your goal'), cardio: 'Cardio', cardioZiel: L('Cardio-Ziel', 'Cardio goal'), fokus: L('Fokus', 'Focus'), umfang: L('Umfang', 'Volume'), woche: L('Deine Woche', 'Your week'), form: L('Deine Form', 'Your form'), fertig: L('Überblick', 'Overview') };
+  const kannWeiter = { ziel: !!w.ziel, cardio: !!w.cardio && (!(nurCardio || zumBlock) || w.cardio !== 'nein'), cardioZiel: !!zweck, woche: cardioTage.length > 0 }[id] ?? true;
 
-  const wahlKnopf = (aktiv, onClick, titel, text = null, key = titel) => html`<button key=${key} aria-pressed=${String(aktiv)} onClick=${onClick}><span>${titel}</span>${text ? html`<small>${text}</small>` : null}</button>`;
-  const sportName = (s) => (s === 'lauf' ? L('🏃 Laufen', '🏃 Running') : s === 'rad' ? L('🚴 Rad', '🚴 Cycling') : L('🏃🚴 Beides', '🏃🚴 Both'));
-  const cardioIcon = sport === 'rad' ? '🚴' : '🏃';
-  const zyklus = (i) => {
-    const a = woche[i];
-    const folge = nurCardio ? ['ruhe', 'cardio'] : fest ? (hatKraft(a) ? ['kraft', 'beides'] : ['ruhe', 'cardio']) : ['ruhe', 'kraft', 'cardio', 'beides'];
-    const neu = [...woche]; neu[i] = folge[(folge.indexOf(a) + 1) % folge.length];
-    setze({ woche: neu, nKraft: fest ? w.nKraft : neu.filter(hatKraft).length || w.nKraft, nCardio: neu.filter(hatCardio).length });
-  };
-  const zaehler = (titel, wert, min, max, setzen, gesperrt = false) => html`<div class="bb-saetze"><span>${titel}</span>
-    <span class="row" style="gap:6px"><button class="iconbtn klein" aria-label=${L(`${titel} weniger`, `${titel} fewer`)} disabled=${gesperrt || wert <= min} onClick=${() => setzen(wert - 1)}>−</button>
-      <b>${`${wert}×`}</b><button class="iconbtn klein" aria-label=${L(`${titel} mehr`, `${titel} more`)} disabled=${gesperrt || wert >= max} onClick=${() => setzen(wert + 1)}>+</button></span></div>`;
+  const sportName = (s) => (s === 'lauf' ? L('Laufen', 'Running') : s === 'rad' ? L('Rad', 'Cycling') : L('Beides', 'Both'));
+  const sportIcon = (s) => (s === 'lauf' ? '🏃' : s === 'rad' ? '🚴' : '🏃🚴');
+  const cardioIcon = sportIcon(sport);
+  const artIcon = (a) => (a === 'ruhe' ? '😴' : a === 'kraft' ? '💪' : a === 'cardio' ? cardioIcon : `💪${cardioIcon}`);
+  const erlaubt = (i) => (nurCardio ? ['ruhe', 'cardio'] : fest ? (fest.includes(i) ? ['kraft', 'beides'] : ['ruhe', 'cardio']) : ['ruhe', 'kraft', 'cardio', 'beides']);
+  const setzeTag = (i, a) => { const neu = [...woche]; neu[i] = a; setze({ woche: neu, ...(fest ? {} : { nKraft: neu.filter(hatKraft).length || w.nKraft }), nCardio: neu.filter(hatCardio).length }); };
   const kraftName = (i) => (vorlage ? vorlage[kraftIdx.indexOf(i)]?.name : zumBlock ? planTage.find((t) => t.datum === startWoche[i])?.label ?? blockName : w.ziel === 'bodybuilding' ? 'Bodybuilding' : 'Powerlifting');
-  const hinweisListe = html`<div class="stack" style="gap:4px">${hinweise.map((h, i) => html`<span key=${i} class=${`kw-hinweis ${h.art}`}>${h.art === 'warn' ? '⚠️ ' : h.art === 'gut' ? '✓ ' : 'ℹ️ '}${L(h.de, h.en)}</span>`)}</div>`;
+  const kraftWerte = w.ziel === 'powerlifting' ? PL_TAGE : w.ziel === 'bodybuilding' ? [2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6];
+  const frage = (titel, unter = null) => html`<h2 class="pl-frage">${titel}</h2>${unter ? html`<p class="pl-unter">${unter}</p>` : null}`;
 
   const inhalt = {
-    ziel: html`<b class="ap-frage">${L('Was willst du erreichen?', 'What do you want to achieve?')}</b>
-      <div class="ap-wahl">
-        ${ZIELE_KRAFT.filter(([z]) => z !== 'powerlifting' || einst.trainingsart !== 'einfach').map(([z, icon, titel, text]) => wahlKnopf(w.ziel === z, () => setze({ ziel: z, cardio: null, woche: null, fokus: null, nKraft: z === 'bodybuilding' ? 4 : 3 }), `${icon} ${L(...titel)}`, L(...text), z))}
-        ${block ? wahlKnopf(zumBlock, () => setze({ ziel: 'block', cardio: null, woche: null, fokus: null }), L(`➕ Cardio zu „${blockName}“`, `➕ Cardio for “${blockName}”`), L('Dein aktiver Block bleibt, die App plant Läufe bzw. Fahrten drumherum.', 'Your active block stays, the app plans runs or rides around it.'), 'block') : null}
-        ${wahlKnopf(nurCardio, () => setze({ ziel: 'cardio', cardio: null, woche: null, fokus: null }), L('🏃 Nur Ausdauer', '🏃 Endurance only'), L('Laufen oder Rad mit Plan bis zum Ziel – ohne Kraftplan.', 'Running or cycling with a plan to your goal – no strength plan.'), 'cardio')}
+    ziel: html`${frage(L('Was willst du erreichen?', 'What do you want to achieve?'))}
+      <div class="pl-optionen">
+        ${ZIELE_KRAFT.filter(([z]) => z !== 'powerlifting' || einst.trainingsart !== 'einfach').map(([z, icon, titel, text]) => html`<${Option} key=${z} aktiv=${w.ziel === z} icon=${icon} titel=${L(...titel)} text=${L(...text)}
+          onClick=${() => setze({ ziel: z, cardio: null, woche: null, fokus: null, nKraft: z === 'einfach' ? 3 : 4 })}/>`)}
+        ${block ? html`<${Option} aktiv=${zumBlock} icon="➕" titel=${L(`Cardio zu „${blockName}“`, `Cardio for “${blockName}”`)} text=${L('Dein Block bleibt, Cardio kommt drumherum', 'Your block stays, cardio goes around it')}
+          onClick=${() => setze({ ziel: 'block', cardio: null, woche: null, fokus: null })}/>` : null}
+        <${Option} aktiv=${nurCardio} icon="🏃" titel=${L('Nur Ausdauer', 'Endurance only')} text=${L('Laufen oder Rad mit Plan bis zum Ziel', 'Running or cycling with a plan to your goal')}
+          onClick=${() => setze({ ziel: 'cardio', cardio: null, woche: null, fokus: null, nCardio: 3 })}/>
       </div>`,
-    cardio: html`<b class="ap-frage">${nurCardio || zumBlock ? L('Welche Ausdauer?', 'Which endurance sport?') : L('Mit Cardio kombinieren?', 'Combine with cardio?')}</b>
-      <div class="ap-wahl">
-        ${nurCardio || zumBlock ? null : wahlKnopf(w.cardio === 'nein', () => setze({ cardio: 'nein' }), L('Nein, nur Kraft', 'No, strength only'), null, 'nein')}
-        ${['lauf', 'rad', 'beides'].map((s) => wahlKnopf(w.cardio === s, () => setze({ cardio: s, sport: s === 'beides' ? 'lauf' : s, zweck: null, woche: null }), sportName(s), s === 'beides' ? L('Ein Plan für die Hauptsportart, die andere trägst du frei ein.', 'One plan for your main sport, log the other freely.') : null, s))}
-      </div>
-      ${mitCardio && !nurCardio ? html`<span class="muted" style="font-size:12.5px">${L('Kraft und Cardio kommen in einen Wochenplan – harte Einheiten liegen nicht vor deinen Beintagen.', 'Strength and cardio go into one weekly plan – hard sessions stay away from your leg days.')}</span>` : null}`,
-    cardioZiel: html`<b class="ap-frage">${L('Was ist dein Cardio-Ziel?', 'What is your cardio goal?')}</b>
-      ${sports.length > 1 ? html`<div class="seg">${sports.map((s) => html`<button key=${s} aria-pressed=${String(sport === s)} onClick=${() => setze({ sport: s, zweck: null })}>${sportName(s)}</button>`)}</div>` : null}
-      <div class="ap-wahl">${ZIELE[sport].map(([z, de, enName]) => wahlKnopf(zweck === z, () => setze({ zweck: z }), L(de, enName), ZIEL_TEXT[z] ? L(...ZIEL_TEXT[z]) : RENN_ZIELE.has(z) ? L('Mit Wettkampfdatum plant die App bis zu diesem Tag.', 'With a race date the app plans up to that day.') : null, z))}</div>
+    cardio: html`${nurCardio || zumBlock ? frage(L('Welche Ausdauer?', 'Which endurance sport?')) : frage(L('Mit Cardio kombinieren?', 'Combine with cardio?'), L('Kraft und Cardio kommen in einen Wochenplan – harte Einheiten liegen nicht vor deinen Beintagen.', 'Strength and cardio go into one weekly plan – hard sessions stay away from your leg days.'))}
+      <div class="pl-optionen">
+        ${nurCardio || zumBlock ? null : html`<${Option} aktiv=${w.cardio === 'nein'} icon="✋" titel=${L('Nein, nur Kraft', 'No, strength only')} onClick=${() => setze({ cardio: 'nein' })}/>`}
+        ${['lauf', 'rad', 'beides'].map((s) => html`<${Option} key=${s} aktiv=${w.cardio === s} icon=${sportIcon(s)} titel=${sportName(s)}
+          text=${s === 'beides' ? L('Ein Plan für die Hauptsportart, die andere trägst du frei ein', 'One plan for your main sport, log the other freely') : null}
+          onClick=${() => setze({ cardio: s, sport: s === 'beides' ? 'lauf' : s, zweck: null, woche: null })}/>`)}
+      </div>`,
+    cardioZiel: html`${frage(L('Was ist dein Cardio-Ziel?', 'What is your cardio goal?'))}
+      ${sports.length > 1 ? html`<${Chips} aria=${L('Plan für', 'Plan for')} werte=${sports} aktiv=${sport} label=${(s) => `${sportIcon(s)} ${sportName(s)}`} setzen=${(s) => setze({ sport: s, zweck: null })}/>` : null}
+      <div class="pl-optionen">${ZIELE[sport].map(([z, de, enName]) => html`<${Option} key=${z} aktiv=${zweck === z} titel=${L(de, enName)}
+        text=${ZIEL_TEXT[z] ? L(...ZIEL_TEXT[z]) : RENN_ZIELE.has(z) ? L('Wettkampf – mit Datum plant die App bis zu diesem Tag', 'Race – with a date the app plans up to that day') : null} onClick=${() => setze({ zweck: z })}/>`)}</div>
       ${rennen ? html`<label class="field"><span class="label">${L('Wettkampftag (optional)', 'Race day (optional)')}</span>
         <input class="text" type="date" min=${plusTage(start, 7)} value=${w.rennDatum} onInput=${(e) => setze({ rennDatum: e.currentTarget.value })}/></label>` : null}`,
-    fokus: html`<b class="ap-frage">${L('Worauf liegt dein Fokus?', 'Where is your focus?')}</b>
-      <div class="ap-wahl">${FOKUS_WAHL.map(([f, titel, text]) => wahlKnopf(fokus === f, () => setze({ fokus: f }), L(...titel), L(...text), f))}</div>`,
-    umfang: html`<b class="ap-frage">${L('Wie lange pro Cardio-Einheit?', 'How long per cardio session?')}</b>
-      <div class="seg">${[20, 30, 45, 60, 90].map((m) => html`<button key=${m} aria-pressed=${String(w.dauer === m)} onClick=${() => setze({ dauer: m })}>${`${m} min`}</button>`)}</div>
-      <span class="muted" style="font-size:12.5px">${ZEIT_ZIELE.has(zweck) || sport === 'rad' ? L('Die lange Einheit am Wochenende darf länger sein, an Krafttagen bleibt Cardio kurz.', 'The long weekend session may be longer, on strength days cardio stays short.')
-        : L('Obergrenze für lockere Läufe unter der Woche – der lange Lauf wächst bis zum Ziel.', 'Cap for easy weekday runs – the long run grows towards your goal.')}</span>
-      ${rennDatum ? html`<div class="ap-vorschau"><b>${L(`${wochen} Wochen bis zum ${datumKurz(rennDatum)}`, `${wochen} weeks until ${datumKurz(rennDatum)}`)}</b>
-          ${wochen < (MIN_WOCHEN[zweck] ?? 0) ? html`<span class="warn-text" style="font-size:12.5px">${L(`Knapp – ${MIN_WOCHEN[zweck]} Wochen oder mehr wären besser. Der Plan wird kürzer und vorsichtiger.`, `Tight – ${MIN_WOCHEN[zweck]} weeks or more would be better. The plan gets shorter and more careful.`)}</span>` : null}</div>`
-      : html`<b class="ap-frage" style="font-size:16px">${L('Wie viele Wochen?', 'How many weeks?')}</b>
-        <div class="seg">${[4, 6, 8, 12, 16].map((n) => html`<button key=${n} aria-pressed=${String(w.wochen === n)} onClick=${() => setze({ wochen: n })}>${L(`${n} Wo.`, `${n} wk`)}</button>`)}</div>`}`,
-    woche: html`<b class="ap-frage">${L('Wie sieht deine Woche aus?', 'What does your week look like?')}</b>
-      ${nurCardio ? null : zaehler(L('Krafttage', 'Strength days'), nKraft, w.ziel === 'bodybuilding' ? 2 : 1, 6, (n) => setze({ nKraft: n, woche: null }), zumBlock)}
-      ${zaehler(L('Cardio-Einheiten', 'Cardio sessions'), w.woche ? cardioTage.length : w.nCardio, 1, nurCardio ? 7 : 6, (n) => setze({ nCardio: n, woche: null }))}
-      <div class="kw-raster">${woche.map((a, i) => html`<button key=${i} class=${`kw-feld ${a}`} onClick=${() => zyklus(i)} aria-label=${`${L(...WT_NAME[i])}: ${a}`}>
-        <b>${L(...WT_NAME[i])}</b><span>${a === 'cardio' ? cardioIcon : a === 'beides' ? `💪${cardioIcon}` : ICON[a]}</span>${bein[i] ? html`<small>${L('Beine', 'Legs')}</small>` : null}</button>`)}</div>
-      <span class="muted" style="font-size:12.5px">${fest && !zumBlock ? L('Die Krafttage legt der Bodybuilding-Generator fest – Antippen wechselt Cardio und Ruhe.', 'The bodybuilding generator sets the strength days – tap to switch cardio and rest.')
-        : zumBlock ? L('Krafttage aus deinem Block – Antippen wechselt Cardio und Ruhe.', 'Strength days from your block – tap to switch cardio and rest.')
-        : L('Antippen wechselt: Ruhe → Kraft → Cardio → beides. Bei „beides“ erst Kraft, dann kurz Cardio.', 'Tap to switch: rest → strength → cardio → both. With “both”: strength first, then short cardio.')}
-        ${w.ziel === 'powerlifting' ? L(' Die echten Krafttage legt der Powerlifting-Generator fest – die Cardio-Einheiten passen sich danach an.', ' The powerlifting generator sets the real strength days – cardio adapts to them.') : ''}</span>
-      ${w.woche ? html`<button class="link" style="justify-self:start" onClick=${() => setze({ woche: null })}>${L('Vorschlag wiederherstellen', 'Restore suggestion')}</button>` : null}
-      ${plan ? hinweisListe : null}`,
-    form: sport === 'lauf' ? html`<b class="ap-frage">${L('Wie schnell läufst du 5 km?', 'How fast do you run 5K?')}</b>
-      <div class="au-hms" style="grid-template-columns:1fr 1fr">${[0, 1].map((i) => html`<label key=${i}><input class="text" inputmode="numeric" value=${t5k[i]} onInput=${(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setze({ t5k: t5k.map((x, k) => (k === i ? v : x)) }); }}/><small>${i ? L('Sek', 's') : 'Min'}</small></label>`)}</div>
-      <span class="muted" style="font-size:12.5px">${prog ? L(`Vorschlag aus deinen Bestzeiten (${prog.aus}). Daraus rechnet die App deine Tempobereiche.`, `Suggested from your best times (${prog.aus}). Your pace zones come from it.`) : L('Ungefähr reicht – daraus rechnet die App deine Tempobereiche.', 'A rough value is fine – your pace zones come from it.')}</span>`
-      : html`<b class="ap-frage">${L('Wie hoch ist deine FTP?', 'What is your FTP?')}</b>
-      <label class="field"><span class="label">FTP (W)</span><input class="text" inputmode="numeric" value=${ftp} onInput=${(e) => setze({ ftp: e.currentTarget.value.replace(/\D/g, '') })}/></label>
-      <span class="muted" style="font-size:12.5px">${L('Leistung, die du etwa eine Stunde halten kannst. Daraus rechnet die App deine Wattbereiche.', 'Power you can hold for about an hour. Your power zones come from it.')}</span>`,
-    fertig: null,
+    fokus: html`${frage(L('Worauf liegt dein Fokus?', 'Where is your focus?'))}
+      <div class="pl-optionen">${FOKUS_WAHL.map(([f, icon, titel, text]) => html`<${Option} key=${f} aktiv=${fokus === f} icon=${icon} titel=${L(...titel)} text=${L(...text)} onClick=${() => setze({ fokus: f })}/>`)}</div>`,
+    umfang: html`${frage(L('Wie lange pro Cardio-Einheit?', 'How long per cardio session?'), ZEIT_ZIELE.has(zweck) || sport === 'rad' ? L('Die lange Einheit am Wochenende darf länger sein, an Krafttagen bleibt Cardio kurz.', 'The long weekend session may be longer, on strength days cardio stays short.')
+        : L('Obergrenze für lockere Läufe unter der Woche – der lange Lauf wächst bis zum Ziel.', 'Cap for easy weekday runs – the long run grows towards your goal.'))}
+      <${Chips} aria=${L('Minuten', 'Minutes')} werte=${[20, 30, 45, 60, 90]} aktiv=${w.dauer} label=${(m) => `${m} min`} setzen=${(m) => setze({ dauer: m })}/>
+      ${rennDatum ? html`<div class="pl-info"><b>${L(`${wochen} Wochen bis zum ${datumKurz(rennDatum)}`, `${wochen} weeks until ${datumKurz(rennDatum)}`)}</b>
+          ${wochen < (MIN_WOCHEN[zweck] ?? 0) ? html`<span class="warn-text">${L(`Knapp – ${MIN_WOCHEN[zweck]} Wochen oder mehr wären besser. Der Plan wird kürzer und vorsichtiger.`, `Tight – ${MIN_WOCHEN[zweck]} weeks or more would be better. The plan gets shorter and more careful.`)}</span>` : null}</div>`
+      : html`<h3 class="pl-zwischen">${L('Wie viele Wochen?', 'How many weeks?')}</h3>
+        <${Chips} aria=${L('Wochen', 'Weeks')} werte=${[4, 6, 8, 12, 16]} aktiv=${w.wochen} label=${(n) => L(`${n} Wo.`, `${n} wk`)} setzen=${(n) => setze({ wochen: n })}/>`}`,
+    woche: html`${frage(L('Wie sieht deine Woche aus?', 'What does your week look like?'),
+        zumBlock ? L('Krafttage aus deinem Block. Wähle, wo Cardio hinkommt.', 'Strength days from your block. Choose where cardio goes.')
+        : w.ziel === 'powerlifting' ? L(`Tage wie im Powerlifting-Generator (Kniebeuge und Kreuzheben je ${pl.proWoche.squat}×, Bank 2×). Ändert sich dort etwas, passt sich Cardio an.`, `Days as in the powerlifting generator (squat and deadlift ${pl.proWoche.squat}× each, bench 2×). If you change them there, cardio adapts.`)
+        : w.ziel === 'bodybuilding' ? L('Tage wie im Bodybuilding-Generator. Wähle, wo Cardio hinkommt.', 'Days as in the bodybuilding generator. Choose where cardio goes.')
+        : nurCardio ? null : L('Die App schlägt eine Verteilung vor – pro Tag änderbar.', 'The app suggests a layout – adjustable per day.'))}
+      ${nurCardio || zumBlock ? null : html`<div class="pl-zeile"><span>${L('Krafttage', 'Strength days')}</span><${Chips} aria=${L('Krafttage', 'Strength days')} werte=${kraftWerte} aktiv=${nKraft} label=${(n) => `${n}×`} setzen=${(n) => setze({ nKraft: n, woche: null })}/></div>`}
+      <div class="pl-zeile"><span>${L('Cardio', 'Cardio')}</span><${Chips} aria=${L('Cardio-Einheiten', 'Cardio sessions')} werte=${nurCardio ? [2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]} aktiv=${cardioTage.length} label=${(n) => `${n}×`} setzen=${(n) => setze({ nCardio: n, woche: null })}/></div>
+      <div class="pl-woche">${woche.map((a, i) => html`<div key=${i} class="pl-tag">
+        <span class="pl-tagname"><b>${L(...WT_NAME[i])}</b>${bein[i] ? html`<small>${L('Beine', 'Legs')}</small>` : null}</span>
+        <div class="pl-seg" role="group" aria-label=${L(...WT_NAME[i])}>${erlaubt(i).map((x) => html`<button key=${x} class=${x === a ? `an ${x}` : ''} aria-pressed=${String(x === a)} onClick=${() => setzeTag(i, x)}>
+          <span aria-hidden="true">${artIcon(x)}</span><small>${L(...ART_NAME[x])}</small></button>`)}</div></div>`)}</div>
+      ${w.woche ? html`<button class="pl-link" onClick=${() => setze({ woche: null })}>${L('Vorschlag wiederherstellen', 'Restore suggestion')}</button>` : null}
+      ${plan ? html`<${Hinweise} liste=${hinweise}/>` : null}`,
+    form: sport === 'lauf' ? html`${frage(L('Wie schnell läufst du 5 km?', 'How fast do you run 5K?'), prog ? L(`Vorschlag aus deinen Bestzeiten (${prog.aus}). Daraus rechnet die App deine Tempobereiche.`, `Suggested from your best times (${prog.aus}). Your pace zones come from it.`) : L('Ungefähr reicht – daraus rechnet die App deine Tempobereiche.', 'A rough value is fine – your pace zones come from it.'))}
+      <div class="au-hms" style="grid-template-columns:1fr 1fr">${[0, 1].map((i) => html`<label key=${i}><input class="text" inputmode="numeric" value=${t5k[i]} onInput=${(e) => { const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 2); setze({ t5k: t5k.map((x, k) => (k === i ? v : x)) }); }}/><small>${i ? L('Sek', 's') : 'Min'}</small></label>`)}</div>`
+      : html`${frage(L('Wie hoch ist deine FTP?', 'What is your FTP?'), L('Leistung, die du etwa eine Stunde halten kannst. Daraus rechnet die App deine Wattbereiche.', 'Power you can hold for about an hour. Your power zones come from it.'))}
+      <label class="field"><span class="label">FTP (W)</span><input class="text" inputmode="numeric" value=${ftp} onInput=${(e) => setze({ ftp: e.currentTarget.value.replace(/\D/g, '') })}/></label>`,
   };
 
-  // Abschluss: Cardio-Plan speichern, Kraft-Ersteller vorbefüllt öffnen
-  const cardioStarten = () => {
-    if (!plan) return;
-    const wahlA = einst.ausdauer === 'beides' || (einst.ausdauer && einst.ausdauer !== w.cardio && w.cardio !== 'nein') ? 'beides' : w.cardio === 'beides' ? 'beides' : w.cardio;
-    setEinst({ ...einst, ausdauer: wahlA, ausdauerPlan: { ...plan, param, woche, bein } });
+  // Abschluss: mit Kraftplan wartet der Cardio-Plan, bis der Kraftplan gespeichert ist
+  const ausdauerWahl = einst.ausdauer === 'beides' || (einst.ausdauer && einst.ausdauer !== w.cardio) ? 'beides' : w.cardio;
+  const ausstehend = plan ? { ausdauer: ausdauerWahl, plan: { ...plan, param, woche, bein }, start } : null;
+  const abschliessen = () => {
+    if (nurCardio || zumBlock) { cardioStarten(ausstehend); uebergeben('cardio'); return; }
+    if (w.ziel === 'einfach') uebergeben('eigen', { ausstehend, werte: { 'prh-gen-eigen-name': L(`Kraft + ${sport === 'rad' ? 'Rad' : 'Laufen'} ${nKraft}×`, `Strength + ${sport === 'rad' ? 'cycling' : 'running'} ${nKraft}×`),
+      'prh-gen-eigen-wochen': Math.max(4, wochen), 'prh-gen-eigen-schritt': 2, 'prh-gen-eigen-tage': vorlage.map((t, i) => ({ ...t, wt: kraftIdx[i] })) } });
+    else if (w.ziel === 'bodybuilding') uebergeben('bodybuilding', { ausstehend, werte: mitCardio ? { 'prh-gen-bb-split': bb.split, 'prh-gen-bb-tage': nKraft, 'prh-gen-bb-vorgabe': { tage: nKraft } } : {} });
+    else uebergeben('generator', { ausstehend, vorgabe: mitCardio ? { proWoche: pl.proWoche, start } : null });
   };
-  const abschliessen = (art) => {
-    if (mitCardio) cardioStarten();
-    if (art === 'cardio') { toast?.({ titel: L('Cardio-Plan gestartet', 'Cardio plan started'), text: L(`${wochen} Wochen ab ${datumKurz(start)}`, `${wochen} weeks from ${datumKurz(start)}`) }); uebergeben('cardio'); return; }
-    if (art === 'eigen' && vorlage) uebergeben('eigen', { 'prh-gen-eigen-name': L(`Kraft + ${sport === 'rad' ? 'Rad' : 'Laufen'} ${nKraft}×`, `Strength + ${sport === 'rad' ? 'cycling' : 'running'} ${nKraft}×`), 'prh-gen-eigen-wochen': Math.max(4, wochen), 'prh-gen-eigen-schritt': 2,
-      'prh-gen-eigen-tage': vorlage.map((t, i) => ({ ...t, wt: kraftIdx[i] })), 'prh-gen-start': start });
-    else if (art === 'bodybuilding') uebergeben('bodybuilding', { 'prh-gen-bb-split': BB_SPLIT(nKraft), 'prh-gen-bb-tage': nKraft, ...(mitCardio ? { 'prh-gen-start': start } : {}) });
-    else uebergeben(art);
-  };
-  const vorschau = html`<div class="ap-vorschau">
-      <b>${L('Deine Woche', 'Your week')}${plan ? L(` · ${wochen} Wochen ab ${datumKurz(start)}`, ` · ${wochen} weeks from ${datumKurz(start)}`) : ''}</b>
-      ${woche.map((a, i) => { const c = woche1.filter((e) => wochentag(e.datum) === i);
-        return html`<div key=${i} class="ap-zeile kombi"><span>${L(...WT_NAME[i])}</span>
-          <span class="stack" style="gap:2px">${hatKraft(a) ? html`<b>💪 ${kraftName(i)}</b>` : null}
-            ${c.map((e) => { const b = beschreibung(e, plan); return html`<span key=${e.id}>${cardioIcon} <b>${b.titel}</b> <small>${b.zeile}</small></span>`; })}
-            ${a === 'ruhe' || (!hatKraft(a) && !c.length) ? html`<small class="muted">${L('Ruhetag', 'Rest day')}</small>` : null}</span></div>`; })}
-    </div>`;
-  const fertig = html`<b class="ap-frage">${L('Dein Plan', 'Your plan')}</b>
-    ${mitCardio ? html`${vorschau}${hinweisListe}` : null}
-    ${vorlage && mitCardio ? html`<span class="muted" style="font-size:12.5px">${L('Danach öffnet sich der Kraftplan mit Vorschlägen – Übungen tauschen, entfernen oder dazunehmen, dann speichern und als Block starten.', 'Next, the strength plan opens with suggestions – swap, remove or add exercises, then save and start it as a block.')}</span>` : null}
-    ${w.ziel === 'bodybuilding' ? html`<span class="muted" style="font-size:12.5px">${L(`Danach wählst du im Bodybuilding-Generator deine Übungen (${nKraft} Tage pro Woche).`, `Next, pick your exercises in the bodybuilding generator (${nKraft} days per week).`)}</span>` : null}
-    ${w.ziel === 'powerlifting' ? html`<span class="muted" style="font-size:12.5px">${L('Danach stellst du im Powerlifting-Generator Häufigkeit, Maxe und Test ein.', 'Next, set frequency, maxes and test in the powerlifting generator.')}</span>` : null}
-    ${w.ziel === 'einfach' && !mitCardio ? html`<div class="ap-wahl">
-        ${wahlKnopf(false, () => uebergeben('einsteiger', 'gk2'), L('Fertige Vorlage · Ganzkörper 2×', 'Ready template · full body 2×'), L('Zwei Tage pro Woche, Übungen danach anpassbar.', 'Two days per week, exercises adjustable.'), 'gk2')}
-        ${wahlKnopf(false, () => uebergeben('einsteiger', 'gk3'), L('Fertige Vorlage · Ganzkörper 3×', 'Ready template · full body 3×'), L('Drei Tage pro Woche im Wechsel A/B/A.', 'Three days per week, alternating A/B/A.'), 'gk3')}
-        ${wahlKnopf(false, () => uebergeben('eigen'), L('Eigener Plan', 'Own plan'), L('Tage festlegen, Übungen selbst wählen.', 'Set the days, pick the exercises yourself.'), 'eigen')}</div>`
-      : html`<button class="btn btn-chalk btn-block" disabled=${mitCardio && !plan} onClick=${() => abschliessen(nurCardio || zumBlock ? 'cardio' : w.ziel === 'einfach' ? 'eigen' : w.ziel === 'bodybuilding' ? 'bodybuilding' : 'generator')}>
-        ${nurCardio || zumBlock ? L('Plan starten', 'Start plan') : mitCardio ? L('Cardio starten · weiter zum Kraftplan', 'Start cardio · on to strength plan') : L('Weiter zum Kraftplan', 'On to strength plan')}</button>`}`;
+  const zielName = (z) => L(...(ZIELE_KRAFT.find(([x]) => x === z)?.[2] ?? (z === 'block' ? [`Cardio zu „${blockName}“`, `Cardio for “${blockName}”`] : ['Nur Ausdauer', 'Endurance only'])));
+  const fertig = html`${frage(L('Dein Plan', 'Your plan'), plan ? L(`${wochen} Wochen ab ${datumKurz(start)}`, `${wochen} weeks from ${datumKurz(start)}`) : null)}
+    <div class="pl-zusammen">
+      <span><small>${L('Ziel', 'Goal')}</small><b>${zielName(w.ziel)}</b></span>
+      ${mitCardio ? html`<span><small>Cardio</small><b>${`${cardioIcon} ${L(...(ZIELE[sport].find(([x]) => x === zweck) ?? ['', '', '']).slice(1, 3))}${rennDatum ? ` · ${datumKurz(rennDatum)}` : ''}`}</b></span>` : null}
+      ${mitCardio && !nurCardio ? html`<span><small>${L('Fokus', 'Focus')}</small><b>${L(...FOKUS_WAHL.find(([f]) => f === fokus)[2])}</b></span>` : null}
+    </div>
+    ${plan ? html`<div class="pl-plan">${woche.map((a, i) => { const c = woche1.filter((e) => wochentag(e.datum) === i);
+        return html`<div key=${i} class="pl-planzeile"><span class="pl-tagpill">${L(...WT_NAME[i])}</span><div class="pl-items">
+          ${hatKraft(a) ? html`<span class="pl-item kraft">💪 ${kraftName(i)}${bein[i] ? html` <small>${L('Beine', 'legs')}</small>` : null}</span>` : null}
+          ${c.map((e) => { const b = beschreibung(e, plan); return html`<span key=${e.id} class="pl-item cardio">${cardioIcon} ${b.titel} <small>${b.zeile}</small></span>`; })}
+          ${!hatKraft(a) && !c.length ? html`<span class="pl-item ruhe">${L('Ruhetag', 'Rest day')}</span>` : null}</div></div>`; })}</div>
+      <${Hinweise} liste=${hinweise}/>` : null}
+    ${w.ziel === 'einfach' && !mitCardio ? html`<div class="pl-optionen">
+        <${Option} icon="📋" titel=${L('Fertige Vorlage · Ganzkörper 2×', 'Ready template · full body 2×')} text=${L('Zwei Tage pro Woche, Übungen anpassbar', 'Two days per week, exercises adjustable')} onClick=${() => uebergeben('einsteiger', { id: 'gk2' })}/>
+        <${Option} icon="📋" titel=${L('Fertige Vorlage · Ganzkörper 3×', 'Ready template · full body 3×')} text=${L('Drei Tage pro Woche im Wechsel A/B/A', 'Three days per week, alternating A/B/A')} onClick=${() => uebergeben('einsteiger', { id: 'gk3' })}/>
+        <${Option} icon="✏️" titel=${L('Eigener Plan', 'Own plan')} text=${L('Tage festlegen, Übungen selbst wählen', 'Set the days, pick the exercises yourself')} onClick=${() => uebergeben('eigen', {})}/></div>`
+      : html`${!nurCardio && !zumBlock ? html`<p class="pl-unter">${w.ziel === 'einfach' ? L('Als Nächstes: Übungen ansehen und tauschen, dann speichern.', 'Next: review and swap exercises, then save.')
+          : w.ziel === 'bodybuilding' ? L(`Als Nächstes: Übungen im Bodybuilding-Generator wählen (${nKraft} Tage pro Woche).`, `Next: pick exercises in the bodybuilding generator (${nKraft} days per week).`)
+          : L('Als Nächstes: Maxe und Test im Powerlifting-Generator.', 'Next: maxes and test in the powerlifting generator.')}
+          ${plan ? L(' Der Cardio-Plan startet, sobald du den Kraftplan speicherst.', ' The cardio plan starts as soon as you save the strength plan.') : ''}</p>` : null}
+        <button class="pl-weiter voll" disabled=${mitCardio && !plan} onClick=${abschliessen}>${nurCardio || zumBlock ? L('Plan starten', 'Start plan') : L('Weiter zum Kraftplan', 'On to strength plan')}</button>`}`;
 
-  return html`<div class="screen">
+  return html`<div class="screen planer">
     <header class="topbar unter"><button class="iconbtn" onClick=${zurueck} aria-label=${L('Zurück', 'Back')}>${I.zurueck}</button>
-      <div style="flex:1;min-width:0"><div class="eyebrow">${L(`Schritt ${si} von ${ids.length} · ${NAMEN[id]}`, `Step ${si} of ${ids.length} · ${NAMEN[id]}`)}</div><h1 class="h1">${L('Neuer Plan', 'New plan')}</h1></div></header>
-    <div class="ap-schritte" style=${`grid-template-columns:repeat(${ids.length},1fr)`}>${ids.map((x, i) => html`<i key=${x} class=${i + 1 < si ? 'fertig' : i + 1 === si ? 'jetzt' : ''}></i>`)}</div>
-    <section class="card pad stack planer-schritt" key=${id}>${id === 'fertig' ? fertig : inhalt[id]}</section>
-    <div class="row schritt-knoepfe">
-      ${si > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => setSchritt(si - 1)}>${L('Zurück', 'Back')}</button>` : null}
-      ${id !== 'fertig' ? html`<button class="btn btn-chalk" style="flex:1.6" disabled=${!kannWeiter} onClick=${weiter}>${L('Weiter', 'Next')}</button>` : null}</div>
+      <div style="flex:1;min-width:0"><div class="eyebrow">${L('Neuer Plan', 'New plan')}</div><h1 class="h1">${NAMEN[id]}</h1></div>
+      <span class="pl-zaehler">${`${si}/${ids.length}`}</span></header>
+    <div class="pl-fortschritt" role="progressbar" aria-valuemin="1" aria-valuemax=${ids.length} aria-valuenow=${si}><i style=${`width:${(si / ids.length) * 100}%`}></i></div>
+    <section class="pl-karte" key=${id}>${id === 'fertig' ? fertig : inhalt[id]}</section>
+    <div class="pl-fuss">
+      ${si > 1 ? html`<button class="pl-zurueck" onClick=${() => setSchritt(si - 1)}>${L('Zurück', 'Back')}</button>` : html`<span></span>`}
+      ${id === 'fertig' ? null : html`<button class="pl-weiter" disabled=${!kannWeiter} onClick=${() => setSchritt(si + 1)}>${L('Weiter', 'Next')}</button>`}</div>
   </div>`;
 }
-

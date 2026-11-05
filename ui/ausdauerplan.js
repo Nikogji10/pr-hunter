@@ -1,9 +1,9 @@
 // PR Hunter · Ausdauer-Pläne (Wunsch 235/236, 239–247): Plan-Karte unter Programme → Cardio, Wochenübersicht Kraft +
 // Cardio (Programme → Woche), Einheit mit Schritten (Tempo-/Wattbereiche), „Heute geplant“ auf der Ausdauer-Kachel.
 // Erstellt wird im Planer (ui/planer.js). Erledigt = Einheit gleicher Sportart am selben Tag.
-import { html, useState, Sheet, Portal, deEn, sprache, datumKurz, datumLang, fmt, nameVon, UebungsBild } from './basis.js';
-import { HEUTE } from './stand.js';
-import { ZIELE, wochentag, erledigt, paceZonen, wattZonen, KRAFT_ERGAENZUNG, plusTage } from '../js/ausdauerplan.js';
+import { html, useState, useEffect, Sheet, Portal, deEn, sprache, datumKurz, datumLang, fmt, nameVon, UebungsBild } from './basis.js';
+import { HEUTE, DIENSTE } from './stand.js';
+import { ZIELE, wochentag, erledigt, paceZonen, wattZonen, KRAFT_ERGAENZUNG, plusTage, intervalsWorkout } from '../js/ausdauerplan.js';
 import { sichtbar, sportarten, sportVon, dauerText } from '../js/ausdauer.js';
 import { pruefeWoche, hatKraft } from '../js/kombiplan.js';
 
@@ -79,6 +79,17 @@ export function KraftErgaenzung({ sport, zuUebung }) {
 export function AusdauerPlanKarte({ einst, setEinst, liste, plan = einst.ausdauerPlan, eintragen, zuUebung = null, neu }) {
   const [einheit, setEinheit] = useState(null), [alle, setAlle] = useState(false), [beenden, setBeenden] = useState(false);
   const l = sichtbar(liste, einst.ausdauer);
+  // 237: mit intervals.icu verbunden → Plan als Workouts in den Kalender (von dort auf Garmin & Co.)
+  const [iv, setIv] = useState(false), [uhr, setUhr] = useState(null);
+  useEffect(() => { let an = true; DIENSTE.intervalsStatus?.().then((s) => an && setIv(!!s?.verbunden)).catch(() => {}); return () => { an = false; }; }, []);
+  const anUhr = async () => {
+    setUhr({ laeuft: true });
+    try {
+      const r = await DIENSTE.intervalsAktion('plan', { einheiten: plan.einheiten.filter((e) => e.datum >= HEUTE).map((e) => ({ id: e.id, datum: e.datum, ...intervalsWorkout(e, plan) })) });
+      setUhr({ text: L(`${r?.gesendet ?? 0} Einheiten in deinem intervals.icu-Kalender. Auf die Uhr kommen sie, wenn dort unter Garmin „Upload planned workouts“ an ist.`,
+        `${r?.gesendet ?? 0} sessions in your intervals.icu calendar. They reach your watch if “Upload planned workouts” is on in its Garmin settings.`) });
+    } catch (x) { setUhr({ fehler: x.message }); }
+  };
   const ist = (e) => erledigt(e, l, sportVon);
   const fenster = html`${einheit ? html`<${Portal}><${EinheitSheet} e=${einheit} plan=${plan} fertig=${ist(einheit)} eintragen=${eintragen} zu=${() => setEinheit(null)}/><//>` : null}`;
   if (!plan) return html`<section class="card pad stack ap-karte">
@@ -97,9 +108,11 @@ export function AusdauerPlanKarte({ einst, setEinst, liste, plan = einst.ausdaue
     ${alle ? html`<div class="stack" style="gap:4px">${Array.from({ length: plan.wochen }, (_, w) => html`<div key=${w} class="stack" style="gap:2px"><span class="eyebrow">${L(`Woche ${w + 1}`, `Week ${w + 1}`)}</span>${plan.einheiten.filter((e) => e.woche === w + 1).map(zeile)}</div>`)}</div>` : null}
     <div class="row" style="gap:8px"><button class="btn btn-soft" style="flex:1" onClick=${() => setAlle(!alle)}>${alle ? L('Weniger', 'Less') : L('Ganzer Plan', 'Full plan')}</button>
       <button class="btn btn-soft" onClick=${() => setBeenden(!beenden)}>${L('Beenden', 'End')}</button></div>
+    ${iv ? html`<button class="btn btn-soft btn-block" disabled=${!!uhr?.laeuft} onClick=${anUhr}>${uhr?.laeuft ? L('Wird gesendet …', 'Sending …') : L('⌚ An die Uhr senden', '⌚ Send to watch')}</button>
+      ${uhr?.text ? html`<span class="muted" style="font-size:12.5px">${uhr.text}</span>` : uhr?.fehler ? html`<span class="warn-text" style="font-size:12.5px">${uhr.fehler}</span>` : null}` : null}
     <${KraftErgaenzung} sport=${plan.sport} zuUebung=${zuUebung}/>
     ${beenden ? html`<div class="strava-trennen"><span>${L('Plan beenden? Erledigte Einheiten bleiben im Verlauf.', 'End plan? Completed sessions stay in History.')}</span>
-      <button class="btn btn-gefahr btn-sm" onClick=${() => setEinst({ ...einst, ausdauerPlan: null })}>${L('Plan beenden', 'End plan')}</button></div>` : null}
+      <button class="btn btn-gefahr btn-sm" onClick=${() => { if (iv) DIENSTE.intervalsAktion?.('planLoeschen').catch(() => {}); setEinst({ ...einst, ausdauerPlan: null }); }}>${L('Plan beenden', 'End plan')}</button></div>` : null}
     ${fenster}</section>`;
 }
 
@@ -114,8 +127,8 @@ export function WochenKarte({ plan, planTage = [], kraftTag, beinTag, liste = []
   const hinweise = pruefeWoche(woche, tage.map(beinTag), tage.flatMap((d, i) => cardio(d).map((e) => ({ wt: i, typ: e.typ }))));
   const leer = !plan && !planTage.length;
   return html`<section class="card pad stack kw-karte">
-    <div class="row between"><span class="viz-t">${versatz === 0 ? L('Diese Woche', 'This week') : versatz === 1 ? L('Nächste Woche', 'Next week') : `${datumKurz(mo)} – ${datumKurz(tage[6])}`}</span>
-      <span class="row" style="gap:6px"><button class="iconbtn klein" aria-label=${L('Woche zurück', 'Previous week')} disabled=${versatz <= 0} onClick=${() => setVersatz(versatz - 1)}>‹</button>
+    <div class="row between"><span class="viz-t">${versatz === 0 ? L('Diese Woche', 'This week') : versatz === 1 ? L('Nächste Woche', 'Next week') : versatz === -1 ? L('Letzte Woche', 'Last week') : `${datumKurz(mo)} – ${datumKurz(tage[6])}`}</span>
+      <span class="row" style="gap:6px"><button class="iconbtn klein" aria-label=${L('Woche zurück', 'Previous week')} disabled=${versatz <= -26} onClick=${() => setVersatz(versatz - 1)}>‹</button>
         <button class="iconbtn klein" aria-label=${L('Woche vor', 'Next week')} disabled=${versatz >= 8} onClick=${() => setVersatz(versatz + 1)}>›</button></span></div>
     ${leer ? html`<span class="muted" style="font-size:13px">${L('Noch kein Plan. Im Planer legst du fest, an welchen Tagen Kraft, Cardio oder Ruhe ist.', 'No plan yet. In the planner you choose which days are strength, cardio or rest.')}</span>`
       : tage.map((d, i) => { const k = kraft(d), c = cardio(d);

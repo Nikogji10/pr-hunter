@@ -64,11 +64,19 @@ export function testWoche(programm) {
 export function testErgebnisse(programm, blockId, trainings, woche = testWoche(programm)) {
   const aus = {};
   if (woche == null) return aus;
+  // Hat die Woche Test-Sätze, zählt ein Lift nur am Plantag, an dem er als Test geplant ist – sonst würde z. B. die
+  // Kreuzheben-Nebenübung am Kniebeuge-Testtag als Kreuzheben-Test gelten (Trainings ohne Plantag wie bisher)
+  const testTage = {};
+  for (const d of programm.weeks.find((w) => w.week === woche)?.days ?? []) for (const i of d.items ?? []) {
+    const l = i.role === 'test' ? Object.entries(LIFT_KEY).find(([, k]) => k === i.exercise_key)?.[0] : null;
+    if (l) (testTage[l] ??= new Set()).add(d.offset);
+  }
   for (const t of trainings) {
     if (t.geloescht || t.runId !== blockId || t.woche !== woche) continue;
     for (const u of t.uebungen ?? []) {
       const lift = Object.entries(LIFT_KEY).find(([, k]) => k === u.key)?.[0];
       if (!lift) continue;
+      if (testTage[lift] && t.tagOffset != null && !testTage[lift].has(t.tagOffset)) continue;
       for (const s of u.saetze ?? []) {
         if (s.fertig === false || s.typ === 'warmup' || !(s.kg > 0) || !(s.wdh > 0)) continue;
         const b = aus[lift];

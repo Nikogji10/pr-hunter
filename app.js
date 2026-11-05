@@ -13,7 +13,7 @@ import { TrainingsImport, ImportHinweis, importHinweisOffen } from './ui/trainin
 import { GewichtImport } from './ui/gewichtimport.js';
 import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
 import { trainingsSchluessel } from './js/import.js';
-import { Training, baueTraining, alleSaetze, kartenAusStand, beschwerdenAnwenden } from './ui/training.js';
+import { Training, baueTraining, alleSaetze, kartenAusStand, beschwerdenAnwenden, ausruestungUebernehmen } from './ui/training.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
 import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
@@ -972,7 +972,7 @@ function App() {
     if (!a.stand?.length) { setToast({ titel: deEn('Noch nichts zu sehen', 'Nothing to see yet'), text: deEn(`${a.name} hat noch keine Übungen.`, `${a.name} has no exercises yet.`) }); return; }
     tonFreigeben(); wachBleiben(); vibriere(120);
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: deEn(`Mit ${a.name}`, `With ${a.name}`), runId: null, bereitschaft: null, mit: a.id,
-      karten: kartenAusStand(a.stand, einstUi.koerpergewicht).map((k, i) => (i > 0 ? { ...k, zu: true } : k)) });
+      karten: kartenAusStand(a.stand, einstUi.koerpergewicht).map((k) => ausruestungUebernehmen(k)).map((k, i) => (i > 0 ? { ...k, zu: true } : k)) });
     gehe('training');
   };
   const reaktionenGesehen = () => {
@@ -1334,7 +1334,7 @@ function App() {
       // nur die erste Übung offen, die übrigen eingeklappt (klappen nacheinander auf, siehe Training)
       karten: beschwerdenAnwenden(baueTraining(tag, { leichter: leicht, koerperKg: einstUi.koerpergewicht, autoFuer: einst.autoregulation ? autoFuer() : null }),
         anpassungFuer(tag.uebungen.map((u) => u.key), einst.beschwerden, HEUTE, uebung), einstUi.koerpergewicht,
-        (r) => { const x = REGIONEN.find(([k]) => k === r); return x ? deEn(x[1], x[2]) : r; }).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
+        (r) => { const x = REGIONEN.find(([k]) => k === r); return x ? deEn(x[1], x[2]) : r; }).map((k) => (k.key ? ausruestungUebernehmen(k) : k)).map((k, i) => (i > 0 && k.key ? { ...k, zu: true } : k)) });
     gehe('training');
   };
   // 183: letzte drei Einheiten je Übung (Arbeitssätze) für die Autoregulation
