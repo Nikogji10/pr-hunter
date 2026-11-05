@@ -165,7 +165,9 @@ async function bildAus(a, mitSaetzen) {
   const x = c.getContext('2d');
   const css = getComputedStyle(document.documentElement);
   const farbe = (n, ersatz) => css.getPropertyValue(n).trim() || ersatz;
-  const acc = farbe('--acc', '#D7263D'), ink = farbe('--ink', '#F4F2EE'), muted = farbe('--muted', '#9AA1AB'), gold = farbe('--gold', '#F2C14E');
+  // Das Bild hat immer einen dunklen Hintergrund: Schrift fest hell (im hellen Design wäre --ink fast schwarz), Akzent-Schrift
+  // im helleren Ton der Farbwelt (z. B. Lila im hellen Design sonst zu dunkel)
+  const acc = farbe('--acc', '#D7263D'), ink = '#F4F2EE', muted = '#A3A8B3', gold = '#F2C14E', accText = farbe('--acc-hi', acc);
   const schrift = farbe('--f', 'sans-serif');
   try { await document.fonts?.ready; } catch { /* egal */ }
   x.fillStyle = '#0B0B0F'; x.fillRect(0, 0, B, H);
@@ -181,9 +183,9 @@ async function bildAus(a, mitSaetzen) {
     while (x.measureText(t).width > breite && g > groesse * 0.6) { g -= 2; x.font = `${gewicht} ${g}px ${schrift}`; }
     return { t: kuerze(t, breite), g }; };
   text('PR', 80, 120, { groesse: 50, gewicht: 900 }); x.font = `900 50px ${schrift}`;
-  text('HUNTER', 80 + x.measureText('PR ').width, 120, { groesse: 50, gewicht: 900, f: acc });
+  text('HUNTER', 80 + x.measureText('PR ').width, 120, { groesse: 50, gewicht: 900, f: accText });
   text(datumLang(a.datum), B - 80, 120, { groesse: 32, gewicht: 600, f: muted, align: 'right' });
-  text(deEn('TRAINING GESCHAFFT', 'WORKOUT DONE'), 80, 215, { groesse: 32, gewicht: 800, f: acc });
+  text(deEn('TRAINING GESCHAFFT', 'WORKOUT DONE'), 80, 215, { groesse: 32, gewicht: 800, f: accText });
   const ti = passend(titel.toUpperCase(), B - 160, 66, 900);
   text(ti.t, 80, 290, { groesse: ti.g, gewicht: 900 });
   const kacheln = [[deEn('DAUER', 'DURATION'), minutenText(a.minuten)], [deEn('VOLUMEN', 'VOLUME'), tonnage(a.volumen)], [deEn('SÄTZE', 'SETS'), String(a.saetze)], [deEn('ÜBUNGEN', 'EXERCISES'), String(a.uebungen)]];
