@@ -46,10 +46,27 @@ export function wertung(woche, bein = woche.map(() => true), { hart = 1 } = {}) 
  * Vorschlag: beste Verteilung von nKraft Kraft- und nCardio Cardio-Tagen. fest = feste Krafttage (Wochentage 0–6,
  * z. B. aus dem Bodybuilding-Generator) – dann werden nur die Cardio-Tage gesucht. Durchsucht alle 4^7 Raster.
  */
-export function wochenVorschlag(nKraft, nCardio, { fest = null, bein = null, beinFolge = null, hart = 1 } = {}) {
+const MERKER = new Map();
+export function wochenVorschlag(nKraft, nCardio, opt = {}) {
+  const schluessel = JSON.stringify([nKraft, nCardio, opt.fest ?? null, opt.bein ?? null, opt.beinFolge ?? null, opt.hart ?? 1]);
+  if (!MERKER.has(schluessel)) { if (MERKER.size > 500) MERKER.clear(); MERKER.set(schluessel, suche(nKraft, nCardio, opt)); }
+  return [...MERKER.get(schluessel)];
+}
+function suche(nKraft, nCardio, { fest = null, bein = null, beinFolge = null, hart = 1 } = {}) {
   let beste = null, besteS = Infinity;
   const w = new Array(7);
   const b = bein ? [...bein] : new Array(7).fill(true);
+  // feste Krafttage: je Tag nur zwei Möglichkeiten (Kraft/beides bzw. Ruhe/Cardio)
+  if (fest && !beinFolge) {
+    for (let code = 0; code < 2 ** 7; code++) {
+      let z = 0;
+      for (let i = 0; i < 7; i++) { const an = (code >> i) & 1; w[i] = fest.includes(i) ? (an ? 'beides' : 'kraft') : (an ? 'cardio' : 'ruhe'); if (an) z++; }
+      if (z !== nCardio) continue;
+      const s = wertung(w, b, { hart });
+      if (s < besteS - 1e-9) { besteS = s; beste = [...w]; }
+    }
+    return beste ?? new Array(7).fill('ruhe').map((_, i) => (fest.includes(i) ? 'kraft' : 'ruhe'));
+  }
   for (let code = 0; code < 4 ** 7; code++) {
     let c = code, k = 0, z = 0;
     for (let i = 0; i < 7; i++) { w[i] = ARTEN[c % 4]; c = Math.floor(c / 4); if (hatKraft(w[i])) k++; if (hatCardio(w[i])) z++; }

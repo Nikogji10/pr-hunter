@@ -1,14 +1,15 @@
 // PR Hunter · Programme – aktiver Block (Soll-Ist, neue Maxe aus dem Test), Vorlagen und eigene Programme, Detail mit
 // Wochenplan, Block starten, Import (KI/CSV oder JSON), Block-Generator, Editor, Kopieren und Teilen.
-import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren, deEn } from './basis.js';
+import { html, useState, useEffect, fmt, I, Sheet, datumKurz, katalogListe, kopiere, gw, einheit, ZahlFeld, nameVon, UebungsBild, useSitzung, sitzungLeeren, deEn, useUnterReiter, UNTER_VORSCHAU } from './basis.js';
 import { UebungSuche } from './suche.js';
-import { AusdauerPlanKarte, WochenKarte } from './ausdauerplan.js';
+import { AusdauerPlanKarte, WochenKarte, beschreibung, WT_NAME } from './ausdauerplan.js';
 import { Planer } from './planer.js';
 import { BodybuildingGenerator } from './bbgenerator.js';
 import { EigenerPlan } from './eigenerplan.js';
 import { EINSTEIGER } from './einsteiger.js';
 import { useRef } from '../vendor/htm-preact.js';
-import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson } from '../js/import.js';
+import { KI_ANLEITUNG, leseProgrammCsv, pruefeProgrammJson, kiAnleitung, leseImport, cardioPlanAus, CARDIO_BEISPIEL } from '../js/import.js';
+import { naechsterMontag, wochentag as wtVon } from '../js/ausdauerplan.js';
 
 // Import-Zuordnungen (Name aus der Datei → Katalogschlüssel), auf dem Gerät gemerkt: beim nächsten Import automatisch
 const ZUORDNUNG = 'prh-import-zuordnung';
@@ -141,7 +142,12 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const einsteigerWerte = (e) => ({ 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
     'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) });
   // 239: Reiter Kraft · Cardio · Woche, sobald Ausdauer an ist
-  const [bereich, setBereich] = useSitzung('prh-programme-bereich', 'kraft');
+  // Seitlich wischen wie bei Statistik/Feed; von links hereinkommend Kraft, von rechts Woche (App setzt prh-reiter-programme)
+  const [bereichRoh, setBereichRoh] = useState(() => UNTER_VORSCHAU.programme ?? (() => { try { return sessionStorage.getItem('prh-reiter-programme'); } catch { return null; } })() ?? 'kraft');
+  const setBereich = (k) => { setBereichRoh(k); try { sessionStorage.setItem('prh-reiter-programme', k); } catch { /* egal */ } };
+  const PROG_REITER = [['kraft', deEn('💪 Kraft', '💪 Strength')], ['cardio', deEn('🏃 Cardio', '🏃 Cardio')], ['woche', deEn('📅 Woche', '📅 Week')]];
+  const mitReitern = !!(einst.ausdauer && ausdauer), bereich = PROG_REITER.some(([k]) => k === bereichRoh) ? bereichRoh : 'kraft';
+  useUnterReiter('programme', mitReitern && !ansicht ? PROG_REITER : [], bereich, (k) => { setBereich(k); scrollTo({ top: 0 }); });
   const planerOeffnen = (ziel = null) => erstellerOeffnen('ziel', ziel ? { 'prh-gen-ziel-wahl': { ziel } } : {});
   const cardioStarten = (a) => {
     if (!a?.plan) return;
@@ -165,7 +171,10 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       toast({ titel: deEn('Programm gespeichert', 'Programme saved'), text: aus?.plan ? deEn(`${p.name} · Cardio-Plan gestartet`, `${p.name} · cardio plan started`) : p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
-  if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} speichern=${(p) => speichernNeu(p, { quelle: 'import' })}/>`;
+  // 250: Import mit Cardio – Kraftteil wird Programm, Cardio wartet bis zum Speichern (bzw. startet sofort bei nur Cardio)
+  if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} ausdauerAlt=${einst.ausdauer}
+    speichern=${(p, aus) => { try { if (aus) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(aus)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ } speichernNeu(p, { quelle: 'import' }); }}
+    cardioNur=${(aus) => { cardioStarten(aus); uebergeben('cardio'); }}/>`;
   // Verwerfen: zurück bis unter dieser Unterseite (das schließt auch das Fenster), dann verlassen
   const verwerfen = () => { const art = ansicht?.art; abwickeln((z) => z === art, (z, st) => weg(art, z, st)); };
   const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label=${deEn('Eingaben verwerfen', 'Discard input')}>
@@ -174,7 +183,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>${deEn('Weiter bearbeiten', 'Keep editing')}</button>
         <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>${deEn('Verwerfen', 'Discard')}</button></div>
     <//>` : null;
-  if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} einst=${einst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
+  if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} abbrechen=${() => (eingabenDa('ziel') ? setVerlassen(true) : verwerfen())} einst=${einst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
     ausdauer=${ausdauer ?? {}} uebergeben=${uebergeben} cardioStarten=${cardioStarten} setZurueck=${(f) => { planerZurueck = f; }}/>${warnung}`;
   if (ansicht?.art === 'bodybuilding') return html`<${BodybuildingGenerator} zurueck=${zurListe} speichern=${speichernNeu} ausdauer=${einst.ausdauer || lies(AUSSTEHEND)?.ausdauer}/>${warnung}`;
   if (ansicht?.art === 'eigen') return html`<${EigenerPlan} zurueck=${zurListe} speichern=${speichernNeu}/>${warnung}`;
@@ -195,7 +204,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   const erledigtZahl = sollIst.length ? sollIst.reduce((a, z) => a + z.erledigt, 0) : aktivTage.filter((t) => erledigt.has(t.datum)).length;
   const naechsterTag = aktivTage.find((t) => t.datum >= HEUTE);
   const aktWoche = naechsterTag ? wochen.indexOf(naechsterTag.woche) + 1 : wochen.length;
-  const reiter = !!(einst.ausdauer && ausdauer), teil = reiter ? bereich : 'kraft';
+  const reiter = mitReitern, teil = reiter ? bereich : 'kraft';
   const eigene = Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
   const vorlagen = Object.keys(programme).filter((d) => !eigene.includes(d));
   const karte = (datei) => {
@@ -210,9 +219,9 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row wrap" style="gap:6px">${INFO[datei].tags.map((t) => html`<span key=${t} class="tag">${t}</span>`)}${INFO[datei].importiert ? null : html`<span class="tag gold">✓ gegen Excel geprüft</span>`}</div>
     </button>`;
   };
-  return html`<div class="screen">
+  return html`<div class="screen modern">
     <header class="topbar"><div><div class="eyebrow">Blöcke und Vorlagen</div><h1 class="h1">Programme</h1></div>${DEMO ? html`<span class="proto">Demo</span>` : null}</header>
-    ${reiter ? html`<div class="seg prog-reiter" role="tablist">${[['kraft', deEn('💪 Kraft', '💪 Strength')], ['cardio', deEn('🏃 Cardio', '🏃 Cardio')], ['woche', deEn('📅 Woche', '📅 Week')]].map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => setBereich(k)}>${n}</button>`)}</div>` : null}
+    ${reiter ? html`<div class="seg prog-reiter" role="tablist">${PROG_REITER.map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => setBereich(k)}>${n}</button>`)}</div>` : null}
     ${teil === 'cardio' ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} plan=${ausdauer.plan} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}
     ${teil === 'woche' ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen()}/>` : null}
     ${teil !== 'kraft' ? null : html`
@@ -442,13 +451,22 @@ export function UebungenZuordnen({ liste, fertig, abbrechen, platz = true }) {
 }
 
 /** Programm importieren: per KI als CSV (Anleitung kopieren, Antwort einfügen) oder direkt als JSON im App-Format. */
-function Import({ zurueck, speichern }) {
+const KRAFT_ARTEN = [['powerlifting', 'Powerlifting'], ['bodybuilding', 'Bodybuilding'], ['eigen', deEn('Eigener', 'Own')], [null, deEn('Keine', 'None')]];
+const mitSport = (alt, neu) => (!alt ? neu : alt === 'beides' || alt === neu ? alt : 'beides');
+
+function Import({ zurueck, speichern, cardioNur, ausdauerAlt = null }) {
   const [art, setArt] = useState('csv');
   const [text, setText] = useState('');
   const [ergebnis, setErgebnis] = useState(null);
   const [kopiert, setKopiert] = useState(null);
+  // 250: was der Plan enthält – Kraft (Kategorie) und/oder Cardio
+  const [kraft, setKraft] = useState('powerlifting');
+  const [cardio, setCardio] = useState(false);
+  const [start, setStart] = useState(() => naechsterMontag(HEUTE));
   const anleitung = useRef(null);
-  const pruefe = (zu = ladeZuordnung()) => setErgebnis(art === 'csv' ? leseProgrammCsv(text, katalogListe(), zu) : { ...pruefeProgrammJson(text, katalogListe(), zu), zeilen: null });
+  const KI = kiAnleitung({ kraft: !!kraft, cardio });
+  const pruefe = (zu = ladeZuordnung()) => setErgebnis(art === 'csv' ? leseImport(text, katalogListe(), zu, { kraft, cardio })
+    : (() => { const j = pruefeProgrammJson(text, katalogListe(), zu); return { ...j, programm: j.programm ? { ...j.programm, kategorie: j.programm.kategorie ?? kraft ?? 'eigen' } : null, zeilen: null }; })());
   const zuordnen = ergebnis?.unbekannt?.length ? ergebnis.unbekannt : null;
   if (zuordnen) {
     return html`<${UebungenZuordnen} liste=${zuordnen} abbrechen=${() => setErgebnis(null)}
@@ -457,21 +475,31 @@ function Import({ zurueck, speichern }) {
   const p = ergebnis?.programm;
   let tage = [];
   try { tage = p ? blockTage(p, { start: HEUTE, werte: { ...BEISPIEL_MAXE } }) : []; } catch { tage = []; }
-  return html`<div class="screen">
+  const cPlan = ergebnis?.cardio ? cardioPlanAus(ergebnis.cardio, start) : null;
+  const ausstehend = cPlan ? { ausdauer: mitSport(ausdauerAlt, cPlan.sportarten.length > 1 ? 'beides' : cPlan.sportarten[0]), plan: cPlan, start } : null;
+  const inhaltWahl = (k, c) => { setKraft(k); setCardio(c || !k); setErgebnis(null); };
+  return html`<div class="screen modern">
     <header class="topbar unter">
       <button class="iconbtn" onClick=${zurueck} aria-label="Zurück zu den Programmen">${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">Neues Programm</div><h1 class="h1" style="font-size:26px">Importieren</h1></div>
     </header>
     <div class="seg" role="group" aria-label="Format"><button aria-pressed=${String(art === 'csv')} onClick=${() => { setArt('csv'); setErgebnis(null); }}>Per KI (CSV)</button>
-      <button aria-pressed=${String(art === 'json')} onClick=${() => { setArt('json'); setErgebnis(null); }}>JSON</button></div>
+      <button aria-pressed=${String(art === 'json')} onClick=${() => { setArt('json'); setErgebnis(null); if (!kraft) setKraft('powerlifting'); setCardio(false); }}>JSON</button></div>
+    <section class="card pad stack">
+      <span class="viz-t">${deEn('Was enthält dein Plan?', 'What does your plan contain?')}</span>
+      <div class="pl-zeile"><span>${deEn('Kraft', 'Strength')}</span><div class="pl-chips" role="group" aria-label=${deEn('Kraft', 'Strength')}>
+        ${KRAFT_ARTEN.filter(([k]) => art === 'csv' || k).map(([k, n]) => html`<button key=${String(k)} class=${kraft === k ? 'an' : ''} aria-pressed=${String(kraft === k)} onClick=${() => inhaltWahl(k, cardio)}>${n}</button>`)}</div></div>
+      ${art === 'csv' ? html`<div class="pl-zeile"><span>Cardio</span><div class="pl-chips" role="group" aria-label="Cardio">
+        ${[[false, deEn('Ohne', 'Without')], [true, deEn('Laufen / Rad dabei', 'With running / cycling')]].map(([c, n]) => html`<button key=${String(c)} class=${cardio === c ? 'an' : ''} aria-pressed=${String(cardio === c)} disabled=${!c && !kraft} onClick=${() => inhaltWahl(kraft, c)}>${n}</button>`)}</div></div>` : null}
+    </section>
     ${art === 'csv' ? html`<section class="card pad stack">
       <span class="viz-t">1 · Anleitung für die KI kopieren</span>
-      <p class="muted" style="margin:0;font-size:14px">In ChatGPT, Claude oder eine andere KI einfügen und darunter dein Programm anhängen: Text, Tabelle oder Foto der Excel. Die KI antwortet mit einer CSV im passenden Format.</p>
-      <button class="btn btn-chalk btn-block" onClick=${async () => setKopiert(await kopiere(KI_ANLEITUNG, anleitung.current))}>${I.kopieren} Anleitung kopieren</button>
+      <p class="muted" style="margin:0;font-size:14px">${deEn('In ChatGPT, Claude oder eine andere KI einfügen und darunter deinen Plan anhängen: Text, Tabelle oder Foto der Excel. Die KI antwortet mit einer CSV im passenden Format.', 'Paste into ChatGPT, Claude or another AI and attach your plan below: text, table or a photo of the spreadsheet. The AI answers with a CSV in the right format.')}</p>
+      <button class="btn btn-chalk btn-block" onClick=${async () => setKopiert(await kopiere(KI, anleitung.current))}>${I.kopieren} Anleitung kopieren</button>
       ${kopiert === true ? html`<span class="muted" style="font-size:13px">Kopiert. Jetzt in der KI einfügen.</span>`
         : kopiert === false ? html`<span class="muted" style="font-size:13px">Kopieren ist hier gesperrt: Der Text unten ist markiert, mit Strg+C bzw. „Kopieren“ übernehmen.</span>` : null}
       <span class="eyebrow">Die Anleitung</span>
-      <textarea ref=${anleitung} id="ki-anleitung" class="code" readonly rows="6" aria-label="Anleitung für die KI" value=${KI_ANLEITUNG}></textarea>
+      <textarea ref=${anleitung} id="ki-anleitung" class="code" readonly rows="6" aria-label="Anleitung für die KI" value=${KI}></textarea>
     </section>` : html`<section class="card pad stack">
       <span class="viz-t">Programm im App-Format</span>
       <p class="muted" style="margin:0;font-size:14px">Das Format von „Als JSON kopieren“ – geteilt vom Kumpel oder von Claude geschrieben bzw. geändert. Übungen über ihren Schlüssel aus dem Katalog, Lasten als Formeln wie R(S*0.84).</p>
@@ -479,9 +507,9 @@ function Import({ zurueck, speichern }) {
     <section class="card pad stack">
       <span class="viz-t">${art === 'csv' ? '2 · Antwort der KI einfügen' : 'JSON einfügen'}</span>
       <label for="import-feld" class="muted" style="font-size:13px">${art === 'csv' ? 'Die CSV aus der Antwort (mit oder ohne Codeblock).' : 'Das JSON (mit oder ohne Codeblock).'}</label>
-      <textarea id="import-feld" class="code" rows="9" placeholder=${art === 'csv' ? 'woche;tag;uebung;rolle;saetze;wdh;last;rpe;cut;notiz' : '{ "name": "…", "weeks": [ … ] }'} value=${text}
+      <textarea id="import-feld" class="code" rows="9" placeholder=${art === 'csv' ? (kraft ? 'woche;tag;uebung;rolle;saetze;wdh;last;rpe;cut;notiz' : 'woche;tag;sport;typ;umfang;ziel;wdh;pause;notiz') : '{ "name": "…", "weeks": [ … ] }'} value=${text}
         onInput=${(e) => { setText(e.currentTarget.value); setErgebnis(null); }}></textarea>
-      <div class="row">${art === 'csv' ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => { setText(BEISPIEL_CSV); setErgebnis(null); }}>Beispiel einsetzen</button>` : null}
+      <div class="row">${art === 'csv' ? html`<button class="btn btn-soft" style="flex:1" onClick=${() => { setText(kraft && cardio ? `${BEISPIEL_CSV.trimEnd()}\n\n${CARDIO_BEISPIEL}` : kraft ? BEISPIEL_CSV : CARDIO_BEISPIEL); setErgebnis(null); }}>Beispiel einsetzen</button>` : null}
         <button class="btn btn-chalk" style="flex:1" disabled=${!text.trim()} onClick=${() => pruefe()}>Prüfen</button></div>
     </section>
     ${ergebnis?.fehler.length ? html`<section class="hint">${I.warn}<span class="t">${ergebnis.fehler.length} ${ergebnis.fehler.length === 1 ? 'Problem' : 'Probleme'} – nichts importiert</span><span></span>
@@ -493,7 +521,21 @@ function Import({ zurueck, speichern }) {
         <div><b>${ergebnis.zeilen ?? p.weeks.length}</b><span>${ergebnis.zeilen ? 'Zeilen' : 'Wochen im JSON'}</span></div><div><b>${p.inputs.join(' ') || '–'}</b><span>Maxe</span></div></div>
       <span class="muted" style="font-size:13px">Gewichte mit Beispiel-Maxen gerechnet; beim Starten trägst du deine ein.</span>
       ${tage.filter((t) => t.woche === tage[0]?.woche).map((t) => html`<${TagPlan} key=${t.datum + t.offset} tag=${t}/>`)}
-      <button class="btn btn-chalk btn-block" onClick=${() => speichern(p)}>Als eigenes Programm speichern</button>
+      ${cPlan ? null : html`<button class="btn btn-chalk btn-block" onClick=${() => speichern(p, null)}>Als eigenes Programm speichern</button>`}
+    </section>` : null}
+    ${cPlan ? html`<section class="card pad stack">
+      <span class="viz-t">${deEn('Cardio', 'Cardio')}</span>
+      <h2 class="h2">${cPlan.name}</h2>
+      <div class="prog-meta"><div><b>${cPlan.wochen}</b><span>${deEn('Wochen', 'Weeks')}</span></div><div><b>${cPlan.einheiten.length}</b><span>${deEn('Einheiten', 'Sessions')}</span></div>
+        <div><b>${cPlan.sportarten.map((s) => (s === 'lauf' ? '🏃' : '🚴')).join(' ')}</b><span>Sport</span></div></div>
+      <label class="field" for="import-start"><span class="label">${deEn('Start (Montag der ersten Woche)', 'Start (Monday of week 1)')}</span>
+        <input id="import-start" class="text" type="date" value=${start} onInput=${(e) => { const v = e.currentTarget.value; if (v) setStart(v); }}/></label>
+      ${wtVon(start) !== 0 ? html`<span class="warn-text" style="font-size:12.5px">${deEn('Kein Montag – die Wochentage verschieben sich entsprechend.', 'Not a Monday – the weekdays shift accordingly.')}</span>` : null}
+      <div class="pl-plan">${cPlan.einheiten.filter((e) => e.woche === 1).map((e) => { const b = beschreibung(e, cPlan);
+        return html`<div key=${e.id} class="pl-planzeile"><span class="pl-tagpill">${deEn(...WT_NAME[wtVon(e.datum)])}</span><div class="pl-items"><span class="pl-item cardio">${e.sport === 'lauf' ? '🏃' : '🚴'} ${b.titel} <small>${b.zeile}</small></span></div></div>`; })}</div>
+      ${p ? html`<button class="btn btn-chalk btn-block" onClick=${() => speichern(p, ausstehend)}>${deEn('Speichern – Cardio startet mit', 'Save – cardio starts with it')}</button>
+          <span class="muted" style="font-size:12.5px">${deEn('Den Kraftblock startest du danach mit deinen Maxen; der Cardio-Plan beginnt am gewählten Montag.', 'Start the strength block next with your maxes; the cardio plan begins on the chosen Monday.')}</span>`
+        : html`<button class="btn btn-chalk btn-block" onClick=${() => cardioNur(ausstehend)}>${deEn('Cardio-Plan starten', 'Start cardio plan')}</button>`}
     </section>` : null}
   </div>`;
 }

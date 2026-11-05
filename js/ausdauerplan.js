@@ -3,7 +3,7 @@
 // Schwelle ≈ 6–9 % langsamer, Intervalle ≈ 5-km-Tempo). Rad: Zonen in % der FTP. Umfang +8 %/Woche, jede 4. Woche leichter,
 // vor Wettkämpfen 2 Wochen Tapering. Harte Einheiten nicht am Tag vor einem schweren Beintag (Hybrid). Pure Funktionen.
 
-import { LAEUFER_KRAFT } from './kombiplan.js';
+import { LAEUFER_KRAFT, wochenVorschlag, hatKraft, hatCardio } from './kombiplan.js';
 
 const TAG = 864e5;
 export const plusTage = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * TAG).toISOString().slice(0, 10);
@@ -102,7 +102,7 @@ const HART = (r) => r.startsWith('hart') || r === 'lang';
  * lockere Läufe), fokus kraft|mix|cardio, rennDatum = Wettkampftag (bestimmt die Wochenzahl).
  */
 export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp = null, startKm = null, beinTag = () => false, kraftTag = () => false,
-  dauer = null, fokus = 'mix', rennDatum = null }) {
+  dauer = null, fokus = 'mix', rennDatum = null, jeWoche = null, raster = null }) {
   if (rennDatum) wochen = Math.max(1, Math.floor((Date.parse(`${rennDatum}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / (7 * 864e5)) + 1);
   const tg = [...new Set(tage)].sort((a, b) => a - b), n = Math.min(7, tg.length || 3);
   // Fokus Kraft: höchstens eine harte Einheit je Woche
@@ -116,9 +116,19 @@ export function erzeugePlan({ sport, ziel, start, wochen, tage, t5k = null, ftp 
   const zonen = sport === 'lauf' && t5k ? paceZonen(t5k) : sport === 'rad' && ftp ? wattZonen(ftp) : null;
   const maxKm = sport === 'lauf' && dauer && zonen ? Math.max(3, runde((dauer * 60) / ((zonen.locker[0] + zonen.locker[1]) / 2))) : null;
   const einheiten = [];
+  // Cardio-Tage je Woche neu: wechseln die Krafttage von Woche zu Woche (Powerlifting, eigener Block), kommt Cardio auf die
+  // Ruhetage der jeweiligen Woche. Passen die Krafttage zum Raster aus dem Planer, gilt die dort gewählte Verteilung.
+  const tageDerWoche = (mo) => {
+    if (!jeWoche) return tg;
+    const tag = (i) => plusTage(mo, i), fest = [0, 1, 2, 3, 4, 5, 6].filter((i) => kraftTag(tag(i)));
+    if (raster && fest.join() === raster.map((a, i) => (hatKraft(a) ? i : null)).filter((x) => x != null).join()) return raster.map((a, i) => (hatCardio(a) ? i : null)).filter((x) => x != null);
+    const bein = [0, 1, 2, 3, 4, 5, 6].map((i) => !!beinTag(tag(i)));
+    const v = wochenVorschlag(fest.length, Math.min(7, jeWoche), { fest, bein, hart: jeWoche >= 5 && fokus !== 'kraft' ? 2 : 1 });
+    return v.map((a, i) => (hatCardio(a) ? i : null)).filter((x) => x != null);
+  };
   for (let w = 0; w < wochen; w++) {
-    const mo = plusTage(start, 7 * w), tagVon = (i) => plusTage(mo, tg[i] ?? 6);
-    const rollen = [...muster];
+    const mo = plusTage(start, 7 * w), tgW = tageDerWoche(mo), tagVon = (i) => plusTage(mo, tgW[i] ?? 6);
+    const rollen = [...(tgW.length === muster.length ? muster : MUSTER[Math.max(1, Math.min(7, tgW.length))].map((r) => (fokus === 'kraft' && r === 'hart2' ? 'locker' : r)))];
     // harte und lange Einheiten nicht an Krafttage (dort nur locker danach) – Tausch mit einem lockeren Tag ohne Kraft
     for (let i = 0; i < rollen.length; i++) {
       if (!HART(rollen[i]) || !kraftTag(tagVon(i))) continue;
@@ -189,7 +199,7 @@ export const erledigt = (geplant, liste, sportVon) => liste.some((a) => !a.geloe
 
 /** Geplante Einheit als Ausdauer-Eintrag (Dauer aus dem Tempo-Mittel geschätzt, beim Rad aus der Planung). */
 export function alsEintrag(e, plan, id) {
-  const km = e.gesamtKm ?? e.km ?? null, z = plan.zonen?.[e.zone];
+  const km = e.gesamtKm ?? e.km ?? null, z = e.zielBereich ?? plan.zonen?.[e.zone];
   const dauer = e.sport === 'rad' ? (e.min ?? (e.wdh ? e.wdh * (e.dauer + e.pause) + 25 : 60)) * 60 : km && z ? Math.round(km * (z[0] + z[1]) / 2) : e.min ? e.min * 60 : null;
   return { id, quelle: 'manuell', art: e.sport === 'rad' ? 'rennrad' : 'lauf', datum: e.datum, typ: e.typ, titel: null, distanz_m: e.sport === 'lauf' && km ? Math.round(km * 1000) : null, dauer_s: dauer, geloescht: false };
 }
@@ -240,7 +250,7 @@ export function intervalsWorkout(e, plan) {
   const z = plan?.zonen ?? null, lauf = e.sport === 'lauf';
   const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   const ziel = (zone, ersatz) => {
-    const b = z?.[zone];
+    const b = (zone === e.zone && e.zielBereich) || z?.[zone];      // 250: importierte Einheiten bringen ihr Ziel mit
     if (!b) return ersatz;
     return lauf ? `${mmss(b[0])}-${mmss(b[1])}/km Pace` : `${b[0]}-${b[1]}w`;
   };

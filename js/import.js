@@ -2,6 +2,7 @@
 // die CSV, leseProgrammCsv macht daraus eine Vorlage im Programmformat (siehe CLAUDE.md „Programmformat“).
 // Unbekannte Übungen, Tage oder Lastangaben stoppen den Import mit Zeilennummer.
 import { leseSaetze, leseWdh, leseRpe, leseFormel, formelNamen } from './programm.js';
+import { plusTage } from './ausdauerplan.js';
 
 export const SPALTEN = ['woche', 'tag', 'uebung', 'rolle', 'saetze', 'wdh', 'last', 'rpe', 'cut', 'notiz'];
 
@@ -306,6 +307,182 @@ export function pruefeProgrammJson(text, katalog, zuordnung = {}) {
   const reihenfolge = ['S', 'B', 'D', 'G'];
   return { programm: { ...roh, name: roh.name || 'Importiertes Programm', weeks,
     inputs: roh.inputs?.length ? roh.inputs : reihenfolge.filter((v) => variablen.has(v)) }, fehler: [], unbekannt: [] };
+}
+
+// #################################################################
+// 250: Cardio im KI-Import – eigener Abschnitt „# cardio“ mit eigener Kopfzeile; Kraft und Cardio in einer Antwort
+// #################################################################
+export const CARDIO_SPALTEN = ['woche', 'tag', 'sport', 'typ', 'umfang', 'ziel', 'wdh', 'pause', 'notiz'];
+
+const CARDIO_REGELN = `Cardio-Teil (Laufen/Rad) als eigener Abschnitt:
+- Zeile genau: # cardio, danach die Kopfzeile: woche;tag;sport;typ;umfang;ziel;wdh;pause;notiz
+- Eine Zeile je Einheit. woche: 1, 2, 3 … · tag: Mo … So
+- sport: Lauf oder Rad
+- typ: locker, lang, tempo, intervalle, fahrtspiel oder wettkampf
+- umfang: Strecke oder Dauer, z. B. 8km, 45min, 1,5h. Bei Intervallen die Länge EINER Wiederholung (1000m, 4min).
+- ziel: Tempo als 5:30-6:00/km (oder 5:45/km), Leistung als 200-230W, sonst leer
+- wdh: Anzahl Wiederholungen bei Intervallen, sonst leer · pause: Pause zwischen den Wiederholungen (90s, 2min), sonst leer
+- notiz: kurzer Hinweis ohne Semikolon`;
+
+export const CARDIO_BEISPIEL = `# cardio
+woche;tag;sport;typ;umfang;ziel;wdh;pause;notiz
+1;Di;Lauf;locker;8km;6:00-6:30/km;;;
+1;Do;Lauf;intervalle;1000m;4:50-5:00/km;5;2min;
+1;Sa;Rad;lang;120min;150-190W;;;`;
+
+const KI_ENDE = `- Erfinde nichts. Was im Programm nicht steht, bleibt leer.
+- Gib nur die CSV in einem Codeblock aus, ohne weitere Erklärung.`;
+
+/** KI-Anleitung je nach Inhalt: nur Kraft (bisherige Anleitung), nur Cardio oder beides in einer Antwort. */
+export function kiAnleitung({ kraft = true, cardio = false } = {}) {
+  if (!cardio) return KI_ANLEITUNG;
+  if (!kraft) return `Wandle den Ausdauer-Trainingsplan unten (Laufen und/oder Radfahren) in eine CSV-Tabelle für die App „PR Hunter“ um.
+
+Regeln:
+- Trennzeichen Semikolon. Davor optional eine Zeile: # name: <Planname>
+${CARDIO_REGELN.split('\n').slice(1).join('\n')}
+${KI_ENDE}
+
+Beispiel:
+# name: Halbmarathon 10 Wochen
+${CARDIO_BEISPIEL}
+
+Hier ist der Plan:
+`;
+  const kraftTeil = KI_ANLEITUNG.split('\nBeispiel:')[0].replace(/\n- Erfinde nichts[\s\S]*$/, '').replace('Wandle das Trainingsprogramm unten', 'Wandle das Trainingsprogramm unten (Kraft und Cardio)');
+  const kraftBeispiel = KI_ANLEITUNG.split('\nBeispiel:\n')[1].split('\n\nHier ist das Programm:')[0];
+  return `${kraftTeil.trimEnd()}
+
+${CARDIO_REGELN}
+${KI_ENDE}
+
+Beispiel:
+${kraftBeispiel}
+
+${CARDIO_BEISPIEL}
+
+Hier ist das Programm:
+`;
+}
+
+const SPORT_NAME = { lauf: 'lauf', laufen: 'lauf', run: 'lauf', running: 'lauf', jogging: 'lauf', rad: 'rad', radfahren: 'rad', fahrrad: 'rad', rennrad: 'rad', bike: 'rad', ride: 'rad', cycling: 'rad' };
+const CARDIO_TYP = { locker: 'locker', easy: 'locker', grundlage: 'locker', lang: 'lang', long: 'lang', tempo: 'tempo', schwelle: 'tempo', threshold: 'tempo',
+  intervalle: 'intervalle', intervall: 'intervalle', intervals: 'intervalle', interval: 'intervalle', fahrtspiel: 'fahrtspiel', fartlek: 'fahrtspiel',
+  wettkampf: 'wettkampf', rennen: 'wettkampf', race: 'wettkampf' };
+const ZONE_VON = { locker: 'locker', lang: 'lang', tempo: 'tempo', intervalle: 'intervall', fahrtspiel: 'locker', wettkampf: 'intervall' };
+const ZONE_RAD = { locker: 'locker', lang: 'locker', tempo: 'schwelle', intervalle: 'vo2', fahrtspiel: 'locker', wettkampf: 'schwelle' };
+const zahl = (s) => Number(String(s).replace(',', '.'));
+const runde5 = (x) => Math.round(x * 2) / 2;
+
+function leseUmfang(t) {
+  const m = String(t).trim().toLowerCase().replace(/\s+/g, '').match(/^(\d+(?:[.,]\d+)?)(km|m|min|h|std)$/);
+  if (!m) return null;
+  const v = zahl(m[1]);
+  return m[2] === 'km' ? { km: v } : m[2] === 'm' ? { m: v } : { min: m[2] === 'min' ? v : v * 60 };
+}
+function leseZiel(t, sport) {
+  const s = String(t).trim().toLowerCase().replace(/\s+/g, '');
+  if (!s) return { ziel: null };
+  let m = s.match(/^(\d{1,2}):(\d{2})(?:-(\d{1,2}):(\d{2}))?(?:\/km|min\/km)?$/);
+  if (m && sport === 'lauf') { const a = +m[1] * 60 + +m[2], b = m[3] ? +m[3] * 60 + +m[4] : a; return { ziel: [Math.min(a, b), Math.max(a, b)] }; }
+  m = s.match(/^(\d+)(?:-(\d+))?w(att)?$/);
+  if (m && sport === 'rad') { const a = +m[1], b = m[2] ? +m[2] : a; return { ziel: [Math.min(a, b), Math.max(a, b)] }; }
+  return { fehler: sport === 'lauf' ? `Ziel „${t}“ nicht lesbar (Tempo wie 5:30-6:00/km oder leer)` : `Ziel „${t}“ nicht lesbar (Leistung wie 200-230W oder leer)` };
+}
+function lesePause(t) {
+  const s = String(t).trim().toLowerCase().replace(/\s+/g, '');
+  if (!s) return null;
+  const m = s.match(/^(\d+(?:[.,]\d+)?)(s|sek|sec|min|m)?$/);
+  if (!m) return NaN;
+  return m[2] && m[2].startsWith('m') ? zahl(m[1]) * 60 : m[2] ? zahl(m[1]) : zahl(m[1]) * 60;    // ohne Einheit: Minuten
+}
+
+/** Cardio-Zeilen → { einheiten, fehler, unbekannt: [] }. Einheiten ohne Datum (woche, wt); das Datum kommt mit dem Start. */
+export function leseCardioCsv(text, { zeileAb = 0 } = {}) {
+  const fehler = [], einheiten = [];
+  let kopf = null, trenner = ';', name = null;
+  String(text).replace(/^﻿/, '').split(/\r?\n/).forEach((roh, i) => {
+    const nr = zeileAb + i + 1, zeile = roh.trim();
+    if (!zeile || zeile.startsWith('```')) return;
+    if (zeile.startsWith('#')) { const m = zeile.match(/^#\s*name\s*:\s*(.+)$/i); if (m) name = m[1].trim(); return; }
+    if (!kopf) {
+      trenner = [';', '\t', ','].sort((a, b) => zeile.split(b).length - zeile.split(a).length)[0];
+      kopf = zerlegeZeile(zeile, trenner).map(normal).map((s) => s.replace(/ /g, '')).map((s) => ({ week: 'woche', day: 'tag', type: 'typ', distance: 'umfang', dauer: 'umfang', target: 'ziel', reps: 'wdh', rest: 'pause', note: 'notiz' }[s] ?? s));
+      const fehlt = ['woche', 'tag', 'sport', 'typ', 'umfang'].filter((s) => !kopf.includes(s));
+      if (fehlt.length) fehler.push(`Zeile ${nr}: Cardio-Kopfzeile ohne ${fehlt.join(', ')} (erwartet: ${CARDIO_SPALTEN.join(';')})`);
+      return;
+    }
+    const werte = zerlegeZeile(zeile, trenner), f = Object.fromEntries(kopf.map((k, j) => [k, werte[j] ?? '']));
+    const zf = (t) => fehler.push(`Zeile ${nr}: ${t}`);
+    const woche = Number(f.woche);
+    if (!Number.isInteger(woche) || woche < 1) { zf(`Woche „${f.woche}“ ist keine Zahl ab 1`); return; }
+    const tag = TAGE[normal(f.tag).slice(0, 3)] ?? TAGE[normal(f.tag).slice(0, 2)] ?? (/^[1-7]$/.test(f.tag) ? Number(f.tag) : null);
+    if (!tag) { zf(`Tag „${f.tag}“ unbekannt (Mo … So)`); return; }
+    const sport = SPORT_NAME[normal(f.sport).replace(/ /g, '')];
+    if (!sport) { zf(`Sport „${f.sport}“ unbekannt (Lauf oder Rad)`); return; }
+    const typ = CARDIO_TYP[normal(f.typ).replace(/ /g, '')];
+    if (!typ) { zf(`Typ „${f.typ}“ unbekannt (locker, lang, tempo, intervalle, fahrtspiel, wettkampf)`); return; }
+    const u = leseUmfang(f.umfang);
+    if (!u) { zf(`Umfang „${f.umfang}“ nicht lesbar (z. B. 8km, 1000m, 45min, 1,5h)`); return; }
+    const z = leseZiel(f.ziel ?? '', sport);
+    if (z.fehler) { zf(z.fehler); return; }
+    const wdh = String(f.wdh ?? '').trim() ? Number(f.wdh) : null;
+    if (wdh != null && (!Number.isInteger(wdh) || wdh < 1)) { zf(`Wdh „${f.wdh}“ ist keine Zahl`); return; }
+    const pause = lesePause(f.pause ?? '');
+    if (Number.isNaN(pause)) { zf(`Pause „${f.pause}“ nicht lesbar (90s, 2min)`); return; }
+    const e = { woche, wt: tag - 1, sport, typ, zone: (sport === 'rad' ? ZONE_RAD : ZONE_VON)[typ], ...(z.ziel ? { zielBereich: z.ziel } : {}), ...(f.notiz ? { notiz: f.notiz } : {}) };
+    const n = wdh ?? (typ === 'intervalle' ? 1 : null);
+    if (n && n > 1) {
+      const strecke = u.km != null ? u.km * 1000 : u.m;
+      if (strecke != null && sport === 'lauf') Object.assign(e, { wdh: n, strecke, pause: pause ?? 120, gesamtKm: runde5((n * strecke) / 1000 + 3) });
+      else if (u.min != null) Object.assign(e, { wdh: n, dauer: u.min, pause: sport === 'rad' ? Math.round((pause ?? 300) / 60) : Math.round((pause ?? 180) / 60), min: Math.round(n * (u.min + (pause ?? 180) / 60) + 20) });
+      else { zf('Rad-Intervalle bitte mit Dauer je Wiederholung (z. B. 4min)'); return; }
+    } else if (u.km != null || u.m != null) e.km = u.km ?? u.m / 1000;
+    else e.min = Math.round(u.min);
+    einheiten.push(e);
+  });
+  if (!kopf) fehler.push('Keine Cardio-Kopfzeile gefunden (woche;tag;sport;typ;umfang;ziel;wdh;pause;notiz).');
+  else if (!einheiten.length && !fehler.length) fehler.push('Keine Cardio-Zeilen gefunden.');
+  return { einheiten: fehler.length ? [] : einheiten, fehler, name };
+}
+
+/**
+ * Import mit Inhaltswahl: { kraft: 'powerlifting'|'bodybuilding'|'eigen'|null, cardio: bool }. Mit beidem wird am
+ * „# cardio“-Abschnitt (oder an der Cardio-Kopfzeile) geteilt. Rückgabe wie leseProgrammCsv plus cardio.
+ */
+export function leseImport(text, katalog, zuordnung = {}, { kraft = 'powerlifting', cardio = false } = {}) {
+  const zeilen = String(text).replace(/^﻿/, '').split(/\r?\n/);
+  let teil = -1;
+  if (cardio) {
+    teil = zeilen.findIndex((z) => /^#\s*cardio\b/i.test(z.trim()));
+    if (teil < 0) teil = zeilen.findIndex((z) => /^woche\s*[;,\t]\s*tag\s*[;,\t]\s*sport/i.test(z.trim()));
+  }
+  const name = zeilen.map((z) => z.trim().match(/^#\s*name\s*:\s*(.+)$/i)?.[1]).find(Boolean) ?? null;
+  const aus = { programm: null, cardio: null, fehler: [], unbekannt: [], zeilen: 0 };
+  if (kraft) {
+    if (cardio && teil < 0) return { ...aus, fehler: ['Cardio-Abschnitt fehlt: Zeile „# cardio“ und darunter woche;tag;sport;typ;umfang;ziel;wdh;pause;notiz.'] };
+    const k = leseProgrammCsv(cardio ? zeilen.slice(0, teil).join('\n') : text, katalog, zuordnung);
+    Object.assign(aus, { programm: k.programm ? { ...k.programm, kategorie: kraft } : null, fehler: [...k.fehler], unbekannt: k.unbekannt, zeilen: k.zeilen });
+  }
+  if (cardio) {
+    const c = leseCardioCsv(kraft ? zeilen.slice(teil).join('\n') : text, { zeileAb: kraft ? teil : 0 });
+    aus.fehler.push(...c.fehler);
+    if (!c.fehler.length) aus.cardio = { name: c.name ?? name ?? 'Importierter Cardio-Plan', einheiten: c.einheiten };
+    if (kraft) aus.programm = aus.fehler.length ? null : aus.programm;
+  }
+  return aus;
+}
+
+/** Importierte Cardio-Einheiten ab start (Montag) als Cardio-Plan (gleiches Format wie erzeugePlan). */
+export function cardioPlanAus(cardio, start) {
+  const einheiten = cardio.einheiten.map((e, i) => {
+    const { wt, ...rest } = e, datum = plusTage(start, (e.woche - 1) * 7 + wt);
+    return { ...rest, id: `imp-${datum}-${i}`, datum };
+  }).sort((a, b) => a.datum.localeCompare(b.datum));
+  const zahl = (s) => einheiten.filter((e) => e.sport === s).length;
+  const sport = zahl('rad') > zahl('lauf') ? 'rad' : 'lauf';
+  return { sport, ziel: 'import', name: cardio.name, start, wochen: Math.max(...einheiten.map((e) => e.woche)), tage: [...new Set(cardio.einheiten.map((e) => e.wt))].sort(),
+    einheiten, zonen: null, sportarten: [...new Set(einheiten.map((e) => e.sport))] };
 }
 
 // #################################################################

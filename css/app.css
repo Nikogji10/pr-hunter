@@ -2601,3 +2601,19 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 /* 249: Geräte-Einstellungen in der Trainingskarte */
 .cue-knopf { background: none; border: 0; padding: 0; text-align: left; color: var(--ink-2); }
 .ex-geraet { margin-top: 6px; padding: 4px 10px; border-radius: 99px; border: 1px dashed var(--line); background: none; color: var(--muted); font-size: 12px; font-weight: 600; }
+/* Modernere Knöpfe (Programme, Heute): ohne Großbuchstaben und Riffelmuster, aber weiter klar gefüllt bzw. umrandet */
+.modern.btn, .modern .btn { text-transform: none; letter-spacing: 0; font-stretch: 100%; font-weight: 700; font-size: 15.5px; border-radius: 14px; }
+.modern.btn-go, .modern .btn-go { height: 52px; background: linear-gradient(180deg, #4ED98A 0%, var(--ok) 100%); border-color: transparent; color: #06180D;
+  box-shadow: 0 10px 24px -12px var(--ok), inset 0 1px 0 rgba(255,255,255,.25); }
+.modern .btn-chalk, .modern.btn-chalk { background: linear-gradient(180deg, var(--acc-hi) 0%, var(--acc) 100%); border-color: transparent;
+  box-shadow: 0 10px 24px -14px var(--acc-glow, var(--acc)), inset 0 1px 0 rgba(255,255,255,.22); }
+.modern .btn-soft { background: color-mix(in srgb, var(--ink) 7%, var(--raised)); border: 1px solid var(--kante); box-shadow: none; color: var(--ink); }
+.modern .btn-gefahr { background: transparent; border-width: 1.5px; }
+.modern .btn-sm, .modern.heute-knoepfe .btn { height: 40px; font-size: 13.5px; font-weight: 650; border-radius: 12px; }
+.modern .abschnitt-titel { font: 750 17px/1.2 var(--f); text-transform: none; letter-spacing: 0; }
+.modern .abschnitt-titel::after { background: linear-gradient(90deg, var(--line), transparent); }
+.modern .status-aktiv { text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.modern .ab-name { text-transform: none; letter-spacing: -.01em; }
+.modern .vorlagen-auf > summary { font-weight: 650; }
+.modern .seg button[aria-pressed="true"] { box-shadow: var(--shadow); color: var(--ink); }
+.modern .prog-reiter button { font-size: 13.5px; font-weight: 650; }

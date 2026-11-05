@@ -363,9 +363,9 @@ function Heute({ ausdauer = [], ausdauerPlan = null, ausdauerSpeichern = null, a
           <div class="kg">${k.slot ? html`<span class="muted" style="font-size:14px;font-stretch:100%;font-weight:600">wählen</span>` : html`${gw(g0.saetze[0].kg)}<small>${einheit()}</small>`}</div>
         </button>`;
       })}</div>
-      ${training?.planDatum === tag.datum ? html`<button class="btn btn-go btn-block" onClick=${fortsetzen}>Training fortsetzen</button>`
-        : html`<button class="btn btn-go btn-block" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
-      <div class="heute-knoepfe">${tagOption && training?.planDatum !== tag.datum ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
+      ${training?.planDatum === tag.datum ? html`<button class="btn btn-go btn-block modern" onClick=${fortsetzen}>Training fortsetzen</button>`
+        : html`<button class="btn btn-go btn-block modern" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
+      <div class="heute-knoepfe modern">${tagOption && training?.planDatum !== tag.datum ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
         <button class="btn btn-soft btn-sm" onClick=${() => setSheet('ueberspringen')}>Überspringen</button>` : null}
         <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
           : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
@@ -1051,7 +1051,7 @@ function App() {
   useEffect(() => {
     const i = TABS.findIndex(([k]) => k === ansicht);
     if (i < 0) return;
-    for (const [k, erster, letzter] of [['feed', 'feed', 'challenges'], ['statistik', 'profil', 'koerper']]) {
+    for (const [k, erster, letzter] of [['feed', 'feed', 'challenges'], ['statistik', 'profil', 'koerper'], ['programme', 'kraft', 'woche']]) {
       const j = TABS.findIndex(([x]) => x === k);
       if (j !== i) try { sessionStorage.setItem(`prh-reiter-${k}`, j > i ? erster : letzter); } catch { /* egal */ }
     }

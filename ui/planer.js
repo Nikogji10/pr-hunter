@@ -36,7 +36,7 @@ const Chips = ({ werte, aktiv, setzen, label = (x) => x, aria }) => html`<div cl
   ${werte.map((x) => html`<button key=${x} class=${x === aktiv ? 'an' : ''} aria-pressed=${String(x === aktiv)} onClick=${() => setzen(x)}>${label(x)}</button>`)}</div>`;
 const Hinweise = ({ liste }) => html`<div class="pl-hinweise">${liste.map((h, i) => html`<div key=${i} class=${`pl-hinweis ${h.art}`}><i aria-hidden="true">${h.art === 'warn' ? '!' : h.art === 'gut' ? '✓' : 'i'}</i><span>${L(h.de, h.en)}</span></div>`)}</div>`;
 
-export function Planer({ zurueck, einst, block = null, blockName = '', ausdauer = {}, uebergeben, cardioStarten, setZurueck }) {
+export function Planer({ zurueck, abbrechen, einst, block = null, blockName = '', ausdauer = {}, uebergeben, cardioStarten, setZurueck }) {
   const [wahl, setWahl] = useSitzung('prh-gen-ziel-wahl', () => START);
   const [schritt, setSchritt] = useSitzung('prh-gen-ziel-schritt', 1);
   const w = { ...START, ...(wahl ?? {}) };
@@ -77,7 +77,7 @@ export function Planer({ zurueck, einst, block = null, blockName = '', ausdauer 
   const wochen = rennDatum ? wochenBis(start, rennDatum) : w.wochen;
   const kraftTag = (d) => hatKraft(woche[wochentag(d)]);
   const beinTag = (d) => kraftTag(d) && bein[wochentag(d)];
-  const param = { sport, ziel: zweck ?? (sport === 'lauf' ? 'fit' : 'grundlage'), start, wochen, tage: cardioTage, t5k: Number(t5k[0]) * 60 + (Number(t5k[1]) || 0), ftp: Number(ftp) || null, startKm, dauer: w.dauer, fokus, rennDatum };
+  const param = { sport, ziel: zweck ?? (sport === 'lauf' ? 'fit' : 'grundlage'), start, wochen, tage: cardioTage, t5k: Number(t5k[0]) * 60 + (Number(t5k[1]) || 0), ftp: Number(ftp) || null, startKm, dauer: w.dauer, fokus, rennDatum, ...(nurCardio ? {} : { jeWoche: cardioTage.length, raster: woche }) };
   const plan = mitCardio && cardioTage.length ? erzeugePlan({ ...param, kraftTag, beinTag }) : null;
   const woche1 = plan?.einheiten.filter((e) => e.woche === 1) ?? [];
   const hinweise = pruefeWoche(woche, bein, woche1.map((e) => ({ wt: wochentag(e.datum), typ: e.typ })));
@@ -138,6 +138,7 @@ export function Planer({ zurueck, einst, block = null, blockName = '', ausdauer 
         : w.ziel === 'powerlifting' ? L(`Tage wie im Powerlifting-Generator (Kniebeuge und Kreuzheben je ${pl.proWoche.squat}×, Bank 2×). Ändert sich dort etwas, passt sich Cardio an.`, `Days as in the powerlifting generator (squat and deadlift ${pl.proWoche.squat}× each, bench 2×). If you change them there, cardio adapts.`)
         : w.ziel === 'bodybuilding' ? L('Tage wie im Bodybuilding-Generator. Wähle, wo Cardio hinkommt.', 'Days as in the bodybuilding generator. Choose where cardio goes.')
         : nurCardio ? null : L('Die App schlägt eine Verteilung vor – pro Tag änderbar.', 'The app suggests a layout – adjustable per day.'))}
+      ${nurCardio ? null : html`<p class="pl-unter">${L('Wechseln deine Krafttage von Woche zu Woche, legt die App Cardio jede Woche neu auf deine Ruhetage.', 'If your strength days change from week to week, the app moves cardio onto that week’s rest days.')}</p>`}
       ${nurCardio || zumBlock ? null : html`<div class="pl-zeile"><span>${L('Krafttage', 'Strength days')}</span><${Chips} aria=${L('Krafttage', 'Strength days')} werte=${kraftWerte} aktiv=${nKraft} label=${(n) => `${n}×`} setzen=${(n) => setze({ nKraft: n, woche: null })}/></div>`}
       <div class="pl-zeile"><span>${L('Cardio', 'Cardio')}</span><${Chips} aria=${L('Cardio-Einheiten', 'Cardio sessions')} werte=${nurCardio ? [2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6]} aktiv=${cardioTage.length} label=${(n) => `${n}×`} setzen=${(n) => setze({ nCardio: n, woche: null })}/></div>
       <div class="pl-woche">${woche.map((a, i) => html`<div key=${i} class="pl-tag">
@@ -188,7 +189,8 @@ export function Planer({ zurueck, einst, block = null, blockName = '', ausdauer 
   return html`<div class="screen planer">
     <header class="topbar unter"><button class="iconbtn" onClick=${zurueck} aria-label=${L('Zurück', 'Back')}>${I.zurueck}</button>
       <div style="flex:1;min-width:0"><div class="eyebrow">${L('Neuer Plan', 'New plan')}</div><h1 class="h1">${NAMEN[id]}</h1></div>
-      <span class="pl-zaehler">${`${si}/${ids.length}`}</span></header>
+      <span class="pl-zaehler">${`${si}/${ids.length}`}</span>
+      <button class="iconbtn" onClick=${abbrechen} aria-label=${L('Planer schließen', 'Close planner')}>${I.zu}</button></header>
     <div class="pl-fortschritt" role="progressbar" aria-valuemin="1" aria-valuemax=${ids.length} aria-valuenow=${si}><i style=${`width:${(si / ids.length) * 100}%`}></i></div>
     <section class="pl-karte" key=${id}>${id === 'fertig' ? fertig : inhalt[id]}</section>
     <div class="pl-fuss">
