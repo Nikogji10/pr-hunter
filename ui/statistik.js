@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, datumLang, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache, liftVon } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, datumLang, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache, liftVon, Sheet, ZahlFeld } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -16,7 +16,7 @@ import { normiere } from '../js/insights.js';
 import { NOTIZ_CHIPS, chipsAus } from '../js/notizchips.js';
 import { bereitschaftsWert } from '../js/auswertung.js';
 import { ISO_FAMILIEN } from './suche.js';
-import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT } from './stand.js';
+import { wochen, e1rmWoche, volumenWoche, trainingsTage, trainingAm, REKORDE, PR_FEED, URLAUB, HEUTE, DEMO, KOERPERVERLAUF, plusTage, imUrlaub, E1RM_AKTUELL, ZULETZT, FORM_WOCHEN, DIENSTE } from './stand.js';
 import { uebersetze } from './sprache.js';
 import { koerperAm, montagVon, tageZwischen, kanon } from '../js/daten.js';
 import { rpeTrend } from '../js/block.js';
@@ -29,7 +29,7 @@ import { Insights } from './insights.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
-const FORM_WOCHEN = 12;
+// FORM_WOCHEN aus stand.js (gleiche Zahl wie Bestenliste und Vergleich)
 
 
 function wochenDaten(x) {
@@ -342,6 +342,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 function KoerperStatistik({ x, werte, von, ziel }) {
   const g = gewichtImZeitraum(KOERPERVERLAUF, von);
   const [exakt, setExakt] = useState(false);              // jede Messung statt Wochendurchschnitt
+  const [bearbeitenRoh, setBearbeitenRoh] = useState(null), [neuKg, setNeuKg] = useState(null);   // 265: Tag ändern/löschen
+  const bearbeiten = bearbeitenRoh, setBearbeiten = (m) => { setBearbeitenRoh(m); setNeuKg(null); };
   const mess = KOERPERVERLAUF.filter((m) => m.datum >= von);
   const vz = (d, st = 1) => (d == null ? '–' : `${d > 0 ? '+' : d < 0 ? '−' : '±'}${gw(Math.abs(d), st)}`);
   const punkte = (exakt ? mess.map((m) => [m.datum, m.kg]) : x.map((d, k) => [d, werte[k]])).filter(([, w]) => w != null).map(([d, w]) => [d, inAnzeige(w)]);
@@ -371,9 +373,16 @@ function KoerperStatistik({ x, werte, von, ziel }) {
     ${mess.length ? html`<details class="card pad gw-liste">
       <summary><span>${deEn('Alle Einträge', 'All entries')}</span><span class="muted">${mess.length}</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary>
       <ul>${[...mess].reverse().map((m, i, l) => { const d = l[i + 1] ? m.kg - l[i + 1].kg : null;
-        return html`<li key=${m.datum}><span>${datumLang(m.datum)}</span>${d != null && Math.abs(d) >= 0.05 ? html`<small class=${d > 0 ? 'auf' : 'ab'}>${vz(d)}</small>` : html`<small></small>`}
-          <b class="tab-num">${`${gw(m.kg, 1)} ${einheit()}`}</b></li>`; })}</ul>
+        return html`<li key=${m.datum}><button class="gw-zeile" disabled=${!DIENSTE.gewichtAendern} onClick=${() => setBearbeiten(m)}><span>${datumLang(m.datum)}</span>${d != null && Math.abs(d) >= 0.05 ? html`<small>${vz(d)}</small>` : html`<small></small>`}
+          <b class="tab-num">${`${gw(m.kg, 1)} ${einheit()}`}</b></button></li>`; })}</ul>
     </details>` : null}
+    ${bearbeiten ? html`<${Sheet} zu=${() => setBearbeiten(null)} label=${deEn('Gewicht ändern', 'Edit weight')}>
+      <h2 class="h2">${datumLang(bearbeiten.datum)}</h2>
+      <${ZahlFeld} id="gw-aendern" label=${deEn('Körpergewicht', 'Body weight')} wert=${neuKg ?? bearbeiten.kg} setze=${setNeuKg} kg=${true}/>
+      <div class="row"><button class="btn btn-gefahr" style="flex:1" onClick=${() => { DIENSTE.gewichtAendern(bearbeiten.datum, null); setBearbeiten(null); }}>${deEn('Löschen', 'Delete')}</button>
+        <button class="btn btn-chalk" style="flex:1.4" disabled=${!(neuKg > 0)} onClick=${() => { DIENSTE.gewichtAendern(bearbeiten.datum, neuKg); setBearbeiten(null); }}>${deEn('Speichern', 'Save')}</button></div>
+      <span class="muted" style="font-size:12.5px">${deEn('Ein Wert je Tag. Gewicht aus einem Training an diesem Tag bleibt dort gespeichert.', 'One value per day. A weight saved with a workout that day stays with the workout.')}</span>
+    <//>` : null}
   </section>`;
 }
 

@@ -6,6 +6,13 @@ export let HEUTE = new Date().toISOString().slice(0, 10);
 export let URLAUB = null;                      // { von, bis, name } oder null
 export let wochen = [];
 export let e1rmWoche = { squat: [], bench: [], dead: [] };
+// 253: eine Rechnung für Statistik, Bestenliste und Vergleich – aktuelle Form = bestes Wochen-e1RM der letzten 12 Wochen
+// (laufende Woche + 11 davor, ohne RPE), Bestwert = über alle Wochen
+export const FORM_WOCHEN = 12;
+export const formAktuell = (l) => { const w = (e1rmWoche[l] ?? []).slice(-FORM_WOCHEN).filter((v) => v != null); return w.length ? Math.max(...w) : null; };
+const bestAllerZeiten = (l) => { const w = (e1rmWoche[l] ?? []).filter((v) => v != null); return w.length ? Math.max(...w) : null; };
+/** Eigene Zeile aus dem Vergleich (Server) durch die Werte der Statistik ersetzen. */
+export const mitEigenerForm = (p) => (p.ich ? { ...p, lifts: Object.fromEntries(['squat', 'bench', 'dead'].map((l) => [l, { ...p.lifts?.[l], aktuell: formAktuell(l), best: bestAllerZeiten(l) ?? p.lifts?.[l]?.best ?? null }])) } : p);
 export let volumenWoche = [];
 export let trainingsTage = {};
 export let REKORDE = { squat: [], bench: [], dead: [] };

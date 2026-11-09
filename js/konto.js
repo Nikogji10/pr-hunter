@@ -477,7 +477,8 @@ export const masseHochladen = async (sb, m) => {
 };
 
 /** Messwert für einen Tag setzen (ersetzt einen vorhandenen am selben Tag). */
-export const setzeMesswert = (liste, datum, kg) => [...liste.filter((m) => m.datum !== datum), { datum, kg, offen: true }]
+// 265: kg null = Tag löschen (geht als leerer Wert an den Server, danach fällt er beim Abgleich weg)
+export const setzeMesswert = (liste, datum, kg) => [...liste.filter((m) => m.datum !== datum), { datum, kg: kg > 0 ? kg : null, offen: true }]
   .sort((a, b) => a.datum.localeCompare(b.datum));
 
 /** Server-Messwerte übernehmen, lokale offene behalten. */

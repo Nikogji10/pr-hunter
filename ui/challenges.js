@@ -3,7 +3,7 @@
 // der Server aus den gespeicherten Trainings. Bestenliste: aus dem Vergleich (compare_stats) – je Lift das aktuelle e1RM,
 // Total und DOTS, nur Freunde mit Vergleich-Freigabe.
 import { html, useState, useEffect, fmt, gw, einheit, LIFT, Avatar, deEn, datumKurz, I, Sheet, zwischen } from './basis.js';
-import { DIENSTE, HEUTE, plusTage, e1rmWoche } from './stand.js';
+import { DIENSTE, HEUTE, plusTage, mitEigenerForm } from './stand.js';
 import { dots } from '../js/punkte.js';
 import { GruppenFilter, inGruppe } from './gruppen.js';
 
@@ -109,8 +109,7 @@ export function Bestenliste({ gruppen = [] }) {
   if (daten === undefined) return null;
   // 253: die eigene Zeile wie in der Statistik (bestes Wochen-e1RM der letzten 12 Wochen, ohne RPE) – der Server rechnete
   // bis Update 36 mit RPE, daher 609,3 statt 601,1
-  const eigen = (l) => { const w = (e1rmWoche[l] ?? []).slice(-12).filter((v) => v != null); return w.length ? Math.max(...w) : null; };
-  const lifte = (p) => (p.ich ? Object.fromEntries(['squat', 'bench', 'dead'].map((l) => [l, { ...p.lifts[l], aktuell: eigen(l) }])) : p.lifts);
+  const lifte = (p) => mitEigenerForm(p).lifts;
   const total = (p) => (['squat', 'bench', 'dead'].every((l) => lifte(p)[l]?.aktuell != null) ? ['squat', 'bench', 'dead'].reduce((a, l) => a + lifte(p)[l].aktuell, 0) : null);
   const wert = (p) => (kat === 'total' ? total(p) : kat === 'dots' ? (total(p) != null && p.koerpergewicht ? dots(total(p), p.koerpergewicht) : null) : lifte(p)[kat]?.aktuell ?? null);
   const rang = daten.filter((p) => p.ich || inGruppe(gruppen, gruppe, p.id)).map((p) => ({ p, w: wert(p) })).filter((x) => x.w != null).sort((a, b) => b.w - a.w);

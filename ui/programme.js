@@ -68,7 +68,8 @@ const standVon = (art) => {
 };
 const merkeStand = (art) => { try { sessionStorage.setItem(`prh-gen-stand-${art}`, standVon(art)); } catch { /* egal */ } };
 let editorGeaendert = false;                                // 254: Editor mit ungespeicherten Änderungen
-const eingabenDa = (art) => { if (art === 'editor') return editorGeaendert; if (!PRAEFIX[art]) return false; try { return standVon(art) !== (sessionStorage.getItem(`prh-gen-stand-${art}`) ?? '[]'); } catch { return false; } };
+let importText = false;                                     // 264: Import mit eingefügtem Text
+const eingabenDa = (art) => { if (art === 'editor') return editorGeaendert; if (art === 'import') return importText; if (!PRAEFIX[art]) return false; try { return standVon(art) !== (sessionStorage.getItem(`prh-gen-stand-${art}`) ?? '[]'); } catch { return false; } };
 const lies = (k) => { try { return JSON.parse(sessionStorage.getItem(k) ?? 'null'); } catch { return null; } };
 
 export function Programme({ programme, info = {}, block, setBlock, erledigt, toast, zuHeute, einst, setEinst, importieren, sollIst = [], neueMaxeFuer = null, ausdauer = null }) {
@@ -94,7 +95,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   };
   const [verlassen, setVerlassen] = useState(false);
   // Ersteller zu → Warnung zu (beim Zurückspringen zeichnet Preact die Liste, bevor das Fenster sein popstate bekommt)
-  useEffect(() => { if (!ERSTELLER.includes(ansicht?.art) && ansicht?.art !== 'editor') setVerlassen(false); if (ansicht?.art !== 'editor') editorGeaendert = false; }, [ansicht?.art]);
+  useEffect(() => { if (!ERSTELLER.includes(ansicht?.art) && !['editor', 'import'].includes(ansicht?.art)) setVerlassen(false); if (ansicht?.art !== 'editor') editorGeaendert = false; if (ansicht?.art !== 'import') importText = false; }, [ansicht?.art]);
   const ansichtJetzt = useRef(ansicht); ansichtJetzt.current = ansicht;
   // Mehrere Einträge auf einmal zurück (Verwerfen, Speichern): so lange zurück, wie weiterWenn(unter) gilt, dann danach()
   const abwicklung = useRef(null);
@@ -117,7 +118,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       const ziel = e.state?.unter ?? null, art = ansichtJetzt.current?.art ?? null;
       const ab = abwicklung.current;
       if (ab) { if (ab.weiterWenn(ziel)) { history.back(); return; } abwicklung.current = null; ab.danach(ziel, e.state); return; }
-      if (!art && !ziel) { aktuell.current.setBereich(e.state?.progReiter ?? 'kraft'); return; }   // Reiter Kraft/Cardio/Woche
+      if (!art && !ziel) return;                              // Liste (die Reiter haben keine eigenen Einträge, 260)
       if (!art || ziel === art) return;                       // Liste, oder ein Schritt innerhalb derselben Unterseite
       // 254: Zurück abbrechen = vorwärts auf den Eintrag, von dem man kam (ein pushState hier hätte keine Nutzer-Aktion –
       // Chrome würde den Eintrag darunter überspringen und die App beim nächsten Zurück schließen)
@@ -145,21 +146,17 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   };
   const einsteigerWerte = (e) => ({ 'prh-gen-eigen-name': e.name, 'prh-gen-eigen-wochen': 8, 'prh-gen-eigen-schritt': 3,
     'prh-gen-eigen-tage': e.tage.map((t) => ({ name: t.name, uebungen: t.uebungen.map((u) => ({ ...u })) })) });
-  // 239: Reiter Kraft · Cardio · Woche, sobald Ausdauer an ist
-  // Seitlich wischen wie bei Statistik/Feed; von links hereinkommend Kraft, von rechts Woche (App setzt prh-reiter-programme)
-  const [bereichRoh, setBereichRoh] = useState(() => UNTER_VORSCHAU.programme ?? (() => { try { return sessionStorage.getItem('prh-reiter-programme'); } catch { return null; } })() ?? 'kraft');
+  // 261: zwei Reiter – Aktueller Plan (Block, mit Ausdauer auch Woche und Cardio) · Pläne (neu erstellen, Meine Pläne).
+  // Seitlich wischen wie bei Statistik/Feed (App setzt prh-reiter-programme); Reiter ohne Verlaufseintrag (260: Zurück
+  // wechselt nicht zwischen Reitern oder Seiten)
+  const [bereichRoh, setBereichRoh] = useState(() => UNTER_VORSCHAU.programme ?? (() => { try { return sessionStorage.getItem('prh-reiter-programme'); } catch { return null; } })() ?? 'aktuell');
   const setBereich = (k) => { setBereichRoh(k); try { sessionStorage.setItem('prh-reiter-programme', k); } catch { /* egal */ } };
   aktuell.current.setBereich = setBereich;
-  const PROG_REITER = [['kraft', deEn('💪 Kraft', '💪 Strength')], ['cardio', deEn('🏃 Cardio', '🏃 Cardio')], ['woche', deEn('📅 Woche', '📅 Week')]];
-  const mitReitern = !!(einst.ausdauer && ausdauer), bereich = PROG_REITER.some(([k]) => k === bereichRoh) ? bereichRoh : 'kraft';
-  // Reiter mit Verlaufseintrag: Zurück auf Cardio/Woche führt erst zu Kraft, statt die Seite zu verlassen
-  const reiterWahl = (k) => {
-    const st = history.state ?? {};
-    if (k === 'kraft') { if (st.progReiter && !st.unter) history.back(); else setBereich(k); return; }
-    if (st.progReiter) history.replaceState({ ...st, progReiter: k }, ''); else history.pushState({ ...st, progReiter: k }, '');
-    setBereich(k);
-  };
-  useUnterReiter('programme', mitReitern && !ansicht ? PROG_REITER : [], bereich, (k) => { reiterWahl(k); scrollTo({ top: 0 }); });
+  const PROG_REITER = [['aktuell', deEn('Aktueller Plan', 'Current plan')], ['plaene', deEn('Pläne', 'Plans')]];
+  const mitReitern = true, bereich = PROG_REITER.some(([k]) => k === bereichRoh) ? bereichRoh : 'aktuell';
+  const mitCardio = !!(einst.ausdauer && ausdauer);
+  const reiterWahl = (k) => setBereich(k);
+  useUnterReiter('programme', !ansicht ? PROG_REITER : [], bereich, (k) => { reiterWahl(k); scrollTo({ top: 0 }); });
   const planerOeffnen = (ziel = null) => erstellerOeffnen('ziel', ziel ? { 'prh-gen-ziel-wahl': { ziel } } : {});
   const cardioStarten = (a) => {
     if (!a?.plan) return;
@@ -167,7 +164,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
     toast({ titel: deEn('Cardio-Plan gestartet', 'Cardio plan started'), text: deEn(`${a.plan.wochen} Wochen ab ${datumKurz(a.start)}`, `${a.plan.wochen} weeks from ${datumKurz(a.start)}`) });
   };
   const uebergeben = (art, { werte = {}, vorgabe = null, ausstehend = null, id = null } = {}) => {
-    if (art === 'cardio') { abwickeln((z) => !!z, () => { setAnsicht(null); reiterWahl('cardio'); }); return; }
+    if (art === 'cardio') { abwickeln((z) => !!z, () => { setAnsicht(null); reiterWahl('aktuell'); }); return; }
     try { if (ausstehend) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(ausstehend)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ }
     if (art === 'einsteiger') { erstellerOeffnen('eigen', einsteigerWerte(EINSTEIGER.find((e) => e.id === id)), { vonPlaner: true }); return; }
     erstellerOeffnen(art, werte, { vonPlaner: true, vorgabe });
@@ -183,10 +180,6 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       toast({ titel: deEn('Programm gespeichert', 'Programme saved'), text: aus?.plan ? deEn(`${p.name} · Cardio-Plan gestartet`, `${p.name} · cardio plan started`) : p.name });
     } catch (e) { toast({ titel: 'Nicht gespeichert', text: e.message }); }
   };
-  // 250: Import mit Cardio – Kraftteil wird Programm, Cardio wartet bis zum Speichern (bzw. startet sofort bei nur Cardio)
-  if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} ausdauerAlt=${einst.ausdauer}
-    speichern=${(p, aus) => { try { if (aus) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(aus)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ } speichernNeu(p, { quelle: 'import' }); }}
-    cardioNur=${(aus) => { cardioStarten(aus); uebergeben('cardio'); }}/>`;
   // Verwerfen: zurück bis unter dieser Unterseite (das schließt auch das Fenster), dann verlassen
   const verwerfen = () => { const art = ansicht?.art; abwickeln((z) => z === art, (z, st) => weg(art, z, st)); };
   const warnung = verlassen ? html`<${Sheet} zu=${() => setVerlassen(false)} label=${deEn('Eingaben verwerfen', 'Discard input')}>
@@ -195,6 +188,10 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       <div class="row"><button class="btn btn-soft" style="flex:1" onClick=${() => setVerlassen(false)}>${deEn('Weiter bearbeiten', 'Keep editing')}</button>
         <button class="btn btn-gefahr" style="flex:1" onClick=${verwerfen}>${deEn('Verwerfen', 'Discard')}</button></div>
     <//>` : null;
+  // 250: Import mit Cardio – Kraftteil wird Programm, Cardio wartet bis zum Speichern (bzw. startet sofort bei nur Cardio)
+  if (ansicht?.art === 'import') return html`<${Import} zurueck=${zurListe} ausdauerAlt=${einst.ausdauer}
+    speichern=${(p, aus) => { try { if (aus) sessionStorage.setItem(AUSSTEHEND, JSON.stringify(aus)); else sessionStorage.removeItem(AUSSTEHEND); } catch { /* egal */ } speichernNeu(p, { quelle: 'import' }); }}
+    cardioNur=${(aus) => { cardioStarten(aus); uebergeben('cardio'); }}/>${warnung}`;
   if (ansicht?.art === 'ziel') return html`<${Planer} zurueck=${zurListe} abbrechen=${() => (eingabenDa('ziel') ? setVerlassen(true) : verwerfen())} einst=${einst} block=${block} blockName=${block ? INFO[block.datei]?.kurz ?? '' : ''}
     ausdauer=${ausdauer ?? {}} uebergeben=${uebergeben} cardioStarten=${cardioStarten} setZurueck=${(f) => { planerZurueck = f; }}/>${warnung}`;
   // 255: Generatoren geben ihre Woche an den eigenen Plan weiter (Zurück führt wieder in den Generator)
@@ -219,14 +216,14 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
       // mit Cardio-Plan: gleich die Wochenübersicht (Kraft und Cardio Woche für Woche), sonst zu Heute
       const mitCardio = !!(einst.ausdauer && einst.ausdauerPlan);
       toast({ titel: 'Block gestartet', text: mitCardio ? deEn('Hier deine Wochen mit Kraft und Cardio – Tage antippen zum Ändern.', 'Here are your weeks with strength and cardio – tap a day to change it.') : `${INFO[b.datei].kurz} ab ${datumKurz(b.start)}` });
-      abwickeln((z) => !!z, () => { setAnsicht(null); if (mitCardio) reiterWahl('woche'); else zuHeute(); }); }}/>`;
+      abwickeln((z) => !!z, () => { setAnsicht(null); if (mitCardio) reiterWahl('aktuell'); else zuHeute(); }); }}/>`;
   const aktivTage = block ? blockTage(programme[block.datei], { ...block, cut: einst.cut }) : [];
   const wochen = wochenListe(aktivTage);
   // Stand: erledigt laut Soll-Ist (zählt auch Trainings ohne Planbezug), sonst die aus dem Plan gestarteten
   const erledigtZahl = sollIst.length ? sollIst.reduce((a, z) => a + z.erledigt, 0) : aktivTage.filter((t) => erledigt.has(t.datum)).length;
   const naechsterTag = aktivTage.find((t) => t.datum >= HEUTE);
   const aktWoche = naechsterTag ? wochen.indexOf(naechsterTag.woche) + 1 : wochen.length;
-  const reiter = mitReitern, teil = reiter ? bereich : 'kraft';
+  const reiter = mitReitern, teil = bereich;
   const eigene = Object.keys(programme).filter((d) => d.startsWith('prog:') || d.startsWith('import:'));
   const vorlagen = Object.keys(programme).filter((d) => !eigene.includes(d));
   const karte = (datei) => {
@@ -244,9 +241,7 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
   return html`<div class="screen modern">
     <header class="topbar"><div><div class="eyebrow">Blöcke und Vorlagen</div><h1 class="h1">Programme</h1></div>${DEMO ? html`<span class="proto">Demo</span>` : null}</header>
     ${reiter ? html`<div class="seg prog-reiter" role="tablist">${PROG_REITER.map(([k, n]) => html`<button key=${k} role="tab" aria-pressed=${String(teil === k)} onClick=${() => reiterWahl(k)}>${n}</button>`)}</div>` : null}
-    ${teil === 'cardio' ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} plan=${ausdauer.plan} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}
-    ${teil === 'woche' ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} setEinst=${setEinst} kraftVerschieben=${ausdauer.kraftVerschieben} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen()}/>` : null}
-    ${teil !== 'kraft' ? null : html`
+    ${teil !== 'aktuell' ? null : html`
     ${block ? html`<section class="card pad stack aktiv-block">
       <div class="row between"><span class="status-aktiv"><i></i>Aktiv</span>${einst.cut ? html`<span class="tag">Cut-Modus</span>` : null}</div>
       <div><h2 class="h2 ab-name">${INFO[block.datei].kurz}</h2>
@@ -260,8 +255,11 @@ export function Programme({ programme, info = {}, block, setBlock, erledigt, toa
         start: aktivTage.length ? plusTage(aktivTage.at(-1).datum, 3) : HEUTE })}/>
       <div class="row"><button class="btn btn-chalk btn-sm" style="flex:1" onClick=${() => oeffne({ art: 'detail', datei: block.datei })}>Plan ansehen</button>
         <button class="btn btn-gefahr btn-sm" onClick=${() => setBeenden(true)}>Block beenden</button></div>
-    </section>` : html`<section class="card pad"><p style="margin:0">Kein aktiver Block. Erstelle unten einen neuen Plan.</p></section>`}
-    ${/* Seite einfach halten: ein Knopf „Neuen Plan erstellen“ fragt erst dann nach dem Weg; Meine Pläne und Vorlagen zugeklappt */ ''}
+    </section>` : html`<section class="card pad stack"><p style="margin:0">${deEn('Kein aktiver Block.', 'No active block.')}</p>
+      <button class="btn btn-chalk btn-sm" onClick=${() => { reiterWahl('plaene'); scrollTo({ top: 0 }); }}>${deEn('Plan wählen oder erstellen', 'Choose or create a plan')}</button></section>`}
+    ${mitCardio ? html`<${WochenKarte} plan=${ausdauer.plan} planTage=${ausdauer.planTage ?? []} kraftTag=${ausdauer.kraftTag} beinTag=${ausdauer.beinTag} liste=${ausdauer.liste} einst=${einst} setEinst=${setEinst} kraftVerschieben=${ausdauer.kraftVerschieben} eintragen=${ausdauer.eintragen} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}
+    ${mitCardio ? html`<${AusdauerPlanKarte} einst=${einst} setEinst=${setEinst} liste=${ausdauer.liste} plan=${ausdauer.plan} eintragen=${ausdauer.eintragen} zuUebung=${ausdauer.zuUebung} neu=${() => planerOeffnen(block ? 'block' : 'cardio')}/>` : null}`}
+    ${teil !== 'plaene' ? null : html`
     <${GeteiltePlaene} speichernNeu=${speichernNeu} toast=${toast}/>
     <h2 class="abschnitt-titel">Neuer Plan</h2>
     ${/* 255: drei Wege für Kraft und Muskelaufbau, Cardio als eigener Weg */ ''}
@@ -487,6 +485,7 @@ const mitSport = (alt, neu) => (!alt ? neu : alt === 'beides' || alt === neu ? a
 function Import({ zurueck, speichern, cardioNur, ausdauerAlt = null }) {
   const [art, setArt] = useState('csv');
   const [text, setText] = useState('');
+  importText = text.trim().length > 0;                        // 264: Zurück fragt nach, solange Text eingefügt ist
   const [ergebnis, setErgebnis] = useState(null);
   const [kopiert, setKopiert] = useState(null);
   // 250: was der Plan enthält – Kraft (Kategorie) und/oder Cardio

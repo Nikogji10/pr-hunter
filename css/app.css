@@ -1606,8 +1606,9 @@ input.text:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3p
 .gw-liste > summary::-webkit-details-marker { display: none; }
 .gw-liste[open] > summary .woche-pfeil { transform: rotate(90deg); }
 .gw-liste ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
-.gw-liste li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
-.gw-liste li small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.gw-liste li { border-top: 1px solid var(--line); }
+.gw-zeile { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 8px 0; font: inherit; font-size: 14px; color: inherit; background: none; border: 0; text-align: left; }
+.gw-zeile small { font-size: 12px; font-weight: 700; color: var(--muted); }
 /* Zu- und Abnahme neutral: ob gut oder schlecht, hängt vom Ziel ab (Aufbau oder Cut) */
 .gw-seg button { font-size: 12px; padding: 0 10px; min-height: 30px; }
 .gw-held-zahl { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -2552,7 +2553,8 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .pl-zaehler { font-size: 13px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .pl-fortschritt { height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; margin: -4px 2px 0; }
 .pl-fortschritt i { display: block; height: 100%; border-radius: inherit; background: var(--acc); transition: width .25s ease; }
-.pl-karte { display: flex; flex-direction: column; gap: 14px; padding: 18px 16px; border-radius: 20px; background: color-mix(in srgb, var(--raised) 82%, transparent); border: 1px solid var(--line); }
+.pl-karte { display: flex; flex-direction: column; gap: 14px; padding: 18px 16px; border-radius: 20px; background: var(--karte); border: 1px solid var(--kante, var(--line)); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
 .pl-frage { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; text-transform: none; }
 .pl-unter { margin: -6px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
 .pl-zwischen { margin: 4px 0 0; font-size: 15px; font-weight: 650; }

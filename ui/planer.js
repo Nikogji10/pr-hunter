@@ -112,7 +112,7 @@ export function Planer({ zurueck, abbrechen, einst, block = null, blockName = ''
   const inhalt = {
     ziel: html`${frage(L('Was willst du erreichen?', 'What do you want to achieve?'))}
       <div class="pl-optionen">
-        ${ZIELE_KRAFT.filter(([z]) => z !== 'powerlifting' || einst.trainingsart !== 'einfach').map(([z, icon, titel, text]) => html`<${Option} key=${z} aktiv=${w.ziel === z} icon=${icon} titel=${L(...titel)} text=${L(...text)}
+        ${ZIELE_KRAFT.filter(() => false).map(([z, icon, titel, text]) => html`<${Option} key=${z} aktiv=${w.ziel === z} icon=${icon} titel=${L(...titel)} text=${L(...text)}
           onClick=${() => setze({ ziel: z, cardio: null, woche: null, fokus: null, nKraft: z === 'einfach' ? 3 : 4 })}/>`)}
         ${block ? html`<${Option} aktiv=${zumBlock} icon="➕" titel=${L(`Cardio zu „${blockName}“`, `Cardio for “${blockName}”`)} text=${L('Dein Block bleibt, Cardio kommt drumherum', 'Your block stays, cardio goes around it')}
           onClick=${() => setze({ ziel: 'block', cardio: null, woche: null, fokus: null })}/>` : null}

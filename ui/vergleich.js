@@ -3,7 +3,7 @@
 import { html, useState, useEffect, useRef, fmt, gw, gwE, einheit, LIFT, datumLang, datumKurz, speicher, ZahlFeld, Avatar, I, deEn } from './basis.js';
 import { zielprognose, trendAm } from '../js/auswertung.js';
 import { dots } from '../js/punkte.js';
-import { DIENSTE, wochen, e1rmWoche, HEUTE } from './stand.js';
+import { DIENSTE, wochen, e1rmWoche, HEUTE, mitEigenerForm } from './stand.js';
 import { HAUPT } from '../js/daten.js';
 import { mround } from '../js/rechnen.js';
 
@@ -74,7 +74,8 @@ export function Vergleich({ freigegeben, ausgeblendet = [] }) {
   if (daten.fehler) return html`<section class="card pad stack">${kopf}<p class="fehler">${daten.fehler}</p></section>`;
   // je Freund in „Freunde“ ausgeblendet → gar nicht erst anbieten
   const freunde = daten.filter((p) => !p.ich && !ausgeblendet.includes(p.id));
-  const personen = daten.filter((p) => p.ich || (!aus.includes(p.id) && !ausgeblendet.includes(p.id)));
+  // 253: deine Spalte wie Statistik und Bestenliste (12 Wochen ohne RPE), nicht vom Server
+  const personen = daten.filter((p) => p.ich || (!aus.includes(p.id) && !ausgeblendet.includes(p.id))).map(mitEigenerForm);
   if (daten.length < 2) return html`<section class="card pad stack">${kopf}
     <p class="muted" style="margin:0;font-size:14px">Noch keine Freunde im Vergleich.</p></section>`;
   const total = (p) => (LIFTS.every((l) => p.lifts[l]?.aktuell != null) ? LIFTS.reduce((a, l) => a + p.lifts[l].aktuell, 0) : null);

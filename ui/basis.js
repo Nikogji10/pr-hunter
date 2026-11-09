@@ -554,8 +554,14 @@ export function ansichtEintragen(st, url) {
   if (mitNutzerAktion()) history.pushState(st, '', url);
   else history.replaceState(history.state?.wurzel ? { ...st, wurzel: true } : st, '', url);
 }
+// 260: auf einer Hauptseite (Reiter unten) bleibt Zurück auf der Seite – es führt nicht in andere Reiter oder früher
+// geöffnete Seiten. Innerhalb der Seite (Unterseiten, Fenster) geht Zurück wie gewohnt.
+const HAUPTSEITEN = new Set(['heute', 'programme', 'verlauf', 'feed', 'statistik']);
+let ansichtJetzt = null;
+export const setzeAnsichtJetzt = (a) => { ansichtJetzt = a; };
 addEventListener('popstate', (e) => {
   if (still > 0) { still--; e.stopImmediatePropagation(); return; }
+  if (!ohneEintrag.length && HAUPTSEITEN.has(ansichtJetzt) && e.state?.ansicht && e.state.ansicht !== ansichtJetzt) { e.stopImmediatePropagation(); zurueckAbbrechen(); return; }
   if (ohneEintrag.length) { e.stopImmediatePropagation(); const zu = ohneEintrag.pop(); zurueckAbbrechen(); zu(); return; }
   // unterste Ebene (Schutz-Eintrag beim ersten Antippen): nie aus der App, zurück auf die Ansicht darüber
   if (e.state?.wurzel) { e.stopImmediatePropagation(); zurueckAbbrechen(); }

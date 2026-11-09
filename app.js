@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, uebung, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU, zurueckAbbrechen, ansichtEintragen } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, uebung, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU, zurueckAbbrechen, ansichtEintragen, setzeAnsichtJetzt } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -857,6 +857,7 @@ function App() {
     return erstelleStand([...trainings.filter((x) => x.id !== w.id), w], { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' });
   }, [laufendSig, trainings, messwerte, heute, einst.formel]);
   if (stand) setzeStand(standLive ?? stand);
+  setzeAnsichtJetzt(ansicht);
   // Bis die Einstellungen geladen sind (in der Demo: bis man etwas ändert) gilt die gemerkte Sprache – wie bei der
   // Übersetzung der Oberfläche, sonst stünden Übungsnamen, Zahlen und Datum kurz (Demo: dauerhaft) in der anderen Sprache
   setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton, vibration: einst.vibration,
@@ -1069,7 +1070,7 @@ function App() {
   useEffect(() => {
     const i = TABS.findIndex(([k]) => k === ansicht);
     if (i < 0) return;
-    for (const [k, erster, letzter] of [['feed', 'feed', 'challenges'], ['statistik', 'profil', 'koerper'], ['programme', 'kraft', 'woche']]) {
+    for (const [k, erster, letzter] of [['feed', 'feed', 'challenges'], ['statistik', 'profil', 'koerper'], ['programme', 'aktuell', 'plaene']]) {
       const j = TABS.findIndex(([x]) => x === k);
       if (j !== i) try { sessionStorage.setItem(`prh-reiter-${k}`, j > i ? erster : letzter); } catch { /* egal */ }
     }
@@ -1534,6 +1535,13 @@ function App() {
   const infoSetzen = async (inf) => { setInfo(inf); if (!DEMO) await sp.current.setzeMeta('programme', inf); };
   setzeDienste({
     meldung: setToast,
+    // 265: Körpergewicht eines Tages ändern oder löschen (kg null)
+    gewichtAendern: (datum, kg) => {
+      if (DEMO) { setToast({ titel: 'Nur mit Konto', text: 'In der Demo bleiben die Beispielwerte.' }); return; }
+      const me = konto.setzeMesswert(messwerte, datum, kg);
+      setMesswerte(me); sp.current.setzeMeta('messwerte', me).then(abgleich);
+      setToast({ titel: kg > 0 ? deEn('Gewicht geändert', 'Weight changed') : deEn('Eintrag gelöscht', 'Entry deleted'), text: datumLang(datum) });
+    },
     ladeReaktionen: DEMO ? null : (ids) => konto.ladeReaktionen(supabase(), ids),
     liken: DEMO ? null : (id, an) => konto.liken(supabase(), id, an),
     kommentieren: DEMO ? null : (id, text) => konto.kommentieren(supabase(), id, text),

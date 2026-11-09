@@ -217,7 +217,7 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
     return { wdh: beste, e1rm: top ? { wert: top[1], datum: top[0], satz: top[2] } : null };
   };
 
-  const gewichte = [...messwerte, ...sortiert.filter((t) => t.koerpergewicht > 0).map((t) => ({ datum: t.datum, kg: t.koerpergewicht }))]
+  const gewichte = [...messwerte.filter((m) => m.kg > 0), ...sortiert.filter((t) => t.koerpergewicht > 0).map((t) => ({ datum: t.datum, kg: t.koerpergewicht }))]
     .filter((m) => m.kg > 0 && m.datum <= heute).sort((a, b) => a.datum.localeCompare(b.datum));
   return {
     HEUTE: heute, URLAUB: urlaub, wochen, e1rmWoche, volumenWoche, trainingsTage, REKORDE, PR_FEED, LETZTES, BEST_E1RM, E1RM_AKTUELL, ZULETZT, E1RM_QUELLE, AUSRUESTUNG,
