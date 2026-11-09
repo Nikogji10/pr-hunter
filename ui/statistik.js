@@ -1,6 +1,6 @@
 // PR Hunter · Statistik. Ein Zeitraumfilter oben gilt für alles darunter (Belastung: höchstens 26 Wochen).
 // Gerechnet wird mit den getesteten Funktionen aus js/auswertung.js; Daten aus ui/stand.js (echt oder Demo).
-import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache, liftVon } from './basis.js';
+import { html, useState, fmt, gw, gwE, einheit, inAnzeige, LIFT, liftName, deEn, I, datumKurz, datumLang, uebung, MUSKEL_DE, speicher, nameVon, useUnterReiter, UNTER_VORSCHAU, sprache, liftVon } from './basis.js';
 import { e1rm } from '../js/rechnen.js';
 import { dots, ipfGl } from '../js/punkte.js';
 import { kraftprofil, inol, harteSaetzeJeMuskel, fosterWoche, sessionLast, plateau, INOL_RICHTWERT, gewichtImZeitraum, ANTEIL_GESCHAETZT,
@@ -368,6 +368,12 @@ function KoerperStatistik({ x, werte, von, ziel }) {
       <div class="kachel"><span class="l">Tiefster</span><b>${gw(g.min, 1)}</b><span class="muted" style="font-size:12px">${einheit()}</span></div>
       <div class="kachel"><span class="l">Höchster</span><b>${gw(g.max, 1)}</b><span class="muted" style="font-size:12px">${einheit()}</span></div>
     </div>` : null}
+    ${mess.length ? html`<details class="card pad gw-liste">
+      <summary><span>${deEn('Alle Einträge', 'All entries')}</span><span class="muted">${mess.length}</span><span class="woche-pfeil" aria-hidden="true">${I.weiter}</span></summary>
+      <ul>${[...mess].reverse().map((m, i, l) => { const d = l[i + 1] ? m.kg - l[i + 1].kg : null;
+        return html`<li key=${m.datum}><span>${datumLang(m.datum)}</span>${d != null && Math.abs(d) >= 0.05 ? html`<small class=${d > 0 ? 'auf' : 'ab'}>${vz(d)}</small>` : html`<small></small>`}
+          <b class="tab-num">${`${gw(m.kg, 1)} ${einheit()}`}</b></li>`; })}</ul>
+    </details>` : null}
   </section>`;
 }
 

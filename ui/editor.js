@@ -50,10 +50,12 @@ function Gruppe({ g, setze, entfernen, namen, std = null }) {
   </div>`;
 }
 
-export function Editor({ datei, programm, start = null, zurueck, toast }) {
+export function Editor({ datei, programm, start = null, zurueck, toast, ungespeichert = () => {} }) {
   const [def, setDef] = useState(() => structuredClone(programm));
   const [wi, setWi] = useState(0);
-  const [geaendert, setGeaendert] = useState(false);
+  const [geaendert, setGeaendertRoh] = useState(false);
+  // 254: Programme fragt beim Zurück (auch Handy-Taste) nach, solange hier etwas nicht gespeichert ist
+  const setGeaendert = (v) => { setGeaendertRoh(v); ungespeichert(v); };
   const [sheet, setSheet] = useState(null);       // { art: 'tausch' | 'neu', di, ii } | { art: 'speichern' | 'verwerfen' | 'woche-weg' }
   const [speichert, setSpeichert] = useState(false);
   const [stand, setStand] = useState(0);

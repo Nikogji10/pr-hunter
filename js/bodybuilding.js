@@ -1,6 +1,6 @@
 // PR Hunter · Bodybuilding-Generator (Wunsch 98): Split wählen, je Muskelgruppe zwei Übungen, Trainingstage pro Woche.
 // Aufbau wie in gängigen Hypertrophie-Blöcken (z. B. Renaissance Periodization, Jeff Nippard): 10–20 harte Sätze je
-// Muskel und Woche, jede Gruppe möglichst 2× pro Woche, Grundübungen 6–10 Wdh, Isolationen 10–15 Wdh.
+// Muskel und Woche, jede Gruppe möglichst 2× pro Woche, Grundübungen 6–10 Wdh, Isolationen 8–12 Wdh (Niko, 09.11.).
 // Block: Grundübungen steigern die RPE von 7–8 (W1) bis 9–9,5 (letzte Woche) – RPE 10 nur an Maschinen; Isolationen
 // immer RPE 9, letzter Satz bis 10 (Nikos Vorgabe). Danach Deload: halbe Sätze, RPE 6–7. Gewichte setzt die App beim
 // Training aus RPE + bestem e1RM (keine Maxe nötig).
@@ -48,9 +48,13 @@ const art = (gruppe, key, arten = {}) => MUSKELGRUPPEN[gruppe].uebungen.find(([k
 export const SAETZE_SPANNE = [4, 22];
 export const saetzeVon = (g, e = {}) => Math.min(SAETZE_SPANNE[1], Math.max(SAETZE_SPANNE[0], Number(e.saetze?.[g]) || MUSKELGRUPPEN[g].saetze));
 
+/** 255: Split aus Schlüssel oder eigenem Split (e.eigenerSplit = [[Name, [Gruppen]], …]). */
+export const splitVon = (split, eigenerSplit = null) => (split === 'eigen' && eigenerSplit?.length
+  ? { name: 'Eigener Split', text: '', tage: eigenerSplit.map(([n, g]) => [n, g.filter((x) => MUSKELGRUPPEN[x])]) } : SPLITS[split] ?? SPLITS.ppl);
+
 /** Wie oft jede Muskelgruppe pro Woche drankommt (bei gegebenem Split und Tagen). */
-export function haeufigkeit(split, tageProWoche) {
-  const s = SPLITS[split], h = {};
+export function haeufigkeit(split, tageProWoche, eigenerSplit = null) {
+  const s = splitVon(split, eigenerSplit), h = {};
   for (let i = 0; i < tageProWoche; i++) for (const g of s.tage[i % s.tage.length][1]) h[g] = (h[g] ?? 0) + 1;
   return h;
 }
@@ -62,9 +66,9 @@ export function haeufigkeit(split, tageProWoche) {
  * Rückgabe: Programm im App-Format (ohne Maxe; Gewichte kommen beim Training aus RPE + e1RM).
  */
 export function generiereBodybuilding(e) {
-  const split = SPLITS[e.split] ?? SPLITS.ppl, tage = Math.min(6, Math.max(2, e.tage ?? 4)), wochen = Math.min(6, Math.max(4, e.wochen ?? 4));
+  const split = splitVon(e.split, e.eigenerSplit), tage = Math.min(6, Math.max(2, e.tage ?? 4)), wochen = Math.min(6, Math.max(4, e.wochen ?? 4));
   const auswahl = { ...standardAuswahl(), ...(e.auswahl ?? {}) };
-  const h = haeufigkeit(e.split ?? 'ppl', tage);
+  const h = haeufigkeit(e.split ?? 'ppl', tage, e.eigenerSplit);
   const offsets = WOCHENTAGE[tage];
   const weeks = [];
   const vorkommen = {};                                          // wie oft eine Gruppe bisher dran war (über alle Wochen)
@@ -87,7 +91,7 @@ export function generiereBodybuilding(e) {
           const saetze = deload ? Math.max(1, Math.ceil(jeUebung / 2)) : jeUebung;
           const rpe = deload ? 'RPE 6-7' : grund ? `RPE ${spitze && maschine ? '9.5-10' : RPE_GRUND[wochen][w]}` : `RPE ${spitze ? '10' : '9'}`;
           const note = deload ? 'Deload – locker, Technik' : !grund && !spitze ? 'Letzter Satz bis RPE 10' : null;
-          return { exercise_key: key, role: null, groups: [{ sets: String(saetze), reps: grund ? '6-10' : '10-15', rpe, ...(note ? { note } : {}) }] };
+          return { exercise_key: key, role: null, groups: [{ sets: String(saetze), reps: grund ? '6-10' : '8-12', rpe, ...(note ? { note } : {}) }] };
         });
       });
       return { offset: w * 7 + off, label, items };
@@ -98,6 +102,6 @@ export function generiereBodybuilding(e) {
     id: `bodybuilding-${Date.now()}`, name: e.name || `${split.name} ${tage}×/Woche`,
     source: 'Bodybuilding-Generator: 10–20 Sätze je Muskel/Woche, RPE-Steigerung, Deload', kategorie: 'bodybuilding',
     inputs: [], weeks, settings: { cut_mode: { reduce_sets: 1, min_sets: 1 } },
-    rules: { bodybuilding: { split: e.split ?? 'ppl', tage, wochen, deload: e.deload !== false, auswahl, ...(e.saetze ? { saetze: e.saetze } : {}) } },
+    rules: { bodybuilding: { split: e.split ?? 'ppl', tage, wochen, deload: e.deload !== false, auswahl, ...(e.saetze ? { saetze: e.saetze } : {}), ...(e.split === 'eigen' ? { eigenerSplit: e.eigenerSplit } : {}) } },
   };
 }

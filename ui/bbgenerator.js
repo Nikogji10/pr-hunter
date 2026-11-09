@@ -1,6 +1,7 @@
 // PR Hunter · Bodybuilding-Generator (Wunsch 98): Schritt für Schritt – 1. Split, 2. je Muskelgruppe zwei Übungen,
 // 3. Tage pro Woche und Blocklänge, 4. Vorschau der ersten Woche → als eigenes Programm speichern. Logik in js/bodybuilding.js.
 import { html, useState, useEffect, I, nameVon, UebungsBild, uebung, useSitzung, deEn } from './basis.js';
+import { useRef } from '../vendor/htm-preact.js';
 import { UebungSuche, ISO_FAMILIEN } from './suche.js';
 import { MiniFigur } from './koerper.js';
 import { kraftVorschlaege } from '../js/ausdauerplan.js';
@@ -10,7 +11,7 @@ import { sportarten } from '../js/ausdauer.js';
 const ZONE_VON = { brust: 'brust', ruecken: 'latissimus', schulter: 'schulter_vorn', hintere_schulter: 'schulter_hinten', bizeps: 'bizeps', trizeps: 'trizeps',
   quads: 'quadrizeps', beinbeuger: 'beinbeuger', gesaess: 'gesaess', waden: 'waden', bauch: 'bauch' };
 const artAus = (key) => { const e = uebung(key); if (!e) return ''; return `${ISO_FAMILIEN.has(e.f) ? '' : 'g'}${['machine', 'cable'].includes(e.eq) ? 'm' : ''}`; };
-import { SPLITS, MUSKELGRUPPEN, standardAuswahl, haeufigkeit, generiereBodybuilding, saetzeVon, SAETZE_SPANNE } from '../js/bodybuilding.js';
+import { SPLITS, MUSKELGRUPPEN, standardAuswahl, haeufigkeit, generiereBodybuilding, saetzeVon, SAETZE_SPANNE, splitVon } from '../js/bodybuilding.js';
 
 const TAGE_STANDARD = { ppl: 6, ul: 4, gk: 3, bro: 5 };
 
@@ -65,9 +66,14 @@ const ordne = (g, liste, zu) => {
   return [...new Set([...aus, ...liste])];
 };
 
-export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
+// 255: eigener Split – Tage benennen, je Tag Muskelgruppen wählen
+const EIGEN_START = [['Tag A', ['brust', 'schulter', 'trizeps']], ['Tag B', ['ruecken', 'hintere_schulter', 'bizeps']], ['Tag C', ['quads', 'beinbeuger', 'gesaess', 'waden']]];
+const BUCHSTABE = 'ABCDEF';
+
+export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null, anpassen = null }) {
   const sports = sportarten(ausdauer);   // 238: bei Hybrid Läufer-/Radfahrer-Übungen mit vorschlagen
   const [split, setSplit] = useSitzung('prh-gen-bb-split', 'ppl');
+  const [eigenerSplit, setEigenerSplit] = useSitzung('prh-gen-bb-eigensplit', EIGEN_START);
   const [tage, setTage] = useSitzung('prh-gen-bb-tage', 6);
   const [vorgabe] = useSitzung('prh-gen-bb-vorgabe', null);           // aus dem Planer: Tage pro Woche stehen fest
   const [wochen, setWochen] = useSitzung('prh-gen-bb-wochen', 4);
@@ -80,10 +86,19 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
   const [seite, setSeite] = useSitzung('prh-gen-bb-seite', 0);           // Schritt 2: welche Muskelgruppe gerade dran ist
   const [teilVon, setTeilVon] = useSitzung('prh-gen-bb-teile', {});       // per Suche gewählte Übung → Teilbereich
   const [saetze, setSaetze] = useSitzung('prh-gen-bb-saetze', {});         // 145: harte Sätze je Woche je Gruppe (leer = Richtwert)
-  const gruppen = [...new Set(SPLITS[split].tage.flatMap(([, g]) => g))];
-  const h = haeufigkeit(split, tage);
+  const S = splitVon(split, eigenerSplit);
+  const gruppen = [...new Set(S.tage.flatMap(([, g]) => g))];
+  const h = haeufigkeit(split, tage, eigenerSplit);
   const arten = Object.fromEntries(Object.values(auswahl).flat().map((k) => [k, artAus(k)]));
-  const p = generiereBodybuilding({ name: name.trim(), split, tage, wochen, deload, auswahl, arten, saetze });
+  const p = generiereBodybuilding({ name: name.trim(), split, tage, wochen, deload, auswahl, arten, saetze, eigenerSplit });
+  const splitLeer = split === 'eigen' && eigenerSplit.some(([, g]) => !g.length);
+  const eigenAnzahl = (n) => setEigenerSplit(Array.from({ length: n }, (_, i) => eigenerSplit[i] ?? [`Tag ${BUCHSTABE[i]}`, []]));
+  const eigenTag = (i, f) => setEigenerSplit(eigenerSplit.map((x, j) => (j === i ? f(x) : x)));
+  // 255: Woche 1 als Musterwoche in den eigenen Plan – dort frei anpassen, Progression Bodybuilding bleibt
+  const zumPlan = () => anpassen?.({ 'prh-gen-eigen-name': name.trim() || p.name, 'prh-gen-eigen-wochen': wochen + (deload ? 1 : 0), 'prh-gen-eigen-schritt': 2,
+    'prh-gen-eigen-modus': 'bb', 'prh-gen-eigen-abschluss': deload ? 'deload' : 'keiner',
+    'prh-gen-eigen-tage': woche1.days.map((d) => ({ name: d.label, wt: d.offset, uebungen: d.items.map((x) => ({ key: x.exercise_key, saetze: x.groups[0].sets,
+      wdh: x.groups[0].reps, rpe: '', prog: 'bb', iso: !(arten[x.exercise_key] ?? '').includes('g') })) })) });
   const stelle = (g, d) => setSaetze({ ...saetze, [g]: Math.min(SAETZE_SPANNE[1], Math.max(SAETZE_SPANNE[0], saetzeVon(g, { saetze }) + d)) });
   const woche1 = p.weeks[0];
   // Kachel antippen: gewählte abwählen (auch alle), sonst hinzufügen – mehr als zwei wechseln sich in den Trainings ab
@@ -120,7 +135,19 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
     <${Schritte} schritt=${schritt} namen=${SCHRITTE}/>
     ${schritt === 1 ? html`<section class="card pad stack"><div class="schritt-kopf"><span class="rechner-nr">1</span><span class="viz-t">Split wählen</span></div>
       <div class="split-wahl">${Object.entries(SPLITS).map(([k, s]) => html`<button key=${k} class="split-karte" aria-pressed=${String(split === k)}
-        onClick=${() => { setSplit(k); if (!vorgabe) setTage(TAGE_STANDARD[k]); }}><b>${s.name}</b><span>${s.text}</span></button>`)}</div></section>` : null}
+        onClick=${() => { setSplit(k); if (!vorgabe) setTage(TAGE_STANDARD[k]); }}><b>${s.name}</b><span>${s.text}</span></button>`)}
+        <button class="split-karte" aria-pressed=${String(split === 'eigen')} onClick=${() => { setSplit('eigen'); if (!vorgabe) setTage(Math.min(6, Math.max(2, eigenerSplit.length))); }}>
+          <b>Eigener Split</b><span>Tage selbst benennen und je Tag die Muskelgruppen wählen</span></button></div>
+      ${split === 'eigen' ? html`<div class="stack eigen-split">
+        <span class="eyebrow">Tage im Split</span>
+        <div class="seg" role="group" aria-label="Tage im Split">${[2, 3, 4, 5, 6].map((n) => html`<button key=${n} aria-pressed=${String(eigenerSplit.length === n)}
+          onClick=${() => { eigenAnzahl(n); if (!vorgabe) setTage(n); }}>${n}</button>`)}</div>
+        ${eigenerSplit.map(([n, g], i) => html`<div key=${i} class="es-tag">
+          <input class="text" type="text" aria-label=${deEn(`Name Tag ${i + 1}`, `Name day ${i + 1}`)} value=${n} onInput=${(e) => { const v = e.currentTarget.value; eigenTag(i, ([, x]) => [v, x]); }}/>
+          <div class="chips-zeile">${Object.entries(MUSKELGRUPPEN).map(([k, m]) => html`<button key=${k} class="chip" aria-pressed=${String(g.includes(k))}
+            onClick=${() => eigenTag(i, ([nn, x]) => [nn, x.includes(k) ? x.filter((y) => y !== k) : Object.keys(MUSKELGRUPPEN).filter((y) => y === k || x.includes(y))])}>${m.name}</button>`)}</div>
+          ${g.length ? null : html`<span class="warn-text" style="font-size:12px">Mindestens eine Muskelgruppe wählen.</span>`}</div>`)}
+      </div>` : null}</section>` : null}
 
     ${schritt === 2 ? html`<div class="bb-fortschritt" aria-label=${`Muskelgruppe ${si + 1} von ${seiten.length}`}>
         ${seiten.map((s, i) => html`<button key=${s.id} class=${i < si ? 'ok' : i === si ? 'jetzt' : ''} disabled=${i >= si} onClick=${() => springe(i)} aria-label=${s.name}><i></i></button>`)}</div>
@@ -168,10 +195,12 @@ export function BodybuildingGenerator({ zurueck, speichern, ausdauer = null }) {
       <label class="field" for="bb-name"><span class="label">Name (optional)</span>
         <input id="bb-name" class="text" type="text" placeholder=${p.name} value=${name} onInput=${(e) => setName(e.currentTarget.value)}/></label>
       <button class="btn btn-chalk btn-block" onClick=${() => speichern(p, { quelle: 'generator' })}>Als eigenes Programm speichern</button>
-      <span class="muted" style="font-size:12.5px">Danach lässt es sich ansehen, bearbeiten und als Block starten.</span>
+      ${anpassen ? html`<button class="btn btn-soft btn-block" onClick=${zumPlan}>Im Plan anpassen</button>
+        <span class="muted" style="font-size:12.5px">Übernimmt Woche 1 als Musterwoche: Übungen tauschen, hinzufügen, Sätze ändern – die Steigerung (Wdh-Bereich + RPE) bleibt. Mehr als zwei Übungen je Muskel wechseln sich dort nicht mehr ab.</span>`
+        : html`<span class="muted" style="font-size:12.5px">Danach lässt es sich ansehen, bearbeiten und als Block starten.</span>`}
     </section>` : null}
     <div class="row schritt-knoepfe">${schritt > 1 ? html`<button class="btn btn-soft" style="flex:1" onClick=${schritt === 2 ? seiteZurueck : zurueckSchritt}>Zurück</button>` : null}
-      ${schritt === 1 ? html`<button class="btn btn-chalk" style="flex:1.6" onClick=${() => { setSeite(0); weiter(); }}>Weiter</button>` : null}
+      ${schritt === 1 ? html`<button class="btn btn-chalk" style="flex:1.6" disabled=${splitLeer} onClick=${() => { setSeite(0); weiter(); }}>Weiter</button>` : null}
       ${schritt === 2 ? html`<button class="btn btn-chalk" style="flex:1.6" disabled=${fehlt.length > 0} onClick=${seiteWeiter}>${si < seiten.length - 1 ? deEn(`Weiter: ${seiten[si + 1].name}`, `Next: ${seiten[si + 1].name}`) : 'Weiter'}</button>` : null}
       ${schritt === 3 ? html`<button class="btn btn-chalk" style="flex:1.6" disabled=${ohneUebung.length > 0} onClick=${weiter}>Weiter</button>` : null}</div>
     ${schritt === 2 && fehlt.length ? html`<span class="muted" style="font-size:12.5px;text-align:center">${deEn(`Wähle mindestens eine Übung für ${fehlt.map((g) => MUSKELGRUPPEN[g].name).join(' und ')}.`, `Choose at least one exercise for ${fehlt.map((g) => MUSKELGRUPPEN[g].name).join(' and ')}.`)}</span>` : null}
@@ -190,9 +219,16 @@ export function Schritte({ schritt, namen }) {
 export function useSchritte(merken = null) {
   // merken: Schritt übersteht einen Seitenwechsel (sessionStorage)
   const [schritt, setSchritt] = merken ? useSitzung(merken, 1) : useState(1);
+  // vorbefüllt mitten im Ersteller geöffnet (z. B. Generator → Plan in Schritt 2): Zurück ohne Schritt-Eintrag landet dort.
+  // Gemerkt beim ersten Öffnen – nicht beim erneuten Einblenden (zurück aus dem Plan steht der Ersteller schon in Schritt 3)
+  const anfang = useRef(null);
+  if (anfang.current == null) {
+    const k = merken ? `${merken.replace(/-schritt$/, '')}-start-schritt` : null;
+    try { const s = k && JSON.parse(sessionStorage.getItem(k) ?? 'null'); anfang.current = s ?? schritt; if (k && s == null) sessionStorage.setItem(k, JSON.stringify(schritt)); } catch { anfang.current = schritt; }
+  }
   useEffect(() => window.scrollTo(0, 0), [schritt]);
   useEffect(() => {
-    const z = (e) => setSchritt(e.state?.schritt ?? 1);
+    const z = (e) => setSchritt(e.state?.schritt ?? anfang.current);
     addEventListener('popstate', z);
     return () => removeEventListener('popstate', z);
   }, []);

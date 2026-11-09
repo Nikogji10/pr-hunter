@@ -1,7 +1,7 @@
 // PR Hunter · Seitenmenü (☰, Wunsch 172) mit den Werkzeugen und Wischgesten (172/178):
 // vom linken Rand nach rechts wischen öffnet das Menü (überall, auch im Training), sonst wechselt
 // waagrechtes Wischen die Seite der unteren Leiste. Nicht in Fenstern, Eingaben und waagrecht scrollbaren Bereichen.
-import { html, useEffect, useRef, I, werkzeugIcon } from './basis.js';
+import { html, useEffect, useRef, I, werkzeugIcon, ebeneEintragen } from './basis.js';
 import { RECHNER } from './rechner.js';
 
 const RAND = 28;            // px vom linken Rand, ab denen ein Wisch das Menü öffnet
@@ -115,14 +115,15 @@ const WERKZEUG_TEXT = {
 
 /** Seitenmenü links: Werkzeuge (Rechner) – zieht sich nach links zu, Tipp daneben schließt. */
 export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false, ohneEinblenden = false, rueckblickJahr = null }) {
-  const ref = useRef(null);
+  const ref = useRef(null), ohneRef = useRef(null);
   const offen = auf && !vorschau;
   useEffect(() => {
     if (!offen) return;
     const st = { ...(history.state ?? {}), menue: true };
-    history.pushState(st, '');
     const pop = () => zu(true);
-    addEventListener('popstate', pop);
+    const ohne = ebeneEintragen(st, pop);           // 254: ohne Antippen (Wischen) kein Eintrag
+    ohneRef.current = ohne;
+    if (!ohne) addEventListener('popstate', pop);
     // nach links ziehen schließt – die Leiste folgt dem Finger
     const el = ref.current, leiste = () => el?.querySelector('.sm-leiste'), hinter = () => el?.querySelector('.sm-hinter');
     let x0 = null, dx = 0;
@@ -139,18 +140,18 @@ export function SeitenMenue({ auf, zu, waehle, einfach = false, vorschau = false
       x0 = null;
       const l = leiste(), h = hinter();
       l?.classList.remove('zieht'); h?.classList.remove('zieht');
-      if (l && dx < -Math.min(90, l.offsetWidth * 0.3)) { l.style.transform = 'translateX(-100%)'; h.style.opacity = '0'; setTimeout(() => history.back(), 180); }
+      if (l && dx < -Math.min(90, l.offsetWidth * 0.3)) { l.style.transform = 'translateX(-100%)'; h.style.opacity = '0'; setTimeout(() => (ohneRef.current ? zu(true) : history.back()), 180); }
       else if (l) { l.style.transform = ''; h.style.opacity = ''; }
     };
     el?.addEventListener('touchstart', an, { passive: true }); el?.addEventListener('touchmove', zieh, { passive: true });
     el?.addEventListener('touchend', ende, { passive: true }); el?.addEventListener('touchcancel', ende, { passive: true });
     return () => {
-      removeEventListener('popstate', pop);
+      removeEventListener('popstate', pop); ohne?.(); ohneRef.current = null;
       for (const [n, f] of [['touchstart', an], ['touchmove', zieh], ['touchend', ende], ['touchcancel', ende]]) el?.removeEventListener(n, f);
     };
   }, [offen]);
   if (!auf) return null;
-  const schliessen = () => history.back();
+  const schliessen = () => (ohneRef.current ? zu(true) : history.back());
   return html`<div class=${`seitenmenue auf ${vorschau ? 'vorschau' : ''} ${ohneEinblenden ? 'ohne-ein' : ''}`} ref=${ref}>
     <div class="sm-hinter" onClick=${schliessen}></div>
     <nav class="sm-leiste" aria-label="Werkzeuge">

@@ -4,7 +4,7 @@
 // Ein laufendes Training liegt sofort im Speicher des Handys und übersteht Neuladen und App-Wechsel.
 import { html, render, useState, useEffect, useRef, useMemo, Component } from './vendor/htm-preact.js';
 import { setzeKatalog, setzeAnzeige, katalogListe, deEn, fmt, gw, einheit, tonnage, mmss, uhr, I, LIFT, liftVon, nameVon, pauseVon, datumLang, datumKurz, wtKurz, speicher, tonFreigeben, useTakt, Avatar,
-  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, uebung, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU } from './ui/basis.js';
+  PausenTimer, Sheet, incStandard, useZiehen, pausenFarbe, uebung, UebungsBild, koerperUebung, vibriere, BildLupe, FensterHost, UNTERREITER, UNTER_VORSCHAU, zurueckAbbrechen, ansichtEintragen } from './ui/basis.js';
 import { setzeStand, setzeDienste, heuteLokal, HEUTE, trainingsTage, e1rmWoche, KOERPERGEWICHT, E1RM_AKTUELL, E1RM_QUELLE } from './ui/stand.js';
 import { Gruss } from './ui/gruss.js';
 import { SeitenMenue, MenueKnopf, useWischen } from './ui/menue.js';
@@ -734,23 +734,23 @@ function App() {
     return () => { removeEventListener('online', online); document.removeEventListener('visibilitychange', sichtbar); };
   }, []);
 
-  // Historie: Wurzel-Eintrag + aktuelle Ansicht; Zurück auf der Wurzel bleibt in der App
+  // Historie (254): beim Öffnen nur den Eintrag ersetzen (wurzel) – ein pushState ohne Antippen ließe Chrome ihn beim
+  // Zurück überspringen und die App schließen. Beim ersten echten Antippen (click/keydown, dort gilt die Nutzer-Aktion;
+  // pointerdown zählt bei Touch nicht) kommt die Ansicht als zweiter Eintrag darüber. Zurück auf die Wurzel springt
+  // wieder vorwärts (ui/basis.js), die App bleibt offen.
   useEffect(() => {
     const start = ausAdresse();
-    history.replaceState({ wurzel: true }, '', adresse(start.ansicht, start.key));
-    history.pushState({ ...start, erste: true }, '', adresse(start.ansicht, start.key));
-    // Nicht aus der App fallen: Chrome überspringt beim Zurück Einträge, die ohne Antippen entstanden sind. Deshalb beim
-    // nächsten Antippen auf dem ersten Eintrag einen weiteren anlegen (mit Nutzer-Aktion – der zählt).
-    let schutzFehlt = true;
+    history.replaceState({ ...start, wurzel: true }, '', adresse(start.ansicht, start.key));
     const antippen = () => {
-      if (!schutzFehlt || !history.state?.erste) return;
-      history.pushState({ ...history.state }, '', location.href);
-      schutzFehlt = false;
+      if (!history.state?.wurzel) return;
+      const { wurzel, ...st } = history.state;
+      history.pushState({ ...st, erste: true }, '', location.href);
     };
-    addEventListener('pointerdown', antippen, true);
+    addEventListener('click', antippen, true);
+    addEventListener('keydown', antippen, true);
     const zurueck = (e) => {
       const st = e.state;
-      if (!st?.ansicht) { history.pushState({ ...jetzt.current, erste: true }, '', adresse(jetzt.current.ansicht, jetzt.current.key)); schutzFehlt = true; return; }
+      if (!st?.ansicht) { zurueckAbbrechen(); return; }
       scrollPos.current[jetzt.current.ansicht] = scrollY;
       setAnsicht(st.ansicht);
       const y = scrollPos.current[st.ansicht] ?? 0;
@@ -762,7 +762,7 @@ function App() {
     // Neuladen/Herunterziehen: Ansicht steht in der Adresse, die Scrollposition merken wir uns hier
     const merken = () => { try { sessionStorage.setItem('prh-scroll', JSON.stringify({ hash: location.hash, y: scrollY })); } catch { /* egal */ } };
     addEventListener('pagehide', merken);
-    return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); removeEventListener('pointerdown', antippen, true); };
+    return () => { removeEventListener('popstate', zurueck); removeEventListener('pagehide', merken); removeEventListener('click', antippen, true); removeEventListener('keydown', antippen, true); };
   }, []);
   // Startbild aus index.html ausblenden, sobald die App steht (mindestens 0,48 s nach dem Öffnen, damit die Animation durchläuft; 177)
   useEffect(() => {
@@ -847,7 +847,16 @@ function App() {
   }, [trainings]);
   const stand = useMemo(() => (DEMO || phase !== 'bereit' ? null
     : erstelleStand(trainings, { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' })), [trainings, messwerte, heute, phase, einst.formel]);
-  if (stand) setzeStand(stand);
+  // 259: Statistik und Übungsseite zeigen abgehakte Sätze des laufenden Trainings sofort (z. B. ein neues Kniebeuge-PR
+  // im Diagramm). Nur dort – im Training selbst bleibt der Stand ohne das laufende Training (Rekorde, „letztes Mal“, Vorschläge).
+  const mitLaufendem = !DEMO && phase === 'bereit' && training && !training.bearbeiten && (ansicht === 'statistik' || ansicht === 'uebung');
+  const laufendSig = mitLaufendem ? JSON.stringify(training.karten.map((k) => [k.key, k.gruppen.map((g) => g.saetze.filter((s) => s.erledigt).map((s) => [s.kg, s.wdh, s.rpe, s.typ]))])) : '';
+  const standLive = useMemo(() => {
+    if (!mitLaufendem || !alleSaetze(training).some((s) => s.erledigt)) return null;
+    const w = ausTraining(training, { id: training.id });   // Körpergewicht kommt in der Auswertung aus den Messwerten
+    return erstelleStand([...trainings.filter((x) => x.id !== w.id), w], { heute, katalog: katalogListe(), messwerte, formel: einst.formel ?? 'rpe' });
+  }, [laufendSig, trainings, messwerte, heute, einst.formel]);
+  if (stand) setzeStand(standLive ?? stand);
   // Bis die Einstellungen geladen sind (in der Demo: bis man etwas ändert) gilt die gemerkte Sprache – wie bei der
   // Übersetzung der Oberfläche, sonst stünden Übungsnamen, Zahlen und Datum kurz (Demo: dauerhaft) in der anderen Sprache
   setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton, vibration: einst.vibration,
@@ -1313,10 +1322,10 @@ function App() {
     const y = a === 'training' ? scrollPos.current.training ?? 0 : 0;
     scrollTo(0, 0); if (y) setTimeout(() => scrollTo(0, y), 30);
     const st = { ansicht: a, key };
-    // beim Ersetzen die Markierung der obersten Ebene behalten (Schutz gegen Schließen der App)
-    const ebene = { ...(history.state?.wurzel ? { wurzel: true } : {}), ...(history.state?.schutz ? { schutz: history.state.schutz } : {}) };
+    // beim Ersetzen die Markierung der untersten Ebene behalten (Schutz gegen Schließen der App)
+    const ebene = history.state?.wurzel ? { wurzel: true } : {};
     if (ersetzen || (history.state?.ansicht === a && history.state?.key === key)) history.replaceState({ ...st, ...ebene }, '', adresse(a, key));
-    else history.pushState(st, '', adresse(a, key));
+    else ansichtEintragen(st, adresse(a, key));
   };
   const zuUebung = (key, zurueck) => { setUebungAnsicht({ key, zurueck }); gehe('uebung', key); };
   const setEinst = (neu) => {

@@ -9,6 +9,7 @@ import { rekordChronik } from '../js/auswertung.js';
 import { ChallengesReiter } from './challenges.js';
 import { GruppenVerwaltung, GruppenFilter, inGruppe } from './gruppen.js';
 import { CoachAnfragen } from './coach.js';
+import { PartnerLeiste, standKurz } from './zusammen.js';
 
 /** Demo: die letzten Trainingstage als eigener Feed (Rekorde wie in der Statistik gezählt). */
 function demoFeed() {
@@ -304,6 +305,7 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
   useEffect(() => { if (neuReakt.length) { const t = setTimeout(gesehen, 2000); return () => clearTimeout(t); } }, [neuReakt.length]);
   const name = (u) => (u.key ? nameVon(u.key, sprache() === 'en' ? u.en : u.de) : '–');
   const geteilt = einst.feedTeilen !== false;
+  const [zuschauen, setZuschauen] = useState(null);       // 258: Freund, dessen laufendes Training angezeigt wird
   return html`<div class="screen">
     <header class="topbar"><div><div class="eyebrow">Trainings von dir und deinen Freunden</div><h1 class="h1">Feed</h1></div>
       ${DEMO ? html`<span class="proto">Beispieldaten</span>` : html`<button class=${`iconbtn ${stand.laedt ? 'dreht' : ''}`} onClick=${laden} aria-label="Neu laden" disabled=${stand.laedt}>${I.neu}</button>`}</header>
@@ -317,11 +319,22 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
     <div class="unter-inhalt">
     ${reiter === 'freunde' ? html`<div class="stack" style="gap:12px"><${CoachAnfragen}/><${Freunde} einst=${einst} setEinst=${setEinst}/><${GruppenVerwaltung} einst=${einst} setEinst=${setEinst}/></div>` : reiter === 'challenges' ? html`<${ChallengesReiter} einst=${einst}/>` : html`<div class="reiter-inhalt stack" style="gap:12px">
     ${aktiv.length ? html`<section class="card pad stack trainiert-gerade"><span class="viz-t">${deEn('Trainiert gerade', 'Training right now')}</span>
-      ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000));
-        return html`<div key=${a.id} class="aktiv-zeile"><span class="aktiv-avatar"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${34}/><i></i></span>
-          <span style="flex:1;min-width:0"><b>${a.name}</b><small class="muted">${` · ${deEn(`seit ${min} min`, `for ${min} min`)}${a.titel ? ` · ${a.titel}` : ''}`}</small></span>
+      ${aktiv.map((a) => { const min = Math.max(1, Math.round((Date.now() - Date.parse(a.seit)) / 60000)), kurz = standKurz(a.stand);
+        // 258: Antippen zeigt das Training (Übungen, Sätze, Fortschritt), ohne beizutreten
+        return html`<div key=${a.id} class="aktiv-zeile"><button class="aktiv-ansehen" disabled=${!a.stand?.length} onClick=${() => setZuschauen(a.id)}
+            aria-label=${deEn(`Training von ${a.name} ansehen`, `View ${a.name}'s workout`)}><span class="aktiv-avatar"><${Avatar} bild=${a.avatar} name=${a.name} groesse=${34}/><i></i></span>
+          <span style="flex:1;min-width:0"><span class="aktiv-z1"><b>${a.name}</b><small class="muted">${` · ${deEn(`seit ${min} min`, `for ${min} min`)}${a.titel ? ` · ${a.titel}` : ''}`}</small></span>
+            ${kurz ? html`<small class="aktiv-stand">${kurz}</small>` : null}</span></button>
           ${DIENSTE.mitmachen && a.stand?.length ? html`<button class="btn btn-soft btn-sm" onClick=${() => DIENSTE.mitmachen(a)}>${deEn('Mitmachen', 'Join')}</button>` : null}</div>`; })}
     </section>` : null}
+    ${(() => { const a = zuschauen && aktiv.find((x) => x.id === zuschauen); if (!zuschauen) return null;
+      return html`<${Sheet} zu=${() => setZuschauen(null)} label=${deEn('Training ansehen', 'View workout')}>
+        ${a ? html`<h2 class="h2">${a.titel || deEn(`Training von ${a.name}`, `${a.name}'s workout`)}</h2>
+          <${PartnerLeiste} p=${a} offen=${true}/>
+          <p class="muted" style="margin:0;font-size:12.5px">${deEn('Aktualisiert sich von selbst, solange das Fenster offen ist.', 'Updates by itself while this window is open.')}</p>
+          ${DIENSTE.mitmachen ? html`<button class="btn btn-chalk btn-block" onClick=${() => { setZuschauen(null); DIENSTE.mitmachen(a); }}>${deEn('Mitmachen', 'Join')}</button>` : null}`
+        : html`<p style="margin:0">${deEn('Das Training ist beendet.', 'The workout has ended.')}</p>`}
+      <//>`; })()}
     ${neuHier.length ? html`<section class="card pad stack neu-reakt"><span class="viz-t">${deEn(`Neu für dich (${neuHier.length})`, `New for you (${neuHier.length})`)}</span>
       ${neuHier.slice(0, 6).map((x, i) => html`<div key=${i} class="neu-reakt-zeile"><span aria-hidden="true">${x.art === 'like' ? '♥' : '💬'}</span>
         <span><b>${x.name}</b> ${x.art === 'like' ? deEn('gefällt dein Training', 'liked your workout') : html`${deEn('kommentiert', 'commented')}: „${x.text}“`}<small class="muted">${` · ${datumKurz(x.datum)}`}</small></span></div>`)}

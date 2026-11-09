@@ -1,10 +1,10 @@
-// PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
+add// PR Hunter · Service Worker: hält die App-Dateien auf dem Handy, damit sie ohne Netz startet.
 // VERSION und DATEIEN setzt tools/app_bereitstellen.py beim Bauen (Inhalts-Prüfsumme → jede Änderung lädt neu).
 // Anfragen an Supabase gehen nie durch den Cache. Übungsbilder (Free Exercise DB auf GitHub) landen beim ersten Laden in
 // einem eigenen Cache, der Versionswechsel überdauert.
 // 04.11.: Bilder per CORS holen. Vorher kamen sie als „opaque“ (img ohne crossorigin) – Chrome rechnet jede solche Antwort
 // mit ~7 MB an, ein paar hundert Bilder ergaben 3,9 GB „gespeicherte Daten“. bilder-v1 wird deshalb gelöscht.
-const VERSION = '7cb2f05031dc';
+const VERSION = 'f64fea3878e3';
 const DATEIEN = [
   "./",
   "app.js",
@@ -50,6 +50,7 @@ const DATEIEN = [
   "js/notizchips.js",
   "js/pausenbalken.js",
   "js/programm.js",
+  "js/progression.js",
   "js/punkte.js",
   "js/rechnen.js",
   "js/rpegenauigkeit.js",
@@ -103,6 +104,7 @@ const DATEIEN = [
   "ui/plan.js",
   "ui/plandruck.js",
   "ui/planer.js",
+  "ui/plgenerator.js",
   "ui/programme.js",
   "ui/programmtexte.js",
   "ui/rechner.js",

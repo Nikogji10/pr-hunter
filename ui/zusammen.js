@@ -9,9 +9,17 @@ export function standVon(t) {
     .map((s) => [s.kg ?? null, s.wdh ?? null, s.erledigt ? 1 : 0]) }));
 }
 
+/** 258: kurzer Stand für die Zeile „Trainiert gerade“: aktuelle Übung, Übung n von N. */
+export function standKurz(stand = []) {
+  if (!stand.length) return null;
+  const i = stand.findIndex((u) => u.s.some((s) => !s[2]));
+  if (i < 0) return deEn('fertig 💪', 'done 💪');
+  return `${nameVon(stand[i].k)} · ${deEn(`Übung ${i + 1}/${stand.length}`, `exercise ${i + 1}/${stand.length}`)}`;
+}
+
 /** Leiste oben im Training: wo der Partner gerade steht. */
-export function PartnerLeiste({ p }) {
-  const [auf, setAuf] = useState(false);
+export function PartnerLeiste({ p, offen = false }) {
+  const [auf, setAuf] = useState(offen);
   const stand = p.stand ?? [];
   const alle = stand.flatMap((u) => u.s.map((s) => ({ key: u.k, s })));
   const fertig = alle.filter((x) => x.s[2]).length, gesamt = alle.length;

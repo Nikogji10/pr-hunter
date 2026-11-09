@@ -1704,6 +1704,17 @@ export const EN = new Map([
   ["Als PDF", "As PDF"],
   ["Erst Maxe eintragen", "Enter your maxes first"],
   ["Für das PDF rechnet die App die Gewichte aus deinen Maxen.", "For the PDF the app calculates weights from your maxes."],
+  ["Eigener Split", "Custom split"],
+  ["Tage selbst benennen und je Tag die Muskelgruppen wählen", "Name the days yourself and pick the muscle groups per day"],
+  ["Tage im Split", "Days in the split"],
+  ["Mindestens eine Muskelgruppe wählen.", "Pick at least one muscle group."],
+  ["Im Plan anpassen", "Adjust in the plan"],
+  ["Übernimmt Woche 1 als Musterwoche: Übungen tauschen, hinzufügen, Sätze ändern – die Steigerung (Wdh-Bereich + RPE) bleibt. Mehr als zwei Übungen je Muskel wechseln sich dort nicht mehr ab.", "Takes week 1 as the template week: swap or add exercises, change sets – the progression (rep range + RPE) stays. More than two exercises per muscle no longer rotate there."],
+  ["Zum Beispiel „Push“, „Pull“, „Beine“ oder „Oberkörper“.", "For example “Push”, “Pull”, “Legs” or “Upper body”."],
+  ["Top-Satz und Back-off", "Top set and back-off"],
+  ["Variationen", "Variations"],
+  ["Progression und Dauer", "Progression and length"],
+  ["Eigener Plan mit Progression je Übung", "Own plan with progression per exercise"],
 ]);
 
 export const EN_MUSTER = [

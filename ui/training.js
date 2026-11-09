@@ -202,14 +202,9 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     setTimer({ beginn: Date.now(), ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,
       naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft',
       naechsterUebung: naechster && naechsteKarte?.key ? nameVon(naechsteKarte.key) : null, naechsterKg: naechster?.kg ?? null, naechsterWdh: naechster?.wdh ?? null });
-    // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen
-    if (k.gruppen.every((gg, gj) => gg.saetze.every((x, sj) => x.erledigt || (gj === gi && sj === si)))) {
-      aendere((ks) => {
-        ks[ki].zu = true;
-        const n = ks.findIndex((kk, j) => j > ki && kk.key && kk.gruppen.some((gg) => gg.saetze.some((x) => !x.erledigt)));
-        if (n >= 0) ks[n].zu = false;
-      });
-    }
+    // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen – 252: mit Technik-Bewertung erst nach der Bewertung
+    if (k.gruppen.every((gg, gj) => gg.saetze.every((x, sj) => x.erledigt || (gj === gi && sj === si)))
+      && !(einst.technikBewertung && s.typ !== 'warmup')) aendere(weiterZurNaechsten(ki));
   };
 
   const gesamt = alleSaetze(t);
@@ -325,6 +320,12 @@ function useWischen(links, rechts) {
 
 // Akkordeon (159): eine Übung aufklappen klappt alle anderen zu
 const nurOffen = (ki) => (ks) => { ks.forEach((x, j) => { if (x.key) x.zu = j !== ki; }); };
+// Übung zuklappen und die nächste mit offenen Sätzen aufklappen
+const weiterZurNaechsten = (ki) => (ks) => {
+  ks[ki].zu = true;
+  const n = ks.findIndex((kk, j) => j > ki && kk.key && kk.gruppen.some((gg) => gg.saetze.some((x) => !x.erledigt)));
+  if (n >= 0) ks[n].zu = false;
+};
 
 function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
   const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere(k.zu ? nurOffen(ki) : (ks) => { ks[ki].zu = true; }));
@@ -430,7 +431,10 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
           ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}</div>` : null}
         ${einst.technikBewertung && s.erledigt && s.typ !== 'warmup' ? html`<div class="technik-wahl" role="group" aria-label="Technik">
           <span class="muted">Technik</span>${[['gut', '👍'], ['schlecht', '👎']].map(([w, z]) => html`<button key=${w} aria-pressed=${String(s.extra?.technik === w)}
-            aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => aendere((ks) => { const x = ks[ki].gruppen[gi].saetze[si]; const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined; })}>${z}</button>`)}</div>` : null}
+            aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => aendere((ks) => { const x = ks[ki].gruppen[gi].saetze[si]; const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined;
+              // 252: letzter Satz bewertet → jetzt erst zuklappen
+              const saetze = ks[ki].gruppen.flatMap((gg) => gg.saetze), letzter = saetze.filter((y) => y.erledigt).at(-1);
+              if (e.technik && saetze.every((y) => y.erledigt) && letzter === x) weiterZurNaechsten(ki)(ks); })}>${z}</button>`)}</div>` : null}
       </div>`;
       })}
       ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}

@@ -10,7 +10,7 @@ export const PANA = {
   backoff: { 3: [80, 86], 4: [76, 82], 5: [72, 80], 6: [68, 78] },
 };
 const MAX_SPRUNG = 5;          // Top-Satz steigt höchstens 5 Prozentpunkte pro Woche
-const WELLE = 2.5;             // zweite Welle: +2,5 % auf Top-Satz und Back-off
+export const WELLE = 2.5;             // zweite Welle: +2,5 % auf Top-Satz und Back-off
 
 // [Sätze, Wdh, % vom TM, RPE-Text]. s = Kniebeuge (auch Bank-Haupteinheit), d = Kreuzheben, *Var = Zweiteinheit
 export const WOCHENTYPEN = {
@@ -25,11 +25,11 @@ export const WOCHENTYPEN = {
   peak: { titel: 'Peak-Vorbereitung', top: [1, 3, 91, 'RPE 8-8.5'], backoff: [2, 4, 76, 'RPE 7'], dTop: [1, 1, 92, 'RPE 8-8.5'], dBackoff: [2, 3, 80, 'RPE 7'],
     sSingle: [1, 1, 80, 'RPE 6-7'], sVar: [2, 3, 67, 'RPE 6'], dVar: [2, 3, 65, 'RPE 6'] },
 };
-const TEST = { titel: 'Test', test: [1, '1-2', 97.5, 'RPE 9-10'], var: [2, 3, 62.5, 'RPE 5-6'],
+export const TEST = { titel: 'Test', test: [1, '1-2', 97.5, 'RPE 9-10'], var: [2, 3, 62.5, 'RPE 5-6'],
   notiz: 'Test, max. 2 Wdh. Nach 1 Wdh stoppen, wenn sie langsam war.' };
-const DELOAD = { titel: 'Deload', s1: [3, 3, 60, 'RPE 5-6'], d1: [2, 3, 55, 'RPE 5'], s2: [2, 3, 55, 'RPE 5'], d2: [2, 3, 60, 'RPE 5-6'] };
-const TECHNIK = [3, 3, 65, 'RPE 5-6'];
-const KH_LEICHT = [3, 2, 65, 'RPE 5-6'];
+export const DELOAD = { titel: 'Deload', s1: [3, 3, 60, 'RPE 5-6'], d1: [2, 3, 55, 'RPE 5'], s2: [2, 3, 55, 'RPE 5'], d2: [2, 3, 60, 'RPE 5-6'] };
+export const TECHNIK = [3, 3, 65, 'RPE 5-6'];
+export const KH_LEICHT = [3, 2, 65, 'RPE 5-6'];
 
 export const STANDARD_VARIANTEN = { squat: 'competition_squat_pause', dead: 'conventional_deadlift_deficit_paused' };
 
@@ -44,8 +44,8 @@ export const UNTEN_TAGE = { 1: [0], 2: [0, 4], 3: [0, 3, 5] };
 export const OBEN_TAGE = { 1: [2, 4], 2: [2, 5], 3: [1, 4] };
 // Bankeinheiten in der Reihenfolge ihrer Vergabe: schwer (Top/Back-off), Volumen, enge Bank, leichte Technik
 const BANK_VOLUMEN = (t, plus) => [3, 5, t.backoff[2] + 4 + plus, 'RPE 7-8'];
-const BANK_ENG = (plus) => [3, 6, 68 + plus, 'RPE 7-8.5'];
-const BANK_LEICHT = [3, 3, 70, 'RPE 6-7'];
+export const BANK_ENG = (plus) => [3, 6, 68 + plus, 'RPE 7-8.5'];
+export const BANK_LEICHT = [3, 3, 70, 'RPE 6-7'];
 // Zubehör wie im Candito/Pana-Oberkörpertag; Gewichte schlägt die App aus dem e1RM vor
 const OBEN_ZUBEHOER = [
   { exercise_key: 'bent_over_barbell_row', groups: [{ sets: '3', reps: '8', load: null, rpe: 'RPE 7-8' }] },
@@ -182,7 +182,7 @@ export function generiere(e) {
 }
 
 /** Bankdrücken- und Oberkörper-Einträge der Candito-Wochen 1–6 (ohne Taper-Alternative), Offsets relativ zur Woche. */
-function canditoWochen(vorlage, wochen) {
+export function canditoWochen(vorlage, wochen) {
   // Advanced Bench (Wunsch 141) für jede Blocklänge ab 4 Wochen, Aufbau der Vorlage bleibt: kürzer → später einsteigen
   // (Spitze, AMRAP in W5 und Deload W6 bleiben am Ende); länger → vorne Aufbauwochen nach W1, Variationen RPE 8 → 9
   if (wochen < 4) throw new Error('Advanced Bench braucht mindestens 4 Wochen.');
@@ -209,7 +209,7 @@ function canditoWochen(vorlage, wochen) {
  */
 export function pruefePana(programm) {
   const params = programm.params;
-  const tm = params ? params.TM_BULK ?? 1 : programm.rules?.generator?.tm ?? 1, fehler = [], hinweise = [];
+  const tm = params ? params.TM_BULK ?? 1 : programm.rules?.generator?.tm ?? programm.rules?.eigen?.tm ?? 1, fehler = [], hinweise = [];
   const prozent = (load, v) => {
     try {
       const werte = { S: 0, D: 0, B: 0, G: 0, [v]: 10000 };

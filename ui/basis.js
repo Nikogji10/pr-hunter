@@ -529,6 +529,38 @@ export function Portal({ children }) {
   return null;
 }
 
+// #################################################################
+// 254: Verlauf, ohne aus der App zu fallen. Chrome markiert einen Eintrag als überspringbar, wenn von ihm aus ohne
+// Nutzer-Aktion ein neuer angelegt wird (pushState im popstate, nach Timern, beim Öffnen) – ein späteres Zurück springt
+// dann darüber hinweg und schließt die App. Deshalb: Zurück abbrechen = vorwärts dorthin, wo man herkam (kein neuer
+// Eintrag); Ebenen, die ohne Antippen aufgehen, bekommen keinen Eintrag, ein Zurück schließt dann nur sie.
+// #################################################################
+export const mitNutzerAktion = () => !navigator.userActivation || navigator.userActivation.isActive;
+let still = 0, stillUhr = null;
+const ohneEintrag = [];                 // Schließer offener Ebenen ohne eigenen Verlaufseintrag (oberste zuletzt)
+/** Zurück rückgängig machen: einen Schritt vorwärts; das popstate dazu sieht niemand. */
+export function zurueckAbbrechen() {
+  still++; clearTimeout(stillUhr); stillUhr = setTimeout(() => { still = 0; }, 600);
+  history.forward();
+}
+/** Eintrag für eine Ebene (Fenster, Menü): mit Nutzer-Aktion per pushState, sonst ohne Eintrag (Rückgabe: Abmelden). */
+export function ebeneEintragen(st, schliessen) {
+  if (mitNutzerAktion()) { history.pushState(st, ''); return null; }
+  ohneEintrag.push(schliessen);
+  return () => { const i = ohneEintrag.indexOf(schliessen); if (i >= 0) ohneEintrag.splice(i, 1); };
+}
+/** Neue Ansicht: mit Nutzer-Aktion als neuer Eintrag, sonst den aktuellen ersetzen (Markierung der untersten Ebene bleibt). */
+export function ansichtEintragen(st, url) {
+  if (mitNutzerAktion()) history.pushState(st, '', url);
+  else history.replaceState(history.state?.wurzel ? { ...st, wurzel: true } : st, '', url);
+}
+addEventListener('popstate', (e) => {
+  if (still > 0) { still--; e.stopImmediatePropagation(); return; }
+  if (ohneEintrag.length) { e.stopImmediatePropagation(); const zu = ohneEintrag.pop(); zurueckAbbrechen(); zu(); return; }
+  // unterste Ebene (Schutz-Eintrag beim ersten Antippen): nie aus der App, zurück auf die Ansicht darüber
+  if (e.state?.wurzel) { e.stopImmediatePropagation(); zurueckAbbrechen(); }
+});
+
 export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   const zuRef = useRef(zu);
   zuRef.current = zu;
@@ -538,11 +570,13 @@ export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
     const id = (Number(history.state?.sheet) || 0) + 1;
     let perZurueck = false;
     const pop = (e) => { if (e.state?.sheet === id) return; perZurueck = true; zuRef.current(); };
-    history.pushState({ ...(history.state ?? {}), sheet: id }, '');
+    // 254: ohne Antippen geöffnet (z. B. Warnung im Zurück) → kein Eintrag; Zurück schließt dann nur dieses Fenster
+    const ohne = ebeneEintragen({ ...(history.state ?? {}), sheet: id }, () => { perZurueck = true; zuRef.current(); });
     addEventListener('keydown', k);
-    addEventListener('popstate', pop);
+    if (!ohne) addEventListener('popstate', pop);
     return () => {
       removeEventListener('keydown', k); removeEventListener('popstate', pop);
+      if (ohne) { ohne(); return; }
       if (!perZurueck && history.state?.sheet === id) history.back();      // per Knopf geschlossen: Eintrag wieder entfernen
     };
   }, []);
