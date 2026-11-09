@@ -2679,6 +2679,8 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .eigen-wochen .ew.test { background: var(--acc-soft); color: var(--acc-text, var(--acc)); }
 .eigen-wochen .ew.deload { background: color-mix(in srgb, var(--ok) 16%, transparent); }
 
-/* 262: die Wege unter „Neuer Plan“ wie alle Karten (Deckkraft der Einstellung + Unschärfe), nicht fast durchsichtig */
+/* 262: die Wege unter „Neuer Plan“ und die Zeilen unter „Meine Pläne“ wie alle Karten (Deckkraft der Einstellung + Unschärfe) –
+   ohne Unschärfe schien das Hintergrundbild durch, obwohl die Deckkraft dieselbe war */
+.vorlagen-auf > summary { -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
 .neu-wege .pl-opt { background: var(--karte); border-color: var(--kante, var(--line)); box-shadow: var(--shadow);
   -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
