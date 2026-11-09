@@ -1,6 +1,7 @@
 // PR Hunter · Einstellungen als Menü mit Unterseiten: Training, Körper, Geräte und Einheit, Anzeige, Konto und Daten.
 // Jede Unterseite ist ein eigener Historien-Eintrag (Zurück führt ins Menü).
 // Alles gilt für alle Programme; gespeichert im Profil (Supabase), lokal zuerst.
+import { SpotifyKarte } from './spotify.js';
 import { html, useState, useEffect, useRef, Portal, fmt, mmss, I, Sheet, deEn, Avatar, inKg, inAnzeige, einheit, datumKurz, TOENE, TON_GRUPPEN, tonName, piep, kopiere } from './basis.js';
 import { DEMO, DIENSTE } from './stand.js';
 import { APP_VERSION } from './hilfe.js';
@@ -100,7 +101,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
     hilfen: ['Im Training', 'Readiness-Check, Aufwärmen, Supersätze, Technik, Cut-Modus, e1RM', I.blitz, [einst.bereitschaft !== false ? 'Readiness' : null, einst.mobility ? 'Aufwärmen' : null, einst.cut ? 'Cut' : null, einst.autoregulation ? 'Autoregulation' : null].filter(Boolean).join(' · ') || 'Standard'],
     geraete: ['Geräte und Einheit', 'kg/lb, Steigerung, Stange, Scheiben', I.rechner, `${einst.einheit} · Stange ${fmt(inAnzeige(einst.stange), 1)} · ${einst.scheiben.length} Scheiben`],
     anzeige: ['Anzeige', 'Hell/Dunkel, Farbwelt, Schrift, Sprache, Hintergrund', I.theme, `${{ system: 'System', light: 'Hell', dark: 'Dunkel' }[einst.thema ?? 'system']} · ${STIL_WAHL.find(([k]) => k === (einst.stil ?? 'eisen'))?.[1] ?? 'Eisen'} · ${SCHRIFT_WAHL.find(([k]) => k === (einst.schrift ?? 'archivo'))?.[1] ?? 'Archivo'} · ${einst.sprache === 'en' ? 'English' : 'Deutsch'} · ${SCHRIFT.find(([z]) => z === (einst.zoom ?? 1))?.[1] ?? 'Normal'}`],
-    verbindungen: ['Kalender und Verbindungen', 'Kalender-Abo, intervals.icu (Garmin, Wahoo …), Strava', I.verbindung, ''],
+    verbindungen: ['Kalender und Verbindungen', 'Kalender-Abo, intervals.icu (Garmin, Wahoo …), Strava, Spotify', I.verbindung, ''],
     ...(DEMO ? {} : { sozial: ['Freunde', 'Vergleich, Feed, Kalender', I.feed, `Vergleich ${einst.vergleich ? 'an' : 'aus'} · Feed ${einst.feedTeilen !== false ? 'an' : 'aus'} · Kalender ${einst.kalender !== false ? 'an' : 'aus'}`],
       konto: ['Konto und Daten', 'Profilbild, Name, Abgleich, Export, Abmelden', I.verlauf, k?.email ?? ''] }),
   };
@@ -236,7 +237,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       ${hilfe.kalender ? html`<button class="btn btn-soft btn-sm" style="justify-self:start" onClick=${hilfe.kalender}>Termine in den Kalender (.ics)</button>` : null}
       <${KalenderAbo}/>
     </section>
-    ${!DEMO ? html`<${WegeWahl}/><${IntervalsKarte} aus=${!einst.ausdauer}/><${StravaKarte}/>` : null}`
+    ${!DEMO ? html`<${WegeWahl}/><${IntervalsKarte} aus=${!einst.ausdauer}/><${StravaKarte}/><${SpotifyKarte} einst=${einst} setEinst=${setEinst}/>` : null}`
     : bereich === 'geraete' ? html`
     <section class="card pad stack">
       <${Seg} label="Einheit" werte=${[['kg', 'kg'], ['lb', 'lb']]} wert=${einst.einheit} setze=${(v) => {

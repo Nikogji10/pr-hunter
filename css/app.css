@@ -2684,3 +2684,44 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .vorlagen-auf > summary { -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
 .neu-wege .pl-opt { background: var(--karte); border-color: var(--kante, var(--line)); box-shadow: var(--shadow);
   -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
+
+/* 267: Spotify-Bubble im Spotify-Stil (schwarz, Grün #1DB954, runde Knöpfe); eingeklappt rund mit Cover und Fortschrittsring */
+.sp-bubble { position: fixed; z-index: 26; left: max(16px, calc(50% - 244px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px;
+  padding: 0; border: 0; border-radius: 50%; background: #121212; box-shadow: 0 2px 6px rgba(0, 0, 0, .4), 0 12px 26px -8px rgba(0, 0, 0, .7); touch-action: none;
+  display: grid; place-items: center; animation: einf-rein .35s cubic-bezier(.2, .9, .3, 1.2); }
+.sp-bubble img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; grid-area: 1 / 1; }
+.sp-bubble .sp-logo { width: 30px; height: 30px; grid-area: 1 / 1; }
+.sp-bubble .sp-logo svg, .sp-logo-link svg, .sp-cover-leer svg, .sp-titel svg { width: 100%; height: 100%; display: block; }
+.sp-ring { position: absolute; inset: 0; width: 56px; height: 56px; pointer-events: none; }
+.sp-wellen { position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 50%; background: #1DB954; display: flex; align-items: flex-end; justify-content: center; gap: 1.5px; padding-bottom: 5px; }
+.sp-wellen i { width: 2.5px; border-radius: 2px; background: #000; animation: sp-welle .9s ease-in-out infinite; }
+.sp-wellen i:nth-child(1) { height: 5px; } .sp-wellen i:nth-child(2) { height: 9px; animation-delay: .2s; } .sp-wellen i:nth-child(3) { height: 6px; animation-delay: .4s; }
+@keyframes sp-welle { 50% { transform: scaleY(.4); } }
+.sp-bubble:active { transform: scale(.95); }
+.sp-karte { position: fixed; z-index: 26; left: max(16px, calc(50% - 244px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: min(320px, calc(100vw - 32px));
+  padding: 12px 12px 10px; border-radius: 16px; background: linear-gradient(180deg, #2a2a2a, #181818); color: #fff; touch-action: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 36px -10px rgba(0, 0, 0, .75); display: flex; flex-direction: column; gap: 8px; animation: einf-rein .3s cubic-bezier(.2, .9, .3, 1.2); }
+.sp-kopf { display: grid; grid-template-columns: 48px 1fr 22px 30px; gap: 10px; align-items: center; }
+.sp-cover { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: #333; }
+.sp-cover-leer { display: grid; place-items: center; padding: 10px; }
+.sp-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sp-text b { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-text span { font-size: 12.5px; color: #b3b3b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-logo-link { width: 22px; height: 22px; display: block; }
+.sp-zu { width: 30px; height: 30px; border-radius: 50%; background: transparent; color: #b3b3b3; display: grid; place-items: center; padding: 0; }
+.sp-zu svg { width: 20px; height: 20px; transform: rotate(180deg); }
+.sp-zeit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 11px; color: #b3b3b3; font-variant-numeric: tabular-nums; }
+.sp-leiste { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.sp-leiste i { display: block; height: 100%; border-radius: 2px; background: #fff; }
+.sp-karte:hover .sp-leiste i { background: #1DB954; }
+.sp-hinweis { font-size: 12px; color: #b3b3b3; }
+.sp-knoepfe { display: flex; justify-content: center; align-items: center; gap: 22px; }
+.sp-knoepfe button { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; display: grid; place-items: center; }
+.sp-knoepfe button svg { width: 22px; height: 22px; }
+.sp-knoepfe button:disabled { opacity: .35; }
+.sp-knoepfe .sp-play { width: 44px; height: 44px; background: #fff; color: #000; }
+.sp-knoepfe .sp-play svg { width: 22px; height: 22px; }
+.sp-knoepfe button:active { transform: scale(.94); }
+.sp-titel { display: flex; align-items: center; gap: 8px; }
+.sp-titel svg { width: 20px; height: 20px; }
+.sp-einst code { font-size: 12px; word-break: break-all; }

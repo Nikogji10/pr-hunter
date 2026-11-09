@@ -14,6 +14,7 @@ import { GewichtImport } from './ui/gewichtimport.js';
 import { FeedbackSheet, Datenschutz, kalenderDatei, herunterladen, NeueVersion } from './ui/hilfe.js';
 import { trainingsSchluessel } from './js/import.js';
 import { Training, baueTraining, alleSaetze, kartenAusStand, beschwerdenAnwenden, ausruestungUebernehmen } from './ui/training.js';
+import { SpotifyBubble, SPOTIFY_RUECKKEHR } from './ui/spotify.js';
 import { Programme, INFO, NAMEN, blockTage, wochenListe, kurzTitel } from './ui/programme.js';
 import { Verlauf, TagSheet } from './ui/verlauf.js';
 import { UebungsSeite, UebungFormular } from './ui/uebung.js';
@@ -500,6 +501,16 @@ function App() {
   const kleinZiehen = useZiehen({ achsen: 'xy', lang: () => setDockKlein(false),
     ablegen: (r) => setDockPos({ ...dockPos, klein: { x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) } }) });
   const appZoom = () => parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+  // 267: zurück von der Spotify-Anmeldung – Meldung, und die Bubble ist gleich an
+  useEffect(() => {
+    if (phase !== 'bereit') return;
+    SPOTIFY_RUECKKEHR.then((r) => {
+      if (!r) return;
+      if (r.ok && !einst.spotifyBubble) setEinst({ ...einst, spotifyBubble: true });
+      setToast(r.ok ? { titel: deEn('Spotify verbunden', 'Spotify connected'), text: deEn('Die Bubble schwebt jetzt über der App.', 'The bubble now floats over the app.') }
+        : { titel: deEn('Spotify nicht verbunden', 'Spotify not connected'), text: r.fehler });
+    });
+  }, [phase]);
   // 219: Kurzbefehle der installierten App (Manifest „shortcuts“) kommen als ?aktion=… – einmal nach dem Laden ausführen
   const aktionFn = useRef(null), aktionErledigt = useRef(false);
   useEffect(() => {
@@ -1694,6 +1705,7 @@ function App() {
     <style>${`.screen{padding-bottom:calc(${unten + 24}px + env(safe-area-inset-bottom,0px))}`}</style>
     <div class="seite-haupt" ref=${hauptRef}><${Fehlergrenze} key=${ansicht}>${seiteFuer(ansicht)}<//></div>
     ${einst.loeschenAb && ansicht !== 'einstellungen' ? html`<button class="loesch-hinweis" onClick=${() => gehe('einstellungen')}>${I.warn}<span>${`Konto wird am ${datumKurz(einst.loeschenAb.slice(0, 10))}${einst.loeschenAb.slice(0, 4)} gelöscht – in den Einstellungen abbrechen`}</span></button>` : null}
+    ${!DEMO && phase === 'bereit' ? html`<${SpotifyBubble} an=${!!einst.spotifyBubble}/>` : null}
     ${leiste && dockKlein ? html`<${MiniDock} training=${training} timer=${timer} oeffnen=${() => gehe('training')} ziehen=${kleinZiehen} pos=${dockPos.klein && { x: (dockPos.klein.x * innerWidth) / appZoom(), y: (dockPos.klein.y * innerHeight) / appZoom() }}/>`
     : (timer && !imTraining) || leiste ? html`<div class="dock" style=${dockPos.gross != null ? `top:${(dockPos.gross * innerHeight) / appZoom()}px;bottom:auto` : ''}><div class="dock-wisch kein-wisch" ...${grossZiehen.props}>
       ${/* eine Leiste: läuft eine Pause, steht das Training als zweite Zeile im Timer (03.11.) */ ''}

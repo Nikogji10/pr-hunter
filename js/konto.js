@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['vorname', 'trainingsart', 'ausdauer', 'ftp', 'geraeteGrenze', 'hfMax', 'ausdauerPlan', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['spotifyBubble', 'vorname', 'trainingsart', 'ausdauer', 'ftp', 'geraeteGrenze', 'hfMax', 'ausdauerPlan', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
