@@ -41,6 +41,7 @@ function farbeVon(url) {
   });
 }
 const WIEDERHOLEN = ['off', 'context', 'track'];
+const fehlerArt = (e) => (e.status === 403 ? (e.grund === 'PREMIUM_REQUIRED' ? 'premium' : 'gesperrt') : e.status === 404 ? 'geraet' : 'netz');
 const B = 66;                                               // Durchmesser der Bubble
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const lage = () => { try { return JSON.parse(localStorage.getItem('prh-spotify-pos') ?? 'null'); } catch { return null; } };
@@ -58,11 +59,12 @@ export function SpotifyBubble({ an }) {
   const [pos, setPos] = useState(lage);
   const [spulen, setSpulen] = useState(null);               // Position beim Ziehen der Zeitleiste (ms)
   const [farbe, setFarbe] = useState(null), [als, setAls] = useState(null);   // Cover-Farbe, nächster Titel
+  const [wisch, setWisch] = useState(0);                    // Fingerweg beim Wischen über die Leiste (px)
   const [, tick] = useState(0);
   const laeuft = useRef(false), karte = useRef(null);
   const aktiv = an && verbunden();
   const holen = () => { if (laeuft.current || document.hidden) return; laeuft.current = true;
-    wiedergabe().then((x) => { setP(x); setFehler(null); }).catch((e) => setFehler(e.status === 403 ? 'premium' : 'netz')).finally(() => { laeuft.current = false; }); };
+    wiedergabe().then((x) => { setP(x); setFehler(null); }).catch((e) => setFehler(fehlerArt(e))).finally(() => { laeuft.current = false; }); };
   useEffect(() => {
     if (!aktiv) return;
     holen();
@@ -83,30 +85,34 @@ export function SpotifyBubble({ an }) {
   }, [aktiv, auf, p?.link]);
   const merken = (n) => { setPos(n); try { localStorage.setItem('prh-spotify-pos', JSON.stringify(n)); } catch { /* egal */ } };
   // Bubble frei verschieben (immer ganz im Bild), gedrückt halten öffnet Spotify
-  const ziehen = useZiehen({ achsen: 'xy', lang: spotifyOeffnen, ablegen: (r) => merken({
+  const ziehen = useZiehen({ achsen: 'xy', langLos: spotifyOeffnen, langMs: 350, ablegen: (r) => merken({
     x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
   // große Leiste: volle Breite, nur senkrecht verschieben
   // Wischen nach links = nächster Titel, nach rechts = vorheriger (wie der Miniplayer von Spotify)
-  const ziehenKarte = useZiehen({ achsen: 'y', wischX: (r) => tu(r < 0 ? 'next' : 'previous'), ablegen: (r) => merken({ ...(pos ?? {}), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
+  const ziehenKarte = useZiehen({ achsen: 'y', wischFedernd: true, wischLive: (dx) => setWisch(dx), wischX: (r) => tu(r < 0 ? 'next' : 'previous'), ablegen: (r) => merken({ ...(pos ?? {}), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
   if (!aktiv || p === undefined) return null;
-  const tu = (was, wert) => {
+  // Zurück wie bei Spotify: nach den ersten 3 Sekunden springt es an den Anfang des Titels
+  const tu = (wasRoh, wertRoh) => {
+    const zumAnfang = wasRoh === 'previous' && p && p.position + (p.spielt ? Date.now() - p.zeit : 0) > 3000;
+    const was = zumAnfang ? 'seek' : wasRoh, wert = zumAnfang ? 0 : wertRoh;
     if (p) setP({ ...p, spielt: was === 'play' ? true : was === 'pause' ? false : p.spielt, ...(was === 'seek' ? { position: wert, zeit: Date.now() } : {}),
       ...(was === 'shuffle' ? { shuffle: wert } : {}), ...(was === 'repeat' ? { wiederholen: wert } : {}) });
-    steuern(was, wert).then(() => setTimeout(holen, 450)).catch((e) => setFehler(e.status === 403 ? 'premium' : e.status === 404 ? 'geraet' : 'netz'));
+    steuern(was, wert).then(() => setTimeout(holen, 450)).catch((e) => { setFehler(fehlerArt(e)); setTimeout(() => setFehler((f) => (f === 'gesperrt' ? null : f)), 3500); });
   };
   const jetzt = spulen ?? (p ? Math.min(p.dauer, p.position + (p.spielt ? Date.now() - p.zeit : 0)) : 0), anteil = p?.dauer ? jetzt / p.dauer : 0;
   const z = zoom(), C = 2 * Math.PI * 25;
   if (!auf) {
     const x = pos ? grenze(pos.x, 0, (innerWidth - B * z) / innerWidth) : null, y = pos ? grenze(pos.y, 0, (innerHeight - B * z) / innerHeight) : null;
-    return html`<button class="sp-bubble kein-wisch ziehbar" ...${ziehen.props} style=${pos ? `left:${(x * innerWidth) / z}px;top:${(y * innerHeight) / z}px;right:auto;bottom:auto` : ''}
+    return html`<button class="sp-bubble kein-wisch ziehbar" ...${ziehen.props} onContextMenu=${(e) => e.preventDefault()} style=${pos ? `left:${(x * innerWidth) / z}px;top:${(y * innerHeight) / z}px;right:auto;bottom:auto` : ''}
         onClick=${() => { if (ziehen.geklickt()) setAuf(true); }} aria-label=${p?.titel ? `Spotify: ${p.titel}` : 'Spotify'}>
-      ${p?.bild ? html`<img src=${p.bild} alt=""/>` : html`<span class="sp-logo">${LOGO}</span>`}
+      ${p?.bild ? html`<img src=${p.bild} alt="" draggable="false"/>` : html`<span class="sp-logo">${LOGO}</span>`}
       <svg class="sp-ring" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="25" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/>
         <circle cx="28" cy="28" r="25" fill="none" stroke=${GRUEN} stroke-width="3" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - anteil)} transform="rotate(-90 28 28)"/></svg>
       ${p?.spielt ? html`<span class="sp-wellen" aria-hidden="true"><i></i><i></i><i></i></span>` : null}
     </button>`;
   }
   const hinweis = fehler === 'premium' ? deEn('Steuern geht nur mit Spotify Premium.', 'Controls need Spotify Premium.')
+    : fehler === 'gesperrt' ? deEn('Das lässt Spotify gerade nicht zu.', 'Spotify does not allow that right now.')
     : fehler === 'geraet' || (!p && !fehler) ? deEn('Kein aktives Gerät – Spotify einmal öffnen.', 'No active device – open Spotify once.')
     : fehler === 'netz' ? deEn('Spotify nicht erreichbar.', 'Spotify not reachable.') : null;
   // Höhe der Leiste ist etwa 92 px; oben an der Bubble, aber ganz im Bild
@@ -114,9 +120,11 @@ export function SpotifyBubble({ an }) {
   const top = pos ? grenze(pos.y * innerHeight, 8 * z, innerHeight - hoehe - 8 * z) / z : null;
   return html`<div class="sp-karte kein-wisch" ...${{ ...ziehenKarte.props, ref: (el) => { karte.current = el; ziehenKarte.props.ref.current = el; } }}
       style=${`${top != null ? `top:${top}px;bottom:auto;` : ''}${farbe ? `--sp-farbe:${farbe};` : ''}`} role="group" aria-label="Spotify">
+    <span class=${`sp-peek rechts ${wisch < -20 ? 'da' : ''} ${wisch < -70 ? 'los' : ''}`} aria-hidden="true">${ICON.next}</span>
+    <span class=${`sp-peek links ${wisch > 20 ? 'da' : ''} ${wisch > 70 ? 'los' : ''}`} aria-hidden="true">${ICON.previous}</span>
     <div class="sp-zeile">
       <button class="sp-cover-knopf" onClick=${spotifyOeffnen} aria-label=${deEn('In Spotify öffnen', 'Open in Spotify')}>
-        ${p?.bild ? html`<img class="sp-cover" src=${p.bild} alt=""/>` : html`<span class="sp-cover sp-cover-leer">${LOGO}</span>`}</button>
+        ${p?.bild ? html`<img class="sp-cover" src=${p.bild} alt="" draggable="false"/>` : html`<span class="sp-cover sp-cover-leer">${LOGO}</span>`}</button>
       <div class="sp-text"><b>${p?.titel ?? 'Spotify'}</b><span><i class="sp-mini-logo">${LOGO}</i>${p?.kuenstler || (p?.geraet ? deEn(`auf ${p.geraet}`, `on ${p.geraet}`) : hinweis ?? '')}</span></div>
       <div class="sp-knoepfe">
         <button onClick=${() => tu('previous')} disabled=${!p} aria-label=${deEn('Vorheriger Titel', 'Previous track')}>${ICON.previous}</button>

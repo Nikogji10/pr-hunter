@@ -442,7 +442,9 @@ export function useWegwischen(weg) {
  * achsen 'y'), gedrückt halten ruft lang. Ein normaler Tipp bleibt ein Klick; nach Ziehen/Halten wird der Klick verschluckt.
  * ablegen(rect) bekommt die neue Lage. Rückgabe { props, geklickt() }.
  */
-export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen = null }) {
+// wischFedernd: die Kachel geht nur ein Stück mit (höchstens 70 px), wischLive(dx) meldet den Weg, ab 70 px Fingerweg löst wischX aus,
+// danach federt sie zurück. langLos: wie lang, aber erst beim Loslassen (dort gilt das Antippen als Nutzer-Aktion – nötig zum Öffnen anderer Apps).
+export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen = null, wischFedernd = false, wischLive = null, langLos = null, langMs = 480 }) {
   const ref = useRef(null), z = useRef(null), sperre = useRef(0);
   const ende = (abbruch) => {
     const s = z.current, el = ref.current; z.current = null;
@@ -450,7 +452,15 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
     clearTimeout(s.t);
     if (!s.art) return;                                       // Tipp: der Klick läuft normal
     sperre.current = Date.now();
-    if (s.art === 'lang') return;
+    if (s.art === 'lang') { if (!abbruch) langLos?.(); return; }
+    if (s.art === 'wisch' && wischFedernd) {
+      const weit = !abbruch && Math.abs(s.dx / s.z) > 70;
+      el.style.transition = 'transform .22s cubic-bezier(.2, .9, .3, 1.2)'; el.style.transform = '';
+      setTimeout(() => { el.style.transition = ''; }, 240);
+      wischLive?.(0);
+      if (weit) wischX?.(Math.sign(s.dx));
+      return;
+    }
     if (s.art === 'wisch') {
       if (!abbruch && Math.abs(s.dx / s.z) > el.offsetWidth * 0.33) {
         el.style.transition = 'transform .2s ease, opacity .2s ease'; el.style.transform = `translateX(${Math.sign(s.dx) * 110}%)`; el.style.opacity = '0';
@@ -469,7 +479,8 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
       if (e.button > 0 || e.target.closest('button:not(.ziehbar), input, a')) return;      // Knöpfe (−30/+30), Regler, Links nicht
       // Zoom der Textgröße (html { zoom }): Verschiebungen sind CSS-Pixel × Zoom – ohne Ausgleich lief die Bubble dem Finger nach (09.11.)
       const s = { x: e.clientX, y: e.clientY, id: e.pointerId, art: null, dx: 0, dy: 0, z: parseFloat(getComputedStyle(document.documentElement).zoom) || 1 };
-      s.t = setTimeout(() => { if (z.current === s && !s.art) { s.art = 'lang'; sperre.current = Date.now(); vibriere(25); lang?.(); } }, 480);
+      s.t = setTimeout(() => { if (z.current === s && !s.art) { s.art = 'lang'; sperre.current = Date.now(); vibriere(25); lang?.(); } }, langMs);
+      if (langLos) e.currentTarget.style.webkitTouchCallout = 'none';
       z.current = s;
     },
     onPointerMove: (e) => {
@@ -485,7 +496,8 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
       s.dx = dx; s.dy = dy;
       el.style.transition = 'none';
       const zx = dx / s.z, zy = dy / s.z;
-      if (s.art === 'wisch') { el.style.transform = `translateX(${zx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(zx) / el.offsetWidth)); }
+      if (s.art === 'wisch' && wischFedernd) { el.style.transform = `translateX(${Math.sign(zx) * Math.min(70, Math.abs(zx) * 0.55)}px)`; wischLive?.(zx); }
+      else if (s.art === 'wisch') { el.style.transform = `translateX(${zx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(zx) / el.offsetWidth)); }
       else el.style.transform = achsen === 'y' ? `translateY(${zy}px)` : `translate(${zx}px, ${zy}px)`;
     },
     onPointerUp: () => ende(false),
