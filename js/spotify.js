@@ -89,13 +89,23 @@ export async function wiedergabe() {
   const it = p.item;
   return { spielt: !!p.is_playing, titel: it?.name ?? null, kuenstler: it ? (it.artists ?? []).map((a) => a.name).join(', ') || it.show?.name || '' : '',
     bild: (it?.album?.images ?? it?.images ?? []).at(-2)?.url ?? (it?.album?.images ?? it?.images ?? [])[0]?.url ?? null,
-    dauer: it?.duration_ms ?? 0, position: p.progress_ms ?? 0, zeit: Date.now(), geraet: p.device?.name ?? null, link: it?.uri ?? null };
+    dauer: it?.duration_ms ?? 0, position: p.progress_ms ?? 0, zeit: Date.now(), geraet: p.device?.name ?? null, link: it?.uri ?? null,
+    shuffle: !!p.shuffle_state, wiederholen: p.repeat_state ?? 'off' };
 }
 
-/** Steuern: 'play' | 'pause' | 'next' | 'previous' | 'seek' (wert = Position in ms). Ohne aktives Gerät startet 'play' auf dem zuletzt genutzten. */
+/** Nächster Titel in der Warteschlange: { titel, kuenstler } oder null. */
+export async function naechsterTitel() {
+  const q = await api('GET', '/me/player/queue');
+  const it = q?.queue?.[0];
+  return it ? { titel: it.name, kuenstler: (it.artists ?? []).map((a) => a.name).join(', ') || it.show?.name || '' } : null;
+}
+
+/** Steuern: 'play' | 'pause' | 'next' | 'previous' | 'seek' (wert = Position in ms) | 'shuffle' (true/false) | 'repeat' ('off'|'context'|'track'). Ohne aktives Gerät startet 'play' auf dem zuletzt genutzten. */
 export async function steuern(was, wert = null) {
   try {
     if (was === 'seek') return await api('PUT', `/me/player/seek?position_ms=${Math.max(0, Math.round(wert))}`);
+    if (was === 'shuffle') return await api('PUT', `/me/player/shuffle?state=${wert ? 'true' : 'false'}`);
+    if (was === 'repeat') return await api('PUT', `/me/player/repeat?state=${wert}`);
     if (was === 'play') return await api('PUT', '/me/player/play');
     if (was === 'pause') return await api('PUT', '/me/player/pause');
     return await api('POST', `/me/player/${was}`);

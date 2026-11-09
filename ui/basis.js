@@ -452,9 +452,10 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
     sperre.current = Date.now();
     if (s.art === 'lang') return;
     if (s.art === 'wisch') {
-      if (!abbruch && Math.abs(s.dx) > el.offsetWidth * 0.33) {
+      if (!abbruch && Math.abs(s.dx / s.z) > el.offsetWidth * 0.33) {
         el.style.transition = 'transform .2s ease, opacity .2s ease'; el.style.transform = `translateX(${Math.sign(s.dx) * 110}%)`; el.style.opacity = '0';
-        setTimeout(() => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; wischX?.(); }, 200);
+        const richtung = Math.sign(s.dx);
+        setTimeout(() => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; wischX?.(richtung); }, 200);
       } else { el.style.transition = 'transform .18s ease, opacity .18s ease'; el.style.transform = ''; el.style.opacity = ''; }
       return;
     }
@@ -466,7 +467,8 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
     ref,
     onPointerDown: (e) => {
       if (e.button > 0 || e.target.closest('button:not(.ziehbar), input, a')) return;      // Knöpfe (−30/+30), Regler, Links nicht
-      const s = { x: e.clientX, y: e.clientY, id: e.pointerId, art: null, dx: 0, dy: 0 };
+      // Zoom der Textgröße (html { zoom }): Verschiebungen sind CSS-Pixel × Zoom – ohne Ausgleich lief die Bubble dem Finger nach (09.11.)
+      const s = { x: e.clientX, y: e.clientY, id: e.pointerId, art: null, dx: 0, dy: 0, z: parseFloat(getComputedStyle(document.documentElement).zoom) || 1 };
       s.t = setTimeout(() => { if (z.current === s && !s.art) { s.art = 'lang'; sperre.current = Date.now(); vibriere(25); lang?.(); } }, 480);
       z.current = s;
     },
@@ -482,8 +484,9 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
       }
       s.dx = dx; s.dy = dy;
       el.style.transition = 'none';
-      if (s.art === 'wisch') { el.style.transform = `translateX(${dx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / el.offsetWidth)); }
-      else el.style.transform = achsen === 'y' ? `translateY(${dy}px)` : `translate(${dx}px, ${dy}px)`;
+      const zx = dx / s.z, zy = dy / s.z;
+      if (s.art === 'wisch') { el.style.transform = `translateX(${zx}px)`; el.style.opacity = String(Math.max(0.2, 1 - Math.abs(zx) / el.offsetWidth)); }
+      else el.style.transform = achsen === 'y' ? `translateY(${zy}px)` : `translate(${zx}px, ${zy}px)`;
     },
     onPointerUp: () => ende(false),
     onPointerCancel: () => ende(true),

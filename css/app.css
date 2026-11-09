@@ -2686,20 +2686,20 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
   -webkit-backdrop-filter: blur(var(--glas, 16px)) saturate(140%); backdrop-filter: blur(var(--glas, 16px)) saturate(140%); }
 
 /* 267: Spotify-Bubble im Spotify-Stil (schwarz, Grün #1DB954, runde Knöpfe); eingeklappt rund mit Cover und Fortschrittsring */
-.sp-bubble { position: fixed; z-index: 26; left: max(16px, calc(50% - 244px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px;
+.sp-bubble { position: fixed; z-index: 26; left: max(16px, calc(50% - 244px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 66px; height: 66px;
   padding: 0; border: 0; border-radius: 50%; background: #121212; box-shadow: 0 2px 6px rgba(0, 0, 0, .4), 0 12px 26px -8px rgba(0, 0, 0, .7); touch-action: none;
   display: grid; place-items: center; animation: einf-rein .35s cubic-bezier(.2, .9, .3, 1.2); }
-.sp-bubble img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; grid-area: 1 / 1; }
-.sp-bubble .sp-logo { width: 30px; height: 30px; grid-area: 1 / 1; }
+.sp-bubble img { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; grid-area: 1 / 1; }
+.sp-bubble .sp-logo { width: 36px; height: 36px; grid-area: 1 / 1; }
 .sp-bubble .sp-logo svg, .sp-logo-link svg, .sp-cover-leer svg, .sp-titel svg { width: 100%; height: 100%; display: block; }
-.sp-ring { position: absolute; inset: 0; width: 56px; height: 56px; pointer-events: none; }
-.sp-wellen { position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 50%; background: #1DB954; display: flex; align-items: flex-end; justify-content: center; gap: 1.5px; padding-bottom: 5px; }
+.sp-ring { position: absolute; inset: 0; width: 66px; height: 66px; pointer-events: none; }
+.sp-wellen { position: absolute; right: -1px; bottom: -1px; width: 22px; height: 22px; border-radius: 50%; background: #1DB954; display: flex; align-items: flex-end; justify-content: center; gap: 1.5px; padding-bottom: 5px; }
 .sp-wellen i { width: 2.5px; border-radius: 2px; background: #000; animation: sp-welle .9s ease-in-out infinite; }
 .sp-wellen i:nth-child(1) { height: 5px; } .sp-wellen i:nth-child(2) { height: 9px; animation-delay: .2s; } .sp-wellen i:nth-child(3) { height: 6px; animation-delay: .4s; }
 @keyframes sp-welle { 50% { transform: scaleY(.4); } }
 .sp-bubble:active { transform: scale(.95); }
 .sp-karte { position: fixed; z-index: 26; left: max(8px, calc(50% - 252px)); right: max(8px, calc(50% - 252px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  padding: 8px 10px 6px 8px; border-radius: 14px; background: linear-gradient(180deg, #2a2a2a, #181818); color: #fff; touch-action: none;
+  padding: 8px 10px 6px 8px; border-radius: 14px; background: linear-gradient(180deg, var(--sp-farbe, #2a2a2a), color-mix(in srgb, var(--sp-farbe, #2a2a2a) 45%, #121212)); transition: background .6s ease; color: #fff; touch-action: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 36px -10px rgba(0, 0, 0, .75); display: flex; flex-direction: column; gap: 4px; animation: einf-rein .3s cubic-bezier(.2, .9, .3, 1.2); }
 .sp-zeile { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 28px; gap: 10px; align-items: center; }
 .sp-cover-knopf { padding: 0; border: 0; background: none; border-radius: 6px; }
@@ -2719,8 +2719,8 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .sp-knoepfe .sp-play { width: 38px; height: 38px; background: #fff; color: #000; }
 .sp-knoepfe .sp-play svg { width: 20px; height: 20px; }
 .sp-knoepfe button:active { transform: scale(.92); }
-.sp-zeit { display: grid; grid-template-columns: 34px 1fr 34px; gap: 6px; align-items: center; font-size: 10.5px; color: #b3b3b3; font-variant-numeric: tabular-nums; }
-.sp-zeit span:last-child { text-align: right; }
+.sp-zeit { display: grid; grid-template-columns: 26px 32px 1fr 32px 26px; gap: 6px; align-items: center; font-size: 10.5px; color: #b3b3b3; font-variant-numeric: tabular-nums; }
+.sp-zeit span:nth-of-type(2) { text-align: right; }
 .sp-regler { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 0; background: transparent; cursor: pointer; touch-action: none; }
 .sp-regler::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, #fff var(--anteil), rgba(255, 255, 255, .25) var(--anteil)); }
 .sp-regler:active::-webkit-slider-runnable-track { background: linear-gradient(90deg, #1DB954 var(--anteil), rgba(255, 255, 255, .25) var(--anteil)); }
@@ -2732,3 +2732,11 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .sp-titel { display: flex; align-items: center; gap: 8px; }
 .sp-titel svg { width: 20px; height: 20px; }
 .sp-einst code { font-size: 12px; word-break: break-all; }
+.sp-klein { position: relative; width: 26px; height: 26px; padding: 0; border: 0; background: none; color: #b3b3b3; display: grid; place-items: center; }
+.sp-klein svg { width: 17px; height: 17px; }
+.sp-klein.an { color: #1DB954; }
+.sp-klein.an::after { content: ''; position: absolute; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: #1DB954; }
+.sp-eins { position: absolute; top: 2px; right: 1px; font: 800 8px/1 var(--f); font-style: normal; color: #1DB954; }
+.sp-als { font-size: 11.5px; color: rgba(255, 255, 255, .72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px 2px; }
+.sp-als b { color: #fff; font-weight: 700; margin-right: 4px; }
+.sp-bubble, .sp-karte, .dock-mini { will-change: transform; }
