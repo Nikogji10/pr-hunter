@@ -88,8 +88,8 @@ export function SpotifyBubble({ an }) {
   const ziehen = useZiehen({ achsen: 'xy', langLos: spotifyOeffnen, langMs: 350, ablegen: (r) => merken({
     x: grenze(r.left / innerWidth, 0, (innerWidth - r.width) / innerWidth), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
   // große Leiste: volle Breite, nur senkrecht verschieben
-  // Wischen nach links = nächster Titel, nach rechts = vorheriger (wie der Miniplayer von Spotify)
-  const ziehenKarte = useZiehen({ achsen: 'y', wischFedernd: true, wischLive: (dx) => setWisch(dx), wischX: (r) => tu(r < 0 ? 'next' : 'previous'), ablegen: (r) => merken({ ...(pos ?? {}), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
+  // Wischen nach rechts = nächster Titel, nach links = vorheriger (Niko, 09.11.)
+  const ziehenKarte = useZiehen({ achsen: 'y', wischFedernd: true, wischLive: (dx) => setWisch(dx), wischX: (r) => tu(r > 0 ? 'next' : 'previous'), ablegen: (r) => merken({ ...(pos ?? {}), y: grenze(r.top / innerHeight, 0, (innerHeight - r.height) / innerHeight) }) });
   if (!aktiv || p === undefined) return null;
   // Zurück wie bei Spotify: nach den ersten 3 Sekunden springt es an den Anfang des Titels
   const tu = (wasRoh, wertRoh) => {
@@ -120,8 +120,8 @@ export function SpotifyBubble({ an }) {
   const top = pos ? grenze(pos.y * innerHeight, 8 * z, innerHeight - hoehe - 8 * z) / z : null;
   return html`<div class="sp-karte kein-wisch" ...${{ ...ziehenKarte.props, ref: (el) => { karte.current = el; ziehenKarte.props.ref.current = el; } }}
       style=${`${top != null ? `top:${top}px;bottom:auto;` : ''}${farbe ? `--sp-farbe:${farbe};` : ''}`} role="group" aria-label="Spotify">
-    <span class=${`sp-peek rechts ${wisch < -20 ? 'da' : ''} ${wisch < -70 ? 'los' : ''}`} aria-hidden="true">${ICON.next}</span>
-    <span class=${`sp-peek links ${wisch > 20 ? 'da' : ''} ${wisch > 70 ? 'los' : ''}`} aria-hidden="true">${ICON.previous}</span>
+    <span class=${`sp-peek rechts ${wisch < -20 ? 'da' : ''} ${wisch < -70 ? 'los' : ''}`} aria-hidden="true">${ICON.previous}</span>
+    <span class=${`sp-peek links ${wisch > 20 ? 'da' : ''} ${wisch > 70 ? 'los' : ''}`} aria-hidden="true">${ICON.next}</span>
     <div class="sp-zeile">
       <button class="sp-cover-knopf" onClick=${spotifyOeffnen} aria-label=${deEn('In Spotify öffnen', 'Open in Spotify')}>
         ${p?.bild ? html`<img class="sp-cover" src=${p.bild} alt="" draggable="false"/>` : html`<span class="sp-cover sp-cover-leer">${LOGO}</span>`}</button>
