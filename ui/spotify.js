@@ -2,7 +2,7 @@
 // Eingeklappt rund mit Albumcover und grünem Fortschrittsring (gedrückt halten öffnet Spotify), angetippt eine flache Leiste
 // über die ganze Breite im Spotify-Stil: Cover, Titel, Zurück / Abspielen-Pause / Weiter, darunter die Zeitleiste zum Spulen. An und aus in Einstellungen → Kalender und Verbindungen → Spotify.
 import { html, useState, useEffect, useRef, deEn, useZiehen, kopiere } from './basis.js';
-import { verbunden, verbinden, trennen, wiedergabe, naechsterTitel, steuern, rueckkehr, clientId, setzeClientId, rueckAdresse, SPOTIFY_CLIENT_ID, spotifyOeffnen } from '../js/spotify.js';
+import { verbunden, verbinden, trennen, wiedergabe, steuern, rueckkehr, clientId, setzeClientId, rueckAdresse, SPOTIFY_CLIENT_ID, spotifyOeffnen } from '../js/spotify.js';
 
 // Rücksprung von der Spotify-Anmeldung sofort beim Laden auswerten (bereinigt die Adresse vor dem Verlauf der App)
 export const SPOTIFY_RUECKKEHR = rueckkehr();
@@ -58,7 +58,7 @@ export function SpotifyBubble({ an }) {
   const [fehler, setFehler] = useState(null);
   const [pos, setPos] = useState(lage);
   const [spulen, setSpulen] = useState(null);               // Position beim Ziehen der Zeitleiste (ms)
-  const [farbe, setFarbe] = useState(null), [als, setAls] = useState(null);   // Cover-Farbe, nächster Titel
+  const [farbe, setFarbe] = useState(null);                // Cover-Farbe
   const [wisch, setWisch] = useState(0);                    // Fingerweg beim Wischen über die Leiste (px)
   const [, tick] = useState(0);
   const laeuft = useRef(false), karte = useRef(null);
@@ -75,14 +75,6 @@ export function SpotifyBubble({ an }) {
     return () => { clearInterval(iv); clearInterval(t); document.removeEventListener('visibilitychange', sicht); removeEventListener('resize', groesse); };
   }, [aktiv, auf]);
   useEffect(() => { let weg = false; farbeVon(p?.bild).then((f) => { if (!weg) setFarbe(f); }); return () => { weg = true; }; }, [p?.bild]);
-  // „Als Nächstes“ bei jedem Titelwechsel (und alle 30 s, falls die Warteschlange sich ändert)
-  useEffect(() => {
-    if (!aktiv || !auf || !p?.link) { setAls(null); return; }
-    let weg = false;
-    const laden = () => naechsterTitel().then((n) => { if (!weg) setAls(n); }).catch(() => { if (!weg) setAls(null); });
-    laden(); const iv = setInterval(laden, 30000);
-    return () => { weg = true; clearInterval(iv); };
-  }, [aktiv, auf, p?.link]);
   const merken = (n) => { setPos(n); try { localStorage.setItem('prh-spotify-pos', JSON.stringify(n)); } catch { /* egal */ } };
   // Bubble frei verschieben (immer ganz im Bild), gedrückt halten öffnet Spotify
   const ziehen = useZiehen({ achsen: 'xy', langLos: spotifyOeffnen, langMs: 350, ablegen: (r) => merken({
@@ -140,7 +132,6 @@ export function SpotifyBubble({ an }) {
       <button class=${`sp-klein ${p.wiederholen !== 'off' ? 'an' : ''}`} onClick=${() => tu('repeat', WIEDERHOLEN[(WIEDERHOLEN.indexOf(p.wiederholen) + 1) % 3])}
         aria-label=${p.wiederholen === 'track' ? deEn('Titel wiederholen', 'Repeat track') : p.wiederholen === 'context' ? deEn('Alles wiederholen', 'Repeat all') : deEn('Wiederholen aus', 'Repeat off')}>
         ${ICON.repeat}${p.wiederholen === 'track' ? html`<i class="sp-eins">1</i>` : null}</button></div>` : null}
-    ${als ? html`<span class="sp-als"><b>${deEn('Als Nächstes', 'Next up')}</b> ${als.titel}${als.kuenstler ? ` · ${als.kuenstler}` : ''}</span>` : null}
     ${hinweis && p ? html`<span class="sp-hinweis">${hinweis}</span>` : null}
   </div>`;
 }
