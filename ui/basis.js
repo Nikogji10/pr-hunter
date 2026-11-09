@@ -465,7 +465,7 @@ export function useZiehen({ achsen = 'xy', lang = null, wischX = null, ablegen =
   const props = {
     ref,
     onPointerDown: (e) => {
-      if (e.button > 0 || e.target.closest('button:not(.ziehbar)')) return;      // Knöpfe (−30/+30) nicht
+      if (e.button > 0 || e.target.closest('button:not(.ziehbar), input, a')) return;      // Knöpfe (−30/+30), Regler, Links nicht
       const s = { x: e.clientX, y: e.clientY, id: e.pointerId, art: null, dx: 0, dy: 0 };
       s.t = setTimeout(() => { if (z.current === s && !s.art) { s.art = 'lang'; sperre.current = Date.now(); vibriere(25); lang?.(); } }, 480);
       z.current = s;

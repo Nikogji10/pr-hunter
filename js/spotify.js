@@ -79,6 +79,9 @@ async function api(method, pfad, body = null, nochmal = true) {
   return j;
 }
 
+/** Spotify-App öffnen, ohne die Wiedergabe zu ändern (ein Titel-Link würde den Titel neu starten). */
+export const spotifyOeffnen = () => { location.href = 'spotify:'; };
+
 /** Wiedergabe: null = kein aktives Gerät, sonst { spielt, titel, kuenstler, bild, dauer, position, zeit, geraet, link }. */
 export async function wiedergabe() {
   const p = await api('GET', '/me/player?additional_types=episode');
@@ -89,9 +92,10 @@ export async function wiedergabe() {
     dauer: it?.duration_ms ?? 0, position: p.progress_ms ?? 0, zeit: Date.now(), geraet: p.device?.name ?? null, link: it?.uri ?? null };
 }
 
-/** Steuern: 'play' | 'pause' | 'next' | 'previous'. Ohne aktives Gerät startet 'play' auf dem zuletzt genutzten. */
-export async function steuern(was) {
+/** Steuern: 'play' | 'pause' | 'next' | 'previous' | 'seek' (wert = Position in ms). Ohne aktives Gerät startet 'play' auf dem zuletzt genutzten. */
+export async function steuern(was, wert = null) {
   try {
+    if (was === 'seek') return await api('PUT', `/me/player/seek?position_ms=${Math.max(0, Math.round(wert))}`);
     if (was === 'play') return await api('PUT', '/me/player/play');
     if (was === 'pause') return await api('PUT', '/me/player/pause');
     return await api('POST', `/me/player/${was}`);
