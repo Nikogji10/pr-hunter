@@ -9,6 +9,7 @@ import { AufwaermRoutine } from './aufwaermroutine.js';
 import { kuerzeTraining, restMinuten } from '../js/kuerzen.js';
 import { PartnerLeiste } from './zusammen.js';
 import { zweiGewichte } from '../js/scheibenwechsel.js';
+import { SatzVideo, SatzVideoKnopf } from './satzvideo.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -252,6 +253,10 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     ${sheet?.art === 'kg' && html`<${KgSheet} t=${t} s=${sheet} zu=${() => setSheet(null)} satz=${satz} koerperKg=${kg}/>`}
     ${sheet?.art === 'wdh' && html`<${WdhSheet} t=${t} s=${sheet} zu=${() => setSheet(null)} satz=${satz}/>`}
     ${sheet?.art === 'rpe' && html`<${SatzSheet} t=${t} s=${sheet} zu=${() => setSheet(null)} satz=${satz} aendere=${aendere} koerperKg=${kg}/>`}
+    ${sheet?.art === 'video' && t.karten[sheet.ki]?.gruppen[sheet.gi]?.saetze[sheet.si] && html`<${SatzVideo} satz=${t.karten[sheet.ki].gruppen[sheet.gi].saetze[sheet.si]}
+      uebungKey=${t.karten[sheet.ki].key} uebungName=${nameVon(t.karten[sheet.ki].key)} lift=${liftVon(t.karten[sheet.ki].key)} zu=${() => setSheet(null)}
+      speichern=${(patch) => aendere((ks) => { const x = ks[sheet.ki]?.gruppen[sheet.gi]?.saetze[sheet.si]; if (!x) return; const e = { ...(x.extra ?? {}), ...patch };
+        for (const k of Object.keys(e)) if (e[k] == null) delete e[k]; x.extra = Object.keys(e).length ? e : undefined; })}/>`}
     ${sheet?.art === 'unotiz' && html`<${UebungNotizSheet} t=${t} ki=${sheet.ki} zu=${() => setSheet(null)} aendere=${aendere}/>`}
     ${sheet?.art === 'tausch' && html`<${Sheet} zu=${() => setSheet(null)} label="Übung tauschen">
       <div><div class="eyebrow">Übung tauschen</div><h2 class="h2">${nameVon(t.karten[sheet.ki].key)}</h2></div>
@@ -330,6 +335,7 @@ const weiterZurNaechsten = (ki) => (ks) => {
 function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
   const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere(k.zu ? nurOffen(ki) : (ks) => { ks[ki].zu = true; }));
   const [technik, setTechnik] = useState(false);             // 163 e: Technik (Bilder + Hinweise) in der Karte aufgeklappt
+  const videoAn = einst.satzVideo !== false && typeof indexedDB !== 'undefined';   // 268: Satz-Video, Standard an
   if (k.zu) {
     const alle = k.gruppen.flatMap((g) => g.saetze), fertig = alle.filter((s) => s.erledigt).length;
     return html`<section class=${`card ex eingeklappt ${gedimmt ? 'gedimmt' : ''}`} ...${wisch}>
@@ -426,9 +432,10 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
         <button class="cell" onClick=${() => setSheet({ art: 'rpe', ki, gi, si })} aria-label="RPE und Satzdetails">
           <span class="v">${s.rpe != null ? fmt(s.rpe) : html`<span class="muted">–</span>`}</span><span class="u">RPE${extras.length ? ' ·' : ''}</span></button>
         <button class="check" onClick=${() => abhaken(ki, gi, si)} aria-label=${s.erledigt ? 'Satz zurücknehmen' : 'Satz abhaken'}>${I.check}</button>
-        ${satz1rm || extras.length ? html`<div class="setinfo">
+        ${satz1rm || extras.length || (videoAn && s.erledigt && s.typ !== 'warmup') ? html`<div class="setinfo">
           ${satz1rm ? html`<span>${s.rpe != null ? '≈ ' : ''}1RM ${gwE(satz1rm, 1)}${koerper ? ` gesamt (Zusatz ${gw(satz1rm - einst.koerpergewicht, 1)})` : ''}</span>` : null}
-          ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}</div>` : null}
+          ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}
+          ${videoAn && s.erledigt && s.typ !== 'warmup' ? html`<${SatzVideoKnopf} satz=${s} oeffnen=${() => setSheet({ art: 'video', ki, gi, si })}/>` : null}</div>` : null}
         ${einst.technikBewertung && s.erledigt && s.typ !== 'warmup' ? html`<div class="technik-wahl" role="group" aria-label="Technik">
           <span class="muted">Technik</span>${[['gut', '👍'], ['schlecht', '👎']].map(([w, z]) => html`<button key=${w} aria-pressed=${String(s.extra?.technik === w)}
             aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => aendere((ks) => { const x = ks[ki].gruppen[gi].saetze[si]; const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined;

@@ -45,6 +45,7 @@ import { SUPABASE_URL } from './js/supabase.js';
 import { autoregulation } from './js/autoregulation.js';
 import { useAnsagen } from './ui/ansage.js';
 import { WettkampfCountdown } from './ui/wettkampf.js';
+import { formDaten } from './ui/formkurve.js';
 import { ErholungKurz } from './ui/koerper.js';
 import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
 import { GeschlechtKarte, ZyklusChip, geschlechtAusName } from './ui/zyklus.js';
@@ -295,7 +296,9 @@ function Heute({ ausdauer = [], ausdauerPlan = null, ausdauerSpeichern = null, a
     return html`<${RueckblickKarte} jahr=${jahr} oeffnen=${() => dispatchEvent(new CustomEvent('prh-rueckblick', { detail: { jahr: Number(jahr) } }))}
       weg=${() => { speicher.schreib(weg, '1'); setEinst({ ...einst }); }}/>`;
   })()}
-  <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}/>
+  <${WettkampfCountdown} einst=${einst} e1rmWoche=${e1rmWoche} koerperKg=${einst.koerpergewicht ?? KOERPERGEWICHT} heute=${HEUTE}
+    form=${einst.wettkampfDatum && einst.trainingsart !== 'einfach' ? formDaten(tage, { wettkampf: einst.wettkampfDatum, erledigt }) : null}
+    zuForm=${zuStatistik ? () => { try { sessionStorage.setItem('prh-reiter-statistik', 'belastung'); } catch { /* egal */ } zuStatistik(); } : null}/>
   ${!training ? html`<${ErholungKurz} trainings=${trainings} oeffnen=${zuStatistik} ausdauer=${einst.ausdauer ? erholungsEintraege(sichtbar(ausdauer, einst.ausdauer), Date.now()) : []}/>` : null}`;
   const gewicht = html`<${GewichtKarte} einst=${einst} setEinst=${setEinst} kompakt=${true}/><${KiKachel} trainings=${trainings} einst=${einst} block=${block} prog=${prog} ausdauer=${ausdauer}/>${einst.ausdauer && ausdauerSpeichern ? html`<${AusdauerKarte} liste=${ausdauer} wahl=${einst.ausdauer} speichern=${ausdauerSpeichern} loeschen=${ausdauerLoeschen} plan=${ausdauerPlan} eintragenGeplant=${geplantEintragen}/>` : null}`;
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
@@ -1674,7 +1677,7 @@ function App() {
       : ansicht === 'coach' ? html`<${CoachSeite} zurueck=${() => history.back()}
           plaene=${Object.entries(info).map(([d, p]) => ({ name: p.name ?? NAMEN[d] ?? d, def: programme[d], eigen: !p.vorlage })).filter((p) => p.def).sort((a, b) => b.eigen - a.eigen)}/>`
       : ansicht === 'feed' ? html`<${Feed} einst=${einstUi} setEinst=${setEinst} anfragen=${anfragen + coachOffen} neuReakt=${neuReakt} gesehen=${reaktionenGesehen} aktiv=${aktiveFreunde} zuEinstellungen=${() => gehe('einstellungen')}/>`
-      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen} ausdauer=${ausdauer}/>`
+      : ansicht === 'statistik' ? html`<${Statistik} einst=${einstUi} setEinst=${setEinst} blockStart=${aktiverBlock?.start ?? null} trainings=${trainings} planTage=${tage.filter((t) => !erledigt.has(t.datum))} masse=${masse} masseSetzen=${DEMO ? null : masseSetzen} ausdauer=${ausdauer}/>`
       : ansicht === 'rechner' ? html`<${Rechner} key=${`${rechnerArt}-${training?.id ?? ''}`} einst=${einstUi} start=${rechnerArt} zurueck=${() => history.back()} vorlage=${(() => {
           // 180: aktueller Satz des Trainings (offene Übung zuerst); bei Klimmzug/Dips als Zusatzgewicht für den Klimmzug-Rechner
           const ks = training ? [...training.karten.filter((k) => k.key && !k.zu), ...training.karten.filter((k) => k.key && k.zu)] : [];

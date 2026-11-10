@@ -26,6 +26,7 @@ import { AusdauerStatistik } from './ausdauerstatistik.js';
 import { erholungsEintraege, sichtbar } from '../js/ausdauer.js';
 import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
+import { FormKarte, formDaten } from './formkurve.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
@@ -49,7 +50,7 @@ const MERK = {};
 const merke = (name, eingaben, rechne) => { const m = MERK[name]; if (m && m.e.length === eingaben.length && m.e.every((x, i) => x === eingaben[i])) return m.w; const w = rechne(); MERK[name] = { e: eingaben, w }; return w; };
 const STAT_REITER = [['profil', 'Profil'], ['analyse', 'Analyse'], ['kraft', 'Kraft'], ['belastung', 'Belastung'], ['training', 'Training'], ['koerper', 'Körper']];
 
-export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null, ausdauer = [] }) {
+export function Statistik({ einst, setEinst = null, blockStart = null, trainings = [], masse = [], masseSetzen = null, ausdauer = [], planTage = [] }) {
   // 151: einfache Ansicht ohne Kraft (SBD/DOTS) und Kraftprofil
   // einfache Ansicht: ohne Reiter Kraft (SBD/DOTS); Profil mit Erholung und Kraftprofil aus den eigenen Übungen, ohne Vergleich
   const einfach = einst.trainingsart === 'einfach';
@@ -293,6 +294,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     ${einfach ? null : html`<${Bestenliste} gruppen=${einst.gruppen ?? []}/>`}
     ${einfach ? null : html`<${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
     : reiter === 'belastung' ? html`
+    <${FormKarte} daten=${formDaten(planTage, { wettkampf: einfach ? null : einst.wettkampfDatum ?? null })}/>
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>
       <div class="kachel"><span class="l">Monotonie</span><b>${fmt(letzte.foster.monotonie, 2)}</b><span class="muted" style="font-size:12px">Ø ÷ Streuung</span></div>

@@ -7,6 +7,7 @@ import { MeetSheet } from './wettkaempfe.js';
 import { DIENSTE, HEUTE as HEUTE_STAND } from './stand.js';
 import { aufwaermen } from '../js/rechnen.js';
 import { versuche, dots } from '../js/punkte.js';
+import { FormZeile } from './formkurve.js';
 
 const LIFTE = [['squat', 'Kniebeuge'], ['bench', 'Bankdrücken'], ['dead', 'Kreuzheben']];
 const SPEICHER = 'prh-wettkampf';
@@ -84,7 +85,7 @@ const PHASE = (w) => (w <= 0 ? ['Heute ist Wettkampftag – viel Erfolg! Werkzeu
   : w <= 10 ? ['Zeit für einen Peaking-Block (z. B. 6–8 Wochen) mit Test am Ende.', 'Time for a peaking block (e.g. 6–8 weeks) with a test at the end.']
   : ['Noch Zeit für einen Aufbau-Block mit mehr Volumen, danach Peaking.', 'Still time for a volume block, then peaking.']);
 
-export function WettkampfCountdown({ einst, e1rmWoche, koerperKg, heute }) {
+export function WettkampfCountdown({ einst, e1rmWoche, koerperKg, heute, form = null, zuForm = null }) {
   const datum = einst.wettkampfDatum;
   if (!datum || datum < heute) return null;
   const tage = Math.round((Date.parse(`${datum}T00:00:00Z`) - Date.parse(`${heute}T00:00:00Z`)) / 864e5), wochen = Math.ceil(tage / 7);
@@ -99,6 +100,7 @@ export function WettkampfCountdown({ einst, e1rmWoche, koerperKg, heute }) {
       <div class="cd-zahl"><b>${tage <= 0 ? deEn('Heute', 'Today') : tage < 14 ? tage : wochen}</b><span>${tage <= 0 ? '' : tage < 14 ? deEn(tage === 1 ? 'Tag' : 'Tage', tage === 1 ? 'day' : 'days') : deEn('Wochen', 'weeks')}</span></div></div>
       <span class="cd-pokal" aria-hidden="true">🏆</span></div>
     <span class="muted" style="font-size:13px">${PHASE(wochen)[en ? 1 : 0]}</span>
+    <${FormZeile} daten=${form} oeffnen=${zuForm}/>
     ${prog.length && tage > 0 ? html`<div class="cd-prognose"><span class="eyebrow">${deEn('Prognose zum Wettkampf (e1RM-Trend)', 'Forecast for meet day (e1RM trend)')}</span>
       <div class="cd-lifts">${prog.map(([l, n, p]) => html`<span key=${l}><small>${n}</small><b>${`${fmt(inAnzeige(p.wert), 0)}`}</b></span>`)}
         ${total ? html`<span class="cd-total"><small>Total</small><b>${fmt(inAnzeige(total), 0)}</b></span>` : null}</div></div>` : null}

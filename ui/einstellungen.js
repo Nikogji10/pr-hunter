@@ -10,6 +10,7 @@ import { moeglich as mitteilungMoeglich, erlaubt as mitteilungErlaubt, erlaubnis
 import { hintergrund, speichereHintergrund, profilbildAusDatei, setzeAbdunklung, neigungAn, schalteNeigung, neigungStaerke, setzeNeigungStaerke } from './hintergrund.js';
 import { Zuschnitt, bildLaden } from './zuschnitt.js';
 import { KG_PRO_LB, STANDARD_SCHEIBEN } from '../js/rechnen.js';
+import { VideoEinstellung } from './satzvideo.js';
 
 const KG_SCHEIBEN = [25, 20, 15, 10, 5, 2.5, 2, 1.25, 1, 0.5, 0.25];
 const LB_SCHEIBEN = [55, 45, 35, 25, 10, 5, 2.5, 1.25];
@@ -219,6 +220,7 @@ export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen,
       <label class="schalter" for="e-technik"><span><b>Technik je Satz bewerten</b><br/>
         <span class="muted" style="font-size:12.5px">Nach dem Abhaken 👍 oder 👎 für die Technik. Die Übungsseite zeigt dann, ab welchem Gewicht die Technik leidet.</span></span>
         <input type="checkbox" id="e-technik" checked=${!!einst.technikBewertung} onChange=${(e) => setEinst({ ...einst, technikBewertung: e.currentTarget.checked })}/></label>
+      <${VideoEinstellung} einst=${einst} setEinst=${setEinst}/>
       <label class="schalter" for="e-auto"><span><b>Autoregulation für Zubehör</b><br/>
         <span class="muted" style="font-size:12.5px">Gewicht der Zubehörübungen aus der RPE der letzten Einheit (leichter → mehr, schwerer → weniger); fällt die Leistung dreimal hintereinander, Deload −10 %. Kniebeuge, Bank und Kreuzheben steuert weiter der Plan.</span></span>
         <input type="checkbox" id="e-auto" checked=${!!einst.autoregulation} onChange=${(e) => setEinst({ ...einst, autoregulation: e.currentTarget.checked })}/></label>
