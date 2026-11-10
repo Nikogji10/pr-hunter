@@ -14,6 +14,8 @@ import { kanon } from '../js/daten.js';
 
 export { html, useState, useEffect, useRef };
 export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { maximumFractionDigits: stellen });
+/** 283: immer zwei Nachkommastellen (Tempo in m/s: 0,30 statt 0,3). */
+export const fmt2 = (n) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // #################################################################
 // Anzeige: Sprache, Einheit, Stange/Scheiben und persönliche Übungsanpassungen (von app.js gesetzt).
@@ -83,7 +85,7 @@ export function satzExtras(s, { mitTyp = false } = {}) {
   teile.push(...(e.gear ?? []).map((g) => GEAR_KURZ[g] ?? g));
   if (e.baender) teile.push(`Bänder ${e.baender}`);
   if (e.ketten) teile.push(`Ketten ${gw(e.ketten)} ${ANZEIGE.einheit}`);
-  if (e.ms) teile.push(`${fmt(e.ms, 2)} m/s`);
+  if (e.ms) teile.push(`${fmt2(e.ms)} m/s`);
   if (mitTyp && e.technik) teile.push(e.technik === 'gut' ? 'Technik 👍' : 'Technik 👎');
   if (s.notiz) teile.push(`„${s.notiz}“`);
   return teile;

@@ -1,6 +1,6 @@
 // PR Hunter · Statistik → Tempo (Wunsch 279). Sätze mit Hantel-Tempo (Satz-Video, Feld „Tempo (m/s)“, Rechner → Hantelweg)
 // je Übung: Gewicht ↔ Tempo mit e1RM aus dem Tempo, gefühlte RPE ↔ Tempo, Tempo beim häufigsten Gewicht, Videos.
-import { html, useState, useEffect, deEn, fmt, nameVon, datumKurz, inAnzeige, einheit, gwE, I } from './basis.js';
+import { html, useState, useEffect, deEn, fmt, fmt2, nameVon, datumKurz, inAnzeige, einheit, gwE, I } from './basis.js';
 import { trainingsTage, trainingAm, kanon, E1RM_AKTUELL } from './stand.js';
 import { tempoSaetze, lastTempoProfil, rpeTempo, tempoBeiGewicht, MVT } from '../js/tempo.js';
 import { LinienChart } from './diagramme.js';
@@ -48,8 +48,8 @@ function Streu({ titel, unter, punkte, gerade = null, xBis = null, linieY = null
   return html`<figure class="viz"><figcaption class="viz-h"><div><div class="viz-t">${titel}</div>${unter ? html`<div class="viz-u">${unter}</div>` : null}</div></figcaption>
     <div class="viz-plot" onPointerLeave=${() => setI(null)}>
       <svg viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${titel}>
-        ${ty.map((t) => html`<g key=${`y${t}`}><line class="g" x1=${L} x2=${W - R} y1=${py(t)} y2=${py(t)}/><text class="ax" x=${L - 6} y=${py(t) + 4} text-anchor="end">${fmt(t, ySt)}</text></g>`)}
-        ${tx.map((t) => html`<text key=${`x${t}`} class="ax" x=${px(t)} y=${H - 14} text-anchor="middle">${fmt(t, xSt)}</text>`)}
+        ${ty.map((t) => html`<g key=${`y${t}`}><line class="g" x1=${L} x2=${W - R} y1=${py(t)} y2=${py(t)}/><text class="ax" x=${L - 6} y=${py(t) + 4} text-anchor="end">${ySt === 2 ? fmt2(t) : fmt(t, ySt)}</text></g>`)}
+        ${tx.map((t) => html`<text key=${`x${t}`} class="ax" x=${px(t)} y=${H - 14} text-anchor="middle">${xSt === 2 ? fmt2(t) : fmt(t, xSt)}</text>`)}
         <text class="ax" x=${W - R} y=${H - 2} text-anchor="end">${xText}</text>
         <text class="ax" x=${L - 30} y=${T - 2}>${yText}</text>
         ${linieY ? html`<g><line x1=${L} x2=${W - R} y1=${py(linieY.wert)} y2=${py(linieY.wert)} class="tp-mvt"/><text class="ax tp-mvt-t" x=${L + 4} y=${py(linieY.wert) - 5}>${linieY.text}</text></g>` : null}
@@ -89,7 +89,7 @@ export function TempoStatistik({ von = null }) {
   const e1rmSaetze = E1RM_AKTUELL[key] ?? null;
   const bei8 = rt.gerade && rt.gerade.b < 0 ? (8 - rt.gerade.a) / rt.gerade.b : null;
   const E = einheit();
-  const punktText = (s) => `${datumKurz(s.datum)} · ${fmt(inAnzeige(s.kg))} ${E} × ${s.wdh ?? '–'}${s.rpe != null ? ` @ ${fmt(s.rpe)}` : ''} · ${fmt(s.beste, 2)} m/s`;
+  const punktText = (s) => `${datumKurz(s.datum)} · ${fmt(inAnzeige(s.kg))} ${E} × ${s.wdh ?? '–'}${s.rpe != null ? ` @ ${fmt(s.rpe)}` : ''} · ${fmt2(s.beste)} m/s`;
   const meineVideos = videos.filter((v) => kanon(v.key) === key).sort((a, b) => (b.erstellt ?? '').localeCompare(a.erstellt ?? '')).slice(0, 12);
   return html`
     <div class="filter einreihig" role="group" aria-label=${deEn('Übung', 'Exercise')}>${keys.map((k) => html`<button key=${k} class="chip" aria-pressed=${String(k === key)} onClick=${() => setWahl(k)}>${nameVon(k)}<small class="tp-zahl">${zahl[k]}</small></button>`)}</div>
@@ -101,11 +101,11 @@ export function TempoStatistik({ von = null }) {
       <div class="tp-neben">
         <div><span class="l">${deEn('Sätze', 'Sets')}</span><b>${saetze.length}</b></div>
         <div><span class="l">${deEn('Ø Verlust', 'Avg. loss')}</span><b>${verluste.length ? `−${fmt(verluste.reduce((a, b) => a + b, 0) / verluste.length, 0)} %` : '–'}</b></div>
-        <div><span class="l">${deEn('RPE 8 bei', 'RPE 8 at')}</span><b>${bei8 > 0 && bei8 < 2 ? `${fmt(bei8, 2)} m/s` : '–'}</b></div>
+        <div><span class="l">${deEn('RPE 8 bei', 'RPE 8 at')}</span><b>${bei8 > 0 && bei8 < 2 ? `${fmt2(bei8)} m/s` : '–'}</b></div>
       </div>
     </section>
     ${saetze.length < 2 ? html`<section class="card pad"><p class="muted" style="margin:0;font-size:13.5px">${deEn('Die Diagramme kommen ab 2 Sätzen mit Tempo – am besten mit verschiedenen Gewichten (Aufwärmsätze zählen auch).', 'The charts appear from 2 sets with velocity – ideally at different weights (warm-up sets count too).')}</p></section>`
-    : html`<${Streu} titel=${deEn('Gewicht ↔ Tempo', 'Load ↔ velocity')} unter=${deEn(`Schnellste Wdh je Satz. Gerade bis zum Mindesttempo${mvt ? ` (${fmt(mvt, 2)} m/s, Richtwert)` : ''} = e1RM aus dem Tempo.`, `Fastest rep per set. Line down to the minimum velocity${mvt ? ` (${fmt(mvt, 2)} m/s, estimate)` : ''} = e1RM from velocity.`)}
+    : html`<${Streu} titel=${deEn('Gewicht ↔ Tempo', 'Load ↔ velocity')} unter=${deEn(`Schnellste Wdh je Satz. Gerade bis zum Mindesttempo${mvt ? ` (${fmt2(mvt)} m/s, Richtwert)` : ''} = e1RM aus dem Tempo.`, `Fastest rep per set. Line down to the minimum velocity${mvt ? ` (${fmt2(mvt)} m/s, estimate)` : ''} = e1RM from velocity.`)}
       punkte=${saetze.map((s) => ({ x: inAnzeige(s.kg), y: s.beste, text: punktText(s) }))}
       gerade=${profil.a != null ? { a: profil.a, b: profil.b / inAnzeige(1) } : null} xBis=${profil.e1rm ? inAnzeige(profil.e1rm) : null}
       linieY=${mvt && profil.e1rm ? { wert: mvt, text: deEn('Mindesttempo', 'Minimum velocity') } : null}
@@ -115,11 +115,11 @@ export function TempoStatistik({ von = null }) {
     ${beiKg && beiKg.reihe.length >= 2 ? html`<${LinienChart} titel=${deEn(`Tempo bei ${fmt(inAnzeige(beiKg.kg))} ${E}`, `Velocity at ${fmt(inAnzeige(beiKg.kg))} ${E}`)}
       unter=${deEn('Dein häufigstes Gewicht: schneller = stärker geworden.', 'Your most common weight: faster = got stronger.')} x=${beiKg.reihe.map((r) => r.datum)} zeitlich=${true} punkte=${true}
       serien=${[{ id: 'v', name: 'm/s', farbe: 'var(--ok)', werte: beiKg.reihe.map((r) => r.v) }]} einheit="m/s" stellen=${2} tipKopf=${(d) => datumKurz(d)} hoehe=${180}
-      format=${(v) => fmt(v, 2)}/>` : null}
+      format=${(v) => fmt2(v)}/>` : null}
     ${meineVideos.length ? html`<section class="card pad stack"><span class="viz-t">${deEn('Videos auf diesem Gerät', 'Videos on this device')}</span>
       <div class="hw-liste">${meineVideos.map((v) => html`<button key=${v.id} class="hw-zeile" onClick=${() => setOffen(v)}>${KAMERA}
         <span><b>${fmt(inAnzeige(v.kg ?? 0))} × ${v.wdh ?? '–'}${v.rpe != null ? ` @ ${fmt(v.rpe)}` : ''}</b><small>${datumKurz((v.datum ?? v.erstellt ?? '').slice(0, 10) || '2000-01-01')}</small></span>
-        <b class="hw-ms">${v.analyse?.wdh?.length && !v.ungeprueft ? `${fmt(Math.max(...v.analyse.wdh.map((w) => w.mcv)), 2)} m/s` : '–'}</b>${I.weiter}</button>`)}</div></section>` : null}
+        <b class="hw-ms">${v.analyse?.wdh?.length && !v.ungeprueft ? `${fmt2(Math.max(...v.analyse.wdh.map((w) => w.mcv)))} m/s` : '–'}</b>${I.weiter}</button>`)}</div></section>` : null}
     ${offen ? html`<${SatzVideo} satz=${{ kg: offen.kg, wdh: offen.wdh, rpe: offen.rpe, extra: { video: offen.id } }} uebungKey=${offen.key} uebungName=${nameVon(offen.key)} lift=${offen.lift}
       zu=${() => setOffen(null)}/>` : null}`;
 }

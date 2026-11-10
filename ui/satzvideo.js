@@ -2,7 +2,7 @@
 // nie hochgeladen. Im Satz landen nur die Zahlen: extra.video (Kennung), extra.tempo { v: m/s je Wdh, vl: Verlust in % },
 // extra.ms (schnellste Wdh, wie das Feld „Tempo (m/s)“). Rechnung in js/hantelweg.js.
 // VideoKern ist der gemeinsame Baustein für Training (SatzVideo im Fenster), Verlauf (nur ansehen) und Rechner (Werkzeug).
-import { html, useState, useEffect, useRef, Sheet, deEn, fmt, I } from './basis.js';
+import { html, useState, useEffect, useRef, Sheet, deEn, fmt, fmt2, I } from './basis.js';
 import { trainingsTage, trainingAm, kanon } from './stand.js';
 import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse } from '../js/hantelweg.js';
 
@@ -218,7 +218,7 @@ const SCHLOSS = (zu) => html`<svg viewBox="0 0 24 24" width="17" height="17" fil
   <rect x="5" y="11" width="14" height="9.5" rx="2"/><path d=${zu ? 'M8 11V8a4 4 0 0 1 8 0v3' : 'M8 11V8a4 4 0 0 1 7.5-2'}/></svg>`;
 const SCHERE = html`<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
   <circle cx="6" cy="7" r="2.6"/><circle cx="6" cy="17" r="2.6"/><path d="M8.2 8.4L20 17M8.2 15.6L20 7"/></svg>`;
-const ms = (v) => `${fmt(v, 2)}`;
+const ms = (v) => fmt2(v);
 
 /** Einstellungen → Training: Schalter, belegter Speicher, alle Videos löschen. */
 export function VideoEinstellung({ einst, setEinst }) {
@@ -288,7 +288,9 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const id = satz.extra?.video;
       const r = id ? await videoLaden(id).catch(() => null) : null;
       if (weg) return;
-      if (r) { setRec(r); setPhase(r.analyse ? 'ergebnis' : 'markieren'); } else setPhase(satz.extra?.tempo ? 'fremd' : 'waehlen');
+      if (r?.blob) { setRec(r); setPhase(r.analyse ? 'ergebnis' : 'markieren'); }
+      else if (r) { setRec(r); setPhase('fremd'); }                   // Werkzeug-Eintrag ohne Datei: nur die Zahlen
+      else setPhase(satz.extra?.tempo ? 'fremd' : 'waehlen');
     })();
     return () => { weg = true; abbruch.current = true; };
   }, []);
@@ -307,6 +309,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const schnitt = rec?.schnitt ?? null;
   const bereich = () => [schnitt?.von ?? 0, Math.min(schnitt?.bis ?? dauer, dauer || Infinity)];
   const lupenPunkt = lupe && mass ? inVideo(lupe.x, lupe.y, ansicht, b, h, mass.w, mass.h) : null;
+  const randZieht = !!lupe && geste.current?.art === 'rand';
 
   // Überlagerung neu zeichnen (Video läuft, Analyse, Zoom, Markieren)
   useEffect(() => {
@@ -315,7 +318,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const v = videoRef.current;
       zeichne(canvasRef.current, { analyse: phase === 'ergebnis' ? rec?.analyse : null, scan: phase === 'analyse' ? scan.current : null,
         bis: phase === 'ergebnis' ? v?.currentTime ?? Infinity : Infinity, mitte: phase === 'markieren' ? mitte : null,
-        rand: phase === 'markieren' ? rand : null, vorschauRand: phase === 'markieren' && schritt === 'rand' ? lupenPunkt : null, vb: mass?.w || 1, z: ansicht.z, b, h });
+        rand: phase === 'markieren' && !randZieht ? rand : null, vorschauRand: phase === 'markieren' && (schritt === 'rand' || randZieht) ? lupenPunkt : null, vb: mass?.w || 1, z: ansicht.z, b, h });
       if (spielt || phase === 'analyse') id = requestAnimationFrame(male);
     };
     male();
@@ -334,7 +337,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     ctx.strokeStyle = akzent; ctx.lineWidth = 2 * dpr;
     ctx.beginPath(); ctx.moveTo(m - 22 * dpr, m); ctx.lineTo(m - 6 * dpr, m); ctx.moveTo(m + 6 * dpr, m); ctx.lineTo(m + 22 * dpr, m);
     ctx.moveTo(m, m - 22 * dpr); ctx.lineTo(m, m - 6 * dpr); ctx.moveTo(m, m + 6 * dpr); ctx.lineTo(m, m + 22 * dpr); ctx.stroke();
-    if (schritt === 'rand' && mitte) {
+    if ((schritt === 'rand' || geste.current?.art === 'rand') && mitte) {
       const k = G / quelle, cx = m + (mitte.x - lupenPunkt.x) * k, cy = m + (mitte.y - lupenPunkt.y) * k;
       ctx.setLineDash([6 * dpr, 5 * dpr]);
       ctx.beginPath(); ctx.arc(cx, cy, Math.hypot(mitte.x - lupenPunkt.x, mitte.y - lupenPunkt.y) * k, 0, Math.PI * 2); ctx.stroke();
@@ -371,7 +374,9 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     v.play()?.catch?.(() => setFehler(deEn('Das Video lässt sich gerade nicht abspielen – einmal neu öffnen.', 'The video cannot be played right now – open it again.')));
   };
   // Gesten auf der Bühne: zwei Finger zoomen/verschieben; ein Finger markiert (Lupe) bzw. verschiebt, Tippen = Play/Pause
-  const lage = (e) => { const r = buehneRef.current.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  // 285: über das Verhältnis zur gemessenen Bühne rechnen – mit Textgröße (html { zoom }) liegen Finger und Rechteck in einem
+  // anderen Maßstab als das Layout (b × h), die Markierung saß sonst versetzt
+  const lage = (e) => { const r = buehneRef.current.getBoundingClientRect(); return { x: ((e.clientX - r.left) / (r.width || 1)) * b, y: ((e.clientY - r.top) / (r.height || 1)) * h }; };
   const runter = (e) => {
     if (phase === 'analyse' || phase === 'arbeit') return;
     try { buehneRef.current?.setPointerCapture?.(e.pointerId); } catch { /* Zeiger schon weg */ }
@@ -381,8 +386,17 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const [p1, p2] = [...zeiger.current.values()];
       geste.current = { art: 'zwei', p1, p2, a: ansicht };
     } else if (zeiger.current.size === 1) {
-      geste.current = phase === 'markieren' ? { art: 'mark' } : { art: 'ziehen', start: lage(e), a: ansicht, bewegt: false };
-      if (phase === 'markieren') setLupe(lage(e));
+      const p = lage(e);
+      if (phase === 'markieren' && schritt === 'fertig' && mitte && rand && mass) {
+        // 286: Kreis anpassen statt neu anfangen – innen ziehen verschiebt den Kreis, am Rand ziehen ändert die Größe
+        const vp = inVideo(p.x, p.y, ansicht, b, h, mass.w, mass.h), r = Math.hypot(rand.x - mitte.x, rand.y - mitte.y), d = Math.hypot(vp.x - mitte.x, vp.y - mitte.y);
+        if (d < r * 0.6) { geste.current = { art: 'kreis', start: vp, m0: mitte, r0: rand }; setLupe(p); return; }
+        if (Math.abs(d - r) < Math.max(r * 0.45, 12)) { geste.current = { art: 'rand' }; setLupe(p); return; }
+        geste.current = { art: 'ziehen', start: p, a: ansicht, bewegt: false };
+        return;
+      }
+      geste.current = phase === 'markieren' ? { art: 'mark' } : { art: 'ziehen', start: p, a: ansicht, bewegt: false };
+      if (phase === 'markieren') setLupe(p);
     }
   };
   const bewegen = (e) => {
@@ -397,7 +411,11 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const m0 = { x: (g.p1.x + g.p2.x) / 2, y: (g.p1.y + g.p2.y) / 2 }, m1 = { x: (q1.x + q2.x) / 2, y: (q1.y + q2.y) / 2 };
       const a = zoomeUm(g.a, d1 / d0, m0.x, m0.y, b, h);
       setAnsicht(begrenze({ ...a, tx: a.tx + m1.x - m0.x, ty: a.ty + m1.y - m0.y }, b, h));
-    } else if (g.art === 'mark') setLupe(lage(e));
+    } else if (g.art === 'mark' || g.art === 'rand') setLupe(lage(e));
+    else if (g.art === 'kreis' && mass) {
+      const p = lage(e), vp = inVideo(p.x, p.y, ansicht, b, h, mass.w, mass.h), dx = vp.x - g.start.x, dy = vp.y - g.start.y;
+      setMitte({ x: g.m0.x + dx, y: g.m0.y + dy }); setRand({ x: g.r0.x + dx, y: g.r0.y + dy }); setLupe(p);
+    }
     else if (g.art === 'ziehen') {
       const p = lage(e), dx = p.x - g.start.x, dy = p.y - g.start.y;
       if (Math.hypot(dx, dy) > 6) g.bewegt = true;
@@ -409,6 +427,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     const p = zeiger.current.get(e.pointerId) ?? lage(e);
     zeiger.current.delete(e.pointerId);
     if (g?.art === 'mark' && zeiger.current.size === 0) { markiere(p); setLupe(null); }
+    if (g?.art === 'rand' && zeiger.current.size === 0 && mass) { setRand(inVideo(p.x, p.y, ansicht, b, h, mass.w, mass.h)); setLupe(null); }
+    if (g?.art === 'kreis') setLupe(null);
     if (g?.art === 'ziehen' && !g.bewegt && e.type === 'pointerup') abspielen();
     if (zeiger.current.size === 0) geste.current = null; else if (g?.art === 'zwei') geste.current = { art: 'nichts' };
   };
@@ -442,9 +462,12 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   };
   const trotzdem = () => { setUnplausibel(null); const neu = { ...rec, ungeprueft: undefined }; videoAblegen(neu).catch(() => {}); setRec(neu); ergebnisSpeichern(rec.analyse); };
   const weg = async (mitZahlen) => {
-    if (rec?.id) await videoLoeschen(rec.id).catch(() => {});
+    // Werkzeug (meta): die Zahlen hängen am Video-Eintrag – „nur Video“ behält ihn ohne Datei, „mit Zahlen“ löscht ihn ganz
+    const ohneDatei = meta && !mitZahlen && rec ? { ...rec, blob: null } : null;
+    if (rec?.id) await (ohneDatei ? videoAblegen(ohneDatei) : videoLoeschen(rec.id)).catch(() => {});
     speichern?.({ video: null, ...(mitZahlen ? { tempo: null, ms: satz.extra?.tempo ? null : satz.extra?.ms ?? null } : {}) });
-    setLoeschen(false); meldeNeu(null);
+    setLoeschen(false); meldeNeu(ohneDatei);
+    if (ohneDatei) { setRec(ohneDatei); setUrl(null); setBearb(false); setPhase('fremd'); return; }
     if (zu) zu(); else { setRec(null); setUrl(null); setPhase('waehlen'); }
   };
   const setzeSchnitt = (neu) => { const r = { ...rec, schnitt: neu }; setRec(r); videoAblegen(r).catch(() => {}); };
@@ -472,7 +495,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   };
 
   const a = rec?.analyse, wdh = a?.wdh ?? [];
-  const tempo = phase === 'fremd' ? satz.extra?.tempo : wdh.length && !unplausibel ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null;
+  const tempo = phase === 'fremd' ? satz.extra?.tempo ?? (wdh.length && !rec?.ungeprueft ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null)
+    : wdh.length && !unplausibel ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null;
   const beste = tempo?.v?.length ? Math.max(...tempo.v) : null;
   const schnittV = tempo?.v?.length ? tempo.v.reduce((x, y) => x + y, 0) / tempo.v.length : null;
   const spitze = wdh.length && !unplausibel ? Math.max(...wdh.map((w) => w.spitze)) : null;
@@ -492,7 +516,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     ${phase === 'laden' ? html`<div class="sv-leer"><span class="sv-lader"></span></div>` : null}
     ${phase === 'waehlen' || phase === 'fremd' ? html`<div class="sv-start">
       <div class="sv-start-bild" aria-hidden="true"><span class="sv-ring"></span><span class="sv-ring b"></span>${KAMERA}</div>
-      ${phase === 'fremd' ? html`<p class="muted" style="margin:0;text-align:center">${deEn('Das Video ist nicht auf diesem Gerät – hier nur die Zahlen.', 'The video is not on this device – only the numbers here.')}</p>`
+      ${phase === 'fremd' ? html`<p class="muted" style="margin:0;text-align:center">${rec && !rec.blob ? deEn('Video gelöscht – hier nur die Zahlen.', 'Video deleted – only the numbers here.') : deEn('Das Video ist nicht auf diesem Gerät – hier nur die Zahlen.', 'The video is not on this device – only the numbers here.')}</p>`
         : html`<p class="muted" style="margin:0;text-align:center">${deEn('Von der Seite filmen, die ganze Scheibe im Bild, Handy ruhig.', 'Film from the side, whole plate in frame, phone steady.')}</p>`}
       ${kannSpeichern ? html`<div class="sv-knoepfe"><button class="btn btn-chalk" onClick=${() => dateiKamera.current?.click()}>${KAMERA} ${deEn('Filmen', 'Record')}</button>
         <button class="btn btn-soft" onClick=${() => dateiGalerie.current?.click()}>${deEn('Aus der Galerie', 'From gallery')}</button></div>
@@ -502,14 +526,15 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       <svg class="sv-hilfe-bild" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" class="p1"/><circle cx="32" cy="32" r="21" class="p2"/><circle cx="32" cy="32" r="5" class="p3"/>
         <circle class="ziel" cx=${schritt === 'rand' ? 59 : 32} cy="32" r="5"/><circle class="ziel puls" cx=${schritt === 'rand' ? 59 : 32} cy="32" r="5"/></svg>
       <div><b>${schritt === 'rand' ? deEn('2/2 · Äußerer Rand der Scheibe', '2/2 · Outer edge of the plate') : schritt === 'fertig' ? deEn('Markiert', 'Marked') : deEn('1/2 · Mitte der Scheibe', '1/2 · Centre of the plate')}</b>
-        <span>${schritt === 'fertig' ? deEn('Kreis passt? Dann berechnen. Neu antippen setzt die Mitte neu.', 'Circle fits? Then track. Tapping again resets the centre.')
+        <span>${schritt === 'fertig' ? deEn('Kreis passt? Dann berechnen. Innen ziehen verschiebt ihn, am Rand ziehen ändert die Größe.', 'Circle fits? Then track. Drag inside to move it, drag the edge to resize it.')
           : deEn('Gedrückt halten, mit der Lupe zielen, loslassen. Zwei Finger zoomen. Vorher zum Satzbeginn spulen.', 'Press and hold, aim with the magnifier, release. Two fingers zoom. Scrub to the start of the set first.')}</span></div>
     </div>` : null}
     ${mitVideo ? html`<div class="sv-rahmen" ref=${rahmenRef}>
       <div class=${`sv-buehne ${fest ? 'fest' : ''}`} ref=${buehneRef} style=${`width:${b}px;height:${h}px`}
-        onPointerDown=${runter} onPointerMove=${bewegen} onPointerUp=${hoch} onPointerCancel=${hoch} onWheel=${rad}>
+        onPointerDown=${runter} onPointerMove=${bewegen} onPointerUp=${hoch} onPointerCancel=${hoch} onWheel=${rad} onContextMenu=${(e) => e.preventDefault()}>
         <div class="sv-inhalt" style=${`width:${b}px;height:${h}px;transform:translate(${ansicht.tx}px,${ansicht.ty}px) scale(${ansicht.z})`}>
-          <video ref=${videoRef} src=${url} playsinline muted preload="auto"
+          <video ref=${videoRef} src=${url} playsinline muted preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"
+            onContextMenu=${(e) => e.preventDefault()}
             onLoadedMetadata=${(e) => { const v = e.currentTarget; setMass({ w: v.videoWidth, h: v.videoHeight }); dauerErmitteln(v, (d) => { setDauer(d); v.currentTime = schnitt?.von ?? 0; setZeit(v.currentTime); }); }}
             onDurationChange=${(e) => Number.isFinite(e.currentTarget.duration) && setDauer(e.currentTarget.duration)}
             onTimeUpdate=${(e) => { const v = e.currentTarget; setZeit(v.currentTime); if (!v.paused && schnitt?.bis && v.currentTime >= schnitt.bis) { v.pause(); } }}
@@ -588,12 +613,14 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       <button class="btn btn-soft" onClick=${() => dateiKamera.current?.click()}>${deEn('Neu filmen', 'Record again')}</button>
       <button class="btn btn-gefahr" onClick=${() => setLoeschen(true)} aria-label=${deEn('Löschen', 'Delete')}>${I.papierkorb}</button></div>
       ${rec?.blob ? html`<span class="muted sv-fuss">${deEn(`Nur auf diesem Gerät · ${mb(rec.blob.size)}`, `Only on this device · ${mb(rec.blob.size)}`)}</span>` : null}` : null}
-    ${phase === 'fremd' && speichern ? html`<button class="btn btn-gefahr btn-block" onClick=${() => { zahlenWeg(); speichern({ video: null }); zu?.(); }}>${I.papierkorb} ${deEn('Zahlen löschen', 'Delete numbers')}</button>` : null}
+    ${phase === 'fremd' && (speichern || (meta && rec)) ? html`<button class="btn btn-gefahr btn-block" onClick=${async () => {
+      if (meta && rec?.id) { await videoLoeschen(rec.id).catch(() => {}); meldeNeu(null); setRec(null); setPhase('waehlen'); return; }
+      zahlenWeg(); speichern({ video: null }); zu?.(); }}>${I.papierkorb} ${deEn('Zahlen löschen', 'Delete numbers')}</button>` : null}
     ${!kannSpeichern && phase !== 'laden' ? html`<span class="muted sv-fuss">${deEn('Nur ansehen – ändern und löschen über „Bearbeiten“ beim Training.', 'View only – change or delete via “Edit” on the workout.')}</span>` : null}
     ${loeschen ? html`<div class="sv-frage" role="alertdialog" aria-label=${deEn('Löschen', 'Delete')}>
       <b>${deEn('Was löschen?', 'Delete what?')}</b>
-      <button class="btn btn-gefahr btn-block" onClick=${() => weg(false)}>${deEn('Nur das Video', 'Only the video')}<small>${deEn('Tempo-Werte im Satz bleiben', 'Velocity values stay in the set')}</small></button>
-      ${speichern ? html`<button class="btn btn-gefahr btn-block" onClick=${() => weg(true)}>${deEn('Video und Zahlen', 'Video and numbers')}<small>${deEn('auch Tempo und m/s im Satz', 'also velocity and m/s in the set')}</small></button>` : null}
-      <button class="btn btn-soft btn-block" onClick=${() => setLoeschen(false)}>${deEn('Behalten', 'Keep')}</button></div>` : null}
+      <button class="btn btn-gefahr btn-block" onClick=${() => weg(false)}>${deEn('Nur das Video', 'Only the video')}<small>${meta ? deEn('Tempo-Werte bleiben in Liste und Statistik', 'Velocity values stay in the list and stats') : deEn('Tempo-Werte im Satz bleiben', 'Velocity values stay in the set')}</small></button>
+      ${speichern || meta ? html`<button class="btn btn-gefahr btn-block" onClick=${() => weg(true)}>${deEn('Video und Zahlen', 'Video and numbers')}<small>${meta ? deEn('auch aus Liste und Statistik', 'also from the list and stats') : deEn('auch Tempo und m/s im Satz', 'also velocity and m/s in the set')}</small></button>` : null}
+      <button class="btn btn-soft btn-block" onClick=${() => setLoeschen(false)}>${deEn('Abbrechen', 'Cancel')}</button></div>` : null}
   </div>`;
 }
