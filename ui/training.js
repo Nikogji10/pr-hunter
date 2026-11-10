@@ -9,7 +9,7 @@ import { AufwaermRoutine } from './aufwaermroutine.js';
 import { kuerzeTraining, restMinuten } from '../js/kuerzen.js';
 import { PartnerLeiste } from './zusammen.js';
 import { zweiGewichte } from '../js/scheibenwechsel.js';
-import { SatzVideo, SatzVideoKnopf } from './satzvideo.js';
+import { SatzVideo, SatzVideoKnopf, TempoZeile } from './satzvideo.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -255,6 +255,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
     ${sheet?.art === 'rpe' && html`<${SatzSheet} t=${t} s=${sheet} zu=${() => setSheet(null)} satz=${satz} aendere=${aendere} koerperKg=${kg}/>`}
     ${sheet?.art === 'video' && t.karten[sheet.ki]?.gruppen[sheet.gi]?.saetze[sheet.si] && html`<${SatzVideo} satz=${t.karten[sheet.ki].gruppen[sheet.gi].saetze[sheet.si]}
       uebungKey=${t.karten[sheet.ki].key} uebungName=${nameVon(t.karten[sheet.ki].key)} lift=${liftVon(t.karten[sheet.ki].key)} zu=${() => setSheet(null)}
+      geschwister=${t.karten[sheet.ki].gruppen.flatMap((g) => g.saetze).filter((s) => s.erledigt)}
       speichern=${(patch) => aendere((ks) => { const x = ks[sheet.ki]?.gruppen[sheet.gi]?.saetze[sheet.si]; if (!x) return; const e = { ...(x.extra ?? {}), ...patch };
         for (const k of Object.keys(e)) if (e[k] == null) delete e[k]; x.extra = Object.keys(e).length ? e : undefined; })}/>`}
     ${sheet?.art === 'unotiz' && html`<${UebungNotizSheet} t=${t} ki=${sheet.ki} zu=${() => setSheet(null)} aendere=${aendere}/>`}
@@ -432,10 +433,10 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
         <button class="cell" onClick=${() => setSheet({ art: 'rpe', ki, gi, si })} aria-label="RPE und Satzdetails">
           <span class="v">${s.rpe != null ? fmt(s.rpe) : html`<span class="muted">–</span>`}</span><span class="u">RPE${extras.length ? ' ·' : ''}</span></button>
         <button class="check" onClick=${() => abhaken(ki, gi, si)} aria-label=${s.erledigt ? 'Satz zurücknehmen' : 'Satz abhaken'}>${I.check}</button>
-        ${satz1rm || extras.length || (videoAn && s.erledigt && s.typ !== 'warmup') ? html`<div class="setinfo">
+        ${satz1rm || extras.length || (videoAn && s.erledigt) ? html`<div class="setinfo">
           ${satz1rm ? html`<span>${s.rpe != null ? '≈ ' : ''}1RM ${gwE(satz1rm, 1)}${koerper ? ` gesamt (Zusatz ${gw(satz1rm - einst.koerpergewicht, 1)})` : ''}</span>` : null}
           ${extras.length ? html`<span class="extras">${extras.join(' · ')}</span>` : null}${s.pr ? html`<span class="prb">Rekord</span>` : null}
-          ${videoAn && s.erledigt && s.typ !== 'warmup' ? html`<${SatzVideoKnopf} satz=${s} oeffnen=${() => setSheet({ art: 'video', ki, gi, si })}/>` : null}</div>` : null}
+          ${videoAn && s.erledigt ? html`<${SatzVideoKnopf} satz=${s} oeffnen=${() => setSheet({ art: 'video', ki, gi, si })}/>` : null}</div>` : null}
         ${einst.technikBewertung && s.erledigt && s.typ !== 'warmup' ? html`<div class="technik-wahl" role="group" aria-label="Technik">
           <span class="muted">Technik</span>${[['gut', '👍'], ['schlecht', '👎']].map(([w, z]) => html`<button key=${w} aria-pressed=${String(s.extra?.technik === w)}
             aria-label=${w === 'gut' ? 'Technik gut' : 'Technik schlecht'} onClick=${() => aendere((ks) => { const x = ks[ki].gruppen[gi].saetze[si]; const e = { ...(x.extra ?? {}) }; if (e.technik === w) delete e.technik; else e.technik = w; x.extra = Object.keys(e).length ? e : undefined;
@@ -446,6 +447,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       })}
       ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}
     </div>`)}
+    ${videoAn ? html`<${TempoZeile} uebungKey=${k.key} lift=${liftVon(k.key)} saetze=${k.gruppen.flatMap((g) => g.saetze).filter((s) => s.erledigt)}/>` : null}
     <div class="ex-foot">
       <span class="satz-pm" role="group" aria-label="Sätze">
         <button class="mini" disabled=${!k.gruppen.at(-1).saetze.some((s) => !s.erledigt) || k.gruppen.flatMap((g) => g.saetze).length < 2} aria-label="Satz entfernen"

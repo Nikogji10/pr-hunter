@@ -2,9 +2,62 @@
 // nie hochgeladen. Im Satz landen nur die Zahlen: extra.video (Kennung), extra.tempo { v: m/s je Wdh, vl: Verlust in % },
 // extra.ms (schnellste Wdh, wie das Feld „Tempo (m/s)“). Rechnung in js/hantelweg.js.
 // VideoKern ist der gemeinsame Baustein für Training (SatzVideo im Fenster), Verlauf (nur ansehen) und Rechner (Werkzeug).
-import { html, useState, useEffect, useRef, Sheet, deEn, fmt, fmt2, I } from './basis.js';
-import { trainingsTage, trainingAm, kanon } from './stand.js';
-import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse } from '../js/hantelweg.js';
+import { html, useState, useEffect, useRef, Sheet, deEn, fmt, fmt2, vz, I } from './basis.js';
+import { trainingsTage, trainingAm, kanon, HEUTE } from './stand.js';
+import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse, tempoKurve } from '../js/hantelweg.js';
+import { tempoSaetze, lastTempoProfil, satzVerluste, istTempoRekord, tagesform, MVT } from '../js/tempo.js';
+
+// #################################################################
+// 287/289/290: Vergleich mit früheren Sätzen derselben Übung (aus dem Verlauf, ohne den Tag selbst)
+// #################################################################
+let VERLAUF = null;
+function frueher(key, datum) {
+  if (VERLAUF?.tt !== trainingsTage) {
+    VERLAUF = { tt: trainingsTage, alle: tempoSaetze(Object.keys(trainingsTage).sort().map((d) => trainingAm(d)).filter(Boolean)).map((s) => ({ ...s, key: kanon(s.key) })) };
+  }
+  const k = kanon(key);
+  return VERLAUF.alle.filter((s) => s.key === k && s.datum !== datum);
+}
+const besteVon = (s) => (s.extra?.tempo?.v?.length ? Math.max(...s.extra.tempo.v) : s.extra?.ms > 0 ? s.extra.ms : null);
+/** Übersicht für eine Übung an einem Tag: Verluste zwischen Sätzen, Tagesform, Profil. saetze: Sätze der Übung heute. */
+export function tempoUebersicht(key, lift, saetze, datum = HEUTE) {
+  const heute = saetze.map((s) => ({ kg: s.last ?? s.kg, beste: besteVon(s) })).filter((s) => s.beste > 0 && s.kg > 0);
+  if (!heute.length) return null;
+  const alt = frueher(key, datum), mvt = MVT[lift] ?? null, profil = lastTempoProfil(alt, mvt);
+  return { heute, verluste: satzVerluste(heute), tf: profil.b != null ? tagesform(heute, profil, mvt) : null, profil, alt };
+}
+
+/** Zeile unter einer Übung im Training: Tempo je Satz, Verlust beim gleichen Gewicht, Tagesform. */
+export function TempoZeile({ uebungKey, lift, saetze, datum = HEUTE }) {
+  const u = tempoUebersicht(uebungKey, lift, saetze, datum);
+  if (!u) return null;
+  return html`<div class="tempo-zeile">${KAMERA}<span>${u.heute.map((s) => fmt2(s.beste)).join(' · ')} m/s</span>
+    ${u.verluste.map((g) => html`<b key=${g.kg} class=${g.pct >= 20 ? 'warn' : ''}>${vz(-g.pct)} % ${deEn('bei', 'at')} ${fmt(g.kg)}</b>`)}
+    ${u.tf ? html`<b class=${u.tf.pct >= 3 ? 'gut' : u.tf.pct <= -3 ? 'schlecht' : ''}>${deEn('Tagesform', 'Today')} ${vz(u.tf.pct)} %</b>` : null}</div>`;
+}
+
+/** 294: Tempo-Kurve unter dem Video, läuft mit; Tippen springt an die Stelle. */
+function TempoKurve({ analyse, zeit, springen }) {
+  const k = tempoKurve(analyse.punkte, analyse.mProPx);
+  if (k.length < 3) return null;
+  const W = 340, H = 96, L = 6, R = 6, T = 10, U = 14;
+  const t0 = k[0].t, t1 = k.at(-1).t, vs = k.map((p) => p.v);
+  const hi = Math.max(0.5, ...vs), lo = Math.min(-0.5, ...vs);
+  const px = (t) => L + ((t - t0) * (W - L - R)) / Math.max(0.01, t1 - t0), py = (v) => T + ((hi - v) * (H - T - U)) / (hi - lo);
+  const linie = (filter) => k.map((p, i) => (filter(p) ? `${i && filter(k[i - 1]) ? 'L' : 'M'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}` : '')).join(' ');
+  const tippe = (e) => { const r = e.currentTarget.getBoundingClientRect(); springen(t0 + ((((e.clientX - r.left) / r.width) * W - L) / (W - L - R)) * (t1 - t0)); };
+  const z = Math.max(t0, Math.min(t1, zeit));
+  const jetzt = k.reduce((b, p) => (Math.abs(p.t - z) < Math.abs(b.t - z) ? p : b), k[0]);
+  return html`<div class="sv-kurve"><svg viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${deEn('Tempo über die Zeit', 'Velocity over time')} onPointerDown=${tippe}>
+    ${(analyse.wdh ?? []).map((w, i) => html`<g key=${i}><rect x=${px(w.von)} width=${Math.max(1, px(w.bis) - px(w.von))} y=${T} height=${H - T - U} class="sv-kurve-wdh"/>
+      <text x=${(px(w.von) + px(w.bis)) / 2} y=${H - 3} text-anchor="middle" class="sv-kurve-t">${i + 1}</text></g>`)}
+    <line x1=${L} x2=${W - R} y1=${py(0)} y2=${py(0)} class="sv-kurve-null"/>
+    <path d=${linie((p) => p.v >= 0)} class="sv-kurve-hoch" fill="none"/>
+    <path d=${linie((p) => p.v < 0)} class="sv-kurve-runter" fill="none"/>
+    <line x1=${px(z)} x2=${px(z)} y1=${T - 4} y2=${H - U} class="sv-kurve-kopf"/>
+    <circle cx=${px(jetzt.t)} cy=${py(jetzt.v)} r="4" class="sv-kurve-punkt"/>
+  </svg><span class="sv-kurve-wert">${fmt2(Math.abs(jetzt.v))} m/s ${jetzt.v >= 0.05 ? '↑' : jetzt.v <= -0.05 ? '↓' : ''}</span></div>`;
+}
 
 // #################################################################
 // Ablage auf dem Gerät
@@ -253,7 +306,7 @@ const DATEI_NAME = (titel) => `PRHunter_${new Date().toISOString().slice(0, 10)}
  * Kern: Aufnahme, Markieren (Lupe), Analyse, Ergebnis, Bearbeiten (Kürzen, Komprimieren, Speichern), Löschen.
  * satz { kg, wdh, rpe, extra }; meta: zusätzliche Felder fürs Video (Werkzeug: Übung/Gewicht ohne Training).
  */
-export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speichern = null, meta = null, eingebettet = false, beiNeu = null }) {
+export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speichern = null, meta = null, eingebettet = false, beiNeu = null, geschwister = null, datum = HEUTE }) {
   const [phase, setPhase] = useState('laden');            // laden | waehlen | markieren | analyse | ergebnis | fremd | arbeit
   const [rec, setRec] = useState(null);
   const [url, setUrl] = useState(null);
@@ -502,6 +555,11 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const spitze = wdh.length && !unplausibel ? Math.max(...wdh.map((w) => w.spitze)) : null;
   const profil = tempo?.v?.length ? rpeAusTempo(tempo.v.at(-1), tempoPaare(uebungKey, lift)) : null;
   const vergleich = rpeVergleich(satz.rpe ?? null, profil?.rpe ?? null);
+  // 287/289/290: dieser Satz mit seinem (neuen) Tempo unter den Sätzen der Übung heute
+  const heuteSaetze = (geschwister?.length ? geschwister : [satz]).map((s) => (s === satz && tempo?.v?.length ? { ...s, extra: { ...(s.extra ?? {}), tempo } } : s));
+  const ueber = tempo?.v?.length && satz.kg > 0 ? tempoUebersicht(uebungKey, lift, heuteSaetze, datum) : null;
+  const rekord = ueber && beste ? istTempoRekord(beste, satz.kg, ueber.alt) : null;
+  const gruppe = ueber?.verluste.find((g) => Math.abs(g.kg - satz.kg) <= 1.25) ?? null;
   const titel = `${uebungName}${satz.kg != null ? ` · ${fmt(satz.kg)} × ${satz.wdh}` : ''}${satz.rpe != null ? ` @ ${fmt(satz.rpe)}` : ''}`;
   const [von, bis] = bereich();
   const mitVideo = url && ['markieren', 'analyse', 'ergebnis', 'arbeit'].includes(phase);
@@ -547,6 +605,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
           <div class="sv-prozent"><b>${Math.round(fortschritt * 100)}</b><span>%</span></div>
           <span class="sv-scantext">${phase === 'arbeit' ? deEn('Video wird neu gespeichert …', 'Saving the video …') : deEn('Hantel wird verfolgt …', 'Tracking the bar …')}</span></div>` : null}
       </div></div>
+      ${phase === 'ergebnis' && rec?.analyse && !unplausibel ? html`<${TempoKurve} analyse=${rec.analyse} zeit=${zeit}
+        springen=${(t) => { const v = videoRef.current; if (v) { v.currentTime = Math.max(0, t); setZeit(v.currentTime); } }}/>` : null}
       ${phase === 'analyse' || phase === 'arbeit' ? html`<button class="btn btn-soft btn-block" onClick=${() => { abbruch.current = true; setPhase(rec?.analyse ? 'ergebnis' : 'markieren'); }}>${deEn('Abbrechen', 'Cancel')}</button>`
       : html`<div class="sv-steuer">
         <button class="iconbtn sv-play" onClick=${abspielen} aria-label=${spielt ? deEn('Pause', 'Pause') : deEn('Abspielen', 'Play')}>${spielt ? html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>` : html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>`}</button>
@@ -599,6 +659,21 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       </div>
       <div class="sv-wdh" role="list">${tempo.v.map((v, i) => html`<div key=${i} class="sv-wdh-s" role="listitem" style=${`--h:${Math.max(0.12, v / beste)};--d:${i * 60}ms`}>
         <span class="sv-wdh-w">${ms(v)}</span><i class=${v / beste < 0.7 ? 'lahm' : v / beste < 0.85 ? 'mittel' : ''}></i><span class="sv-wdh-n">${i + 1}</span></div>`)}</div>
+      ${rekord?.rekord ? html`<div class="sv-rekord"><span class="sv-rekord-blitz" aria-hidden="true">⚡</span>
+        <div><b>${deEn(`Tempo-Rekord bei ${fmt(satz.kg)} kg`, `Velocity record at ${fmt(satz.kg)} kg`)}</b>
+        <span>${deEn(`${ms(beste)} m/s – bisher ${ms(rekord.vorher)}`, `${ms(beste)} m/s – before ${ms(rekord.vorher)}`)}</span></div></div>` : null}
+      ${gruppe ? html`<div class="sv-info"><span class="l">${deEn(`Zwischen den Sätzen · ${fmt(gruppe.kg)} kg`, `Between sets · ${fmt(gruppe.kg)} kg`)}</span>
+        <div class="sv-kette">${gruppe.werte.map((v, i) => html`<span key=${i} class=${Math.abs(v - beste) < 0.001 ? 'dieser' : ''}>${ms(v)}</span>`)}</div>
+        <b class=${gruppe.pct >= 20 ? 'warn' : gruppe.pct <= 0 ? 'gut' : ''}>${vz(-gruppe.pct)} %</b>
+        <small>${deEn('letzter gegen ersten Satz mit diesem Gewicht', 'last vs. first set at this weight')}</small></div>` : null}
+      ${ueber?.tf ? html`<div class=${`sv-info form ${ueber.tf.pct >= 3 ? 'gut' : ueber.tf.pct <= -3 ? 'schlecht' : ''}`}>
+        <span class="l">${deEn('Tagesform', 'Form today')}</span>
+        <div class="sv-kette"><span>${ueber.tf.pct >= 3 ? deEn('schneller als üblich', 'faster than usual') : ueber.tf.pct <= -3 ? deEn('langsamer als üblich', 'slower than usual') : deEn('wie üblich', 'as usual')}</span></div>
+        <b>${vz(ueber.tf.pct)} %</b>
+        <small>${ueber.tf.e1rm ? deEn(`e1RM heute ≈ ${fmt(ueber.tf.e1rm)} kg${ueber.profil.e1rm ? ` (sonst ${fmt(ueber.profil.e1rm)})` : ''} · aus ${ueber.tf.n} ${ueber.tf.n === 1 ? 'Satz' : 'Sätzen'} heute gegen dein Gewicht-Tempo-Profil`,
+          `e1RM today ≈ ${fmt(ueber.tf.e1rm)} kg${ueber.profil.e1rm ? ` (usually ${fmt(ueber.profil.e1rm)})` : ''} · from ${ueber.tf.n} ${ueber.tf.n === 1 ? 'set' : 'sets'} today vs. your load-velocity profile`)
+          : deEn('gegen dein Gewicht-Tempo-Profil', 'vs. your load-velocity profile')}</small></div>`
+        : ueber && ueber.profil.fehlt ? html`<span class="muted sv-fuss">${deEn('Tagesform ab 3 früheren Sätzen mit Tempo bei verschiedenen Gewichten – Aufwärmsätze filmen hilft.', 'Form today from 3 earlier sets with velocity at different weights – filming warm-ups helps.')}</span>` : null}
       ${vergleich === 'schwerer' ? html`<div class="hint immer">${I.warn}<span class="t">${deEn(`Tempo wie sonst bei RPE ${fmt(profil.rpe)}`, `Velocity like RPE ${fmt(profil.rpe)} usually`)}</span><span></span>
           <p>${deEn(`Eingetragen ist RPE ${fmt(satz.rpe)}. Die letzte Wdh war so langsam wie sonst bei RPE ${fmt(profil.rpe)} – der Satz war vermutlich schwerer.`, `You entered RPE ${fmt(satz.rpe)}. The last rep was as slow as usually at RPE ${fmt(profil.rpe)} – the set was probably harder.`)}</p></div>`
         : vergleich === 'leichter' ? html`<div class="hint tipp immer">${I.statistik}<span class="t">${deEn(`Tempo wie sonst bei RPE ${fmt(profil.rpe)}`, `Velocity like RPE ${fmt(profil.rpe)} usually`)}</span><span></span>

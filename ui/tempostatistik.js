@@ -1,8 +1,8 @@
 // PR Hunter · Statistik → Tempo (Wunsch 279). Sätze mit Hantel-Tempo (Satz-Video, Feld „Tempo (m/s)“, Rechner → Hantelweg)
 // je Übung: Gewicht ↔ Tempo mit e1RM aus dem Tempo, gefühlte RPE ↔ Tempo, Tempo beim häufigsten Gewicht, Videos.
-import { html, useState, useEffect, deEn, fmt, fmt2, nameVon, datumKurz, inAnzeige, einheit, gwE, I } from './basis.js';
+import { html, useState, useEffect, deEn, fmt, fmt2, vz, nameVon, datumKurz, inAnzeige, einheit, gwE, I } from './basis.js';
 import { trainingsTage, trainingAm, kanon, E1RM_AKTUELL } from './stand.js';
-import { tempoSaetze, lastTempoProfil, rpeTempo, tempoBeiGewicht, MVT } from '../js/tempo.js';
+import { tempoSaetze, lastTempoProfil, rpeTempo, tempoBeiGewicht, MVT, tempoTage, tempoRekorde, istTempoRekord, tagesform } from '../js/tempo.js';
 import { LinienChart } from './diagramme.js';
 import { alleVideoMeta, SatzVideo, KAMERA } from './satzvideo.js';
 
@@ -68,6 +68,7 @@ export function TempoStatistik({ von = null }) {
   const [videos, setVideos] = useState([]);
   const [wahl, setWahl] = useState(null);
   const [offen, setOffen] = useState(null);
+  const [mehr, setMehr] = useState(false);
   useEffect(() => { alleVideoMeta().then((l) => { setVideos(l); setWerkzeug(l.filter((v) => v.werkzeug).map(ausVideo).filter(Boolean)); }).catch(() => {}); }, [offen]);
   const alle = [...ausTagen(), ...werkzeug].filter((s) => !von || s.datum >= von);
   const zahl = {};
@@ -91,6 +92,15 @@ export function TempoStatistik({ von = null }) {
   const E = einheit();
   const punktText = (s) => `${datumKurz(s.datum)} · ${fmt(inAnzeige(s.kg))} ${E} × ${s.wdh ?? '–'}${s.rpe != null ? ` @ ${fmt(s.rpe)}` : ''} · ${fmt2(s.beste)} m/s`;
   const meineVideos = videos.filter((v) => kanon(v.key) === key).sort((a, b) => (b.erstellt ?? '').localeCompare(a.erstellt ?? '')).slice(0, 12);
+  // 288: Verlauf je Trainingstag, 289: Rekorde (Satz schneller als alles davor beim gleichen Gewicht), 290: Tagesform je Tag
+  const tage = tempoTage(saetze);
+  const rekordSaetze = new Set(saetze.filter((s) => istTempoRekord(s.beste, s.kg, saetze.filter((x) => x.datum < s.datum))?.rekord));
+  const formReihe = mvt ? [...tage].reverse().map((t) => {
+    const p = lastTempoProfil(saetze.filter((s) => s.datum !== t.datum), mvt);
+    return { datum: t.datum, pct: p.b != null ? tagesform(t.saetze, p, mvt)?.pct ?? null : null };
+  }).filter((x) => x.pct != null) : [];
+  const rekorde = tempoRekorde(saetze).slice(0, 8);
+  const sichtbar = mehr ? tage : tage.slice(0, 6);
   return html`
     <div class="filter einreihig" role="group" aria-label=${deEn('Übung', 'Exercise')}>${keys.map((k) => html`<button key=${k} class="chip" aria-pressed=${String(k === key)} onClick=${() => setWahl(k)}>${nameVon(k)}<small class="tp-zahl">${zahl[k]}</small></button>`)}</div>
     <section class="tp-held">
@@ -116,6 +126,23 @@ export function TempoStatistik({ von = null }) {
       unter=${deEn('Dein häufigstes Gewicht: schneller = stärker geworden.', 'Your most common weight: faster = got stronger.')} x=${beiKg.reihe.map((r) => r.datum)} zeitlich=${true} punkte=${true}
       serien=${[{ id: 'v', name: 'm/s', farbe: 'var(--ok)', werte: beiKg.reihe.map((r) => r.v) }]} einheit="m/s" stellen=${2} tipKopf=${(d) => datumKurz(d)} hoehe=${180}
       format=${(v) => fmt2(v)}/>` : null}
+    ${formReihe.length >= 2 ? html`<${LinienChart} titel=${deEn('Tagesform', 'Daily form')} unter=${deEn('Tempo je Trainingstag gegen dein Gewicht-Tempo-Profil (aus allen anderen Tagen). Über 0 = schneller als üblich.', 'Velocity per training day vs. your load-velocity profile (from all other days). Above 0 = faster than usual.')}
+      x=${formReihe.map((r) => r.datum)} zeitlich=${true} punkte=${true} serien=${[{ id: 'f', name: '%', farbe: 'var(--acc-hi)', werte: formReihe.map((r) => r.pct) }]}
+      einheit="%" stellen=${0} tipKopf=${(d) => datumKurz(d)} hoehe=${170} referenz=${{ wert: 0, text: deEn('wie üblich', 'as usual') }}/>` : null}
+    <section class="card pad stack">
+      <span class="viz-t">${deEn('Verlauf', 'History')}</span>
+      <div class="tp-tage">${sichtbar.map((t) => html`<div key=${t.datum} class="tp-tag">
+        <div class="tp-tag-kopf"><b>${datumKurz(t.datum)}</b>
+          ${t.verluste.map((g) => html`<span key=${g.kg} class=${`tp-verlust ${g.pct >= 20 ? 'warn' : ''}`}>${vz(-g.pct)} % ${deEn('bei', 'at')} ${fmt(inAnzeige(g.kg))}</span>`)}
+          ${(() => { const f = formReihe.find((x) => x.datum === t.datum); return f ? html`<span class=${`tp-form ${f.pct >= 3 ? 'gut' : f.pct <= -3 ? 'schlecht' : ''}`}>${deEn('Form', 'Form')} ${vz(f.pct)} %</span>` : null; })()}</div>
+        <div class="tp-saetze">${t.saetze.map((s, i) => html`<span key=${i} class=${rekordSaetze.has(s) ? 'rekord' : ''}>${fmt(inAnzeige(s.kg))}×${s.wdh ?? '–'} <b>${fmt2(s.beste)}</b>${rekordSaetze.has(s) ? ' ⚡' : ''}</span>`)}</div>
+      </div>`)}</div>
+      ${tage.length > 6 ? html`<button class="link-knopf" style="align-self:flex-start" onClick=${() => setMehr(!mehr)}>${mehr ? deEn('Weniger', 'Less') : deEn(`Alle ${tage.length} Tage`, `All ${tage.length} days`)}</button>` : null}
+      <span class="muted sv-fuss">${deEn('m/s = schnellste Wdh je Satz. ⚡ = Tempo-Rekord bei diesem Gewicht. Verlust = letzter gegen ersten Satz mit gleichem Gewicht.', 'm/s = fastest rep per set. ⚡ = velocity record at this weight. Loss = last vs. first set at the same weight.')}</span>
+    </section>
+    ${rekorde.length ? html`<section class="card pad stack"><span class="viz-t">${deEn('Tempo-Rekorde je Gewicht', 'Velocity records per weight')}</span>
+      <table class="rec"><thead><tr><th>${E}</th><th>m/s</th><th>${deEn('Datum', 'Date')}</th></tr></thead>
+        <tbody>${rekorde.map((r) => html`<tr key=${r.kg}><td>${fmt(inAnzeige(r.kg))}</td><td><b>${fmt2(r.v)}</b></td><td>${datumKurz(r.datum)}</td></tr>`)}</tbody></table></section>` : null}
     ${meineVideos.length ? html`<section class="card pad stack"><span class="viz-t">${deEn('Videos auf diesem Gerät', 'Videos on this device')}</span>
       <div class="hw-liste">${meineVideos.map((v) => html`<button key=${v.id} class="hw-zeile" onClick=${() => setOffen(v)}>${KAMERA}
         <span><b>${fmt(inAnzeige(v.kg ?? 0))} × ${v.wdh ?? '–'}${v.rpe != null ? ` @ ${fmt(v.rpe)}` : ''}</b><small>${datumKurz((v.datum ?? v.erstellt ?? '').slice(0, 10) || '2000-01-01')}</small></span>

@@ -9,7 +9,8 @@ export const MVT = { squat: 0.3, bench: 0.17, dead: 0.15 };
 /** Sätze mit Tempo aus Trainingstagen: [{ datum, key, lift, kg, wdh, rpe, beste, letzte, verlust }]. */
 export function tempoSaetze(tage) {
   const aus = [];
-  for (const t of tage) for (const u of t.uebungen ?? []) for (const s of u.saetze ?? []) {
+  // Aufwärmsätze zählen mit (290: leichte Gewichte machen das Gewicht-Tempo-Profil genauer)
+  for (const t of tage) for (const u of t.uebungen ?? []) for (const s of [...(u.aufwaermen ?? []), ...(u.saetze ?? [])]) {
     const v = s.extra?.tempo?.v?.length ? s.extra.tempo.v : s.extra?.ms > 0 ? [s.extra.ms] : null;
     if (!v || !((s.last ?? s.kg) > 0)) continue;
     aus.push({ datum: t.datum, key: u.key, lift: u.lift, kg: s.last ?? s.kg, wdh: s.wdh, rpe: s.rpe ?? null,
@@ -48,6 +49,63 @@ export function lastTempoProfil(saetze, mvt) {
 export function rpeTempo(saetze) {
   const p = saetze.filter((s) => s.rpe != null && s.letzte > 0).map((s) => ({ x: s.letzte, y: s.rpe }));
   return { punkte: p, gerade: p.length >= 3 ? gerade(p) : null };
+}
+
+const gleich = (a, b) => Math.abs(a - b) <= 1.25;
+const mittel = (l) => l.reduce((s, x) => s + x, 0) / l.length;
+
+/**
+ * 287: Verlust zwischen Sätzen beim gleichen Gewicht (nur da ist der Vergleich fair). saetze in Trainingsreihenfolge
+ * [{ kg, beste }] → [{ kg, werte, pct }] je Gewicht mit mindestens 2 Sätzen; pct = Verlust letzter gegen ersten Satz in %.
+ */
+export function satzVerluste(saetze) {
+  const gruppen = [];
+  for (const s of saetze) {
+    if (!(s.beste > 0) || !(s.kg > 0)) continue;
+    const g = gruppen.find((x) => gleich(x.kg, s.kg));
+    if (g) g.werte.push(s.beste); else gruppen.push({ kg: s.kg, werte: [s.beste] });
+  }
+  return gruppen.filter((g) => g.werte.length >= 2).map((g) => ({ ...g, pct: Math.round((1 - g.werte.at(-1) / g.werte[0]) * 100) }));
+}
+
+/** 289: bestes Tempo je Gewicht (auf 2,5 kg): [{ kg, v, datum }] absteigend nach Gewicht. */
+export function tempoRekorde(saetze) {
+  const m = new Map();
+  for (const s of saetze) {
+    if (!(s.beste > 0) || !(s.kg > 0)) continue;
+    const k = Math.round(s.kg / 2.5) * 2.5, alt = m.get(k);
+    if (!alt || s.beste > alt.v) m.set(k, { kg: k, v: s.beste, datum: s.datum });
+  }
+  return [...m.values()].sort((a, b) => b.kg - a.kg);
+}
+/** 289: Ist beste bei kg schneller als alles frühere beim gleichen Gewicht? null ohne früheren Satz bei diesem Gewicht. */
+export function istTempoRekord(beste, kg, frueher) {
+  const v = frueher.filter((s) => gleich(s.kg, kg) && s.beste > 0).map((s) => s.beste);
+  if (!v.length || !(beste > 0)) return null;
+  const vorher = Math.max(...v);
+  return { rekord: beste > vorher + 0.005, vorher };
+}
+
+/**
+ * 290: Tagesform aus heutigen Sätzen (auch Aufwärmsätze) gegen das eigene Profil (ohne heute): mittlere Abweichung vom
+ * erwarteten Tempo in %, und das e1RM, wenn die Gerade um die heutige Abweichung verschoben wird.
+ */
+export function tagesform(heute, profil, mvt) {
+  const s = heute.filter((x) => x.kg > 0 && x.beste > 0);
+  if (!s.length || !(profil?.b < 0)) return null;
+  const erwartet = (kg) => profil.a + profil.b * kg;
+  if (s.some((x) => !(erwartet(x.kg) > 0))) return null;
+  const pct = Math.round(mittel(s.map((x) => x.beste / erwartet(x.kg) - 1)) * 100);
+  const d = mittel(s.map((x) => x.beste - erwartet(x.kg)));
+  const e1rm = mvt > 0 ? Math.round(((mvt - (profil.a + d)) / profil.b) * 2) / 2 : null;
+  return { pct, e1rm, n: s.length };
+}
+
+/** 288: Sätze je Trainingstag (neueste zuerst): [{ datum, saetze, verluste }]. */
+export function tempoTage(saetze) {
+  const m = new Map();
+  for (const s of saetze) { if (!m.has(s.datum)) m.set(s.datum, []); m.get(s.datum).push(s); }
+  return [...m.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([datum, l]) => ({ datum, saetze: l, verluste: satzVerluste(l) }));
 }
 
 /** Häufigstes Gewicht (auf 2,5 kg) und je Tag das beste Tempo damit: { kg, reihe: [{ datum, v }] } oder null. */

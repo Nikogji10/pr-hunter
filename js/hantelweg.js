@@ -154,6 +154,14 @@ export function wiederholungen(punkte, mProPx) {
   return { wdh, verlust };
 }
 
+/** 294: Tempo über die Zeit (m/s, aufwärts positiv) aus der Bahn, geglättet: [{ t, v }]. */
+export function tempoKurve(punkte, mProPx) {
+  if (punkte.length < 3 || !(mProPx > 0)) return [];
+  const t = punkte.map((p) => p.t), hoehe = glaette(punkte.map((p) => -p.y * mProPx), 5);
+  const v = hoehe.map((_, i) => { const a = Math.max(0, i - 1), b = Math.min(hoehe.length - 1, i + 1); return t[b] > t[a] ? (hoehe[b] - hoehe[a]) / (t[b] - t[a]) : 0; });
+  return glaette(v, 3).map((x, i) => ({ t: t[i], v: Math.round(x * 100) / 100 }));
+}
+
 /**
  * RPE aus dem Tempo der letzten Wiederholung über das eigene Profil (Paare { v, rpe } derselben Lift-Familie).
  * Mindestens 4 Paare mit Spanne (RPE ≥ 1, Tempo ≥ 0,05 m/s) und fallender Gerade (schneller = leichter), sonst null.

@@ -14,6 +14,8 @@ import { kanon } from '../js/daten.js';
 
 export { html, useState, useEffect, useRef };
 export const fmt = (n, stellen = 2) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { maximumFractionDigits: stellen });
+/** Prozent mit Vorzeichen: +5, −5, ±0 (echtes Minuszeichen). */
+export const vz = (p) => (p > 0 ? `+${fmt(p, 0)}` : p < 0 ? `−${fmt(-p, 0)}` : '±0');
 /** 283: immer zwei Nachkommastellen (Tempo in m/s: 0,30 statt 0,3). */
 export const fmt2 = (n) => n == null || Number.isNaN(n) ? '–' : n.toLocaleString(ANZEIGE.sprache === 'en' ? 'en-GB' : 'de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
