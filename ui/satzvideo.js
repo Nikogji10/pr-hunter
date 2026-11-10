@@ -2,7 +2,7 @@
 // nie hochgeladen. Im Satz landen nur die Zahlen: extra.video (Kennung), extra.tempo { v: m/s je Wdh, vl: Verlust in % },
 // extra.ms (schnellste Wdh, wie das Feld „Tempo (m/s)“). Rechnung in js/hantelweg.js.
 // VideoKern ist der gemeinsame Baustein für Training (SatzVideo im Fenster), Verlauf (nur ansehen) und Rechner (Werkzeug).
-import { html, useState, useEffect, useRef, Sheet, deEn, fmt, fmt2, vz, I } from './basis.js';
+import { html, useState, useEffect, useRef, Sheet, Portal, deEn, fmt, fmt2, vz, I } from './basis.js';
 import { trainingsTage, trainingAm, kanon, HEUTE } from './stand.js';
 import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse, tempoKurve } from '../js/hantelweg.js';
 import { tempoSaetze, lastTempoProfil, satzVerluste, istTempoRekord, tagesform, MVT } from '../js/tempo.js';
@@ -115,7 +115,7 @@ function springe(v, t) {
 }
 export const GROESSEN = [['original', 'Original', null, 8e6], ['1080', '1080p', 1080, 5e6], ['720', '720p', 720, 2.5e6], ['480', '480p', 480, 1.2e6]];
 /** Spielt den Ausschnitt einmal ab und nimmt ihn verkleinert neu auf (MediaRecorder). Ton entfällt. */
-async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruch }) {
+async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruch, ausschnitt = null }) {
   const typ = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
     .find((t) => globalThis.MediaRecorder?.isTypeSupported?.(t));
   if (!typ || !HTMLCanvasElement.prototype.captureStream) throw new Error(deEn('Dieses Gerät kann Videos nicht neu speichern.', 'This device cannot re-encode videos.'));
@@ -126,10 +126,13 @@ async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruc
     await new Promise((ok, f) => { v.onloadedmetadata = ok; v.onerror = () => f(new Error(deEn('Video lässt sich nicht lesen.', 'Cannot read the video.'))); });
     const dauer = await new Promise((ok) => dauerErmitteln(v, ok));
     const ende = Math.min(bis ?? dauer, dauer), start = Math.max(0, von ?? 0);
-    const s = kante ? Math.min(1, kante / Math.min(v.videoWidth, v.videoHeight)) : 1;
+    // 301: Ausschnitt (gezoomte Ansicht) in Video-Pixeln; ohne Ausschnitt das ganze Bild
+    const q = ausschnitt ?? { sx: 0, sy: 0, sw: v.videoWidth, sh: v.videoHeight };
+    const s = kante ? Math.min(1, kante / Math.min(q.sw, q.sh)) : 1;
     const c = document.createElement('canvas');
-    c.width = Math.round((v.videoWidth * s) / 2) * 2; c.height = Math.round((v.videoHeight * s) / 2) * 2;
-    const ctx = c.getContext('2d');
+    c.width = Math.max(2, Math.round((q.sw * s) / 2) * 2); c.height = Math.max(2, Math.round((q.sh * s) / 2) * 2);
+    const ctx0 = c.getContext('2d');
+    const ctx = { drawImage: (quelle) => ctx0.drawImage(quelle, q.sx, q.sy, q.sw, q.sh, 0, 0, c.width, c.height) };
     const rec = new MediaRecorder(c.captureStream(30), { mimeType: typ, videoBitsPerSecond: bitrate });
     const teile = [];
     rec.ondataavailable = (e) => e.data.size && teile.push(e.data);
@@ -158,17 +161,81 @@ async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruc
     return { blob: new Blob(teile, { type: typ.split(';')[0] }), versatz: start };
   } finally { URL.revokeObjectURL(url); }
 }
-/** 281: Datei über den Teilen-Dialog speichern (Ordner wählt man dort), sonst herunterladen. */
-async function alsDateiSpeichern(rec, name) {
+// #################################################################
+// 300: fester Ablageort für gespeicherte Videos – je Gerät (localStorage), beim ersten Speichern gefragt.
+// Eine Web-App kann nicht direkt in die Galerie schreiben: Downloads (Android-Galerie: Album „Download“),
+// eigener Ordner (nur wo der Browser Ordner freigibt) oder Teilen-Dialog (iPhone: „Video sichern“ → Fotos).
+// #################################################################
+const ABLAGE = 'prh-video-ablage', ORDNER_NAME = 'prh-video-ordner';
+const lokal = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* privat */ } return null; };
+export const IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const kannOrdner = () => typeof globalThis.showDirectoryPicker === 'function';
+const ablageDb = () => new Promise((ok, f) => { const r = indexedDB.open('prh-ablage', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => ok(r.result); r.onerror = () => f(r.error); });
+async function ordnerHandle(neu) {
+  const d = await ablageDb();
+  return new Promise((ok, f) => {
+    const t = d.transaction('h', neu === undefined ? 'readonly' : 'readwrite'), s = t.objectStore('h');
+    const r = neu === undefined ? s.get('ordner') : neu ? s.put(neu, 'ordner') : s.delete('ordner');
+    t.oncomplete = () => ok(neu === undefined ? r.result : null); t.onerror = () => f(t.error);
+  });
+}
+/** Gewählter Ablageort: 'download' | 'ordner' | 'teilen' | null (noch nie gefragt). */
+export const ablageModus = () => lokal(ABLAGE);
+function ablageText(m) {
+  if (m === 'ordner') return deEn(`Ordner „${lokal(ORDNER_NAME) ?? '…'}“`, `Folder “${lokal(ORDNER_NAME) ?? '…'}”`);
+  if (m === 'download') return IOS ? deEn('Dateien-App · Downloads', 'Files app · Downloads') : deEn('Downloads · Galerie-Album „Download“', 'Downloads · gallery album “Download”');
+  if (m === 'teilen') return IOS ? deEn('Fotos (über Teilen)', 'Photos (via Share)') : deEn('Jedes Mal wählen', 'Choose each time');
+  return deEn('Noch nicht gewählt', 'Not chosen yet');
+}
+/** Auswahl des Ablageorts (erstes Speichern und Einstellungen). gewaehlt(modus) nach erfolgreicher Wahl. */
+export function AblageWahl({ gewaehlt, abbrechen = null }) {
+  const [fehler, setFehler] = useState(null);
+  const jetzt = ablageModus();
+  const waehle = async (m) => {
+    setFehler(null);
+    if (m === 'ordner') {
+      try {
+        const h = await globalThis.showDirectoryPicker({ id: 'prh-videos', mode: 'readwrite', startIn: 'videos' });
+        await ordnerHandle(h); lokal(ORDNER_NAME, h.name);
+      } catch (e) { if (e?.name !== 'AbortError') setFehler(e.message ?? String(e)); return; }
+    }
+    lokal(ABLAGE, m); gewaehlt(m);
+  };
+  const wahl = [
+    ['download', IOS ? deEn('Dateien-App', 'Files app') : deEn('Downloads → Galerie', 'Downloads → gallery'),
+      IOS ? deEn('Ohne Rückfrage in „Downloads“ der Dateien-App.', 'Straight into “Downloads” in the Files app.') : deEn('Ohne Rückfrage. In der Galerie im Album „Download“.', 'No questions asked. In your gallery under the “Download” album.')],
+    kannOrdner() && ['ordner', deEn('Eigener Ordner', 'Own folder'), deEn('Einmal wählen, z. B. „Lifting“ – alle Videos landen dort.', 'Pick once, e.g. “Lifting” – every video goes there.')],
+    navigator.share && ['teilen', IOS ? deEn('Fotos-App', 'Photos app') : deEn('Jedes Mal wählen', 'Choose each time'),
+      IOS ? deEn('Im Teilen-Dialog „Video sichern“ tippen.', 'Tap “Save video” in the share dialog.') : deEn('Teilen-Dialog, z. B. Google Fotos oder Dateien.', 'Share dialog, e.g. Google Photos or Files.')],
+  ].filter(Boolean);
+  return html`<div class="sv-ablage" role="group" aria-label=${deEn('Videos speichern in', 'Save videos to')}>
+    ${wahl.map(([k, t, u]) => html`<button key=${k} class=${`sv-ablage-o ${jetzt === k ? 'an' : ''}`} aria-pressed=${String(jetzt === k)} onClick=${(e) => { e.preventDefault(); waehle(k); }}>
+      <b>${t}${k === 'ordner' && jetzt === 'ordner' ? html` · ${lokal(ORDNER_NAME)}` : ''}</b><span>${u}</span></button>`)}
+    ${fehler ? html`<span class="muted sv-fuss">${fehler}</span>` : null}
+    ${abbrechen ? html`<button class="link-knopf" style="align-self:flex-start" onClick=${abbrechen}>${deEn('Abbrechen', 'Cancel')}</button>` : null}
+  </div>`;
+}
+/** 281/300: Datei am gewählten Ort ablegen. Rückgabe { art: 'ordner'|'geteilt'|'geladen'|'abbruch', ort }. */
+async function alsDateiSpeichern(rec, name, modus = ablageModus()) {
   const endung = (rec.blob.type || '').includes('mp4') ? 'mp4' : (rec.blob.type || '').includes('quicktime') ? 'mov' : 'webm';
   const datei = new File([rec.blob], `${name}.${endung}`, { type: rec.blob.type || 'video/mp4' });
-  if (navigator.canShare?.({ files: [datei] })) {
-    try { await navigator.share({ files: [datei], title: name }); return 'geteilt'; } catch (e) { if (e?.name === 'AbortError') return 'abbruch'; }
+  if (modus === 'ordner') {
+    const h = await ordnerHandle().catch(() => null);
+    if (h) {
+      const recht = (await h.queryPermission?.({ mode: 'readwrite' })) === 'granted' || (await h.requestPermission?.({ mode: 'readwrite' })) === 'granted';
+      if (!recht) throw new Error(deEn('Kein Zugriff auf den Ordner – in den Einstellungen neu wählen.', 'No access to the folder – choose it again in the settings.'));
+      const w = await (await h.getFileHandle(datei.name, { create: true })).createWritable();
+      await w.write(datei); await w.close();
+      return { art: 'ordner', ort: h.name };
+    }
+  }
+  if (modus === 'teilen' && navigator.canShare?.({ files: [datei] })) {
+    try { await navigator.share({ files: [datei], title: name }); return { art: 'geteilt' }; } catch (e) { if (e?.name === 'AbortError') return { art: 'abbruch' }; }
   }
   const a = document.createElement('a'), u = URL.createObjectURL(datei);
   a.href = u; a.download = datei.name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(u), 4000);
-  return 'geladen';
+  return { art: 'geladen', webm: endung === 'webm' };
 }
 
 // #################################################################
@@ -277,7 +344,8 @@ const ms = (v) => fmt2(v);
 export function VideoEinstellung({ einst, setEinst }) {
   const [stand, setStand] = useState(null);
   const [frage, setFrage] = useState(false);
-  const lade = () => videoUebersicht().then(setStand).catch(() => setStand(null));
+  const [ort, setOrt] = useState(false);
+  const lade =() => videoUebersicht().then(setStand).catch(() => setStand(null));
   useEffect(() => { lade(); }, []);
   return html`<label class="schalter" for="e-video"><span><b>${deEn('Satz-Video mit Hantelweg', 'Set video with bar path')}</b><br/>
       <span class="muted" style="font-size:12.5px">${deEn('Unter jedem abgehakten Satz eine Kamera: filmen, Hantelweg und Tempo je Wdh sehen, RPE mit dem Tempo abgleichen. Videos bleiben auf diesem Gerät.',
@@ -285,7 +353,11 @@ export function VideoEinstellung({ einst, setEinst }) {
       ${stand?.anzahl ? html`<span class="muted sv-speicher">${deEn(`${stand.anzahl} ${stand.anzahl === 1 ? 'Video' : 'Videos'} · ${mb(stand.bytes)} auf diesem Gerät`, `${stand.anzahl} ${stand.anzahl === 1 ? 'video' : 'videos'} · ${mb(stand.bytes)} on this device`)}
         ${frage ? html` · <button class="link-knopf gefahr" onClick=${(e) => { e.preventDefault(); alleVideosLoeschen().then(() => { setFrage(false); lade(); }); }}>${deEn('Wirklich alle löschen', 'Really delete all')}</button>`
           : html` · <button class="link-knopf" onClick=${(e) => { e.preventDefault(); setFrage(true); }}>${deEn('Alle löschen', 'Delete all')}</button>`}</span>` : null}</span>
-    <input type="checkbox" id="e-video" checked=${einst.satzVideo !== false} onChange=${(e) => setEinst({ ...einst, satzVideo: e.currentTarget.checked })}/></label>`;
+    <input type="checkbox" id="e-video" checked=${einst.satzVideo !== false} onChange=${(e) => setEinst({ ...einst, satzVideo: e.currentTarget.checked })}/></label>
+    ${einst.satzVideo !== false ? html`<div class="sv-ablage-einst">
+      <div class="row between" style="align-items:center;gap:10px"><span><b>${deEn('Videos speichern in', 'Save videos to')}</b><br/><span class="muted" style="font-size:12.5px">${ablageText(ablageModus())}</span></span>
+        <button class="chip" onClick=${() => setOrt(!ort)} aria-expanded=${String(ort)}>${ort ? deEn('Fertig', 'Done') : deEn('Ändern', 'Change')}</button></div>
+      ${ort ? html`<${AblageWahl} gewaehlt=${() => setOrt(false)}/>` : null}</div>` : null}`;
 }
 
 /** Knopf unter einem abgehakten Satz: Kamera (grün, wenn es Video oder Tempo gibt). */
@@ -297,7 +369,8 @@ export function SatzVideoKnopf({ satz, oeffnen }) {
 
 /** Fenster für einen Satz (Training). speichern(patch) setzt Felder in satz.extra (null entfernt sie); ohne speichern nur ansehen (Verlauf). */
 export function SatzVideo({ zu, ...rest }) {
-  return html`<${Sheet} zu=${zu} label=${deEn('Satz-Video', 'Set video')} voll=${true}><${VideoKern} zu=${zu} ...${rest}/></${Sheet}>`;
+  // Portal: im Verlauf liegt das Fenster sonst im Tages-Fenster (transform) und öffnet nur halb
+  return html`<${Portal}><${Sheet} zu=${zu} label=${deEn('Satz-Video', 'Set video')} voll=${true}><${VideoKern} zu=${zu} ...${rest}/></${Sheet}><//>`;
 }
 
 const DATEI_NAME = (titel) => `PRHunter_${new Date().toISOString().slice(0, 10)}_${titel.replace(/[^\p{L}\p{N}.,×x@ -]/gu, '').replace(/\s+/g, '_')}`;
@@ -330,6 +403,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const [bearb, setBearb] = useState(false);
   const [groesse, setGroesse] = useState('720');
   const [unplausibel, setUnplausibel] = useState(null);   // Gründe, wenn die Analyse nicht nach Hantel aussieht
+  const [nurAusschnitt, setNurAusschnitt] = useState(true); // 301: beim Übernehmen den gezoomten Ausschnitt speichern
+  const [ablageFrage, setAblageFrage] = useState(false);  // 300: erstes Speichern → Ort wählen
   const videoRef = useRef(null), canvasRef = useRef(null), lupeRef = useRef(null), buehneRef = useRef(null), rahmenRef = useRef(null);
   const abbruch = useRef(false), scan = useRef(null), zeiger = useRef(new Map()), geste = useRef(null);
   const dateiKamera = useRef(null), dateiGalerie = useRef(null);
@@ -358,7 +433,9 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     ro?.observe(el);
     return () => ro?.disconnect();
   }, [url]);
-  const { b, h } = buehnenGroesse(mass?.w, mass?.h, platz, Math.round((globalThis.innerHeight || 700) * 0.56));
+  // Handy quer gehalten: Video fast über die ganze Höhe; Querformat-Video nutzt die volle Breite (sv-rahmen.quer)
+  const quer = !!mass && mass.w > mass.h * 1.05, hoehe = globalThis.innerHeight || 700, liegend = (globalThis.innerWidth || 0) > hoehe;
+  const { b, h } = buehnenGroesse(mass?.w, mass?.h, platz, Math.round(hoehe * (liegend ? 0.86 : 0.6)));
   const schnitt = rec?.schnitt ?? null;
   const bereich = () => [schnitt?.von ?? 0, Math.min(schnitt?.bis ?? dauer, dauer || Infinity)];
   const lupenPunkt = lupe && mass ? inVideo(lupe.x, lupe.y, ansicht, b, h, mass.w, mass.h) : null;
@@ -528,24 +605,35 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     const [von, bis] = bereich(), g = GROESSEN.find(([k]) => k === groesse);
     setFehler(null); setInfo(null); setPhase('arbeit'); setFortschritt(0); abbruch.current = false;
     const vorher = rec.blob.size;
+    // 301: gezoomt → nur den sichtbaren Ausschnitt speichern (in Video-Pixeln)
+    const z = ansicht.z, aus = zugeschnitten && mass ? { sx: (-ansicht.tx / z) * (mass.w / b), sy: (-ansicht.ty / z) * (mass.h / h), sw: mass.w / z, sh: mass.h / z } : null;
     try {
-      const erg = await neuKodieren(rec.blob, { von, bis, kante: g[2], bitrate: g[3], fortschritt: setFortschritt, abbruch });
+      const erg = await neuKodieren(rec.blob, { von, bis, kante: g[2], bitrate: g[3], fortschritt: setFortschritt, abbruch, ausschnitt: aus });
       if (!erg) { setPhase(rec.analyse ? 'ergebnis' : 'markieren'); return; }
-      // Analyse an den Schnitt anpassen: Zeiten verschieben, Punkte außerhalb weg (Pixel sind auf 320 px normiert, Größe egal)
-      const a = rec.analyse;
-      const analyse = a ? { ...a, punkte: a.punkte.filter((p) => p.t >= erg.versatz && p.t <= bis).map((p) => ({ ...p, t: p.t - erg.versatz })),
+      // Analyse an den Schnitt anpassen: Zeiten verschieben, Punkte außerhalb weg (Pixel sind auf 320 px normiert, Größe egal);
+      // beim Ausschnitt die Punkte mitverschieben und vergrößern – Meter je Pixel werden entsprechend kleiner
+      const a = rec.analyse, k = a && aus ? a.breite / mass.w : 0;
+      const ort = (p) => (aus ? { x: (p.x - aus.sx * k) * z, y: (p.y - aus.sy * k) * z } : {});
+      const analyse = a ? { ...a, ...(aus ? { mProPx: a.mProPx / z } : {}), punkte: a.punkte.filter((p) => p.t >= erg.versatz && p.t <= bis).map((p) => ({ ...p, ...ort(p), t: p.t - erg.versatz })),
         wdh: a.wdh.filter((w) => w.von >= erg.versatz && w.bis <= bis).map((w) => ({ ...w, von: w.von - erg.versatz, bis: w.bis - erg.versatz })) } : undefined;
       const neu = { ...rec, blob: erg.blob, typ: erg.blob.type, schnitt: undefined, analyse, bearbeitet: new Date().toISOString() };
       await videoAblegen(neu);
-      setRec(neu); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setMitte(null); setRand(null); setSchritt('mitte');
+      setRec(neu); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setFest(false); setMitte(null); setRand(null); setSchritt('mitte');
       setBearb(false); setPhase(analyse ? 'ergebnis' : 'markieren'); meldeNeu(neu);
       setInfo(deEn(`Übernommen: ${mb(vorher)} → ${mb(erg.blob.size)}.`, `Applied: ${mb(vorher)} → ${mb(erg.blob.size)}.`));
     } catch (e) { setFehler(e.message ?? String(e)); setPhase(rec.analyse ? 'ergebnis' : 'markieren'); }
   };
-  const ablegen = async () => {
-    const r = await alsDateiSpeichern(rec, DATEI_NAME(titel)).catch(() => null);
-    if (r === 'geladen') setInfo(deEn('Als Datei in „Downloads“ gespeichert.', 'Saved as a file in “Downloads”.'));
+  const ablegen = async (modus = ablageModus()) => {
+    if (!modus) { setAblageFrage(true); return; }                        // 300: beim ersten Mal den Ort wählen
+    setAblageFrage(false); setFehler(null); setInfo(null);
+    let r;
+    try { r = await alsDateiSpeichern(rec, DATEI_NAME(titel), modus); } catch (e) { setFehler(e.message ?? String(e)); return; }
+    const webm = r.webm ? deEn(' WebM-Videos zeigt nicht jede Galerie an – dann über die Dateien-App öffnen.', ' Not every gallery shows WebM videos – open it via the Files app then.') : '';
+    if (r.art === 'ordner') setInfo(deEn(`Gespeichert im Ordner „${r.ort}“.`, `Saved to the folder “${r.ort}”.`));
+    if (r.art === 'geladen') setInfo((IOS ? deEn('Gespeichert in der Dateien-App unter „Downloads“.', 'Saved in the Files app under “Downloads”.')
+      : deEn('Gespeichert in „Downloads“ – in der Galerie im Album „Download“.', 'Saved to “Downloads” – in your gallery under the “Download” album.')) + webm);
   };
+  const zugeschnitten = nurAusschnitt && ansicht.z > 1.01;
 
   const a = rec?.analyse, wdh = a?.wdh ?? [];
   const tempo = phase === 'fremd' ? satz.extra?.tempo ?? (wdh.length && !rec?.ungeprueft ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null)
@@ -587,8 +675,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         <span>${schritt === 'fertig' ? deEn('Kreis passt? Dann berechnen. Innen ziehen verschiebt ihn, am Rand ziehen ändert die Größe.', 'Circle fits? Then track. Drag inside to move it, drag the edge to resize it.')
           : deEn('Gedrückt halten, mit der Lupe zielen, loslassen. Zwei Finger zoomen. Vorher zum Satzbeginn spulen.', 'Press and hold, aim with the magnifier, release. Two fingers zoom. Scrub to the start of the set first.')}</span></div>
     </div>` : null}
-    ${mitVideo ? html`<div class="sv-rahmen" ref=${rahmenRef}>
-      <div class=${`sv-buehne ${fest ? 'fest' : ''}`} ref=${buehneRef} style=${`width:${b}px;height:${h}px`}
+    ${mitVideo ? html`<div class=${`sv-rahmen ${quer ? 'quer' : ''}`} ref=${rahmenRef}>
+      <div class=${`sv-buehne ${fest ? 'fest' : ''} ${phase !== 'markieren' && (fest || ansicht.z <= 1.01) ? 'scrollt' : ''}`} ref=${buehneRef} style=${`width:${b}px;height:${h}px`}
         onPointerDown=${runter} onPointerMove=${bewegen} onPointerUp=${hoch} onPointerCancel=${hoch} onWheel=${rad} onContextMenu=${(e) => e.preventDefault()}>
         <div class="sv-inhalt" style=${`width:${b}px;height:${h}px;transform:translate(${ansicht.tx}px,${ansicht.ty}px) scale(${ansicht.z})`}>
           <video ref=${videoRef} src=${url} playsinline muted preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"
@@ -629,10 +717,17 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       ${schnitt ? html`<button class="link-knopf" style="align-self:flex-start" onClick=${() => setzeSchnitt(undefined)}>${deEn('Schnitt zurücksetzen', 'Reset trim')}</button>` : null}
       <span class="eyebrow">${deEn('Größe', 'Size')} · ${mb(rec?.blob?.size ?? 0)}</span>
       <div class="seg sv-seg" role="group">${GROESSEN.map(([k, t, , rate]) => html`<button key=${k} aria-pressed=${String(groesse === k)} onClick=${() => setGroesse(k)}>${t}<small>≈ ${mb((rate * Math.max(0.5, bis - von)) / 8)}</small></button>`)}</div>
+      ${ansicht.z > 1.01 ? html`<label class="sv-ausschnitt"><input type="checkbox" checked=${nurAusschnitt} onChange=${(e) => setNurAusschnitt(e.currentTarget.checked)}/>
+        <span><b>${deEn(`Nur den gezoomten Ausschnitt (${fmt(ansicht.z, 1)}×)`, `Only the zoomed section (${fmt(ansicht.z, 1)}×)`)}</b><br/>
+        <span class="muted">${deEn('So wie gerade zu sehen – der Rand wird abgeschnitten.', 'Exactly as you see it now – the edges are cut off.')}</span></span></label>` : null}
       <button class="btn btn-chalk btn-block" onClick=${uebernehmen}>${deEn('Übernehmen', 'Apply')}</button>
-      <button class="btn btn-soft btn-block" onClick=${ablegen}>${deEn('Als Datei speichern …', 'Save as file …')}</button>
-      <span class="muted sv-fuss">${deEn('„Übernehmen“ ersetzt das Video in der App (Ton entfällt). Das Original in der Galerie bleibt. „Als Datei speichern“ legt die aktuelle Fassung als neue Datei ab – den Ordner (z. B. „Lifting“) wählst du im Dialog.',
-        '“Apply” replaces the video in the app (sound is dropped). The original in your gallery stays. “Save as file” stores the current version as a new file – you pick the folder (e.g. “Lifting”) in the dialog.')}</span>
+      <button class="btn btn-soft btn-block" onClick=${() => ablegen()}>${deEn('Als Datei speichern …', 'Save as file …')}</button>
+      ${ablageFrage ? html`<div class="sv-ablage-frage"><b>${deEn('Wo sollen deine Videos hin?', 'Where should your videos go?')}</b>
+        <span class="muted sv-fuss">${deEn('Einmal wählen – gilt ab jetzt für jedes Video. Ändern in den Einstellungen.', 'Choose once – used for every video from now on. Change it in the settings.')}</span>
+        <${AblageWahl} gewaehlt=${(m) => ablegen(m)} abbrechen=${() => setAblageFrage(false)}/></div>` : null}
+      ${ablageModus() ? html`<span class="muted sv-fuss">${deEn('Speicherort', 'Location')}: ${ablageText(ablageModus())}</span>` : null}
+      <span class="muted sv-fuss">${deEn('„Übernehmen“ ersetzt das Video in der App (Ton entfällt). Das Original in der Galerie bleibt. „Als Datei speichern“ legt die aktuelle Fassung als neue Datei am gewählten Ort ab.',
+        '“Apply” replaces the video in the app (sound is dropped). The original in your gallery stays. “Save as file” stores the current version as a new file at your chosen location.')}</span>
     </div>` : null}
     ${phase === 'markieren' ? html`<div class="stack" style="gap:10px">
       <div class="row between" style="align-items:center"><span class="muted" style="font-size:13px">${deEn('Scheibendurchmesser', 'Plate diameter')}</span>

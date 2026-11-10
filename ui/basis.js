@@ -611,7 +611,7 @@ export function Sheet({ zu, children, label = 'Dialog', voll = false }) {
   const start = (e) => {
     // am Griff bzw. festen Fensterkopf (bleiben beim Scrollen oben stehen) immer, sonst nur, wenn der Inhalt ganz oben steht
     const griff = !!e.target.closest?.('.grab, .sheet-kopf');
-    if (e.touches.length !== 1 || (ref.current.scrollTop > 0 && !griff) || e.target.closest?.('.zuschnitt, input[type="range"]')) return;
+    if (e.touches.length !== 1 || (ref.current.scrollTop > 0 && !griff) || e.target.closest?.('.zuschnitt, input[type="range"], .sv-buehne, .sv-kurve')) return;
     const t = e.touches[0];
     zug.current = { x: t.clientX, y: t.clientY, dy: 0, aktiv: false, t0: Date.now(), griff };
   };
