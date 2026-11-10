@@ -27,6 +27,7 @@ import { erholungsEintraege, sichtbar } from '../js/ausdauer.js';
 import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
 import { FormKarte, formDaten } from './formkurve.js';
+import { TempoStatistik } from './tempostatistik.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
@@ -56,7 +57,9 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
   const einfach = einst.trainingsart === 'einfach';
   const reiterBasis = einfach ? STAT_REITER.filter(([k]) => k !== 'kraft') : STAT_REITER;
   // 225: Reiter „Ausdauer“ nur, wenn gewählt (vor „Körper“)
-  const reiterListe = einst.ausdauer ? [...reiterBasis.slice(0, -1), ['ausdauer', deEn('Ausdauer', 'Cardio')], reiterBasis.at(-1)] : reiterBasis;
+  const mitAusdauer = einst.ausdauer ? [...reiterBasis.slice(0, -1), ['ausdauer', deEn('Ausdauer', 'Cardio')], reiterBasis.at(-1)] : reiterBasis;
+  // 279: Reiter „Tempo“ (Hantel-Tempo aus Videos), solange das Satz-Video an ist
+  const reiterListe = einst.satzVideo !== false ? [...mitAusdauer.slice(0, -1), ['tempo', deEn('Tempo', 'Velocity')], mitAusdauer.at(-1)] : mitAusdauer;
   // beim Öffnen der App Profil (Niko 02.11.); Neuladen bleibt beim gewählten Reiter (Sitzung, 03.11.); Wisch-Bild: Nachbar
   const [reiterRoh, setReiterRoh] = useState(() => UNTER_VORSCHAU.statistik ?? (() => { try { return sessionStorage.getItem('prh-reiter-statistik'); } catch { return null; } })() ?? 'profil');
   const setReiter = (k) => { setReiterRoh(k); try { sessionStorage.setItem('prh-reiter-statistik', k); } catch { /* egal */ } };
@@ -211,6 +214,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
 
     <div class="reiter-inhalt statistik-inhalt unter-inhalt" key=${reiter}>
     ${reiter === 'ausdauer' ? html`<${AusdauerStatistik} liste=${ausdauer} einst=${einst} setEinst=${setEinst} trainings=${trainings} x=${x}/>`
+    : reiter === 'tempo' ? html`<${TempoStatistik} von=${bereich === 0 ? null : x[0] ?? null}/>`
     : reiter === 'analyse' ? html`<${Insights} ausdauer=${ausdauer} einst=${einst} heute=${HEUTE} trainings=${DEMO
         // Beispieldaten: Tage mit fester Uhrzeit, damit Dauer und Zeitnutzung etwas zeigen
         ? Object.keys(trainingsTage).map((d) => { const t = trainingAm(d); return t && { datum: d, start: `${d}T17:00:00Z`, ende: new Date(Date.parse(`${d}T17:00:00Z`) + (60 + (Number(d.slice(8)) % 5) * 12) * 60000).toISOString(), uebungen: t.uebungen }; }).filter(Boolean)
@@ -294,7 +298,7 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
     ${einfach ? null : html`<${Bestenliste} gruppen=${einst.gruppen ?? []}/>`}
     ${einfach ? null : html`<${Vergleich} freigegeben=${true} ausgeblendet=${Object.keys(einst.freundeAus ?? {}).filter((id) => einst.freundeAus[id]?.vergleich === false)}/>`}`
     : reiter === 'belastung' ? html`
-    <${FormKarte} daten=${formDaten(planTage, { wettkampf: einfach ? null : einst.wettkampfDatum ?? null })}/>
+    <${FormKarte} daten=${formDaten(planTage, { wettkampf: einfach ? null : einst.wettkampfDatum ?? null, von: x[0] ?? null })}/>
     ${belastung.some((w) => w.foster.last > 0) ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Belastung</span><b>${fmt(letzte.foster.last, 0)}</b><span class="muted" style="font-size:12px">letzte Woche</span></div>
       <div class="kachel"><span class="l">Monotonie</span><b>${fmt(letzte.foster.monotonie, 2)}</b><span class="muted" style="font-size:12px">Ø ÷ Streuung</span></div>

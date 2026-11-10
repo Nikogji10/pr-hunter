@@ -15,9 +15,11 @@ const e1rmVon = (key) => E1RM_AKTUELL[kanon(key)] ?? E1RM_AKTUELL[key] ?? formAk
 
 let MERK = null;
 /** Verlauf und Auswertung. planTage: Plantage des aktiven Blocks (planeBlock + Optionen), erledigt: Set der erledigten Plandaten. */
-export function formDaten(planTage = [], { wettkampf = null, erledigt = null } = {}) {
+export function formDaten(planTage = [], { wettkampf = null, erledigt = null, von = null } = {}) {
+  // 282: Verlauf ab dem Zeitraum der Statistik (4 Wo. … Alles), sonst die letzten 8 Wochen
+  const ab = von && von < HEUTE ? von : plusTage(HEUTE, -56);
   const plan = planTage.filter((t) => t.datum && t.datum >= HEUTE && !t.uebersprungen && !erledigt?.has(t.datum));
-  const sig = [trainingsTage, HEUTE, wettkampf, plan.length, plan[0]?.datum, plan.at(-1)?.datum, plan.reduce((a, t) => a + t.offset, 0)];
+  const sig = [trainingsTage, HEUTE, wettkampf, ab, plan.length, plan[0]?.datum, plan.at(-1)?.datum, plan.reduce((a, t) => a + t.offset, 0)];
   if (MERK && MERK.sig.every((x, i) => x === sig[i])) return MERK.w;
   const lasten = {};
   for (const d of Object.keys(trainingsTage)) { const t = trainingAm(d); if (t) lasten[d] = trainingsLast(t.uebungen); }
@@ -29,7 +31,7 @@ export function formDaten(planTage = [], { wettkampf = null, erledigt = null } =
   const wkGueltig = wettkampf && wettkampf >= HEUTE ? wettkampf : null;
   const zuWeit = !!wkGueltig && wkGueltig > plusTage(HEUTE, VORSCHAU_TAGE);
   const vorschau = !!wkGueltig && !zuWeit && !!planEnde;
-  const verlauf = formVerlauf(lasten, { von: plusTage(HEUTE, -56), bis: vorschau ? wkGueltig : HEUTE });
+  const verlauf = formVerlauf(lasten, { von: ab, bis: vorschau ? wkGueltig : HEUTE });
   const w = { verlauf, ...formZumWettkampf(verlauf, { heute: HEUTE, wettkampf: vorschau ? wkGueltig : null, planEnde }),
     planEnde, wk: wkGueltig, zuWeit, vorschau, leer: !verlauf.some((v) => v.pct != null) };
   MERK = { sig, w };
@@ -100,11 +102,12 @@ function FormChart({ daten }) {
   const werte = v.map((x) => x.pct).filter((p) => p != null);
   if (!werte.length) return null;
   const W = 340, H = 184, L = 30, R = 10, T = 18, U = 22;
-  const lo = Math.min(-30, Math.floor(Math.min(...werte) / 10) * 10), hi = Math.max(60, Math.ceil(Math.max(...werte) / 10) * 10);
+  // Achse höchstens −100 … +150 % (nach langen Pausen gibt es Ausreißer; Werte darüber hinaus liegen am Rand)
+  const lo = Math.max(-100, Math.min(-30, Math.floor(Math.min(...werte) / 10) * 10)), hi = Math.min(150, Math.max(60, Math.ceil(Math.max(...werte) / 10) * 10));
   const schritt = hi - lo > 120 ? 40 : 20;
   const ticks = []; for (let t = Math.ceil(lo / schritt) * schritt; t <= hi; t += schritt) ticks.push(t);
   const px = (k) => L + (k * (W - L - R)) / Math.max(1, n - 1);
-  const py = (p) => T + ((hi - p) * (H - T - U)) / (hi - lo || 1);
+  const py = (p) => T + ((hi - Math.max(lo, Math.min(hi, p))) * (H - T - U)) / (hi - lo || 1);
   const ih = v.findIndex((x) => x.datum === HEUTE);
   const iw = daten.vorschau ? v.findIndex((x) => x.datum === daten.wk) : -1;
   const pfad = (von, bis) => { let s = '', an = false;
@@ -113,8 +116,13 @@ function FormChart({ daten }) {
   const ende = ih >= 0 ? ih : n - 1;
   const hochK = daten.vorschau && daten.hoch && daten.hoch.datum > HEUTE ? v.findIndex((x) => x.datum === daten.hoch.datum) : -1;
   // Datumsbeschriftung: Anfang, heute, Wettkampf (überlappende weglassen)
-  const marken = [[0, datumKurz(v[0].datum)], ...(ih > 0 ? [[ih, deEn('heute', 'today')]] : []), ...(iw > 0 ? [[iw, datumKurz(v[iw].datum)]] : [])]
-    .filter(([k], j, l) => j === 0 || px(k) - px(l[j - 1][0]) >= 38);
+  // 282: lange Zeiträume mit Monatsmarken (über ein Jahr „MM/JJ“), sonst Anfang
+  const fest = [...(ih > 0 ? [[ih, deEn('heute', 'today')]] : []), ...(iw > 0 ? [[iw, datumKurz(v[iw].datum)]] : [])];
+  const frei = (k, l) => [...fest, ...l].every(([f]) => Math.abs(px(f) - px(k)) >= 38);
+  const marken = [...fest];
+  const kandidaten = n > 70 ? v.map((x, k) => [k, x.datum]).filter(([, d]) => d.endsWith('-01'))
+    .map(([k, d]) => [k, n > 400 ? `${d.slice(5, 7)}/${d.slice(2, 4)}` : datumKurz(d)]) : [[0, datumKurz(v[0].datum)]];
+  for (const m of kandidaten) if (frei(m[0], marken.slice(fest.length))) marken.push(m);
   const zeige = (e) => {
     const r = ref.current.getBoundingClientRect();
     const xs = ((e.clientX - r.left) / r.width) * W;

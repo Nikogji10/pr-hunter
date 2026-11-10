@@ -8,11 +8,12 @@ import { HAUPT } from '../js/daten.js';
 import { Timer } from './timer.js';
 import { Wettkampftag } from './wettkampf.js';
 import { zweiGewichte } from '../js/scheibenwechsel.js';
+import { HantelWerkzeug } from './hantelwerkzeug.js';
 
 // Werte im Rechner sind schon in der Anzeigeeinheit; das Zahlenfeld rechnet deshalb nicht um
 const Zahl = ({ id, label, wert, setze }) => html`<${ZahlFeld} id=${id} label=${label} wert=${wert} setze=${setze}/>`;
 export const RECHNER = [['1rm', '1RM'], ['scheiben', 'Scheiben'], ['rpe', 'RPE'], ['prozent', 'Prozent'], ['koerper', 'Klimmzug'],
-  ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche'], ['wettkampf', 'Wettkampftag']];
+  ['warm', 'Aufwärmen'], ['punkte', 'Punkte'], ['versuche', 'Versuche'], ['wettkampf', 'Wettkampftag'], ['video', 'Hantelweg']];
 const runde1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
 
 export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck = null }) {
@@ -77,6 +78,7 @@ export function Rechner({ einst, vorlage = null, start: startArt = null, zurueck
     </section>`}
 
     ${art === 'timer' && html`<${Timer}/>`}
+    ${art === 'video' && html`<${HantelWerkzeug} einst=${einst}/>`}
 
     ${art === '1rm' && html`<section class="card pad stack">
       <div class="fields drei"><${Zahl} id="r-1kg" label=${E} wert=${b.kg} schritt=${inc} setze=${(x) => setB({ ...b, kg: x })}/>

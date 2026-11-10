@@ -88,7 +88,7 @@ export function verfolger({ suchFaktor = 0.6, minGuete = 0.45 } = {}) {
       y = fy + sub(nb(0, -1), best, nb(0, 1));
       const neu = ausschnitt(bild, b, h, fx, fy, s);
       if (neu && best > 0.7) { const t = new Float32Array(roh.length); for (let i = 0; i < t.length; i++) t[i] = 0.7 * roh[i] + 0.3 * neu[i]; vorlage = normiert(t); }
-      return { x, y, guete: best };
+      return { x, y, guete: Math.round(best * 100) / 100 };
     },
   };
 }
@@ -171,6 +171,43 @@ export function rpeAusTempo(v, paare, { minimum = 4 } = {}) {
   if (rpeSpanne < 1 || vSpanne < 0.05 || !(sxx > 0) || sxy >= 0) return { rpe: null, n, fehlen: 0 };
   const steigung = sxy / sxx, wert = mr + steigung * (v - mv);
   return { rpe: Math.max(5, Math.min(10, Math.round(wert * 2) / 2)), n };
+}
+
+/**
+ * Plausibilität einer Analyse (280): Bahn zu kurz, Treffer zu unsicher oder Werte außerhalb dessen, was eine Hantel macht
+ * → Liste von Gründen (leer = plausibel). punkte mit guete (0–1) aus dem Verfolger.
+ */
+export function plausibel({ punkte = [], wdh = [] }) {
+  const gruende = [];
+  if (punkte.length < 10) gruende.push('kurz');
+  const g = punkte.filter((p) => p.guete != null).map((p) => p.guete);
+  if (g.length && g.reduce((a, b) => a + b, 0) / g.length < 0.6) gruende.push('unsicher');
+  if (!wdh.length) gruende.push('keineWdh');
+  if (wdh.some((w) => w.mcv > 2.5 || w.hub > 1.3)) gruende.push('unrealistisch');
+  return gruende;
+}
+
+// #################################################################
+// Ansicht (271): Zoom z ≥ 1 und Verschiebung (tx, ty) in Bühnen-Pixeln; der Inhalt deckt die Bühne immer ganz ab.
+// #################################################################
+export function begrenze({ z, tx, ty }, b, h) {
+  const zz = Math.max(1, Math.min(6, z));
+  return { z: zz, tx: Math.min(0, Math.max(b * (1 - zz), tx)), ty: Math.min(0, Math.max(h * (1 - zz), ty)) };
+}
+/** Zoom um den Punkt (px, py) der Bühne mit Faktor f. */
+export function zoomeUm(a, f, px, py, b, h) {
+  const z = Math.max(1, Math.min(6, a.z * f)), k = z / a.z;
+  return begrenze({ z, tx: px - (px - a.tx) * k, ty: py - (py - a.ty) * k }, b, h);
+}
+/** Bühnen-Punkt (px, py) → Videopixel bei Ansicht a, Bühne b × h, Video vb × vh. */
+export const inVideo = (px, py, a, b, h, vb, vh) => ({ x: ((px - a.tx) / a.z / b) * vb, y: ((py - a.ty) / a.z / h) * vh });
+/** Videopixel → Bühnen-Punkt (Umkehrung von inVideo). */
+export const ausVideo = (x, y, a, b, h, vb, vh) => ({ x: (x / vb) * b * a.z + a.tx, y: (y / vh) * h * a.z + a.ty });
+/** Bühnengröße: Video vollständig, höchstens maxB breit und maxH hoch, Seitenverhältnis bleibt (kein Rand → kein Versatz, 270). */
+export function buehnenGroesse(vb, vh, maxB, maxH) {
+  if (!(vb > 0) || !(vh > 0)) return { b: maxB, h: Math.round((maxB * 9) / 16) };
+  const s = Math.min(maxB / vb, maxH / vh);
+  return { b: Math.round(vb * s), h: Math.round(vh * s) };
 }
 
 /** Hinweis-Schlüssel zum RPE-Abgleich: 'schwerer' (Tempo sagt mehr als eingetragen), 'leichter', 'passt' oder null. */

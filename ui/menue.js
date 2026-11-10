@@ -110,7 +110,7 @@ export function MenueKnopf({ auf }) {
 const WERKZEUG_TEXT = {
   '1rm': 'Maximalkraft aus Gewicht × Wdh', scheiben: 'Was auf die Stange kommt', rpe: 'Gewicht für Ziel-Wdh und RPE', prozent: 'Prozent vom Max',
   koerper: 'Klimmzug und Dips mit Körpergewicht', warm: 'Aufwärmsätze bis zum Top-Satz', punkte: 'DOTS, IPF GL, Wilks', versuche: 'Wettkampfversuche planen',
-  timer: 'Stoppuhr und Intervall-Timer', wettkampf: 'Versuche abhaken, Total, Aufwärmen am Meet-Tag',
+  timer: 'Stoppuhr und Intervall-Timer', wettkampf: 'Versuche abhaken, Total, Aufwärmen am Meet-Tag', video: 'Video: Hantelweg und Tempo',
 };
 
 /** Seitenmenü links: Werkzeuge (Rechner) – zieht sich nach links zu, Tipp daneben schließt. */

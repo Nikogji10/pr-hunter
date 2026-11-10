@@ -52,6 +52,7 @@ export function planLast(tag, { liftVon, e1rmVon }) {
 }
 
 const a = (tau) => 1 - Math.exp(-1 / tau);
+export const EINLAUF_TAGE = 28;
 
 /**
  * Verlauf je Tag von `von` bis `bis`. lasten: { 'JJJJ-MM-TT': last } (fehlende Tage = 0). Das Modell läuft ab dem frühesten
@@ -63,11 +64,12 @@ export function formVerlauf(lasten, { von, bis, modell = FORM_MODELL } = {}) {
   if (!tage.length || !von || !bis || von > bis) return [];
   const af = a(modell.fitness), ae = a(modell.ermuedung);
   let fit = 0, ermued = 0, maxFit = 0;
-  const aus = [];
+  const aus = [], warm = plusTage(tage[0], EINLAUF_TAGE);
   for (let d = tage[0] < von ? tage[0] : von; d <= bis; d = plusTage(d, 1)) {
     if (d >= von) {
-      // pct erst, wenn die Fitness mindestens 20 % ihres bisherigen Höchstwerts erreicht (sonst riesige Prozente aus fast nichts)
-      const pct = fit > 0 && fit >= 0.2 * maxFit ? Math.round(((fit - ermued) / fit) * 100) : null;
+      // pct erst nach 4 Wochen Training und nur, wenn die Fitness mindestens 20 % ihres bisherigen Höchstwerts erreicht
+      // (sonst riesige Prozente aus fast nichts – am Anfang des Verlaufs und nach langen Pausen)
+      const pct = d >= warm && fit > 0 && fit >= 0.2 * maxFit ? Math.round(((fit - ermued) / fit) * 100) : null;
       aus.push({ datum: d, fitness: fit, ermuedung: ermued, form: fit - ermued, pct });
     }
     const w = lasten[d] ?? 0;

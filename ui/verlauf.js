@@ -6,6 +6,8 @@ import { HEUTE, URLAUB, DEMO, trainingAm, trainingsTage, imUrlaub } from './stan
 const liftNamen = (t) => [...new Set(t.uebungen.filter((u) => u.lift !== 'andere').map((u) => LIFT[u.lift].name))].join(' · ') || 'Zubehör';
 import { TagPlan } from './programme.js';
 import { UebungSuche } from './suche.js';
+import { SatzVideo, KAMERA } from './satzvideo.js';
+import { deEn } from './basis.js';
 
 const iso = (j, m, t) => `${j}-${String(m + 1).padStart(2, '0')}-${String(t).padStart(2, '0')}`;
 
@@ -70,6 +72,7 @@ const liftsVon = (planTag) => !planTag ? [] : [...new Set(planTag.uebungen.map((
 export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loeschen, zuUebung = null, wiederholen = null }) {
   const t = trainingAm(d);
   const [frage, setFrage] = useState(null);              // id der Einheit, deren Löschen bestätigt werden soll
+  const [video, setVideo] = useState(null);              // 277: Satz-Video ansehen { u, s }
   const mehrere = (t?.einheiten.length ?? 0) > 1;
   return html`<${Sheet} zu=${zu} label="Training am Tag">
     <div><div class="eyebrow">${t ? 'Training' : erledigt ? 'Erledigt' : 'Geplant'}${plan ? ` · Woche ${plan.woche}` : ''}</div><h2 class="h2">${datumLang(d)}</h2></div>
@@ -80,6 +83,8 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
         <div class="row"><span class="badge" style=${u.lift === 'andere' ? 'background:var(--raised);color:var(--ink);width:30px;height:30px;font-size:12px' : `background:${LIFT[u.lift].farbe};color:#0B0C0E;width:30px;height:30px;font-size:12px`}>${LIFT[u.lift].kurz}</span>
           ${zuUebung ? html`<button class="link-zeile" onClick=${() => { zu(); zuUebung(u.key); }}><b>${nameVon(u.key)}</b>${I.weiter}</button>` : html`<b>${nameVon(u.key)}</b>`}</div>
         <${SatzTabelle} u=${u}/>
+        ${u.saetze.some((s) => s.extra?.video || s.extra?.tempo) ? html`<div class="sv-chips">${u.saetze.map((s, i) => (s.extra?.video || s.extra?.tempo ? html`<button key=${i} class="sv-knopf da"
+          onClick=${() => setVideo({ u, s })}>${KAMERA}<span>${deEn(`Satz ${i + 1}`, `Set ${i + 1}`)}${s.extra?.ms ? ` · ${fmt(s.extra.ms, 2)} m/s` : ''}</span></button>` : null))}</div>` : null}
         ${u.saetze.some((s) => satzExtras(s, { mitTyp: true }).length) ? html`<div class="muted" style="font-size:12.5px">${u.saetze.map((s, i) => [i, satzExtras(s, { mitTyp: true })])
           .filter(([, x]) => x.length).map(([i, x]) => `Satz ${i + 1}: ${x.join(', ')}`).join(' · ')}</div>` : null}
         ${u.notiz ? html`<div class="cue notiz">${u.notiz}</div>` : null}</div>`)}
@@ -95,6 +100,7 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
     : plan ? html`<${TagPlan} tag=${plan}/>
       ${d >= HEUTE && !erledigt && !plan.uebersprungen && startenAm ? html`<button class="btn btn-go btn-block" onClick=${() => { zu(); startenAm(d); }}>${d === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>` : null}`
     : html`<p class="muted" style="margin:0">An diesem Tag war kein Training.</p>`}
+    ${video ? html`<${SatzVideo} satz=${video.s} uebungKey=${video.u.key} uebungName=${nameVon(video.u.key)} lift=${video.u.lift} zu=${() => setVideo(null)}/>` : null}
   <//>`;
 }
 

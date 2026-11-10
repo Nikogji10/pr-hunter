@@ -278,6 +278,7 @@ export const I = {
   'w-versuche': svg(html`<path d="M10.5 6h9.5M10.5 12h9.5M10.5 18h9.5"/><path d="M3.5 6l1.4 1.4L7.5 4.8M3.5 12l1.4 1.4 2.6-2.6"/><circle cx="5.3" cy="18" r="1.6"/>`),
   'w-wettkampf': svg(html`<path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5.5a2.5 2.5 0 0 0 2.6 4M16 6h2.5a2.5 2.5 0 0 1-2.6 4M12 13v3.5M9 20.5h6M10 16.5h4v4h-4z"/>`),
   'w-timer': svg(html`<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.8M10 2.5h4M12 2.5V6M18.3 6.7l1.5-1.5"/>`),
+  'w-video': svg(html`<rect x="2.5" y="6.5" width="13" height="11" rx="2.5"/><path d="M15.5 10.5l6-3v9l-6-3z"/>`),
   check: svg(html`<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="3"/>`),
   theme: svg(html`<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>`),
   zu: svg(html`<path d="M6 6l12 12M18 6L6 18"/>`),

@@ -1717,6 +1717,8 @@ export const EN = new Map([
   ["Eigener Plan mit Progression je Übung", "Own plan with progression per exercise"],
   ["Kalender-Abo, intervals.icu (Garmin, Wahoo …), Strava, Spotify", "Calendar feed, intervals.icu (Garmin, Wahoo …), Strava, Spotify"],
   ["Client-ID", "Client ID"],
+  ["Hantelweg", "Bar path"],
+  ["Video: Hantelweg und Tempo", "Video: bar path and velocity"],
 ]);
 
 export const EN_MUSTER = [
