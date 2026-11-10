@@ -9,7 +9,7 @@ import { AufwaermRoutine } from './aufwaermroutine.js';
 import { kuerzeTraining, restMinuten } from '../js/kuerzen.js';
 import { PartnerLeiste } from './zusammen.js';
 import { zweiGewichte } from '../js/scheibenwechsel.js';
-import { SatzVideo, SatzVideoKnopf, TempoZeile } from './satzvideo.js';
+import { SatzVideo, SatzVideoKnopf, TempoZeile, ZielTempo } from './satzvideo.js';
 import { e1rm, lastFuer, lastFuerWeit, e1rmWeit, mround, rtsPct, aufwaermen, e1rmKoerper, zusatzFuer } from '../js/rechnen.js';
 import { UebungSuche } from './suche.js';
 import { programmText } from './programmtexte.js';
@@ -447,7 +447,8 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
       })}
       ${g.notiz ? html`<p class="muted" style="font-size:13px;margin:6px 16px 4px">${programmText(g.notiz)}</p>` : null}
     </div>`)}
-    ${videoAn ? html`<${TempoZeile} uebungKey=${k.key} lift=${liftVon(k.key)} saetze=${k.gruppen.flatMap((g) => g.saetze).filter((s) => s.erledigt)}/>` : null}
+    ${videoAn ? html`<${TempoZeile} uebungKey=${k.key} lift=${liftVon(k.key)} saetze=${k.gruppen.flatMap((g) => g.saetze).filter((s) => s.erledigt)}/>
+      <${ZielTempo} uebungKey=${k.key} lift=${liftVon(k.key)} kg=${k.gruppen.flatMap((g) => g.saetze).find((s) => !s.erledigt && s.typ !== 'warmup' && s.kg > 0)?.kg}/>` : null}
     <div class="ex-foot">
       <span class="satz-pm" role="group" aria-label="Sätze">
         <button class="mini" disabled=${!k.gruppen.at(-1).saetze.some((s) => !s.erledigt) || k.gruppen.flatMap((g) => g.saetze).length < 2} aria-label="Satz entfernen"

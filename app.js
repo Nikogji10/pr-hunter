@@ -46,6 +46,7 @@ import { autoregulation } from './js/autoregulation.js';
 import { useAnsagen } from './ui/ansage.js';
 import { WettkampfCountdown } from './ui/wettkampf.js';
 import { formDaten } from './ui/formkurve.js';
+import { setzeVideoEinst } from './ui/satzvideo.js';
 import { ErholungKurz } from './ui/koerper.js';
 import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
 import { GeschlechtKarte, ZyklusChip, geschlechtAusName } from './ui/zyklus.js';
@@ -872,6 +873,7 @@ function App() {
   }, [laufendSig, trainings, messwerte, heute, einst.formel]);
   if (stand) setzeStand(standLive ?? stand);
   setzeAnsichtJetzt(ansicht);
+  setzeVideoEinst(einst);                     // 291: Verlust-Grenze fürs Satz-Video
   // Bis die Einstellungen geladen sind (in der Demo: bis man etwas ändert) gilt die gemerkte Sprache – wie bei der
   // Übersetzung der Oberfläche, sonst stünden Übungsnamen, Zahlen und Datum kurz (Demo: dauerhaft) in der anderen Sprache
   setzeAnzeige({ sprache: geladen ? einst.sprache : speicher.lies('prh-sprache') ?? 'de', einheit: einst.einheit, stange: einst.stange, scheiben: einst.scheiben, formel: einst.formel, ton: einst.ton, vibration: einst.vibration,

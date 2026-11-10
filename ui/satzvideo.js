@@ -4,8 +4,8 @@
 // VideoKern ist der gemeinsame Baustein für Training (SatzVideo im Fenster), Verlauf (nur ansehen) und Rechner (Werkzeug).
 import { html, useState, useEffect, useRef, Sheet, Portal, deEn, fmt, fmt2, vz, I } from './basis.js';
 import { trainingsTage, trainingAm, kanon, HEUTE } from './stand.js';
-import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse, tempoKurve } from '../js/hantelweg.js';
-import { tempoSaetze, lastTempoProfil, satzVerluste, istTempoRekord, tagesform, MVT } from '../js/tempo.js';
+import { grau, verfolger, wiederholungen, rpeAusTempo, rpeVergleich, plausibel, begrenze, zoomeUm, inVideo, buehnenGroesse, tempoKurve, wdhDetails } from '../js/hantelweg.js';
+import { tempoSaetze, lastTempoProfil, satzVerluste, istTempoRekord, tagesform, MVT, grenzeErreicht, zoneVon, ZONEN, zielTempo } from '../js/tempo.js';
 
 // #################################################################
 // 287/289/290: Vergleich mit früheren Sätzen derselben Übung (aus dem Verlauf, ohne den Tag selbst)
@@ -25,6 +25,34 @@ export function tempoUebersicht(key, lift, saetze, datum = HEUTE) {
   if (!heute.length) return null;
   const alt = frueher(key, datum), mvt = MVT[lift] ?? null, profil = lastTempoProfil(alt, mvt);
   return { heute, verluste: satzVerluste(heute), tf: profil.b != null ? tagesform(heute, profil, mvt) : null, profil, alt };
+}
+
+// 291/292: Einstellungen aus der App (app.js reicht sie bei jedem Zeichnen herein)
+let VIDEO_EINST = {};
+export const setzeVideoEinst = (e) => { VIDEO_EINST = e ?? {}; };
+const tempoGrenze = () => VIDEO_EINST.tempoGrenze ?? 20;          // 0 = aus
+const zoneName = (z) => (z ? deEn(z.de, z.en) : '');
+
+/** 292: Ziel-Tempo für den nächsten Satz aus dem eigenen Gewicht-Tempo-Profil (Training). */
+export function ZielTempo({ uebungKey, lift, kg, datum = HEUTE }) {
+  if (!(kg > 0)) return null;
+  const v = zielTempo(lastTempoProfil(frueher(uebungKey, datum), MVT[lift] ?? null), kg);
+  if (!v) return null;
+  const z = zoneVon(v);
+  return html`<div class="tempo-ziel"><span class=${`tz-punkt z-${z?.k ?? 'max'}`} aria-hidden="true"></span>
+    <span>${deEn(`Ziel-Tempo bei ${fmt(kg)} kg ≈ ${fmt2(v)} m/s`, `Target velocity at ${fmt(kg)} kg ≈ ${fmt2(v)} m/s`)}</span><small>${zoneName(z)}</small></div>`;
+}
+
+/** 292: Tempo-Zonen als Band 0–1,6 m/s, Punkte je Wdh. */
+function ZonenLeiste({ v, schnitt }) {
+  const MAX = 1.6, pos = (x) => `${Math.max(0, Math.min(100, (x / MAX) * 100)).toFixed(2)}%`, z = zoneVon(schnitt);
+  return html`<div class="sv-zonen">
+    <div class="sv-zonen-kopf"><span class="l">${deEn('Tempo-Zone', 'Velocity zone')}</span><b class=${`z-${z?.k ?? 'max'}`}>${zoneName(z)}</b></div>
+    <div class="sv-zonen-band">${ZONEN.map((zz) => html`<i key=${zz.k} class=${`z-${zz.k} ${zz === z ? 'an' : ''}`} style=${`left:${pos(zz.von)};width:${pos(Math.min(MAX, zz.bis) - zz.von)}`}></i>`)}
+      ${v.map((x, i) => html`<span key=${i} class=${`sv-zonen-p ${i % 2 ? 'unten' : ''}`} style=${`left:${pos(x)}`}>${i + 1}</span>`)}</div>
+    <div class="sv-zonen-achse">${[0, 0.5, 0.75, 1, 1.3].map((x) => html`<span key=${x} style=${`left:${pos(x)}`}>${fmt(x, 2)}</span>`)}<span class="e">m/s</span></div>
+    <div class="sv-zonen-namen">${ZONEN.map((zz) => html`<span key=${zz.k} class=${`z-${zz.k} ${zz === z ? 'an' : ''}`}>${zoneName(zz)}</span>`)}</div>
+  </div>`;
 }
 
 /** Zeile unter einer Übung im Training: Tempo je Satz, Verlust beim gleichen Gewicht, Tagesform. */
@@ -115,7 +143,7 @@ function springe(v, t) {
 }
 export const GROESSEN = [['original', 'Original', null, 8e6], ['1080', '1080p', 1080, 5e6], ['720', '720p', 720, 2.5e6], ['480', '480p', 480, 1.2e6]];
 /** Spielt den Ausschnitt einmal ab und nimmt ihn verkleinert neu auf (MediaRecorder). Ton entfällt. */
-async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruch, ausschnitt = null }) {
+async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruch, ausschnitt = null, malen = null }) {
   const typ = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
     .find((t) => globalThis.MediaRecorder?.isTypeSupported?.(t));
   if (!typ || !HTMLCanvasElement.prototype.captureStream) throw new Error(deEn('Dieses Gerät kann Videos nicht neu speichern.', 'This device cannot re-encode videos.'));
@@ -132,7 +160,7 @@ async function neuKodieren(blob, { von, bis, kante, bitrate, fortschritt, abbruc
     const c = document.createElement('canvas');
     c.width = Math.max(2, Math.round((q.sw * s) / 2) * 2); c.height = Math.max(2, Math.round((q.sh * s) / 2) * 2);
     const ctx0 = c.getContext('2d');
-    const ctx = { drawImage: (quelle) => ctx0.drawImage(quelle, q.sx, q.sy, q.sw, q.sh, 0, 0, c.width, c.height) };
+    const ctx = { drawImage: (quelle) => { ctx0.drawImage(quelle, q.sx, q.sy, q.sw, q.sh, 0, 0, c.width, c.height); malen?.(ctx0, quelle.currentTime, c.width, c.height); } };
     const rec = new MediaRecorder(c.captureStream(30), { mimeType: typ, videoBitsPerSecond: bitrate });
     const teile = [];
     rec.ondataavailable = (e) => e.data.size && teile.push(e.data);
@@ -215,6 +243,33 @@ export function AblageWahl({ gewaehlt, abbrechen = null }) {
     ${abbrechen ? html`<button class="link-knopf" style="align-self:flex-start" onClick=${abbrechen}>${deEn('Abbrechen', 'Cancel')}</button>` : null}
   </div>`;
 }
+/** 298: Video mit eingezeichneter Bahn, Titel und Tempo je Wdh neu aufnehmen (zum Teilen). */
+async function mitBahnExportieren(rec, { titel, farbModus, von, bis, fortschritt, abbruch }) {
+  const a = rec.analyse;
+  const kasten = (ctx, x, y, w, h, r) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); ctx.fill(); };
+  const malen = (ctx, t, W, H) => {
+    const lw = Math.max(1, Math.min(W, H) / 360), fs = Math.round(Math.min(W, H) / 22), pad = Math.round(fs * 0.6);
+    maleBahn(ctx, a, { wdh: a.wdh, bis: t, s: W / a.breite, lw, farbModus, mProPx: a.mProPx });
+    ctx.save();
+    ctx.textBaseline = 'middle'; ctx.font = `800 ${fs}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    const tw = ctx.measureText(titel).width;
+    ctx.fillStyle = 'rgba(10, 10, 14, .62)'; kasten(ctx, pad, pad, tw + pad * 2, fs * 1.7, fs * 0.5);
+    ctx.fillStyle = '#fff'; ctx.fillText(titel, pad * 2, pad + fs * 0.85);
+    // Tempo je fertiger Wdh unten, von links nach rechts (bei Platzmangel eine Reihe höher)
+    let x = pad, y = H - pad - fs * 1.7;
+    a.wdh.filter((w) => w.bis <= t).forEach((w, i) => {
+      const txt = `${i + 1} · ${fmt2(w.mcv)} m/s`, bw = ctx.measureText(txt).width + pad * 2;
+      if (x + bw > W - pad && x > pad) { x = pad; y -= fs * 2; }
+      ctx.fillStyle = 'rgba(10, 10, 14, .62)'; kasten(ctx, x, y, bw, fs * 1.7, fs * 0.5);
+      ctx.fillStyle = '#3ddc84'; ctx.fillText(txt, x + pad, y + fs * 0.85);
+      x += bw + pad * 0.6;
+    });
+    ctx.font = `800 ${Math.round(fs * 0.72)}px system-ui, -apple-system, Segoe UI, sans-serif`; ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255, 255, 255, .78)'; ctx.fillText('PR HUNTER', W - pad, pad + fs * 0.85);
+    ctx.restore();
+  };
+  return neuKodieren(rec.blob, { von, bis, kante: 1080, bitrate: 6e6, fortschritt, abbruch, malen });
+}
 /** 303: Ordner-Recht direkt beim Antippen holen – nach dem Neu-Speichern fehlt dafür die Nutzer-Aktion. */
 async function ordnerFreigeben() {
   const h = await ordnerHandle().catch(() => null);
@@ -291,21 +346,25 @@ function tempoPaare(key, lift) {
 // Zeichnen (Inhaltsebene, wird mitgezoomt): Bahn mit Glühen, konzentrisch grün obenauf; Markierungen beim Setzen
 // #################################################################
 const farbe = (name, ersatz) => { try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || ersatz; } catch { return ersatz; } };
-function zeichne(canvas, { analyse = null, scan = null, bis = Infinity, mitte = null, rand = null, vorschauRand = null, vb = 1, z = 1, b, h }) {
-  if (!canvas || !b) return;
-  const dpr = Math.min(2, devicePixelRatio || 1), k = Math.min(3, z), W = Math.round(b * dpr * k), H = Math.round(h * dpr * k);
-  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-  const ctx = canvas.getContext('2d'), lw = (dpr * k) / z;          // 1 Bildschirm-Pixel in Leinwand-Pixeln
-  ctx.clearRect(0, 0, W, H);
+/** Bahn auf eine Leinwand malen (Anzeige, Vergleich, Export). s = Leinwand-Pixel je Analyse-Pixel, lw = 1 Bildschirm-Pixel. */
+export function maleBahn(ctx, bahn, { wdh = [], bis = Infinity, s, lw, farbModus = 'richtung', mProPx = null }) {
+  const p = bahn?.punkte ?? [];
+  if (p.length < 2) return;
   const gruen = farbe('--ok', '#3ddc84'), akzent = farbe('--acc-hi', '#ff4d6d');
-  const bahn = analyse ?? scan;
-  if (bahn?.punkte?.length > 1) {
-    const s = W / bahn.breite, p = bahn.punkte, wdh = analyse?.wdh ?? [];
-    const konz = (t) => wdh.some((w) => t >= w.von && t <= w.bis);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.globalAlpha = 0.3; ctx.lineWidth = 2.5 * lw; ctx.strokeStyle = '#fff';
-    ctx.beginPath(); p.forEach((q, i) => (i ? ctx.lineTo(q.x * s, q.y * s) : ctx.moveTo(q.x * s, q.y * s))); ctx.stroke();
-    ctx.globalAlpha = 1; ctx.shadowBlur = 16 * lw;
+  const konz = (t) => wdh.some((w) => t >= w.von && t <= w.bis);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.globalAlpha = 0.3; ctx.lineWidth = 2.5 * lw; ctx.strokeStyle = '#fff'; ctx.shadowBlur = 0;
+  ctx.beginPath(); p.forEach((q, i) => (i ? ctx.lineTo(q.x * s, q.y * s) : ctx.moveTo(q.x * s, q.y * s))); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.shadowBlur = 16 * lw;
+  if (farbModus === 'tempo' && mProPx > 0 && p.length > 2) {
+    // 293: Farbe nach Tempo – langsam rot, mittel gelb, schnell grün (bezogen aufs schnellste Stück der Bahn)
+    const k = tempoKurve(p, mProPx), max = Math.max(0.05, ...k.map((q) => Math.abs(q.v)));
+    for (let i = 1; i < p.length && p[i].t <= bis; i++) {
+      const f = Math.min(1, Math.abs(k[i]?.v ?? 0) / max), c = `hsl(${Math.round(f * 130)}, 92%, 55%)`;
+      ctx.strokeStyle = c; ctx.shadowColor = c; ctx.lineWidth = (konz(p[i].t) ? 5.5 : 3.2) * lw;
+      ctx.beginPath(); ctx.moveTo(p[i - 1].x * s, p[i - 1].y * s); ctx.lineTo(p[i].x * s, p[i].y * s); ctx.stroke();
+    }
+  } else {
     for (const hoch of [false, true]) {
       const c = hoch ? gruen : akzent;
       ctx.strokeStyle = c; ctx.shadowColor = c; ctx.lineWidth = (hoch ? 5 : 3.6) * lw;
@@ -314,11 +373,21 @@ function zeichne(canvas, { analyse = null, scan = null, bis = Infinity, mitte = 
         ctx.beginPath(); ctx.moveTo(p[i - 1].x * s, p[i - 1].y * s); ctx.lineTo(p[i].x * s, p[i].y * s); ctx.stroke();
       }
     }
-    const jetzt = [...p].reverse().find((q) => q.t <= bis) ?? p[0];
-    ctx.shadowColor = '#fff'; ctx.shadowBlur = 20 * lw; ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(jetzt.x * s, jetzt.y * s, 7 * lw, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
   }
+  const jetzt = [...p].reverse().find((q) => q.t <= bis) ?? p[0];
+  ctx.shadowColor = '#fff'; ctx.shadowBlur = 20 * lw; ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(jetzt.x * s, jetzt.y * s, 7 * lw, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+function zeichne(canvas, { analyse = null, scan = null, bis = Infinity, mitte = null, rand = null, vorschauRand = null, vb = 1, z = 1, b, h, farbModus = 'richtung' }) {
+  if (!canvas || !b) return;
+  const dpr = Math.min(2, devicePixelRatio || 1), k = Math.min(3, z), W = Math.round(b * dpr * k), H = Math.round(h * dpr * k);
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  const ctx = canvas.getContext('2d'), lw = (dpr * k) / z;          // 1 Bildschirm-Pixel in Leinwand-Pixeln
+  ctx.clearRect(0, 0, W, H);
+  const akzent = farbe('--acc-hi', '#ff4d6d');
+  const bahn = analyse ?? scan;
+  if (bahn?.punkte?.length > 1) maleBahn(ctx, bahn, { wdh: analyse?.wdh ?? [], bis, s: W / bahn.breite, lw, farbModus: analyse ? farbModus : 'richtung', mProPx: analyse?.mProPx });
   if (mitte) {
     const s = W / vb, x = mitte.x * s, y = mitte.y * s;
     ctx.strokeStyle = akzent; ctx.fillStyle = akzent; ctx.lineWidth = 2.5 * lw; ctx.shadowColor = akzent; ctx.shadowBlur = 10 * lw;
@@ -344,6 +413,8 @@ const SCHLOSS = (zu) => html`<svg viewBox="0 0 24 24" width="17" height="17" fil
 const SCHERE = html`<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
   <circle cx="6" cy="7" r="2.6"/><circle cx="6" cy="17" r="2.6"/><path d="M8.2 8.4L20 17M8.2 15.6L20 7"/></svg>`;
 const ms = (v) => fmt2(v);
+const VERGLEICH_BILD = html`<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="7.5" height="16" rx="2"/><rect x="13.5" y="4" width="7.5" height="16" rx="2"/></svg>`;
+const TEILEN_BILD = html`<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7.5 7.5L12 3l4.5 4.5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>`;
 
 /** Einstellungen → Training: Schalter, belegter Speicher, alle Videos löschen. */
 export function VideoEinstellung({ einst, setEinst }) {
@@ -362,7 +433,10 @@ export function VideoEinstellung({ einst, setEinst }) {
     ${einst.satzVideo !== false ? html`<div class="sv-ablage-einst">
       <div class="row between" style="align-items:center;gap:10px"><span><b>${deEn('Videos speichern in', 'Save videos to')}</b><br/><span class="muted" style="font-size:12.5px">${ablageText(ablageModus())}</span></span>
         <button class="chip" onClick=${() => setOrt(!ort)} aria-expanded=${String(ort)}>${ort ? deEn('Fertig', 'Done') : deEn('Ändern', 'Change')}</button></div>
-      ${ort ? html`<${AblageWahl} gewaehlt=${() => setOrt(false)}/>` : null}</div>` : null}`;
+      ${ort ? html`<${AblageWahl} gewaehlt=${() => setOrt(false)}/>` : null}
+      <div class="sv-grenze-einst"><span><b>${deEn('Verlust-Grenze je Satz', 'Velocity loss limit per set')}</b><br/>
+        <span class="muted" style="font-size:12.5px">${deEn('Nach dem Video: ab welcher Wdh das Tempo zu stark abgefallen ist. Gängig: 10–20 % für Kraft, 30–40 % für Muskelaufbau.', 'After the video: from which rep the velocity dropped too much. Common: 10–20 % for strength, 30–40 % for muscle growth.')}</span></span>
+        <div class="seg sv-seg" role="group">${[0, 10, 15, 20, 25, 30, 40].map((g) => html`<button key=${g} aria-pressed=${String((einst.tempoGrenze ?? 20) === g)} onClick=${() => setEinst({ ...einst, tempoGrenze: g })}>${g ? `${g}` : deEn('Aus', 'Off')}</button>`)}</div></div></div>` : null}`;
 }
 
 /** Knopf unter einem abgehakten Satz: Kamera (grün, wenn es Video oder Tempo gibt). */
@@ -409,7 +483,10 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const [groesse, setGroesse] = useState('original');
   const [unplausibel, setUnplausibel] = useState(null);   // Gründe, wenn die Analyse nicht nach Hantel aussieht
   const [nurAusschnitt, setNurAusschnitt] = useState(true); // 301: beim Übernehmen den gezoomten Ausschnitt speichern
-  const [ablageFrage, setAblageFrage] = useState(false);  // 300: erstes Speichern → Ort wählen
+  const [ablageFrage, setAblageFrage] = useState(false);  // 300: erstes Speichern → Ort wählen ('weiter' | 'export')
+  const [farbModus, setFarbModus] = useState(() => lokal('prh-bahn-farbe') || 'richtung');   // 293
+  const [Vergleich, setVergleich] = useState(null);      // 295: Komponente, erst beim Öffnen geladen
+  const [exportDatei, setExportDatei] = useState(null);  // 298: fertiges Video mit Bahn (zum Teilen)
   const videoRef = useRef(null), canvasRef = useRef(null), lupeRef = useRef(null), buehneRef = useRef(null), rahmenRef = useRef(null);
   const abbruch = useRef(false), scan = useRef(null), zeiger = useRef(new Map()), geste = useRef(null);
   const dateiKamera = useRef(null), dateiGalerie = useRef(null);
@@ -453,12 +530,12 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const v = videoRef.current;
       zeichne(canvasRef.current, { analyse: phase === 'ergebnis' ? rec?.analyse : null, scan: phase === 'analyse' ? scan.current : null,
         bis: phase === 'ergebnis' ? v?.currentTime ?? Infinity : Infinity, mitte: phase === 'markieren' ? mitte : null,
-        rand: phase === 'markieren' && !randZieht ? rand : null, vorschauRand: phase === 'markieren' && (schritt === 'rand' || randZieht) ? lupenPunkt : null, vb: mass?.w || 1, z: ansicht.z, b, h });
+        rand: phase === 'markieren' && !randZieht ? rand : null, vorschauRand: phase === 'markieren' && (schritt === 'rand' || randZieht) ? lupenPunkt : null, vb: mass?.w || 1, z: ansicht.z, b, h, farbModus });
       if (spielt || phase === 'analyse') id = requestAnimationFrame(male);
     };
     male();
     return () => cancelAnimationFrame(id);
-  }, [phase, spielt, mitte, rand, rec, zeit, ansicht, b, h, lupe, schritt]);
+  }, [phase, spielt, mitte, rand, rec, zeit, ansicht, b, h, lupe, schritt, farbModus]);
   // Lupe: dreifach vergrößerter Ausschnitt um den Finger, mit Fadenkreuz (272)
   useEffect(() => {
     const c = lupeRef.current, v = videoRef.current;
@@ -516,7 +593,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   // anderen Maßstab als das Layout (b × h), die Markierung saß sonst versetzt
   const lage = (e) => { const r = buehneRef.current.getBoundingClientRect(); return { x: ((e.clientX - r.left) / (r.width || 1)) * b, y: ((e.clientY - r.top) / (r.height || 1)) * h }; };
   const runter = (e) => {
-    if (phase === 'analyse' || phase === 'arbeit') return;
+    if (phase === 'analyse' || phase === 'arbeit' || phase === 'export') return;
     try { buehneRef.current?.setPointerCapture?.(e.pointerId); } catch { /* Zeiger schon weg */ }
     zeiger.current.set(e.pointerId, lage(e));
     if (zeiger.current.size === 2) {
@@ -611,7 +688,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const setzeSchnitt = (neu) => { const r = { ...rec, schnitt: neu }; setRec(r); videoAblegen(r).catch(() => {}); };
   // 303: ein Knopf – neu speichern, sofort am gewählten Ort ablegen, dann das bearbeitete Video zum Markieren zeigen
   const uebernehmen = async (modus = ablageModus()) => {
-    if (!modus) { setAblageFrage(true); return; }                        // 300: nur beim allerersten Mal den Ort wählen
+    if (!modus) { setAblageFrage('weiter'); return; }                    // 300: nur beim allerersten Mal den Ort wählen
     setAblageFrage(false);
     if (modus === 'ordner') await ordnerFreigeben();
     const [von, bis] = bereich(), g = GROESSEN.find(([k]) => k === groesse);
@@ -651,7 +728,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const bestaetigen = async (modus = ablageModus()) => {
     if (geaendert) { uebernehmen(modus); return; }
     if (neuGefilmt) {
-      if (!modus) { setAblageFrage(true); return; }
+      if (!modus) { setAblageFrage('weiter'); return; }
       setAblageFrage(false); setFehler(null);
       if (modus === 'ordner') await ordnerFreigeben();
       try { setInfo(ablageMeldung(await alsDateiSpeichern(rec, DATEI_NAME(titel), modus))); setNeuGefilmt(false); } catch (e) { setFehler(e.message ?? String(e)); }
@@ -660,6 +737,48 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   };
   const zugeschnitten = nurAusschnitt && ansicht.z > 1.01;
   const geaendert = !!schnitt || zugeschnitten || groesse !== 'original';
+
+  // 296: Bild für Bild (Knöpfe und Pfeiltasten)
+  const bildSchritt = (d) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.pause();
+    v.currentTime = Math.max(0, Math.min(dauer || v.duration || 0, v.currentTime + d / 30));
+    setZeit(v.currentTime);
+  };
+  useEffect(() => {
+    const k = (e) => {
+      if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.target?.closest?.('input, textarea, select') || !videoRef.current) return;
+      e.preventDefault(); bildSchritt(e.key === 'ArrowLeft' ? -1 : 1);
+    };
+    addEventListener('keydown', k);
+    return () => removeEventListener('keydown', k);
+  });
+  // 298: Video mit Bahn – am Speicherort ablegen, zusätzlich Teilen anbieten (Teilen braucht ein eigenes Antippen)
+  const exportName = () => `${DATEI_NAME(titel)}_Bahn`;
+  const exportieren = async (modus = ablageModus()) => {
+    if (!rec?.analyse) return;
+    if (!modus) { setAblageFrage('export'); return; }
+    setAblageFrage(false);
+    if (modus === 'ordner') await ordnerFreigeben();
+    const v = videoRef.current;
+    v?.pause();
+    setFehler(null); setInfo(null); setExportDatei(null); setPhase('export'); setFortschritt(0); abbruch.current = false;
+    try {
+      const [von, bis] = bereich();
+      const erg = await mitBahnExportieren(rec, { titel, farbModus, von, bis, fortschritt: setFortschritt, abbruch });
+      setPhase('ergebnis');
+      if (!erg) return;
+      const datei = { ...rec, blob: erg.blob };
+      setExportDatei(datei);
+      if (modus !== 'teilen') setInfo(ablageMeldung(await alsDateiSpeichern(datei, exportName(), modus)));
+    } catch (e) { setFehler(e.message ?? String(e)); setPhase('ergebnis'); }
+  };
+  const exportTeilen = async () => {
+    const r = await alsDateiSpeichern(exportDatei, exportName(), 'teilen').catch((e) => { setFehler(e.message ?? String(e)); return null; });
+    if (r?.art === 'geladen') setInfo(ablageMeldung(r));
+  };
+  const vergleichOeffnen = () => import('./videovergleich.js').then((m) => setVergleich(() => m.VideoVergleich)).catch((e) => setFehler(e.message ?? String(e)));
 
   const a = rec?.analyse, wdh = a?.wdh ?? [];
   const tempo = phase === 'fremd' ? satz.extra?.tempo ?? (wdh.length && !rec?.ungeprueft ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null)
@@ -674,10 +793,13 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const ueber = tempo?.v?.length && satz.kg > 0 ? tempoUebersicht(uebungKey, lift, heuteSaetze, datum) : null;
   const rekord = ueber && beste ? istTempoRekord(beste, satz.kg, ueber.alt) : null;
   const gruppe = ueber?.verluste.find((g) => Math.abs(g.kg - satz.kg) <= 1.25) ?? null;
+  const grenze = tempoGrenze();
+  const gr = tempo?.v?.length >= 2 && grenze > 0 ? grenzeErreicht(tempo.v, grenze) : null;
+  const details = phase === 'ergebnis' && a?.punkte && !unplausibel && wdh.length ? wdhDetails(a.punkte, wdh, a.mProPx) : null;
   const titel = `${uebungName}${satz.kg != null ? ` · ${fmt(satz.kg)} × ${satz.wdh}` : ''}${satz.rpe != null ? ` @ ${fmt(satz.rpe)}` : ''}`;
   const [von, bis] = bereich();
-  const mitVideo = url && ['vorbereiten', 'markieren', 'analyse', 'ergebnis', 'arbeit'].includes(phase);
-  const stufe = ['vorbereiten', 'arbeit'].includes(phase) ? 0 : ['markieren', 'analyse'].includes(phase) ? 1 : phase === 'ergebnis' ? 2 : -1;
+  const mitVideo = url && ['vorbereiten', 'markieren', 'analyse', 'ergebnis', 'arbeit', 'export'].includes(phase);
+  const stufe = ['vorbereiten', 'arbeit'].includes(phase) ? 0 : ['markieren', 'analyse'].includes(phase) ? 1 : phase === 'ergebnis' || phase === 'export' ? 2 : -1;
   const anpassen = ['kreis', 'rand'].includes(geste.current?.art);     // Kreis verschieben/Größe: ohne Lupe, der Kreis selbst ist zu sehen
   const GRUND = { kurz: deEn('die Bahn ist zu kurz', 'the path is too short'), unsicher: deEn('die Scheibe war kaum zu erkennen', 'the plate was hard to recognise'),
     keineWdh: deEn('keine Wiederholung über 10 cm', 'no rep over 10 cm'), unrealistisch: deEn('die Werte sind für eine Hantel unrealistisch', 'the values are unrealistic for a barbell') };
@@ -721,14 +843,15 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
           <canvas ref=${canvasRef} class="sv-ueber"></canvas>
         </div>
         ${lupe && phase === 'markieren' && !anpassen ? html`<canvas ref=${lupeRef} class="sv-lupe" style=${`left:${Math.min(b - 70, Math.max(-62, lupe.x - 66))}px;top:${lupe.y > 160 ? lupe.y - 160 : lupe.y + 34}px`}></canvas>` : null}
+        ${phase === 'ergebnis' && farbModus === 'tempo' && rec?.analyse ? html`<span class="sv-farblegende"><i></i>${deEn('langsam', 'slow')} → ${deEn('schnell', 'fast')}</span>` : null}
         ${ansicht.z > 1.01 ? html`<span class="sv-zoomwert">${fmt(ansicht.z, 1)}×</span>` : null}
-        ${phase === 'analyse' || phase === 'arbeit' ? html`<div class="sv-scan"><span class="sv-scanlinie"></span>
+        ${phase === 'analyse' || phase === 'arbeit' || phase === 'export' ? html`<div class="sv-scan"><span class="sv-scanlinie"></span>
           <div class="sv-prozent"><b>${Math.round(fortschritt * 100)}</b><span>%</span></div>
-          <span class="sv-scantext">${phase === 'arbeit' ? deEn('Video wird neu gespeichert …', 'Saving the video …') : deEn('Hantel wird verfolgt …', 'Tracking the bar …')}</span></div>` : null}
+          <span class="sv-scantext">${phase === 'arbeit' ? deEn('Video wird neu gespeichert …', 'Saving the video …') : phase === 'export' ? deEn('Video mit Bahn wird erstellt …', 'Creating the video with bar path …') : deEn('Hantel wird verfolgt …', 'Tracking the bar …')}</span></div>` : null}
       </div></div>
       ${phase === 'ergebnis' && rec?.analyse && !unplausibel ? html`<${TempoKurve} analyse=${rec.analyse} zeit=${zeit}
         springen=${(t) => { const v = videoRef.current; if (v) { v.currentTime = Math.max(0, t); setZeit(v.currentTime); } }}/>` : null}
-      ${phase === 'analyse' || phase === 'arbeit' ? html`<button class="btn btn-soft btn-block" onClick=${() => { abbruch.current = true; setPhase(phase === 'arbeit' ? 'vorbereiten' : rec?.analyse ? 'ergebnis' : 'markieren'); }}>${deEn('Abbrechen', 'Cancel')}</button>`
+      ${phase === 'analyse' || phase === 'arbeit' || phase === 'export' ? html`<button class="btn btn-soft btn-block" onClick=${() => { abbruch.current = true; setPhase(phase === 'export' ? 'ergebnis' : phase === 'arbeit' ? 'vorbereiten' : rec?.analyse ? 'ergebnis' : 'markieren'); }}>${deEn('Abbrechen', 'Cancel')}</button>`
       : html`<div class="sv-steuer">
         <button class="iconbtn sv-play" onClick=${abspielen} aria-label=${spielt ? deEn('Pause', 'Pause') : deEn('Abspielen', 'Play')}>${spielt ? html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>` : html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>`}</button>
         <div class="sv-zeitleiste" style=${dauer ? `--von:${(von / dauer) * 100}%;--bis:${(bis / dauer) * 100}%` : ''}>
@@ -738,6 +861,10 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       </div>
       <div class="sv-werkzeuge">
         <span class="sv-uhr">${zeitText(zeit)}${dauer ? ` / ${zeitText(dauer)}` : ''}</span>
+        <button class="chip sv-bild" onClick=${() => bildSchritt(-1)} aria-label=${deEn('Ein Bild zurück', 'One frame back')}>‹</button>
+        <button class="chip sv-bild" onClick=${() => bildSchritt(1)} aria-label=${deEn('Ein Bild vor', 'One frame forward')}>›</button>
+        ${phase === 'ergebnis' && rec?.analyse ? html`<button class=${`chip ${farbModus === 'tempo' ? 'an' : ''}`} aria-pressed=${String(farbModus === 'tempo')}
+          onClick=${() => { const n = farbModus === 'tempo' ? 'richtung' : 'tempo'; setFarbModus(n); lokal('prh-bahn-farbe', n); }}>${deEn('Farbe: Tempo', 'Colour: speed')}</button>` : null}
         <button class=${`chip ${fest ? 'an' : ''}`} aria-pressed=${String(fest)} onClick=${() => setFest(!fest)} aria-label=${fest ? deEn('Ansicht lösen', 'Unlock view') : deEn('Ansicht feststellen', 'Lock view')}>${SCHLOSS(fest)}</button>
         ${ansicht.z > 1.01 ? html`<button class="chip" onClick=${() => setAnsicht({ z: 1, tx: 0, ty: 0 })}>1×</button>` : null}
         ${kannSpeichern && ['markieren', 'ergebnis'].includes(phase) ? html`<button class="chip" onClick=${() => { setInfo(null); setPhase('vorbereiten'); }}>${SCHERE} ${deEn('Video bearbeiten', 'Edit video')}</button>` : null}
@@ -755,9 +882,6 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         <span><b>${deEn(`Nur den gezoomten Ausschnitt (${fmt(ansicht.z, 1)}×)`, `Only the zoomed section (${fmt(ansicht.z, 1)}×)`)}</b><br/>
         <span class="muted">${deEn('So wie gerade zu sehen – der Rand wird abgeschnitten.', 'Exactly as you see it now – the edges are cut off.')}</span></span></label>` : null}
       <button class="btn btn-chalk btn-block sv-weiter" onClick=${() => bestaetigen()}>${geaendert ? deEn('Übernehmen und weiter', 'Apply and continue') : deEn('Passt so – weiter', 'Looks good – continue')} →</button>
-      ${ablageFrage ? html`<div class="sv-ablage-frage"><b>${deEn('Wo sollen deine Videos hin?', 'Where should your videos go?')}</b>
-        <span class="muted sv-fuss">${deEn('Einmal wählen – gilt ab jetzt für jedes Video. Ändern in den Einstellungen.', 'Choose once – used for every video from now on. Change it in the settings.')}</span>
-        <${AblageWahl} gewaehlt=${(m) => bestaetigen(m)} abbrechen=${() => setAblageFrage(false)}/></div>` : null}
       <span class="muted sv-fuss">${geaendert ? deEn('Wird neu gespeichert (Ton entfällt) und als Datei abgelegt', 'Saved again (sound is dropped) and stored as a file') : neuGefilmt ? deEn('Wird als Datei abgelegt', 'Stored as a file') : deEn('Nichts geändert – das Video bleibt, wie es ist', 'Nothing changed – the video stays as it is')}${!(geaendert || neuGefilmt) ? '' : ablageModus() ? `: ${ablageText(ablageModus())}` : deEn(' – wohin, fragt die App einmal', ' – the app asks where, once')}.${geaendert ? deEn(' Das Original in der Galerie bleibt.', ' The original in your gallery stays.') : ''}</span>
       ${rec?.analyse ? html`<button class="link-knopf" style="align-self:center" onClick=${() => setPhase('ergebnis')}>${deEn('Zurück zum Ergebnis', 'Back to the result')}</button>` : null}
     </div>` : null}
@@ -766,6 +890,9 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         <div class="seg sv-seg" role="group">${[45, 35, 25].map((d) => html`<button key=${d} aria-pressed=${String(durchmesser === d)} onClick=${() => setDurchmesser(d)}>${d} cm</button>`)}</div></div>
       <button class="btn btn-chalk btn-block sv-los" disabled=${!mitte || !rand} onClick=${analysieren}>${deEn('Hantelweg berechnen', 'Track the bar path')}</button>
     </div>` : null}
+    ${ablageFrage ? html`<div class="sv-ablage-frage"><b>${deEn('Wo sollen deine Videos hin?', 'Where should your videos go?')}</b>
+        <span class="muted sv-fuss">${deEn('Einmal wählen – gilt ab jetzt für jedes Video. Ändern in den Einstellungen.', 'Choose once – used for every video from now on. Change it in the settings.')}</span>
+        <${AblageWahl} gewaehlt=${(m) => (ablageFrage === 'export' ? exportieren(m) : bestaetigen(m))} abbrechen=${() => setAblageFrage(false)}/></div>` : null}
     ${fehler ? html`<div class="hint immer">${I.warn}<span class="t">${deEn('Hat nicht geklappt', 'That didn\'t work')}</span><span></span><p>${fehler}</p></div>` : null}
     ${info ? html`<div class="hint gut immer">${I.check}<span class="t">${deEn('Erledigt', 'Done')}</span><span></span><p>${info}</p></div>` : null}
     ${unplausibel && phase === 'ergebnis' ? html`<div class="hint immer">${I.warn}<span class="t">${deEn('Sieht nicht nach Hantel aus', 'Doesn\'t look like a barbell')}</span><span></span>
@@ -781,8 +908,23 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
           ${spitze ? html`<div><span class="l">${deEn('Spitze', 'Peak')}</span><b>${ms(spitze)}</b></div>` : null}
         </div>
       </div>
-      <div class="sv-wdh" role="list">${tempo.v.map((v, i) => html`<div key=${i} class="sv-wdh-s" role="listitem" style=${`--h:${Math.max(0.12, v / beste)};--d:${i * 60}ms`}>
+      <div class=${`sv-wdh ${gr ? 'mit-grenze' : ''}`} role="list" style=${gr ? `--g:${(1 - grenze / 100) * 82}px` : ''}>${tempo.v.map((v, i) => html`<div key=${i} class=${`sv-wdh-s ${gr?.wdh && i + 1 > gr.wdh ? 'ueber' : ''}`} role="listitem" style=${`--h:${Math.max(0.12, v / beste)};--d:${i * 60}ms`}>
         <span class="sv-wdh-w">${ms(v)}</span><i class=${v / beste < 0.7 ? 'lahm' : v / beste < 0.85 ? 'mittel' : ''}></i><span class="sv-wdh-n">${i + 1}</span></div>`)}</div>
+      ${gr ? html`<div class=${`sv-info grenze ${gr.zuViel > 0 ? 'zuviel' : gr.wdh ? 'genau' : 'luft'}`}>
+        <span class="l">${deEn(`Verlust-Grenze ${grenze} %`, `Velocity loss limit ${grenze} %`)}</span>
+        <div class="sv-kette"><span>${gr.zuViel > 0 ? deEn(`Satz hätte nach Wdh ${gr.wdh} enden sollen`, `Set should have ended after rep ${gr.wdh}`)
+          : gr.wdh ? deEn('Punktlandung – Grenze in der letzten Wdh erreicht', 'Spot on – limit reached on the last rep') : deEn('Grenze nicht erreicht – da war noch Luft', 'Limit not reached – there was more in the tank')}</span></div>
+        <b>${vz(-gr.verlust)} %</b>
+        <small>${gr.zuViel > 0 ? deEn(`${gr.zuViel} ${gr.zuViel === 1 ? 'Wdh' : 'Wdh'} über der Grenze (gestreift) · Grenze in den Einstellungen → Im Training`, `${gr.zuViel} ${gr.zuViel === 1 ? 'rep' : 'reps'} past the limit (striped) · limit in Settings → In session`)
+          : deEn('Grenze in den Einstellungen → Im Training', 'Limit in Settings → In session')}</small></div>` : null}
+      <${ZonenLeiste} v=${tempo.v} schnitt=${schnittV}/>
+      ${details ? html`<div class="sv-info bahn"><span class="l">${deEn('Bahn je Wdh', 'Bar path per rep')}</span>
+        <div class="sv-bahn-tab" style=${`--n:${details.length}`}>
+          <span></span>${details.map((d, i) => html`<span key=${`n${i}`} class="n">${i + 1}</span>`)}
+          <span class="k">${deEn('Hub', 'ROM')}</span>${details.map((d, i) => html`<span key=${`h${i}`}>${d.hubCm}</span>`)}
+          <span class="k">${deEn('Seitlich', 'Sideways')}</span>${details.map((d, i) => html`<span key=${`s${i}`} class=${d.seitCm > 5 ? 'warn' : ''}>${d.seitCm == null ? '–' : fmt(d.seitCm, 1)}</span>`)}
+        </div>
+        <small>${deEn('in cm · seitlich = wie weit die Hantel beim Hochbringen nach vorn oder hinten wandert (über 5 cm gelb)', 'in cm · sideways = how far the bar drifts forward or back on the way up (over 5 cm in yellow)')}</small></div>` : null}
       ${rekord?.rekord ? html`<div class="sv-rekord"><span class="sv-rekord-blitz" aria-hidden="true">⚡</span>
         <div><b>${deEn(`Tempo-Rekord bei ${fmt(satz.kg)} kg`, `Velocity record at ${fmt(satz.kg)} kg`)}</b>
         <span>${deEn(`${ms(beste)} m/s – bisher ${ms(rekord.vorher)}`, `${ms(beste)} m/s – before ${ms(rekord.vorher)}`)}</span></div></div>` : null}
@@ -805,6 +947,12 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         : vergleich === 'passt' ? html`<div class="hint gut immer">${I.check}<span class="t">${deEn(`Tempo passt zu RPE ${fmt(satz.rpe)}`, `Velocity matches RPE ${fmt(satz.rpe)}`)}</span><span></span><p>${deEn('Deine RPE-Angabe und das Tempo der letzten Wdh stimmen überein.', 'Your RPE and the velocity of the last rep agree.')}</p></div>`
         : profil?.fehlen ? html`<span class="muted sv-fuss">${deEn(`RPE-Abgleich ab 4 eigenen Sätzen mit Video und RPE – noch ${profil.fehlen}.`, `RPE check from 4 of your own sets with video and RPE – ${profil.fehlen} to go.`)}</span>` : null}
       <span class="muted sv-fuss">${deEn('Richtwerte aus dem Video, kein Messgerät: von der Seite und ohne Zoom filmen, dann stimmen sie am besten.', 'Estimates from the video, not a measuring device: film from the side without zoom for the best results.')}</span>` : null}
+    ${phase === 'ergebnis' && rec?.analyse && wdh.length ? html`<div class="sv-mehr">
+      <button class="btn btn-soft" onClick=${vergleichOeffnen}>${VERGLEICH_BILD} ${deEn('Vergleichen', 'Compare')}</button>
+      <button class="btn btn-soft" onClick=${() => exportieren()}>${TEILEN_BILD} ${deEn('Video mit Bahn', 'Video with path')}</button></div>
+      ${exportDatei ? html`<div class="sv-export"><div><b>${deEn('Video mit Bahn ist fertig', 'Video with bar path is ready')}</b><span>${mb(exportDatei.blob.size)}</span></div>
+        ${navigator.share ? html`<button class="btn btn-chalk btn-sm" onClick=${exportTeilen}>${deEn('Teilen …', 'Share …')}</button>` : null}</div>` : null}` : null}
+    ${Vergleich && rec?.analyse ? html`<${Vergleich} basis=${rec} titel=${titel} zu=${() => setVergleich(null)}/>` : null}
     ${phase === 'ergebnis' && !wdh.length && !unplausibel ? html`<div class="hint tipp immer">${I.statistik}<span class="t">${deEn('Keine Wiederholung erkannt', 'No rep detected')}</span><span></span>
       <p>${deEn('Die Bahn ist da, aber kein Hub über 10 cm. Ab dem Satzbeginn markieren oder den Scheibendurchmesser prüfen.', 'The path is there, but no lift over 10 cm. Mark from the start of the set or check the plate diameter.')}</p></div>` : null}
     ${kannSpeichern && (phase === 'ergebnis' || (['markieren', 'vorbereiten'].includes(phase) && rec)) ? html`<div class="sv-knoepfe">

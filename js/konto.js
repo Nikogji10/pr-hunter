@@ -21,7 +21,7 @@ export const STANDARD_EINSTELLUNGEN = {
   // nur auf diesem Gerät (Erlaubnis gilt je Gerät): Benachrichtigungen während des Trainings
   mitteilungen: false,
 };
-const APP_SETTINGS = ['spotifyBubble', 'vorname', 'trainingsart', 'ausdauer', 'ftp', 'geraeteGrenze', 'hfMax', 'ausdauerPlan', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'satzVideo','geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
+const APP_SETTINGS = ['spotifyBubble', 'vorname', 'trainingsart', 'ausdauer', 'ftp', 'geraeteGrenze', 'hfMax', 'ausdauerPlan', 'wochenziel', 'autoregulation', 'pauseNachRpe', 'sprachansagen', 'wettkampfDatum', 'gewichtsklasse', 'mobility', 'supersatzKnopf', 'technikBewertung', 'satzVideo', 'tempoGrenze','geschlecht', 'zyklusAn', 'zyklus', 'wettkaempfe', 'wettkampfErgebnisse', 'beschwerden', 'gruppen', 'bereitschaft', 'zoom', 'ziele', 'gewichtZiel', 'hintergrundDunkel', 'deckkraft', 'stil', 'schrift', 'ton', 'vibration', 'kalender', 'freundeAus', 'sbdHeute'];
 
 export function einstAusProfil(p, alt = {}) {
   return { ...STANDARD_EINSTELLUNGEN, ...alt, pausen: { ...STANDARD_PAUSEN, ...pausenOhneAlteSchluessel(p.rest_defaults_s) }, cut: !!p.cut_mode,
@@ -494,11 +494,13 @@ export function mischeMesswerte(lokal, server) {
 export function exportCsv(trainings, nameVon) {
   const zahl = (n) => (n == null ? '' : String(n).replace('.', ','));
   const feld = (s) => (s == null ? '' : /[;"\n]/.test(String(s)) ? `"${String(s).replaceAll('"', '""')}"` : String(s));
-  const zeilen = [['Datum', 'Übung', 'Schlüssel', 'Satz', 'Typ', 'kg', 'Wdh', 'RPE', 'erledigt', 'Session-RPE', 'Quelle'].join(';')];
+  const zeilen = [['Datum', 'Übung', 'Schlüssel', 'Satz', 'Typ', 'kg', 'Wdh', 'RPE', 'erledigt', 'Session-RPE', 'Quelle', 'Tempo Ø (m/s)', 'Tempo je Wdh (m/s)', 'Tempoverlust %', 'Tempo schnellste (m/s)'].join(';')];
+  // 299: Tempo aus dem Satz-Video (extra.tempo) bzw. dem Feld „Tempo (m/s)“ (extra.ms)
+  const tempo = (s) => { const v = s.extra?.tempo?.v ?? []; return [v.length ? zahl(Math.round((v.reduce((x, y) => x + y, 0) / v.length) * 100) / 100) : '', v.map((x) => zahl(x)).join(' '), zahl(s.extra?.tempo?.vl), zahl(s.extra?.ms)]; };
   for (const t of [...trainings].filter((x) => !x.geloescht).sort((a, b) => a.datum.localeCompare(b.datum))) {
     for (const u of t.uebungen ?? []) {
       (u.saetze ?? []).forEach((s, i) => zeilen.push([t.datum, feld(nameVon(u.key)), u.key, i + 1, s.typ ?? 'working', zahl(s.kg), s.wdh ?? '', zahl(s.rpe),
-        s.fertig === false ? 'nein' : 'ja', zahl(t.sessionRpe), t.quelle ?? ''].join(';')));
+        s.fertig === false ? 'nein' : 'ja', zahl(t.sessionRpe), t.quelle ?? '', ...tempo(s)].join(';')));
     }
   }
   return `\uFEFF${zeilen.join('\r\n')}\r\n`;

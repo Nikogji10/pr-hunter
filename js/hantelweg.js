@@ -224,3 +224,12 @@ export function rpeVergleich(eingetragen, ausTempo) {
   const d = ausTempo - eingetragen;
   return d >= 1 ? 'schwerer' : d <= -1 ? 'leichter' : 'passt';
 }
+
+/** 297: je Wdh Hub (cm) und seitliche Abweichung der Bahn während der konzentrischen Phase (cm, Spanne der x-Werte). */
+export function wdhDetails(punkte, wdh, mProPx) {
+  return (wdh ?? []).map((w) => {
+    const xs = (punkte ?? []).filter((p) => p.t >= w.von - 1e-6 && p.t <= w.bis + 1e-6).map((p) => p.x);
+    const seit = xs.length >= 2 && mProPx > 0 ? Math.round((Math.max(...xs) - Math.min(...xs)) * mProPx * 1000) / 10 : null;
+    return { hubCm: Math.round((w.hub ?? 0) * 100), seitCm: seit };
+  });
+}

@@ -119,3 +119,36 @@ export function tempoBeiGewicht(saetze) {
   const reihe = Object.entries(jeTag).sort(([a], [b]) => a.localeCompare(b)).map(([datum, v]) => ({ datum, v }));
   return reihe.length ? { kg, reihe } : null;
 }
+
+// #################################################################
+// 291: Verlust-Grenze je Satz – erste Wdh, bei der der Verlust zur schnellsten Wdh bis dahin die Grenze erreicht
+// #################################################################
+export function grenzeErreicht(v, grenze) {
+  if (!(grenze > 0) || !v?.length) return null;
+  let beste = 0, groesster = 0;
+  for (let i = 0; i < v.length; i++) {
+    beste = Math.max(beste, v[i]);
+    const vl = beste > 0 ? ((beste - v[i]) / beste) * 100 : 0;
+    groesster = Math.max(groesster, vl);
+    if (vl >= grenze) return { wdh: i + 1, verlust: Math.round(vl), zuViel: v.length - i - 1 };
+  }
+  return { wdh: null, verlust: Math.round(groesster), zuViel: 0 };
+}
+
+// #################################################################
+// 292: Tempo-Zonen nach mittlerem konzentrischem Tempo (gängige VBT-Einteilung) und Ziel-Tempo aus dem Profil
+// #################################################################
+export const ZONEN = [
+  { k: 'max', von: 0, bis: 0.5, de: 'Maximalkraft', en: 'Absolute strength' },
+  { k: 'beschl', von: 0.5, bis: 0.75, de: 'Beschleunigungskraft', en: 'Accelerative strength' },
+  { k: 'kraftschnell', von: 0.75, bis: 1, de: 'Kraft-Schnelligkeit', en: 'Strength-speed' },
+  { k: 'schnellkraft', von: 1, bis: 1.3, de: 'Schnellkraft', en: 'Speed-strength' },
+  { k: 'start', von: 1.3, bis: Infinity, de: 'Startkraft', en: 'Starting strength' },
+];
+export const zoneVon = (v) => (v > 0 ? ZONEN.find((z) => v >= z.von && v < z.bis) ?? null : null);
+/** Erwartetes Tempo bei kg aus dem Last-Tempo-Profil { a, b } (nur bei fallender Gerade). */
+export function zielTempo(profil, kg) {
+  if (profil?.b == null || !(profil.b < 0) || !(kg > 0)) return null;
+  const v = profil.a + profil.b * kg;
+  return v > 0.05 ? Math.round(v * 100) / 100 : null;
+}
