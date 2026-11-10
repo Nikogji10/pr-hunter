@@ -2985,3 +2985,28 @@ html:not(.mit-bild) #deck-grund:not(.ohne-bild) { display: none; }
 .sv-ablage-o span { font-size: 12px; color: var(--muted); }
 .sv-ablage-o.an { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, var(--raised)); box-shadow: 0 0 0 1px var(--acc), 0 10px 24px -14px var(--acc-glow); }
 .sv-ablage-einst { display: flex; flex-direction: column; gap: 10px; padding: 0 2px 6px; }
+
+/* 304/305: Schritte Video → Tracking → Ergebnis, klare Knöpfe Mitte/Rand */
+.sv-stufen { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; counter-reset: none; }
+.sv-stufen li { position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 6px; border-radius: 999px; font: 800 12.5px var(--f); color: var(--muted); background: var(--sunken); border: 1px solid var(--kante); transition: color .2s, background .2s, border-color .2s; }
+.sv-stufen li span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; background: var(--raised); color: var(--muted); flex: none; }
+.sv-stufen li.jetzt { color: var(--ink); border-color: color-mix(in srgb, var(--acc) 60%, var(--kante)); background: color-mix(in srgb, var(--acc) 14%, var(--raised)); box-shadow: 0 8px 20px -12px var(--acc-glow); }
+.sv-stufen li.jetzt span { background: var(--acc); color: var(--on-acc, #fff); }
+.sv-stufen li.fertig { color: var(--ink); }
+.sv-stufen li.fertig span { background: var(--ok); color: #0b0d10; }
+.sv-bearb-t { font: 800 15px var(--f); color: var(--ink); }
+.sv-weiter { font-size: 15.5px; }
+.sv-punkte { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sv-punkt { display: flex; align-items: center; gap: 10px; padding: 9px 12px 9px 9px; border-radius: 16px; background: var(--raised); border: 1.5px solid var(--kante); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s, opacity .15s, transform .15s; }
+.sv-punkt:active { transform: scale(.98); }
+.sv-punkt .sv-hilfe-bild { width: 40px; height: 40px; flex: none; }
+.sv-punkt span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sv-punkt b { font: 800 14.5px var(--f); }
+.sv-punkt small { font-size: 12px; color: var(--muted); }
+.sv-punkt.jetzt { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 16%, var(--raised)); box-shadow: 0 0 0 1px var(--acc), 0 10px 24px -14px var(--acc-glow); }
+.sv-punkt.jetzt small { color: var(--acc-hi); font-weight: 700; }
+.sv-punkt.gesetzt:not(.jetzt) { border-color: color-mix(in srgb, var(--ok) 55%, var(--kante)); }
+.sv-punkt.gesetzt .ziel { fill: var(--ok); }
+.sv-punkt.gesetzt small { color: var(--ok); }
+.sv-punkt:disabled { opacity: .45; cursor: default; }
+.sv-punkte-tipp { margin: -4px 2px 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }

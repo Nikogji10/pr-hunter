@@ -215,6 +215,11 @@ export function AblageWahl({ gewaehlt, abbrechen = null }) {
     ${abbrechen ? html`<button class="link-knopf" style="align-self:flex-start" onClick=${abbrechen}>${deEn('Abbrechen', 'Cancel')}</button>` : null}
   </div>`;
 }
+/** 303: Ordner-Recht direkt beim Antippen holen – nach dem Neu-Speichern fehlt dafür die Nutzer-Aktion. */
+async function ordnerFreigeben() {
+  const h = await ordnerHandle().catch(() => null);
+  if (h && (await h.queryPermission?.({ mode: 'readwrite' })) !== 'granted') await h.requestPermission?.({ mode: 'readwrite' }).catch(() => {});
+}
 /** 281/300: Datei am gewählten Ort ablegen. Rückgabe { art: 'ordner'|'geteilt'|'geladen'|'abbruch', ort }. */
 async function alsDateiSpeichern(rec, name, modus = ablageModus()) {
   const endung = (rec.blob.type || '').includes('mp4') ? 'mp4' : (rec.blob.type || '').includes('quicktime') ? 'mov' : 'webm';
@@ -400,8 +405,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const [spielt, setSpielt] = useState(false);
   const [langsam, setLangsam] = useState(false);
   const [loeschen, setLoeschen] = useState(false);
-  const [bearb, setBearb] = useState(false);
-  const [groesse, setGroesse] = useState('720');
+  const [neuGefilmt, setNeuGefilmt] = useState(false);  // 304: mit der Kamera aufgenommen → beim Bestätigen auch als Datei ablegen
+  const [groesse, setGroesse] = useState('original');
   const [unplausibel, setUnplausibel] = useState(null);   // Gründe, wenn die Analyse nicht nach Hantel aussieht
   const [nurAusschnitt, setNurAusschnitt] = useState(true); // 301: beim Übernehmen den gezoomten Ausschnitt speichern
   const [ablageFrage, setAblageFrage] = useState(false);  // 300: erstes Speichern → Ort wählen
@@ -476,7 +481,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   }, [lupe, ansicht, schritt, mitte]);
 
   const meldeNeu = (r) => { beiNeu?.(r); };
-  const datei = async (f) => {
+  const datei = async (f, kamera = false) => {
     if (!f) return;
     setFehler(null); setInfo(null); setUnplausibel(null);
     const id = neueId();
@@ -485,14 +490,17 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       setFehler(deEn('Kein Platz für das Video auf diesem Gerät.', 'No space for the video on this device.')); return;
     }
     if (rec?.id) videoLoeschen(rec.id).catch(() => {});
-    setRec(r); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setMitte(null); setRand(null); setSchritt('mitte'); setPhase('markieren');
+    setRec(r); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setMitte(null); setRand(null); setSchritt('mitte'); setGroesse('original'); setNeuGefilmt(kamera); setPhase('vorbereiten');
     speichern?.({ video: id });
     meldeNeu(r);
   };
   const markiere = (p) => {
     if (!mass) return;
     const vp = inVideo(p.x, p.y, ansicht, b, h, mass.w, mass.h);
-    if (schritt === 'rand' && mitte) { setRand(vp); setSchritt('fertig'); } else { setMitte(vp); setRand(null); setSchritt('rand'); }
+    if (schritt === 'rand' && mitte) { setRand(vp); setSchritt('fertig'); return; }
+    // 305: Mitte neu bei schon gesetztem Rand → Kreis wandert mit, Größe bleibt
+    if (mitte && rand) { setRand({ x: rand.x + vp.x - mitte.x, y: rand.y + vp.y - mitte.y }); setMitte(vp); setSchritt('fertig'); return; }
+    setMitte(vp); setRand(null); setSchritt('rand');
   };
   const abspielen = () => {
     const v = videoRef.current;
@@ -597,11 +605,15 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     if (rec?.id) await (ohneDatei ? videoAblegen(ohneDatei) : videoLoeschen(rec.id)).catch(() => {});
     speichern?.({ video: null, ...(mitZahlen ? { tempo: null, ms: satz.extra?.tempo ? null : satz.extra?.ms ?? null } : {}) });
     setLoeschen(false); meldeNeu(ohneDatei);
-    if (ohneDatei) { setRec(ohneDatei); setUrl(null); setBearb(false); setPhase('fremd'); return; }
+    if (ohneDatei) { setRec(ohneDatei); setUrl(null); setPhase('fremd'); return; }
     if (zu) zu(); else { setRec(null); setUrl(null); setPhase('waehlen'); }
   };
   const setzeSchnitt = (neu) => { const r = { ...rec, schnitt: neu }; setRec(r); videoAblegen(r).catch(() => {}); };
-  const uebernehmen = async () => {
+  // 303: ein Knopf – neu speichern, sofort am gewählten Ort ablegen, dann das bearbeitete Video zum Markieren zeigen
+  const uebernehmen = async (modus = ablageModus()) => {
+    if (!modus) { setAblageFrage(true); return; }                        // 300: nur beim allerersten Mal den Ort wählen
+    setAblageFrage(false);
+    if (modus === 'ordner') await ordnerFreigeben();
     const [von, bis] = bereich(), g = GROESSEN.find(([k]) => k === groesse);
     setFehler(null); setInfo(null); setPhase('arbeit'); setFortschritt(0); abbruch.current = false;
     const vorher = rec.blob.size;
@@ -609,7 +621,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     const z = ansicht.z, aus = zugeschnitten && mass ? { sx: (-ansicht.tx / z) * (mass.w / b), sy: (-ansicht.ty / z) * (mass.h / h), sw: mass.w / z, sh: mass.h / z } : null;
     try {
       const erg = await neuKodieren(rec.blob, { von, bis, kante: g[2], bitrate: g[3], fortschritt: setFortschritt, abbruch, ausschnitt: aus });
-      if (!erg) { setPhase(rec.analyse ? 'ergebnis' : 'markieren'); return; }
+      if (!erg) { setPhase('vorbereiten'); return; }
       // Analyse an den Schnitt anpassen: Zeiten verschieben, Punkte außerhalb weg (Pixel sind auf 320 px normiert, Größe egal);
       // beim Ausschnitt die Punkte mitverschieben und vergrößern – Meter je Pixel werden entsprechend kleiner
       const a = rec.analyse, k = a && aus ? a.breite / mass.w : 0;
@@ -619,21 +631,35 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       const neu = { ...rec, blob: erg.blob, typ: erg.blob.type, schnitt: undefined, analyse, bearbeitet: new Date().toISOString() };
       await videoAblegen(neu);
       setRec(neu); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setFest(false); setMitte(null); setRand(null); setSchritt('mitte');
-      setBearb(false); setPhase(analyse ? 'ergebnis' : 'markieren'); meldeNeu(neu);
-      setInfo(deEn(`Übernommen: ${mb(vorher)} → ${mb(erg.blob.size)}.`, `Applied: ${mb(vorher)} → ${mb(erg.blob.size)}.`));
-    } catch (e) { setFehler(e.message ?? String(e)); setPhase(rec.analyse ? 'ergebnis' : 'markieren'); }
+      setNeuGefilmt(false); setGroesse('original'); setPhase('markieren'); setUnplausibel(null); meldeNeu(neu);
+      const groesseText = `${mb(vorher)} → ${mb(erg.blob.size)}`;
+      let r;
+      try { r = await alsDateiSpeichern(neu, DATEI_NAME(titel), modus); } catch (e) { setFehler(e.message ?? String(e)); setInfo(deEn(`Übernommen (${groesseText}), aber nicht als Datei gespeichert.`, `Applied (${groesseText}), but not saved as a file.`)); return; }
+      setInfo(ablageMeldung(r, groesseText));
+    } catch (e) { setFehler(e.message ?? String(e)); setPhase('vorbereiten'); }
   };
-  const ablegen = async (modus = ablageModus()) => {
-    if (!modus) { setAblageFrage(true); return; }                        // 300: beim ersten Mal den Ort wählen
-    setAblageFrage(false); setFehler(null); setInfo(null);
-    let r;
-    try { r = await alsDateiSpeichern(rec, DATEI_NAME(titel), modus); } catch (e) { setFehler(e.message ?? String(e)); return; }
+  const ablageMeldung = (r, groesseText = null) => {
     const webm = r.webm ? deEn(' WebM-Videos zeigt nicht jede Galerie an – dann über die Dateien-App öffnen.', ' Not every gallery shows WebM videos – open it via the Files app then.') : '';
-    if (r.art === 'ordner') setInfo(deEn(`Gespeichert im Ordner „${r.ort}“.`, `Saved to the folder “${r.ort}”.`));
-    if (r.art === 'geladen') setInfo((IOS ? deEn('Gespeichert in der Dateien-App unter „Downloads“.', 'Saved in the Files app under “Downloads”.')
-      : deEn('Gespeichert in „Downloads“ – in der Galerie im Album „Download“.', 'Saved to “Downloads” – in your gallery under the “Download” album.')) + webm);
+    const ort = r.art === 'ordner' ? deEn(`im Ordner „${r.ort}“`, `to the folder “${r.ort}”`)
+      : r.art === 'geladen' ? (IOS ? deEn('in der Dateien-App unter „Downloads“', 'in the Files app under “Downloads”') : deEn('in „Downloads“ (Galerie: Album „Download“)', 'to “Downloads” (gallery: “Download” album)'))
+        : r.art === 'geteilt' ? deEn('über Teilen', 'via Share') : null;
+    const g = groesseText ? ` · ${groesseText}` : '';
+    return (ort ? deEn(`Gespeichert ${ort}${g}.`, `Saved ${ort}${g}.`) : deEn(`Übernommen${g}.`, `Applied${g}.`)) + webm;
+  };
+  // 304: Schritt 1 bestätigen – geändert: neu speichern + ablegen; frisch gefilmt: ablegen; sonst direkt weiter zum Tracking
+  const zumTracking = () => { setMitte(null); setRand(null); setSchritt('mitte'); setUnplausibel(null); setAblageFrage(false); setPhase('markieren'); };
+  const bestaetigen = async (modus = ablageModus()) => {
+    if (geaendert) { uebernehmen(modus); return; }
+    if (neuGefilmt) {
+      if (!modus) { setAblageFrage(true); return; }
+      setAblageFrage(false); setFehler(null);
+      if (modus === 'ordner') await ordnerFreigeben();
+      try { setInfo(ablageMeldung(await alsDateiSpeichern(rec, DATEI_NAME(titel), modus))); setNeuGefilmt(false); } catch (e) { setFehler(e.message ?? String(e)); }
+    }
+    zumTracking();
   };
   const zugeschnitten = nurAusschnitt && ansicht.z > 1.01;
+  const geaendert = !!schnitt || zugeschnitten || groesse !== 'original';
 
   const a = rec?.analyse, wdh = a?.wdh ?? [];
   const tempo = phase === 'fremd' ? satz.extra?.tempo ?? (wdh.length && !rec?.ungeprueft ? { v: wdh.map((w) => w.mcv), vl: a.verlust } : null)
@@ -650,14 +676,17 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const gruppe = ueber?.verluste.find((g) => Math.abs(g.kg - satz.kg) <= 1.25) ?? null;
   const titel = `${uebungName}${satz.kg != null ? ` · ${fmt(satz.kg)} × ${satz.wdh}` : ''}${satz.rpe != null ? ` @ ${fmt(satz.rpe)}` : ''}`;
   const [von, bis] = bereich();
-  const mitVideo = url && ['markieren', 'analyse', 'ergebnis', 'arbeit'].includes(phase);
+  const mitVideo = url && ['vorbereiten', 'markieren', 'analyse', 'ergebnis', 'arbeit'].includes(phase);
+  const stufe = ['vorbereiten', 'arbeit'].includes(phase) ? 0 : ['markieren', 'analyse'].includes(phase) ? 1 : phase === 'ergebnis' ? 2 : -1;
+  const anpassen = ['kreis', 'rand'].includes(geste.current?.art);     // Kreis verschieben/Größe: ohne Lupe, der Kreis selbst ist zu sehen
   const GRUND = { kurz: deEn('die Bahn ist zu kurz', 'the path is too short'), unsicher: deEn('die Scheibe war kaum zu erkennen', 'the plate was hard to recognise'),
     keineWdh: deEn('keine Wiederholung über 10 cm', 'no rep over 10 cm'), unrealistisch: deEn('die Werte sind für eine Hantel unrealistisch', 'the values are unrealistic for a barbell') };
 
   return html`<div class="sv">
     ${eingebettet ? null : html`<div class="row between" style="align-items:flex-start"><div><div class="eyebrow">${deEn('Satz-Video', 'Set video')}</div><h2 class="h2 sv-titel">${titel}</h2></div>
       ${zu ? html`<button class="iconbtn" onClick=${zu} aria-label=${deEn('Schließen', 'Close')}>${I.zu}</button>` : null}</div>`}
-    <input ref=${dateiKamera} type="file" accept="video/*" capture="environment" hidden onChange=${(e) => { datei(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }}/>
+    ${stufe >= 0 && kannSpeichern ? html`<ol class="sv-stufen">${[deEn('Video', 'Video'), deEn('Tracking', 'Tracking'), deEn('Ergebnis', 'Result')].map((s, i) => html`<li key=${i} class=${i < stufe ? 'fertig' : i === stufe ? 'jetzt' : ''}><span>${i < stufe ? '✓' : i + 1}</span>${s}</li>`)}</ol>` : null}
+    <input ref=${dateiKamera} type="file" accept="video/*" capture="environment" hidden onChange=${(e) => { datei(e.currentTarget.files?.[0], true); e.currentTarget.value = ''; }}/>
     <input ref=${dateiGalerie} type="file" accept="video/*" hidden onChange=${(e) => { datei(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }}/>
     ${phase === 'laden' ? html`<div class="sv-leer"><span class="sv-lader"></span></div>` : null}
     ${phase === 'waehlen' || phase === 'fremd' ? html`<div class="sv-start">
@@ -668,18 +697,22 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         <button class="btn btn-soft" onClick=${() => dateiGalerie.current?.click()}>${deEn('Aus der Galerie', 'From gallery')}</button></div>
       <span class="muted sv-privat">${I.check} ${deEn('Das Video bleibt auf diesem Handy und wird nie hochgeladen.', 'The video stays on this phone and is never uploaded.')}</span>` : null}
     </div>` : null}
-    ${phase === 'markieren' ? html`<div class=${`sv-hilfe ${schritt}`}>
-      <svg class="sv-hilfe-bild" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" class="p1"/><circle cx="32" cy="32" r="21" class="p2"/><circle cx="32" cy="32" r="5" class="p3"/>
-        <circle class="ziel" cx=${schritt === 'rand' ? 59 : 32} cy="32" r="5"/><circle class="ziel puls" cx=${schritt === 'rand' ? 59 : 32} cy="32" r="5"/></svg>
-      <div><b>${schritt === 'rand' ? deEn('2/2 · Äußerer Rand der Scheibe', '2/2 · Outer edge of the plate') : schritt === 'fertig' ? deEn('Markiert', 'Marked') : deEn('1/2 · Mitte der Scheibe', '1/2 · Centre of the plate')}</b>
-        <span>${schritt === 'fertig' ? deEn('Kreis passt? Dann berechnen. Innen ziehen verschiebt ihn, am Rand ziehen ändert die Größe.', 'Circle fits? Then track. Drag inside to move it, drag the edge to resize it.')
-          : deEn('Gedrückt halten, mit der Lupe zielen, loslassen. Zwei Finger zoomen. Vorher zum Satzbeginn spulen.', 'Press and hold, aim with the magnifier, release. Two fingers zoom. Scrub to the start of the set first.')}</span></div>
-    </div>` : null}
+    ${phase === 'markieren' ? html`<div class="sv-punkte" role="group" aria-label=${deEn('Scheibe markieren', 'Mark the plate')}>
+      ${[['mitte', deEn('Mitte', 'Centre'), 32, !!mitte], ['rand', deEn('Rand', 'Edge'), 59, !!rand]].map(([k, name, cx, gesetzt], i) => html`<button key=${k}
+        class=${`sv-punkt ${schritt === k ? 'jetzt' : ''} ${gesetzt ? 'gesetzt' : ''}`} aria-pressed=${String(schritt === k)} disabled=${k === 'rand' && !mitte}
+        onClick=${() => setSchritt(k)}>
+        <svg class="sv-hilfe-bild" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" class="p1"/><circle cx="32" cy="32" r="21" class="p2"/><circle cx="32" cy="32" r="5" class="p3"/>
+          <circle class="ziel" cx=${cx} cy="32" r="5"/>${schritt === k ? html`<circle class="ziel puls" cx=${cx} cy="32" r="5"/>` : null}</svg>
+        <span><b>${i + 1} · ${name}</b><small>${gesetzt ? deEn('gesetzt ✓', 'set ✓') : schritt === k ? deEn('jetzt tippen', 'tap now') : deEn('danach', 'next')}</small></span></button>`)}
+    </div>
+    <p class="sv-punkte-tipp">${schritt === 'fertig' ? deEn('Kreis passt? Dann unten berechnen. Innen ziehen verschiebt ihn, am Rand ziehen ändert die Größe.', 'Circle fits? Then track below. Drag inside to move it, drag the edge to resize it.')
+      : schritt === 'rand' ? deEn('Auf den äußeren Rand der Scheibe: gedrückt halten, mit der Lupe zielen, loslassen.', 'On the outer edge of the plate: press and hold, aim with the magnifier, release.')
+        : deEn('Auf die Mitte der Scheibe: gedrückt halten, mit der Lupe zielen, loslassen. Vorher zum Satzbeginn spulen, zwei Finger zoomen.', 'On the centre of the plate: press and hold, aim with the magnifier, release. Scrub to the start of the set first, two fingers zoom.')}</p>` : null}
     ${mitVideo ? html`<div class=${`sv-rahmen ${quer ? 'quer' : ''}`} ref=${rahmenRef}>
       <div class=${`sv-buehne ${fest ? 'fest' : ''} ${phase !== 'markieren' && (fest || ansicht.z <= 1.01) ? 'scrollt' : ''}`} ref=${buehneRef} style=${`width:${b}px;height:${h}px`}
         onPointerDown=${runter} onPointerMove=${bewegen} onPointerUp=${hoch} onPointerCancel=${hoch} onWheel=${rad} onContextMenu=${(e) => e.preventDefault()}>
         <div class="sv-inhalt" style=${`width:${b}px;height:${h}px;transform:translate(${ansicht.tx}px,${ansicht.ty}px) scale(${ansicht.z})`}>
-          <video ref=${videoRef} src=${url} playsinline muted preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"
+          <video key=${url} ref=${videoRef} src=${url} playsinline muted preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"
             onContextMenu=${(e) => e.preventDefault()}
             onLoadedMetadata=${(e) => { const v = e.currentTarget; setMass({ w: v.videoWidth, h: v.videoHeight }); dauerErmitteln(v, (d) => { setDauer(d); v.currentTime = schnitt?.von ?? 0; setZeit(v.currentTime); }); }}
             onDurationChange=${(e) => Number.isFinite(e.currentTarget.duration) && setDauer(e.currentTarget.duration)}
@@ -687,7 +720,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
             onPlay=${() => setSpielt(true)} onPlaying=${() => setSpielt(true)} onPause=${() => setSpielt(false)} onEnded=${() => setSpielt(false)}/>
           <canvas ref=${canvasRef} class="sv-ueber"></canvas>
         </div>
-        ${lupe && phase === 'markieren' ? html`<canvas ref=${lupeRef} class="sv-lupe" style=${`left:${Math.min(b - 70, Math.max(-62, lupe.x - 66))}px;top:${lupe.y > 160 ? lupe.y - 160 : lupe.y + 34}px`}></canvas>` : null}
+        ${lupe && phase === 'markieren' && !anpassen ? html`<canvas ref=${lupeRef} class="sv-lupe" style=${`left:${Math.min(b - 70, Math.max(-62, lupe.x - 66))}px;top:${lupe.y > 160 ? lupe.y - 160 : lupe.y + 34}px`}></canvas>` : null}
         ${ansicht.z > 1.01 ? html`<span class="sv-zoomwert">${fmt(ansicht.z, 1)}×</span>` : null}
         ${phase === 'analyse' || phase === 'arbeit' ? html`<div class="sv-scan"><span class="sv-scanlinie"></span>
           <div class="sv-prozent"><b>${Math.round(fortschritt * 100)}</b><span>%</span></div>
@@ -695,7 +728,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       </div></div>
       ${phase === 'ergebnis' && rec?.analyse && !unplausibel ? html`<${TempoKurve} analyse=${rec.analyse} zeit=${zeit}
         springen=${(t) => { const v = videoRef.current; if (v) { v.currentTime = Math.max(0, t); setZeit(v.currentTime); } }}/>` : null}
-      ${phase === 'analyse' || phase === 'arbeit' ? html`<button class="btn btn-soft btn-block" onClick=${() => { abbruch.current = true; setPhase(rec?.analyse ? 'ergebnis' : 'markieren'); }}>${deEn('Abbrechen', 'Cancel')}</button>`
+      ${phase === 'analyse' || phase === 'arbeit' ? html`<button class="btn btn-soft btn-block" onClick=${() => { abbruch.current = true; setPhase(phase === 'arbeit' ? 'vorbereiten' : rec?.analyse ? 'ergebnis' : 'markieren'); }}>${deEn('Abbrechen', 'Cancel')}</button>`
       : html`<div class="sv-steuer">
         <button class="iconbtn sv-play" onClick=${abspielen} aria-label=${spielt ? deEn('Pause', 'Pause') : deEn('Abspielen', 'Play')}>${spielt ? html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>` : html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5l11 7-11 7z" fill="currentColor"/></svg>`}</button>
         <div class="sv-zeitleiste" style=${dauer ? `--von:${(von / dauer) * 100}%;--bis:${(bis / dauer) * 100}%` : ''}>
@@ -707,9 +740,10 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
         <span class="sv-uhr">${zeitText(zeit)}${dauer ? ` / ${zeitText(dauer)}` : ''}</span>
         <button class=${`chip ${fest ? 'an' : ''}`} aria-pressed=${String(fest)} onClick=${() => setFest(!fest)} aria-label=${fest ? deEn('Ansicht lösen', 'Unlock view') : deEn('Ansicht feststellen', 'Lock view')}>${SCHLOSS(fest)}</button>
         ${ansicht.z > 1.01 ? html`<button class="chip" onClick=${() => setAnsicht({ z: 1, tx: 0, ty: 0 })}>1×</button>` : null}
-        ${kannSpeichern ? html`<button class=${`chip ${bearb ? 'an' : ''}`} aria-pressed=${String(bearb)} onClick=${() => setBearb(!bearb)}>${SCHERE} ${deEn('Bearbeiten', 'Edit')}</button>` : null}
+        ${kannSpeichern && ['markieren', 'ergebnis'].includes(phase) ? html`<button class="chip" onClick=${() => { setInfo(null); setPhase('vorbereiten'); }}>${SCHERE} ${deEn('Video bearbeiten', 'Edit video')}</button>` : null}
       </div>`}` : null}
-    ${bearb && mitVideo && phase !== 'arbeit' ? html`<div class="sv-bearb">
+    ${phase === 'vorbereiten' && mitVideo ? html`<div class="sv-bearb">
+      <b class="sv-bearb-t">${deEn('Kürzen, zoomen – oder so lassen', 'Trim, zoom – or leave it as is')}</b>
       <span class="eyebrow">${deEn('Kürzen', 'Trim')}</span>
       <div class="sv-schnitt"><button class="btn btn-soft btn-sm" onClick=${() => setzeSchnitt({ von: Math.min(zeit, bis - 0.3), bis: schnitt?.bis ?? null })}>⟦ ${deEn('Start hier', 'Start here')}</button>
         <span class="sv-schnitt-wert">${zeitText(von)} – ${zeitText(bis)}<small>${fmt(Math.max(0, bis - von), 1)} s</small></span>
@@ -720,21 +754,16 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       ${ansicht.z > 1.01 ? html`<label class="sv-ausschnitt"><input type="checkbox" checked=${nurAusschnitt} onChange=${(e) => setNurAusschnitt(e.currentTarget.checked)}/>
         <span><b>${deEn(`Nur den gezoomten Ausschnitt (${fmt(ansicht.z, 1)}×)`, `Only the zoomed section (${fmt(ansicht.z, 1)}×)`)}</b><br/>
         <span class="muted">${deEn('So wie gerade zu sehen – der Rand wird abgeschnitten.', 'Exactly as you see it now – the edges are cut off.')}</span></span></label>` : null}
-      <button class="btn btn-chalk btn-block" onClick=${uebernehmen}>${deEn('Übernehmen', 'Apply')}</button>
-      <button class="btn btn-soft btn-block" onClick=${() => ablegen()}>${deEn('Als Datei speichern …', 'Save as file …')}</button>
+      <button class="btn btn-chalk btn-block sv-weiter" onClick=${() => bestaetigen()}>${geaendert ? deEn('Übernehmen und weiter', 'Apply and continue') : deEn('Passt so – weiter', 'Looks good – continue')} →</button>
       ${ablageFrage ? html`<div class="sv-ablage-frage"><b>${deEn('Wo sollen deine Videos hin?', 'Where should your videos go?')}</b>
         <span class="muted sv-fuss">${deEn('Einmal wählen – gilt ab jetzt für jedes Video. Ändern in den Einstellungen.', 'Choose once – used for every video from now on. Change it in the settings.')}</span>
-        <${AblageWahl} gewaehlt=${(m) => ablegen(m)} abbrechen=${() => setAblageFrage(false)}/></div>` : null}
-      ${ablageModus() ? html`<span class="muted sv-fuss">${deEn('Speicherort', 'Location')}: ${ablageText(ablageModus())}</span>` : null}
-      <span class="muted sv-fuss">${deEn('„Übernehmen“ ersetzt das Video in der App (Ton entfällt). Das Original in der Galerie bleibt. „Als Datei speichern“ legt die aktuelle Fassung als neue Datei am gewählten Ort ab.',
-        '“Apply” replaces the video in the app (sound is dropped). The original in your gallery stays. “Save as file” stores the current version as a new file at your chosen location.')}</span>
+        <${AblageWahl} gewaehlt=${(m) => bestaetigen(m)} abbrechen=${() => setAblageFrage(false)}/></div>` : null}
+      <span class="muted sv-fuss">${geaendert ? deEn('Wird neu gespeichert (Ton entfällt) und als Datei abgelegt', 'Saved again (sound is dropped) and stored as a file') : neuGefilmt ? deEn('Wird als Datei abgelegt', 'Stored as a file') : deEn('Nichts geändert – das Video bleibt, wie es ist', 'Nothing changed – the video stays as it is')}${!(geaendert || neuGefilmt) ? '' : ablageModus() ? `: ${ablageText(ablageModus())}` : deEn(' – wohin, fragt die App einmal', ' – the app asks where, once')}.${geaendert ? deEn(' Das Original in der Galerie bleibt.', ' The original in your gallery stays.') : ''}</span>
+      ${rec?.analyse ? html`<button class="link-knopf" style="align-self:center" onClick=${() => setPhase('ergebnis')}>${deEn('Zurück zum Ergebnis', 'Back to the result')}</button>` : null}
     </div>` : null}
     ${phase === 'markieren' ? html`<div class="stack" style="gap:10px">
       <div class="row between" style="align-items:center"><span class="muted" style="font-size:13px">${deEn('Scheibendurchmesser', 'Plate diameter')}</span>
         <div class="seg sv-seg" role="group">${[45, 35, 25].map((d) => html`<button key=${d} aria-pressed=${String(durchmesser === d)} onClick=${() => setDurchmesser(d)}>${d} cm</button>`)}</div></div>
-      ${mitte ? html`<div class="row" style="gap:8px">
-        <button class="chip" onClick=${() => { setMitte(null); setRand(null); setSchritt('mitte'); }}>${deEn('Mitte neu', 'Centre again')}</button>
-        ${rand ? html`<button class="chip" onClick=${() => { setRand(null); setSchritt('rand'); }}>${deEn('Rand neu', 'Edge again')}</button>` : null}</div>` : null}
       <button class="btn btn-chalk btn-block sv-los" disabled=${!mitte || !rand} onClick=${analysieren}>${deEn('Hantelweg berechnen', 'Track the bar path')}</button>
     </div>` : null}
     ${fehler ? html`<div class="hint immer">${I.warn}<span class="t">${deEn('Hat nicht geklappt', 'That didn\'t work')}</span><span></span><p>${fehler}</p></div>` : null}
@@ -778,8 +807,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
       <span class="muted sv-fuss">${deEn('Richtwerte aus dem Video, kein Messgerät: von der Seite und ohne Zoom filmen, dann stimmen sie am besten.', 'Estimates from the video, not a measuring device: film from the side without zoom for the best results.')}</span>` : null}
     ${phase === 'ergebnis' && !wdh.length && !unplausibel ? html`<div class="hint tipp immer">${I.statistik}<span class="t">${deEn('Keine Wiederholung erkannt', 'No rep detected')}</span><span></span>
       <p>${deEn('Die Bahn ist da, aber kein Hub über 10 cm. Ab dem Satzbeginn markieren oder den Scheibendurchmesser prüfen.', 'The path is there, but no lift over 10 cm. Mark from the start of the set or check the plate diameter.')}</p></div>` : null}
-    ${kannSpeichern && (phase === 'ergebnis' || (phase === 'markieren' && rec)) ? html`<div class="sv-knoepfe">
-      ${phase === 'ergebnis' ? html`<button class="btn btn-soft" onClick=${() => { setMitte(null); setRand(null); setSchritt('mitte'); setUnplausibel(null); setPhase('markieren'); }}>${deEn('Neu markieren', 'Mark again')}</button>` : null}
+    ${kannSpeichern && (phase === 'ergebnis' || (['markieren', 'vorbereiten'].includes(phase) && rec)) ? html`<div class="sv-knoepfe">
+      ${phase === 'ergebnis' ? html`<button class="btn btn-soft" onClick=${zumTracking}>${deEn('Neu markieren', 'Mark again')}</button>` : null}
       <button class="btn btn-soft" onClick=${() => dateiKamera.current?.click()}>${deEn('Neu filmen', 'Record again')}</button>
       <button class="btn btn-gefahr" onClick=${() => setLoeschen(true)} aria-label=${deEn('Löschen', 'Delete')}>${I.papierkorb}</button></div>
       ${rec?.blob ? html`<span class="muted sv-fuss">${deEn(`Nur auf diesem Gerät · ${mb(rec.blob.size)}`, `Only on this device · ${mb(rec.blob.size)}`)}</span>` : null}` : null}
