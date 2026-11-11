@@ -182,7 +182,9 @@ export function ErholungKurz({ trainings, oeffnen = null, ausdauer = [] }) {
   const juengste = trainings.filter((t) => !t.geloescht && t.datum >= plusTage(HEUTE, -4));
   // weggewischt bis zum nächsten Training: Kennung = jüngstes Training der letzten Tage
   const kennung = `${juengste.map((t) => `${t.datum}:${t.id}`).sort().at(-1) ?? ''}|${Math.max(0, ...ausdauer.map((e) => e.zeit))}`;   // neuer Lauf zeigt die Karte wieder
-  const [weg, setWeg] = useState(() => speicher.lies(ERHOLUNG_WEG) === kennung);
+  // Kennung der weggewischten Karte merken (nicht nur ja/nein): kommt ein neues Training dazu, während Heute offen bleibt, erscheint sie wieder
+  const [wegKennung, setWegKennung] = useState(() => speicher.lies(ERHOLUNG_WEG));
+  const weg = wegKennung === kennung;
   const [hinweis] = useState(() => Number(speicher.lies(ERHOLUNG_HINWEIS) ?? 0) < 3);
   const zug = useRef(null), karte = useRef(null), gewischt = useRef(0);
   // Hinweis nur die ersten drei Male, an denen die Karte wirklich zu sehen war
@@ -191,7 +193,7 @@ export function ErholungKurz({ trainings, oeffnen = null, ausdauer = [] }) {
     const el = karte.current;
     if (el) { el.style.transition = 'transform .22s ease, opacity .22s ease'; el.style.transform = `translateX(${richtung * 110}%)`; el.style.opacity = '0'; }
     speicher.schreib(ERHOLUNG_WEG, kennung);
-    setTimeout(() => setWeg(true), 220);
+    setTimeout(() => setWegKennung(kennung), 220);
   };
   // eigenes Wischen (die Karte ist vom Seitenwechsel ausgenommen: .kein-wisch)
   const wisch = {

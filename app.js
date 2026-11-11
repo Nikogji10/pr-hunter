@@ -46,7 +46,9 @@ import { autoregulation } from './js/autoregulation.js';
 import { useAnsagen } from './ui/ansage.js';
 import { WettkampfCountdown } from './ui/wettkampf.js';
 import { formDaten } from './ui/formkurve.js';
-import { setzeVideoEinst } from './ui/satzvideo.js';
+import { setzeVideoEinst, videoLoeschen } from './ui/satzvideo.js';
+// Video-Ids aller Sätze eines gespeicherten Trainings (Format von ausTraining)
+const videosVon = (w) => (w.uebungen ?? []).flatMap((u) => [...(u.aufwaermen ?? []), ...(u.saetze ?? [])]).map((x) => x.extra?.video).filter(Boolean);
 import { ErholungKurz } from './ui/koerper.js';
 import { Rueckblick, RueckblickKarte } from './ui/rueckblick.js';
 import { GeschlechtKarte, ZyklusChip, geschlechtAusName } from './ui/zyklus.js';
@@ -547,6 +549,7 @@ function App() {
   const [coachOffen, setCoachOffen] = useState(0);              // 214: offene Coach-Anfragen an mich (zählt im roten Punkt mit)
   const [anfragen, setAnfragen] = useState(0);                  // offene Freundschaftsanfragen an mich (roter Punkt am Feed)             // Abschlusskarte nach dem Speichern eines Trainings
   const sperre = useRef(null);
+  const rausTrotzdem = useRef(0);                     // Abmelden trotz nicht hochgeladener Änderungen: Zeitpunkt der Warnung
   const sp = useRef(null);
   const laeuft = useRef(false);
   const nochmal = useRef(false);                                 // während eines Abgleichs angefordert → danach noch einmal
@@ -1027,8 +1030,11 @@ function App() {
   // beim Zurückkehren in die App nach Updates schauen
   useEffect(() => {
     const sw = navigator.serviceWorker;
-    if (!sw?.controller) return;
-    const neu = () => setNeueVersion(true);
+    if (!sw) return;
+    // Beim allerersten Besuch übernimmt der Service Worker die Seite einmal (clients.claim) – das ist keine neue Version.
+    // Früher endete der Effekt dann ganz, und bis zum nächsten Öffnen kam kein Hinweis auf Updates.
+    let ersteUebernahme = !sw.controller;
+    const neu = () => { if (ersteUebernahme) { ersteUebernahme = false; return; } setNeueVersion(true); };
     const pruefen = () => { if (!document.hidden) sw.getRegistration().then((r) => r?.update()).catch(() => {}); };
     sw.addEventListener('controllerchange', neu);
     addEventListener('visibilitychange', pruefen);
@@ -1401,6 +1407,8 @@ function App() {
     try { sperre.current?.release(); } catch { /* egal */ }
     gehe(t.bearbeiten ? 'verlauf' : 'heute');
     if (!fertig || verwerfen) {
+      // 307: Videos dieses Trainings gehören zu keinem gespeicherten Satz – löschen (beim Bearbeiten bleiben die des gespeicherten Stands)
+      videosAufraeumen(alleSaetze(t).map((s) => s.extra?.video), { laufend: false });
       setToast(t.bearbeiten ? { titel: 'Bearbeitung verworfen', text: 'Das gespeicherte Training bleibt unverändert.' }
         : { titel: 'Training verworfen', text: verwerfen ? 'Nichts gespeichert.' : 'Kein Satz abgehakt, nichts gespeichert.' });
       return;
@@ -1472,7 +1480,11 @@ function App() {
     if (!w) return;
     tonFreigeben(); wachBleiben(); vibriere(120);
     const karten = zuTraining(w).karten.map(({ uid: _u, ...k }, i) => ({ ...k, id: i, zu: i > 0, gruppen: k.gruppen.map((g) => ({ ...g,
-      saetze: g.saetze.map(({ id: _i, zeit: _z, ...s }) => ({ ...s, kgPlan: s.kg, erledigt: false, e1rm: null, pr: false, geaendert: false })) })) }));
+      // Vorgabe (geplant) gilt für das neue Training neu; Video, Tempo, Technik-Bewertung und Satznotiz gehörten zum alten Satz, Ausrüstung bleibt
+      saetze: g.saetze.map(({ id: _i, zeit: _z, geplant: _g, notiz: _n, extra, ...s }) => {
+        const { video: _v, tempo: _t, ms: _m, technik: _k, ...ausruestung } = extra ?? {};
+        return { ...s, extra: Object.keys(ausruestung).length ? ausruestung : undefined, kgPlan: s.kg, erledigt: false, e1rm: null, pr: false, geaendert: false };
+      }) })) }));
     setTraining({ id: neueId(), start: Date.now(), datum: heuteLokal(), planDatum: null, titel: `Wie am ${datumKurz(w.datum)}`, runId: null, bereitschaft: null, karten });
     gehe('training');
   };
@@ -1501,9 +1513,17 @@ function App() {
     setToast({ titel: 'Import gespeichert', text: `${neu.length} Trainings – Upload läuft.` });
     abgleich();
   };
+  // 307: Videos vom Gerät löschen, auf die kein gespeichertes (oder das laufende) Training mehr verweist. Früher kopierten
+  // „+ Satz“ und „Wiederholen“ den Verweis – ein Video kann deshalb an mehreren Trainings hängen.
+  const videosAufraeumen = (ids, { ohne = null, laufend = true } = {}) => {
+    const belegt = new Set(trainings.filter((x) => !x.geloescht && x.id !== ohne).flatMap(videosVon));
+    if (laufend && training) for (const x of alleSaetze(training)) if (x.extra?.video) belegt.add(x.extra.video);
+    for (const v of new Set(ids.filter(Boolean))) if (!belegt.has(v)) videoLoeschen(v).catch(() => {});
+  };
   const loeschen = async (id) => {
     const w = trainings.find((x) => x.id === id);
     if (!w) return;
+    videosAufraeumen(videosVon(w), { ohne: id });
     const neu = { ...w, geloescht: true, offen: true };
     await sp.current.schreibe(neu);
     setTrainings((alt) => alt.map((x) => (x.id === id ? neu : x)));
@@ -1646,6 +1666,21 @@ function App() {
   const raus = async () => {
     if (offen) { setToast({ titel: 'Noch nicht abmelden', text: `${offen} Training${offen === 1 ? ' ist' : 's sind'} nicht hochgeladen. Erst mit Netz abgleichen.` }); return; }
     if (training) { setToast({ titel: 'Training läuft', text: 'Erst beenden, dann abmelden.' }); return; }
+    // Auch Einstellungen, Messwerte, Maße, Ausdauer, Block und Übungsanpassungen, die noch nicht hochgeladen sind, gingen beim
+    // Abmelden verloren. Stand aus dem Speicher lesen (der Zustand im Speicher der App merkt das Hochladen nicht immer).
+    // Zweites Tippen innerhalb von 15 s meldet trotzdem ab – sonst sperrt ein Dienst, der nie annimmt, das Abmelden für immer.
+    const s = sp.current;
+    if (s && Date.now() - rausTrotzdem.current > 15_000) {
+      const m = (k) => s.meta(k).catch(() => null), zahl = async (k) => ((await m(k)) ?? []).filter((x) => x?.offen).length;
+      const rest = ((await m('einst'))?.offen ? 1 : 0) + ((await m('block'))?.offen ? 1 : 0) + (await zahl('messwerte')) + (await zahl('masse'))
+        + (await zahl('ausdauer')) + Object.values((await m('anpassungen')) ?? {}).filter((a) => a?.offen).length;
+      if (rest) {
+        rausTrotzdem.current = Date.now(); abgleich();
+        setToast({ titel: 'Noch nicht abmelden', text: deEn('Einige Änderungen sind noch nicht hochgeladen. Mit Netz abgleichen – oder gleich nochmal abmelden, dann gehen sie verloren.',
+          'Some changes are not uploaded yet. Sync with a connection – or sign out again right away and they will be lost.') });
+        return;
+      }
+    }
     try { await abmelden(); } catch { /* lokal trotzdem abmelden */ }
     await sp.current?.leeren();
     speicher.schreib('prh-nutzer', 'null');

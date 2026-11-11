@@ -159,14 +159,18 @@ function setzeUebung(karte, key, koerperKg) {
   ausruestungUebernehmen(karte, { ersetzen: true });
 }
 
+// Trainingszeit im Kopf: tickt als eigener Baustein jede Sekunde – früher zeichnete dafür das ganze Training jede Sekunde neu
+function TrainingsUhr({ start }) {
+  useTakt(true, 1000);
+  return html`<div class="row" style="gap:8px;align-items:baseline"><span class="clock">${uhr((Date.now() - start) / 1000)}</span><span class="muted" style="font-size:12px">Trainingszeit</span></div>`;
+}
+
 export function Training({ t, setT, timer, setTimer, einst, toast, lichter, minimieren, beenden, zuVerlauf, partner = [] }) {
   const [sheet, setSheet] = useState(null);
-  useTakt(true, 1000);
   const aktuell = (() => {
     for (const [ki, k] of t.karten.entries()) if (k.key) for (const [gi, g] of k.gruppen.entries()) for (const [si, x] of g.saetze.entries()) if (!x.erledigt) return [ki, gi, si];
     return null;
   })();
-  const dauer = (Date.now() - t.start) / 1000;
   // Fokus: die Übung mit dem nächsten offenen Satz; die übrigen treten zurück, solange sie aufgeklappt ist
   const fokus = !t.bearbeiten && aktuell && !t.karten[aktuell[0]].zu ? aktuell[0] : null;
   const kg = einst.koerpergewicht;
@@ -216,7 +220,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
         <div style="flex:1;min-width:0"><div class="eyebrow">${t.titel}${einst.cut ? ' · Cut' : ''}</div>
           ${t.bearbeiten ? html`<div class="muted" style="font-size:13px">Gespeichertes Training ändern</div>`
             : timer ? html`<${KopfZeit} timer=${timer} start=${t.start}/>`
-            : html`<div class="row" style="gap:8px;align-items:baseline"><span class="clock">${uhr(dauer)}</span><span class="muted" style="font-size:12px">Trainingszeit</span></div>`}</div>
+            : html`<${TrainingsUhr} start=${t.start}/>`}</div>
         <button class="btn btn-chalk btn-sm" onClick=${() => setSheet({ art: 'ende' })}>${t.bearbeiten ? 'Fertig' : 'Beenden'}</button>
       </div>
       ${timer ? html`<div style="width:100%"><${KopfPause} timer=${timer} setTimer=${setTimer}/></div>` : null}
@@ -465,7 +469,12 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
             const vorlage = g.saetze.at(-1) ?? ks[ki].gruppen.flatMap((x) => x.saetze).at(-1) ?? {};
             const wdh = vorlage.wdh ?? (parseInt(g.wdhText, 10) || 5);
             const kg = vorlage.kg ?? vorschlag(ks[ki].key, wdh, g.rpe?.max ?? 8, einst.koerpergewicht);
-            g.saetze.push({ ...vorlage, kg, kgPlan: vorlage.kgPlan ?? kg, wdh, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined, geaendert: false });
+            // Video, Tempo und Technik-Bewertung gehören nur zum gefilmten Satz; Ausrüstung (Gürtel, Bänder, Ketten) bleibt.
+            // Ein von Hand gewählter Sondertyp (Drop, Failure …) gilt nicht für den neuen Satz – dann die Plan-Rolle (typBasis).
+            const { video, tempo, ms, technik, ...ausruestung } = vorlage.extra ?? {};
+            const typ = vorlage.typBasis !== undefined ? vorlage.typBasis ?? undefined : vorlage.typ;
+            g.saetze.push({ ...vorlage, kg, kgPlan: vorlage.kgPlan ?? kg, wdh, id: undefined, erledigt: false, e1rm: null, pr: false, rpe: null, zeit: null, notiz: undefined, geaendert: false,
+              typ, typBasis: undefined, extra: Object.keys(ausruestung).length ? ausruestung : undefined });
           })}>+</button>
       </span>
       <button class="link" onClick=${() => setSheet({ art: 'unotiz', ki })}>${k.notiz ? 'Notiz ändern' : 'Notiz'}</button>
@@ -668,7 +677,7 @@ function EndeSheet({ t, zu, beenden }) {
       <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" style="flex:1" onClick=${() => setLoeschFrage(false)}>Abbrechen</button>
         <button class="btn btn-gefahr btn-sm" style="flex:1" onClick=${() => beenden({ verwerfen: true })}>${t.bearbeiten ? 'Verwerfen' : 'Löschen'}</button></div></div>` : null}
     <div class="kv">
-      <div><span class="eyebrow">Dauer</span><b>${Math.max(1, Math.round((ende - t.start) / 60000))} min</b></div>
+      <div><span class="eyebrow">Dauer</span><b>${t.ohneZeit ? '–' : `${Math.max(1, Math.round((ende - t.start) / 60000))} min`}</b></div>
       <div><span class="eyebrow">Sätze</span><b>${saetze.length}</b></div>
       <div><span class="eyebrow">Volumen</span><b>${tonnageText(tonnage)}</b></div>
     </div>

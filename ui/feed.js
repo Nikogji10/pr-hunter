@@ -311,9 +311,6 @@ export function Feed({ einst, setEinst = () => {}, anfragen = 0, neuReakt = [], 
       ${DEMO ? html`<span class="proto">Beispieldaten</span>` : html`<button class=${`iconbtn ${stand.laedt ? 'dreht' : ''}`} onClick=${laden} aria-label="Neu laden" disabled=${stand.laedt}>${I.neu}</button>`}</header>
     ${stand.fehlt ? html`<section class="hint immer">${I.warn}<span class="t">Datenbank-Update 15 fehlt</span><span></span>
       <p>Der Feed braucht <b>db/15_feed.sql</b> in Supabase. Bis dahin bleibt er leer.</p></section>` : null}
-    ${false ? html`<section class="hint immer">${I.warn}<span class="t">Du teilst nicht</span><span></span>
-      <p>Wer seine Trainings nicht teilt, sieht auch die der anderen nicht.</p><span></span>
-      <div class="row" style="margin-top:6px"><button class="btn btn-soft btn-sm" onClick=${zuEinstellungen}>Zu den Einstellungen</button></div></section>` : null}
     <div class="reiter" role="tablist">${[['feed', 'Feed'], ['freunde', 'Freunde'], ['challenges', 'Challenges']].map(([k, n]) => html`<button key=${k} role="tab" aria-selected=${String(reiter === k)} onClick=${() => setReiter(k)}>
       ${n}${k === 'freunde' && anfragen ? html`<i class="anfrage-punkt">${anfragen}</i>` : null}</button>`)}</div>
     <div class="unter-inhalt">

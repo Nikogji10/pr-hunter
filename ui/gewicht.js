@@ -15,12 +15,14 @@ export function GewichtKarte({ einst, setEinst, kompakt = false }) {
   const [ziel, setZiel] = useState(einst.gewichtZiel ?? null);
   const uhr = useRef(null);
   const wert = entwurf ?? (basis != null ? runde1(inAnzeige(basis)) : null);
-  useEffect(() => () => clearTimeout(uhr.current), []);
+  const offen = useRef(null);                             // ausstehendes Speichern: beim Verlassen der Seite sofort ausführen, nicht verwerfen
+  useEffect(() => () => { clearTimeout(uhr.current); offen.current?.(); }, []);
   const tippe = (d) => {
     const neu = runde1((wert ?? (einheit() === 'lb' ? 180 : 80)) + d);
     setEntwurf(neu);
     clearTimeout(uhr.current);
-    uhr.current = setTimeout(() => { setEinst({ ...einst, koerpergewicht: inKg(neu) }); setEntwurf(null); }, 1500);
+    offen.current = () => { offen.current = null; setEinst({ ...einst, koerpergewicht: inKg(neu) }); };
+    uhr.current = setTimeout(() => { offen.current?.(); setEntwurf(null); }, 1500);
   };
   const zielAnzeige = einst.gewichtZiel != null ? runde1(inAnzeige(einst.gewichtZiel)) : null;
   const abstand = zielAnzeige != null && wert != null ? runde1(wert - zielAnzeige) : null;

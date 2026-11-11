@@ -1932,7 +1932,7 @@ body { overflow-x: hidden; }
 .zeit-wahl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* 202: Scheibenwechsel sparen – frisch aufgesteckte Scheiben hell */
 .plates .pl.neu { outline: 2px solid color-mix(in srgb, #F2C230 80%, transparent); outline-offset: 1px; }
-.warm-tipp { margin: 4px 0 0; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.warm-tipp { margin: 4px 16px 0; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .warm ol li.warm-ziel { font-weight: 800; }
 /* 206: Jahresrückblick als Story */
 .rueckblick { position: fixed; inset: 0; z-index: 90; color: #fff; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: manipulation;

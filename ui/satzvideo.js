@@ -568,7 +568,8 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     }
     if (rec?.id) videoLoeschen(rec.id).catch(() => {});
     setRec(r); setMass(null); setAnsicht({ z: 1, tx: 0, ty: 0 }); setMitte(null); setRand(null); setSchritt('mitte'); setGroesse('original'); setNeuGefilmt(kamera); setPhase('vorbereiten');
-    speichern?.({ video: id });
+    // Tempo-Zahlen des alten Videos gelten nicht mehr (von Hand eingetragenes Tempo ohne Video-Messung bleibt)
+    speichern?.({ video: id, tempo: null, ms: satz.extra?.tempo ? null : satz.extra?.ms ?? null });
     meldeNeu(r);
   };
   const markiere = (p) => {
@@ -746,14 +747,17 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     v.currentTime = Math.max(0, Math.min(dauer || v.duration || 0, v.currentTime + d / 30));
     setZeit(v.currentTime);
   };
+  // Pfeiltasten: einmal anmelden, die aktuelle Funktion über eine Referenz (statt bei jedem Zeichnen neu anzumelden)
+  const bildSchrittRef = useRef(null);
+  bildSchrittRef.current = bildSchritt;
   useEffect(() => {
     const k = (e) => {
       if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.target?.closest?.('input, textarea, select') || !videoRef.current) return;
-      e.preventDefault(); bildSchritt(e.key === 'ArrowLeft' ? -1 : 1);
+      e.preventDefault(); bildSchrittRef.current?.(e.key === 'ArrowLeft' ? -1 : 1);
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
-  });
+  }, []);
   // 298: Video mit Bahn – am Speicherort ablegen, zusätzlich Teilen anbieten (Teilen braucht ein eigenes Antippen)
   const exportName = () => `${DATEI_NAME(titel)}_Bahn`;
   const exportieren = async (modus = ablageModus()) => {
@@ -799,6 +803,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const titel = `${uebungName}${satz.kg != null ? ` · ${fmt(satz.kg)} × ${satz.wdh}` : ''}${satz.rpe != null ? ` @ ${fmt(satz.rpe)}` : ''}`;
   const [von, bis] = bereich();
   const mitVideo = url && ['vorbereiten', 'markieren', 'analyse', 'ergebnis', 'arbeit', 'export'].includes(phase);
+  // 306: im Ergebnis (Stufe 2) ist die Leiste ausgeblendet – die Bearbeitung ist durch, ein roter dritter Schritt sah offen aus
   const stufe = ['vorbereiten', 'arbeit'].includes(phase) ? 0 : ['markieren', 'analyse'].includes(phase) ? 1 : phase === 'ergebnis' || phase === 'export' ? 2 : -1;
   const anpassen = ['kreis', 'rand'].includes(geste.current?.art);     // Kreis verschieben/Größe: ohne Lupe, der Kreis selbst ist zu sehen
   const GRUND = { kurz: deEn('die Bahn ist zu kurz', 'the path is too short'), unsicher: deEn('die Scheibe war kaum zu erkennen', 'the plate was hard to recognise'),
@@ -807,7 +812,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   return html`<div class="sv">
     ${eingebettet ? null : html`<div class="row between" style="align-items:flex-start"><div><div class="eyebrow">${deEn('Satz-Video', 'Set video')}</div><h2 class="h2 sv-titel">${titel}</h2></div>
       ${zu ? html`<button class="iconbtn" onClick=${zu} aria-label=${deEn('Schließen', 'Close')}>${I.zu}</button>` : null}</div>`}
-    ${stufe >= 0 && kannSpeichern ? html`<ol class="sv-stufen">${[deEn('Video', 'Video'), deEn('Tracking', 'Tracking'), deEn('Ergebnis', 'Result')].map((s, i) => html`<li key=${i} class=${i < stufe ? 'fertig' : i === stufe ? 'jetzt' : ''}><span>${i < stufe ? '✓' : i + 1}</span>${s}</li>`)}</ol>` : null}
+    ${stufe >= 0 && stufe < 2 && kannSpeichern ? html`<ol class="sv-stufen">${[deEn('Video', 'Video'), deEn('Tracking', 'Tracking'), deEn('Ergebnis', 'Result')].map((s, i) => html`<li key=${i} class=${i < stufe ? 'fertig' : i === stufe ? 'jetzt' : ''}><span>${i < stufe ? '✓' : i + 1}</span>${s}</li>`)}</ol>` : null}
     <input ref=${dateiKamera} type="file" accept="video/*" capture="environment" hidden onChange=${(e) => { datei(e.currentTarget.files?.[0], true); e.currentTarget.value = ''; }}/>
     <input ref=${dateiGalerie} type="file" accept="video/*" hidden onChange=${(e) => { datei(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }}/>
     ${phase === 'laden' ? html`<div class="sv-leer"><span class="sv-lader"></span></div>` : null}

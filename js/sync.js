@@ -41,7 +41,7 @@ export function ausTraining(t, { id = t.id ?? neueId(), ende = new Date().toISOS
     if (saetze.length) uebungen.push(ohneLeer({ id: k.uid ?? neueId(), key: k.key, notiz: k.notiz ?? null, supersatz: k.supersatz, saetze }));
   }
   return {
-    id, clientId: t.clientId ?? id, datum: t.datum, start: t.start ? new Date(t.start).toISOString() : null, ende,
+    id, clientId: t.clientId ?? id, datum: t.datum, start: t.start && !t.ohneZeit ? new Date(t.start).toISOString() : null, ende: t.ohneZeit ? null : ende,
     sessionRpe, koerpergewicht, notiz, quelle: t.quelle ?? 'app', runId: t.runId ?? null, woche: t.woche ?? null, tagOffset: t.tagOffset ?? null,
     bereitschaft: t.bereitschaft ?? null, uebungen, offen: true, geloescht: false,
   };
@@ -55,6 +55,8 @@ export function zuTraining(w) {
   return {
     id: w.id, clientId: w.clientId ?? w.id, datum: w.datum, planDatum: null, bearbeiten: true,
     start: w.start ? Date.parse(w.start) : Date.now(), ende: w.ende ?? null, sessionRpe: w.sessionRpe ?? null, notiz: w.notiz ?? null,
+    // Import ohne Uhrzeit (Jefit, Datei): beim Speichern ohne Start/Ende lassen – sonst wird daraus „heute, 1 min“
+    ...(w.start ? {} : { ohneZeit: true }),
     koerpergewicht: w.koerpergewicht ?? null, quelle: w.quelle ?? 'app', runId: w.runId ?? null, woche: w.woche ?? null,
     tagOffset: w.tagOffset ?? null, bereitschaft: w.bereitschaft ?? null,
     karten: (w.uebungen ?? []).map((u, i) => {

@@ -13,6 +13,18 @@ const ausTagen = () => {
   MERK = { tt: trainingsTage, w };
   return w;
 };
+// 307: Video-Ids aller gespeicherten Sätze. Videos verworfener Trainings, ersetzter oder entfernter Sätze blieben sonst als
+// verwaiste Einträge in der Liste „Videos auf diesem Gerät“ stehen (ein Video erschien mehrfach).
+let MERK_IDS = null;
+const verknuepfteVideos = () => {
+  if (MERK_IDS?.tt === trainingsTage) return MERK_IDS.ids;
+  const ids = new Set();
+  for (const d of Object.keys(trainingsTage)) for (const u of trainingAm(d)?.uebungen ?? []) {
+    for (const s of [...(u.aufwaermen ?? []), ...(u.saetze ?? [])]) if (s.extra?.video) ids.add(s.extra.video);
+  }
+  MERK_IDS = { tt: trainingsTage, ids };
+  return ids;
+};
 const ausVideo = (v) => {
   const w = v.analyse?.wdh;
   if (!w?.length || v.ungeprueft || !(v.kg > 0)) return null;
@@ -91,7 +103,8 @@ export function TempoStatistik({ von = null }) {
   const bei8 = rt.gerade && rt.gerade.b < 0 ? (8 - rt.gerade.a) / rt.gerade.b : null;
   const E = einheit();
   const punktText = (s) => `${datumKurz(s.datum)} · ${fmt(inAnzeige(s.kg))} ${E} × ${s.wdh ?? '–'}${s.rpe != null ? ` @ ${fmt(s.rpe)}` : ''} · ${fmt2(s.beste)} m/s`;
-  const meineVideos = videos.filter((v) => kanon(v.key) === key).sort((a, b) => (b.erstellt ?? '').localeCompare(a.erstellt ?? '')).slice(0, 12);
+  const verknuepft = verknuepfteVideos();
+  const meineVideos = videos.filter((v) => kanon(v.key) === key && (v.werkzeug || verknuepft.has(v.id))).sort((a, b) => (b.erstellt ?? '').localeCompare(a.erstellt ?? '')).slice(0, 12);
   // 288: Verlauf je Trainingstag, 289: Rekorde (Satz schneller als alles davor beim gleichen Gewicht), 290: Tagesform je Tag
   const tage = tempoTage(saetze);
   const rekordSaetze = new Set(saetze.filter((s) => istTempoRekord(s.beste, s.kg, saetze.filter((x) => x.datum < s.datum))?.rekord));

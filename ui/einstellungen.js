@@ -47,8 +47,6 @@ export const SCHRIFT_WAHL = [['archivo', 'Archivo', 'Kräftig, Standard', '"Arch
 export function Einstellungen({ einst, setEinst, zurueck, konto: k, sync, offen, abgleich, abmelden: raus, exportieren, neuAnmelden, SyncPunkt, kontoLoeschen, anleitung, loeschungAbbrechen = null, emailAendern = null, zuImport = null, zuGewichtImport = null, hilfe = {} }) {
   const [mail, setMail] = useState(null);                   // null = zu, sonst { text, laeuft, fehler, gesendet }
   const [loeschen, setLoeschen] = useState(null);         // null | { text, laeuft, fehler }
-  const [kgText, setKgText] = useState(einst.koerpergewicht ? String(inAnzeige(einst.koerpergewicht)).replace('.', ',') : '');
-  const [zielText, setZielText] = useState(einst.gewichtZiel ? String(inAnzeige(einst.gewichtZiel)).replace('.', ',') : '');
   const [stangeText, setStangeText] = useState(String(inAnzeige(einst.stange)).replace('.', ','));
   const [name, setName] = useState(einst.name ?? '');
   const [vorname, setVorname] = useState(einst.vorname ?? '');
