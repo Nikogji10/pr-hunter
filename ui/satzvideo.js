@@ -458,7 +458,7 @@ const DATEI_NAME = (titel) => `PRHunter_${new Date().toISOString().slice(0, 10)}
  * Kern: Aufnahme, Markieren (Lupe), Analyse, Ergebnis, Bearbeiten (Kürzen, Komprimieren, Speichern), Löschen.
  * satz { kg, wdh, rpe, extra }; meta: zusätzliche Felder fürs Video (Werkzeug: Übung/Gewicht ohne Training).
  */
-export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speichern = null, meta = null, eingebettet = false, beiNeu = null, geschwister = null, datum = HEUTE }) {
+export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speichern = null, meta = null, eingebettet = false, beiNeu = null, geschwister = null, datum = HEUTE, loeschbar = false }) {
   const [phase, setPhase] = useState('laden');            // laden | waehlen | markieren | analyse | ergebnis | fremd | arbeit
   const [rec, setRec] = useState(null);
   const [url, setUrl] = useState(null);
@@ -478,7 +478,7 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
   const [dauer, setDauer] = useState(0);
   const [spielt, setSpielt] = useState(false);
   const [langsam, setLangsam] = useState(false);
-  const [loeschen, setLoeschen] = useState(false);
+  const [loeschen, setLoeschen] = useState(false);       // false | 'wahl' (was löschen?) | 'video' | 'alles' | 'zahlen' (Rückfrage)
   const [neuGefilmt, setNeuGefilmt] = useState(false);  // 304: mit der Kamera aufgenommen → beim Bestätigen auch als Datei ablegen
   const [groesse, setGroesse] = useState('original');
   const [unplausibel, setUnplausibel] = useState(null);   // Gründe, wenn die Analyse nicht nach Hantel aussieht
@@ -685,6 +685,14 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     setLoeschen(false); meldeNeu(ohneDatei);
     if (ohneDatei) { setRec(ohneDatei); setUrl(null); setPhase('fremd'); return; }
     if (zu) zu(); else { setRec(null); setUrl(null); setPhase('waehlen'); }
+  };
+  // Lösch-Dialog steht unter dem Video: beim Öffnen und beim Wechsel zur Rückfrage ins Bild scrollen
+  const frageRef = useRef(null);
+  useEffect(() => { if (loeschen) frageRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [loeschen]);
+  const zahlenLoeschen = async () => {
+    setLoeschen(false);
+    if (meta && rec?.id) { await videoLoeschen(rec.id).catch(() => {}); meldeNeu(null); setRec(null); setPhase('waehlen'); return; }
+    zahlenWeg(); speichern({ video: null }); zu?.();
   };
   const setzeSchnitt = (neu) => { const r = { ...rec, schnitt: neu }; setRec(r); videoAblegen(r).catch(() => {}); };
   // 303: ein Knopf – neu speichern, sofort am gewählten Ort ablegen, dann das bearbeitete Video zum Markieren zeigen
@@ -963,16 +971,26 @@ export function VideoKern({ satz, uebungKey, uebungName, lift, zu = null, speich
     ${kannSpeichern && (phase === 'ergebnis' || (['markieren', 'vorbereiten'].includes(phase) && rec)) ? html`<div class="sv-knoepfe">
       ${phase === 'ergebnis' ? html`<button class="btn btn-soft" onClick=${zumTracking}>${deEn('Neu markieren', 'Mark again')}</button>` : null}
       <button class="btn btn-soft" onClick=${() => dateiKamera.current?.click()}>${deEn('Neu filmen', 'Record again')}</button>
-      <button class="btn btn-gefahr" onClick=${() => setLoeschen(true)} aria-label=${deEn('Löschen', 'Delete')}>${I.papierkorb}</button></div>
+      <button class="btn btn-gefahr" onClick=${() => setLoeschen('wahl')} aria-label=${deEn('Löschen', 'Delete')}>${I.papierkorb}</button></div>
       ${rec?.blob ? html`<span class="muted sv-fuss">${deEn(`Nur auf diesem Gerät · ${mb(rec.blob.size)}`, `Only on this device · ${mb(rec.blob.size)}`)}</span>` : null}` : null}
-    ${phase === 'fremd' && (speichern || (meta && rec)) ? html`<button class="btn btn-gefahr btn-block" onClick=${async () => {
-      if (meta && rec?.id) { await videoLoeschen(rec.id).catch(() => {}); meldeNeu(null); setRec(null); setPhase('waehlen'); return; }
-      zahlenWeg(); speichern({ video: null }); zu?.(); }}>${I.papierkorb} ${deEn('Zahlen löschen', 'Delete numbers')}</button>` : null}
-    ${!kannSpeichern && phase !== 'laden' ? html`<span class="muted sv-fuss">${deEn('Nur ansehen – ändern und löschen über „Bearbeiten“ beim Training.', 'View only – change or delete via “Edit” on the workout.')}</span>` : null}
-    ${loeschen ? html`<div class="sv-frage" role="alertdialog" aria-label=${deEn('Löschen', 'Delete')}>
+    ${phase === 'fremd' && (speichern || (meta && rec)) ? html`<button class="btn btn-gefahr btn-block" onClick=${() => setLoeschen('zahlen')}>${I.papierkorb} ${deEn('Zahlen löschen', 'Delete numbers')}</button>` : null}
+    ${loeschbar && !kannSpeichern && rec?.blob && ['ergebnis', 'markieren'].includes(phase) ? html`<button class="btn btn-gefahr btn-block" onClick=${() => setLoeschen('video')}>${I.papierkorb} ${deEn('Video löschen', 'Delete video')}</button>` : null}
+    ${!kannSpeichern && phase !== 'laden' ? html`<span class="muted sv-fuss">${loeschbar ? deEn('Tempo-Werte ändern über „Bearbeiten“ beim Training.', 'Change velocity values via “Edit” on the workout.')
+      : deEn('Nur ansehen – ändern und löschen über „Bearbeiten“ beim Training.', 'View only – change or delete via “Edit” on the workout.')}</span>` : null}
+    ${loeschen === 'wahl' ? html`<div ref=${frageRef} class="sv-frage" role="alertdialog" aria-label=${deEn('Löschen', 'Delete')}>
       <b>${deEn('Was löschen?', 'Delete what?')}</b>
-      <button class="btn btn-gefahr btn-block" onClick=${() => weg(false)}>${deEn('Nur das Video', 'Only the video')}<small>${meta ? deEn('Tempo-Werte bleiben in Liste und Statistik', 'Velocity values stay in the list and stats') : deEn('Tempo-Werte im Satz bleiben', 'Velocity values stay in the set')}</small></button>
-      ${speichern || meta ? html`<button class="btn btn-gefahr btn-block" onClick=${() => weg(true)}>${deEn('Video und Zahlen', 'Video and numbers')}<small>${meta ? deEn('auch aus Liste und Statistik', 'also from the list and stats') : deEn('auch Tempo und m/s im Satz', 'also velocity and m/s in the set')}</small></button>` : null}
+      <button class="btn btn-gefahr btn-block" onClick=${() => setLoeschen('video')}>${deEn('Nur das Video', 'Only the video')}<small>${meta ? deEn('Tempo-Werte bleiben in Liste und Statistik', 'Velocity values stay in the list and stats') : deEn('Tempo-Werte im Satz bleiben', 'Velocity values stay in the set')}</small></button>
+      ${speichern || meta ? html`<button class="btn btn-gefahr btn-block" onClick=${() => setLoeschen('alles')}>${deEn('Video und Zahlen', 'Video and numbers')}<small>${meta ? deEn('auch aus Liste und Statistik', 'also from the list and stats') : deEn('auch Tempo und m/s im Satz', 'also velocity and m/s in the set')}</small></button>` : null}
+      <button class="btn btn-soft btn-block" onClick=${() => setLoeschen(false)}>${deEn('Abbrechen', 'Cancel')}</button></div>` : null}
+    ${['video', 'alles', 'zahlen'].includes(loeschen) ? html`<div ref=${frageRef} class="sv-frage" role="alertdialog" aria-label=${deEn('Löschen bestätigen', 'Confirm delete')}>
+      <b>${deEn('Wirklich löschen?', 'Really delete?')}</b>
+      <p class="muted" style="margin:0;font-size:13px">${{
+        video: meta ? deEn('Das Video wird endgültig von diesem Gerät gelöscht. Die Tempo-Werte bleiben in Liste und Statistik.', 'The video is permanently deleted from this device. The velocity values stay in the list and stats.')
+          : deEn('Das Video wird endgültig von diesem Gerät gelöscht. Die Tempo-Werte im Satz bleiben.', 'The video is permanently deleted from this device. The velocity values in the set stay.'),
+        alles: deEn('Video und Tempo-Werte werden endgültig gelöscht.', 'The video and its velocity values are permanently deleted.'),
+        zahlen: deEn('Die Tempo-Werte werden endgültig gelöscht.', 'The velocity values are permanently deleted.'),
+      }[loeschen]}</p>
+      <button class="btn btn-gefahr btn-block" onClick=${() => (loeschen === 'zahlen' ? zahlenLoeschen() : weg(loeschen === 'alles'))}>${deEn('Ja, löschen', 'Yes, delete')}</button>
       <button class="btn btn-soft btn-block" onClick=${() => setLoeschen(false)}>${deEn('Abbrechen', 'Cancel')}</button></div>` : null}
   </div>`;
 }

@@ -161,5 +161,6 @@ export function TempoStatistik({ von = null }) {
         <span><b>${fmt(inAnzeige(v.kg ?? 0))} × ${v.wdh ?? '–'}${v.rpe != null ? ` @ ${fmt(v.rpe)}` : ''}</b><small>${datumKurz((v.datum ?? v.erstellt ?? '').slice(0, 10) || '2000-01-01')}</small></span>
         <b class="hw-ms">${v.analyse?.wdh?.length && !v.ungeprueft ? `${fmt2(Math.max(...v.analyse.wdh.map((w) => w.mcv)))} m/s` : '–'}</b>${I.weiter}</button>`)}</div></section>` : null}
     ${offen ? html`<${SatzVideo} satz=${{ kg: offen.kg, wdh: offen.wdh, rpe: offen.rpe, extra: { video: offen.id } }} uebungKey=${offen.key} uebungName=${nameVon(offen.key)} lift=${offen.lift}
+      meta=${offen.werkzeug ? { werkzeug: true, datum: offen.datum, key: offen.key, lift: offen.lift, kg: offen.kg, wdh: offen.wdh, rpe: offen.rpe ?? null } : null} loeschbar=${true}
       zu=${() => setOffen(null)}/>` : null}`;
 }

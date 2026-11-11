@@ -106,7 +106,7 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
     : plan ? html`<${TagPlan} tag=${plan}/>
       ${d >= HEUTE && !erledigt && !plan.uebersprungen && startenAm ? html`<button class="btn btn-go btn-block" onClick=${() => { zu(); startenAm(d); }}>${d === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>` : null}`
     : html`<p class="muted" style="margin:0">An diesem Tag war kein Training.</p>`}
-    ${video ? html`<${SatzVideo} satz=${video.s} uebungKey=${video.u.key} uebungName=${nameVon(video.u.key)} lift=${video.u.lift} zu=${() => setVideo(null)}
+    ${video ? html`<${SatzVideo} satz=${video.s} uebungKey=${video.u.key} uebungName=${nameVon(video.u.key)} lift=${video.u.lift} zu=${() => setVideo(null)} loeschbar=${true}
       geschwister=${video.geschwister} datum=${d}/>` : null}
   <//>`;
 }
