@@ -1,6 +1,6 @@
 // PR Hunter · Gemeinsame Bausteine (Katalog, Anpassungen, Einheit, Formate, Symbole, Sheet, Scheiben, Ton).
 import { html, useState, useEffect, useRef, useLayoutEffect, render } from '../vendor/htm-preact.js';
-import { pauseAnteil, pausePlus, pauseMinus } from '../js/pausenbalken.js';
+import { pauseAnteil, pausePlus, pauseMinus, pauseGesamt } from '../js/pausenbalken.js';
 export { pauseAnteil, pausePlus, pauseMinus };
 /** Farbe der Pause nach Restzeit (03.11.), fließend: grün bis 1:00, dann über Gelb (0:30) nach Rot (0:00); vorbei = grün („Los!“). */
 export const pausenFarbe = (rest) => {
@@ -142,6 +142,46 @@ export const speicher = {
   lies(k) { try { return localStorage.getItem(k); } catch { return null; } },
   schreib(k, v) { try { localStorage.setItem(k, v); } catch { /* ohne Speicher geht es auch */ } },
 };
+
+// #################################################################
+// 309: Körpergewicht + Zusatz (Klimmzug, Dips mit Gewicht) wahlweise als Gesamtlast oder nur Zusatzgewicht.
+// Ein Schalter für alle Ansichten (Übungsseite, Verlauf, Training), je Gerät gemerkt. Gerechnet wird immer mit der
+// Gesamtlast; „Zusatz“ zieht beim Anzeigen das Körpergewicht des jeweiligen Tages ab.
+// #################################################################
+export const mitZusatzLast = (key) => uebung(key)?.lt === 'bodyweight_plus';
+let KG_MODUS = speicher.lies('prh-kg-modus') === 'zusatz' ? 'zusatz' : 'gesamt';
+export const kgModus = () => KG_MODUS;
+export function setzeKgModus(m) {
+  KG_MODUS = m === 'zusatz' ? 'zusatz' : 'gesamt';
+  speicher.schreib('prh-kg-modus', KG_MODUS);
+  dispatchEvent(new Event('prh-kg-modus'));
+}
+/** Zeichnet neu, sobald irgendwo umgeschaltet wird (alle offenen Ansichten bleiben gleich). */
+export function useKgModus() {
+  const [m, setM] = useState(KG_MODUS);
+  useEffect(() => { const f = () => setM(KG_MODUS); addEventListener('prh-kg-modus', f); return () => removeEventListener('prh-kg-modus', f); }, []);
+  return m;
+}
+/** Körpergewicht hinter einem ausgewerteten Satz (last = Körpergewicht + Zusatz), sonst null. */
+export const koerperVon = (s) => (s && s.last != null && s.kg != null ? s.last - s.kg : null);
+/** Gesamtwert (Last oder e1RM) in der gewählten Sicht: bei „Zusatz“ ohne das Körpergewicht. */
+export const kgSicht = (key, gesamt, koerper) => (gesamt == null || KG_MODUS !== 'zusatz' || !mitZusatzLast(key) || !(koerper > 0)
+  ? gesamt : Math.round((gesamt - koerper) * 10) / 10);
+/** Gewicht eines ausgewerteten Satzes als Text: Gesamt „120 kg (+35)“, Zusatz „+35 kg“, ohne Zusatz „Körpergewicht“. */
+export function kgSatzText(key, s) {
+  const zusatz = s.kg ?? 0, gesamt = s.last;
+  if (!mitZusatzLast(key) || gesamt == null || KG_MODUS === 'zusatz') {
+    return zusatz > 0 ? `${mitZusatzLast(key) ? '+' : ''}${gw(zusatz)} ${ANZEIGE.einheit}` : mitZusatzLast(key) || koerperUebung(key) ? deEn('Körpergewicht', 'Bodyweight') : s.kg != null ? `${gw(zusatz)} ${ANZEIGE.einheit}` : '–';
+  }
+  return `${gw(gesamt)} ${ANZEIGE.einheit}${zusatz > 0 ? ` (+${gw(zusatz)})` : ` (${deEn('KG', 'BW')})`}`;
+}
+/** Umschalter Gesamt | Zusatz – nur bei Übungen mit Körpergewicht + Zusatz zeigen. */
+export function KgModusSchalter({ klein = false }) {
+  const m = useKgModus();
+  return html`<div class=${`seg kg-modus ${klein ? 'klein' : ''}`} role="group" aria-label=${deEn('Gewicht anzeigen als', 'Show weight as')}>
+    <button aria-pressed=${String(m === 'gesamt')} onClick=${(e) => { e.stopPropagation(); setzeKgModus('gesamt'); }}>${deEn('Gesamt', 'Total')}</button>
+    <button aria-pressed=${String(m === 'zusatz')} onClick=${(e) => { e.stopPropagation(); setzeKgModus('zusatz'); }}>${deEn('Zusatz', 'Added')}</button></div>`;
+}
 
 // #################################################################
 // Ton am Pausenende: in der App erzeugt (Web Audio, keine Tondateien). Wählbar in Einstellungen → Training.
@@ -307,6 +347,12 @@ export const I = {
   feed: svg(html`<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c2.4.2 4 1.7 4.5 4.5"/>`),
 };
 
+/** 312: ganze Pause als Text – „von 3:00“, nach −30/+30 „von 4:00 · +1:00“. */
+function pauseGesamtText(timer) {
+  const { gesamt, plus } = pauseGesamt(timer);
+  const d = plus ? ` · ${plus > 0 ? '+' : '−'}${mmss(Math.abs(plus))}` : '';
+  return deEn(`von ${mmss(gesamt)}${d}`, `of ${mmss(gesamt)}${d}`);
+}
 /** Pausen-Timer: rechnet mit der Endzeit (stimmt auch nach gesperrtem Bildschirm), Ton und Vibration am Ende. */
 /** Kopf im Training, laufende Pause: Countdown statt Trainingszeit (die steht klein daneben). */
 export function KopfZeit({ timer, start }) {
@@ -314,7 +360,7 @@ export function KopfZeit({ timer, start }) {
   const rest = (timer.ende - Date.now()) / 1000;
   // Pause vorbei: „Los!“ leuchtet grün, daneben wie lange schon drüber
   return html`<div class=${`kopf-zeit ${rest > 0 ? '' : 'los'}`} style=${`--pausenfarbe:${pausenFarbe(rest)}`}><span class="kopf-punkt" aria-hidden="true"></span>
-    <span class="clock kopf-countdown tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</span>
+    <span class="clock kopf-countdown tab-num">${rest > 0 ? mmss(rest) : 'Los!'}</span>${rest > 0 ? html`<small class=${`pause-gesamt kopf tab-num ${pauseGesamt(timer).plus ? 'geaendert' : ''}`}>${pauseGesamtText(timer)}</small>` : null}
     <span class="kopf-zeit-neben">${rest > 0 ? (timer.grund ?? 'Pause') : html`Pause vorbei <span class="los-ueber tab-num">${`+${mmss(-rest)}`}</span>`}<small class="tab-num kopf-trainingszeit">${`⏱ ${uhr((Date.now() - start) / 1000)}`}</small></span></div>`;
 }
 /** Kopf im Training, laufende Pause: nächster Satz, −30/+30 und dünner grüner Balken – ersetzt die rote Timer-Leiste. */
@@ -338,7 +384,12 @@ function PausenDock({ timer, setTimer, oeffnen, zusatz, fortschritt = null }) {
   return html`<div class=${`pdock ${rest <= 0 ? 'over' : ''}`} style=${`--pausenfarbe:${pausenFarbe(rest)}`} role="timer" aria-live="off">
     <div class="pdock-haupt" onClick=${oeffnen} role=${oeffnen ? 'button' : null} tabIndex=${oeffnen ? 0 : null} aria-label=${oeffnen ? 'Zum laufenden Training' : null}>
       <div class="pdock-zeit" title=${timer.grund ?? 'Pause'}><span class="pdock-punkt" aria-hidden="true"></span>
-        ${rest > 0 ? html`<b class="tab-num">${mmss(rest)}</b>` : html`<span class="los-block"><b>Los!</b><small class="los-ueber tab-num">${`+${mmss(-rest)}`}</small></span>`}</div>
+        ${rest > 0 ? (() => {   // 312: ganze Pause untereinander („von 4:30“, „+0:30“) – Block bleibt so schmal wie der Countdown
+          const { gesamt, plus } = pauseGesamt(timer);
+          return html`<span class="zeit-block"><b class="tab-num">${mmss(rest)}</b><small class="pause-gesamt tab-num">${deEn(`von ${mmss(gesamt)}`, `of ${mmss(gesamt)}`)}</small>
+            ${plus ? html`<small class="pause-gesamt geaendert tab-num">${`${plus > 0 ? '+' : '−'}${mmss(Math.abs(plus))}`}</small>` : null}</span>`;
+        })()
+          : html`<span class="los-block"><b>Los!</b><small class="los-ueber tab-num">${`+${mmss(-rest)}`}</small></span>`}</div>
       <div class="pdock-info">
         <b class="pdock-uebung">${timer.naechsterUebung ?? timer.naechster}</b>
         <span class="pdock-meta">${timer.naechsterUebung ? html`<span class="pdock-satz">${timer.naechster}</span>` : null}<span>${z}</span></span>
@@ -370,7 +421,7 @@ export function PausenTimer({ timer, setTimer, kopf = false, oeffnen = null, zus
         <div class="s">${`➜ ${timer.naechster}${timer.naechsterUebung ? ` · ${timer.naechsterUebung}` : ''}`}</div>
         <div class="s timer-zusatz">${zusatz()}</div></div>`
       : html`<div style="min-width:0"><div class="t">${rest > 0 ? mmss(rest) : 'Los!'}</div>
-      <div class="s">${rest <= 0 ? 'Pause vorbei' : timer.start0 && timer.dauer !== timer.start0 ? `Pause ${mmss(timer.dauer)} gesamt · nächster: ${timer.naechster}`
+      <div class="s">${rest <= 0 ? 'Pause vorbei' : pauseGesamt(timer).plus ? `Pause ${pauseGesamtText(timer)} · nächster: ${timer.naechster}`
         : `Pause${timer.grund ? ` (${timer.grund})` : ''} · nächster: ${timer.naechster}`}</div></div>`}</div>
     <button onClick=${() => setTimer(pauseMinus(timer))} aria-label="30 Sekunden weniger">−30</button>
     <button onClick=${() => setTimer(pausePlus(timer))} aria-label="30 Sekunden mehr">+30</button>

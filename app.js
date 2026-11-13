@@ -63,6 +63,7 @@ import { anpassungFuer, REGIONEN } from './js/beschwerden.js';
 import { chipsAus } from './js/notizchips.js';
 import { rueckblick as rueckblickAus } from './js/rueckblick.js';
 
+const uhrzeit = (ms) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };   // 310
 const DEMO = new URLSearchParams(location.search).has('demo') && ['127.0.0.1', 'localhost'].includes(location.hostname);
 const VORLAGEN = ['pr_hybrid_candito_pana', 'candito_int_adv_bench', 'candito_6_week'];
 const { STANDARD_EINSTELLUNGEN } = konto;
@@ -307,7 +308,7 @@ function Heute({ ausdauer = [], ausdauerPlan = null, ausdauerSpeichern = null, a
   const maxe = einst.trainingsart !== 'einfach' && einst.sbdHeute !== false && (!block || (prog?.kategorie ?? 'powerlifting') === 'powerlifting') ? html`<${MaxListe} werte=${block?.werte} zuUebung=${zuUebung}/>` : null;
   const letztes = Object.keys(trainingsTage).filter((d) => d < HEUTE).sort().at(-1);
   const ohnePlan = html`<button class="btn btn-soft btn-block" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
-    : training && !training.planDatum ? 'Freies Training fortsetzen' : 'Ohne Plan trainieren'}</button>`;
+    : training && !training.planDatum ? 'Freies Training fortsetzen' : training ? 'Training fortsetzen' : 'Ohne Plan trainieren'}</button>`;
   if (!block) {
     const t = letztes ? trainingsTage[letztes] : null;
     return html`<div class="screen">${kopf}${gewicht}
@@ -370,13 +371,14 @@ function Heute({ ausdauer = [], ausdauerPlan = null, ausdauerSpeichern = null, a
           <div class="kg">${k.slot ? html`<span class="muted" style="font-size:14px;font-stretch:100%;font-weight:600">wählen</span>` : html`${gw(g0.saetze[0].kg)}<small>${einheit()}</small>`}</div>
         </button>`;
       })}</div>
-      ${training?.planDatum === tag.datum ? html`<button class="btn btn-go btn-block modern" onClick=${fortsetzen}>Training fortsetzen</button>`
+      ${/* 310: läuft schon ein Training (auch frei, wiederholt, mit Freund oder anderer Plantag), heißt der Hauptknopf „fortsetzen“ */ ''}
+      ${training ? html`<button class="btn btn-go btn-block modern" onClick=${fortsetzen}>${training.bearbeiten ? 'Bearbeitung fortsetzen' : 'Training fortsetzen'}</button>
+        ${training.planDatum !== tag.datum ? html`<span class="muted laeuft-hinweis">${deEn(`Läuft seit ${uhrzeit(training.start)} Uhr`, `Running since ${uhrzeit(training.start)}`)}</span>` : null}`
         : html`<button class="btn btn-go btn-block modern" onClick=${() => starten(tag)}>${tag.datum === HEUTE ? 'Training starten' : 'Vorziehen und starten'}</button>`}
-      <div class="heute-knoepfe modern">${tagOption && training?.planDatum !== tag.datum ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
+      ${!training ? html`<div class="heute-knoepfe modern">${tagOption ? html`<button class="btn btn-soft btn-sm" onClick=${() => setSheet('verschieben')}>Verschieben</button>
         <button class="btn btn-soft btn-sm" onClick=${() => setSheet('ueberspringen')}>Überspringen</button>` : null}
-        <button class="btn btn-soft btn-sm" onClick=${training ? fortsetzen : freiStarten}>${training?.bearbeiten ? 'Bearbeitung fortsetzen'
-          : training && !training.planDatum ? 'Frei fortsetzen' : 'Ohne Plan'}</button></div>
-      ${tagOption && training?.planDatum !== tag.datum ? html`<button class="tag-wechsel" onClick=${() => setSheet('wechseln')}>${I.tausch}<span>Anderen Trainingstag wählen</span><span class="ml-pfeil">›</span></button>` : null}
+        <button class="btn btn-soft btn-sm" onClick=${freiStarten}>Ohne Plan</button></div>` : null}
+      ${tagOption && !training ? html`<button class="tag-wechsel" onClick=${() => setSheet('wechseln')}>${I.tausch}<span>Anderen Trainingstag wählen</span><span class="ml-pfeil">›</span></button>` : null}
       ${beschwerdeMelden ? html`<button class="tag-wechsel" onClick=${beschwerdeMelden}><span aria-hidden="true">🩹</span><span>${deEn('Beschwerden? Plan anpassen', 'Discomfort? Adjust plan')}</span><span class="ml-pfeil">›</span></button>` : null}
       ${tag.verschoben ? html`<span class="muted" style="font-size:13px">Verschoben – ursprünglich am ${datumKurz(plusTage(block.start, tag.offset))}.</span>` : null}
     </section>` : html`<section class="card pad"><h2 class="h2">Block geschafft</h2><p class="muted" style="margin:6px 0 0">Alle Einheiten erledigt. Zeit für Test oder neuen Block.</p></section>`}

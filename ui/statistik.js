@@ -28,6 +28,7 @@ import { WettkaempfeKarte } from './wettkaempfe.js';
 import { Insights } from './insights.js';
 import { FormKarte, formDaten } from './formkurve.js';
 import { TempoStatistik } from './tempostatistik.js';
+import { BereitschaftVerlauf } from './bereitschaftverlauf.js';
 
 const LIFTS = ['squat', 'bench', 'dead'];
 const BEREICHE = [['4 Wo.', 4], ['3 Mon.', 13], ['6 Mon.', 26], ['1 Jahr', 52], ['Alles', 0]];   // kurz: alle Filter in eine Reihe
@@ -321,6 +322,8 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       <div class="kachel"><span class="l">Pro Woche</span><b>${fmt(imBereich.length / n, 1)}</b><span class="muted" style="font-size:12px">im Schnitt</span></div>
       <div class="kachel"><span class="l">Beste Serie</span><b>${beste}</b><span class="muted" style="font-size:12px">Wochen mit 3+</span></div>
     </section>
+    <${BereitschaftVerlauf} trainings=${trainings} von=${x[0] ?? HEUTE} aus=${einst.bereitschaft === false}/>
+    <${SchlafKarte} trainings=${trainings}/>
     <${StapelSaeulen} titel="Volumen" unter=${gruppe > 1 ? 'Bewegte kg je 4 Wochen' : 'Bewegte kg je Woche'} daten=${saeulen} serien=${volSerien}/>
     ${mitDauer.length ? html`<section class="kacheln">
       <div class="kachel"><span class="l">Trainingszeit</span><b>${fmt(zeitGesamt / 60, 1)}</b><span class="muted" style="font-size:12px">Stunden im Zeitraum</span></div>
@@ -331,7 +334,6 @@ export function Statistik({ einst, setEinst = null, blockStart = null, trainings
       serien=${[{ id: 'min', name: 'Minuten', farbe: 'var(--acc)' }]} einheit="min"/>` : null}
     <${Heatmap} titel="Trainingskalender" unter="Jeder Tag eine Kachel, kräftiger = mehr bewegt" von=${von} wochenAnzahl=${n} tage=${trainingsTage}
       markiere=${imUrlaub}/>
-    <${SchlafKarte} trainings=${trainings} x=${x}/>
     <${NotizKarte} trainings=${trainings} von=${x[0] ?? HEUTE}/>
     ${einfach ? html`<${RpeKarte} trainings=${trainings}/>` : null}`
     : html`
@@ -430,13 +432,11 @@ function StillstandKarte({ trainings, cut }) {
   </section>`;
 }
 
-/** 199: Schlaf und Bereitschaft (Readiness-Check) je Woche, dazu Leistung an guten und schlechten Schlaftagen. */
-function SchlafKarte({ trainings, x }) {
+/** 199: Leistung an guten und schlechten Schlaftagen (der Verlauf steht seit 311 in BereitschaftVerlauf). */
+function SchlafKarte({ trainings }) {
   const mit = trainings.filter((t) => !t.geloescht && t.bereitschaft && bereitschaftsWert(t.bereitschaft) != null);
   if (mit.length < 3) return null;
-  const woche = (a) => mit.filter((t) => t.datum >= a && t.datum < plusTage(a, 7));
   const mittel = (l, f) => { const v = l.map(f).filter((z) => z != null); return v.length ? Math.round((v.reduce((s, z) => s + z, 0) / v.length) * 10) / 10 : null; };
-  const schlaf = x.map((a) => mittel(woche(a), (t) => t.bereitschaft.sleep ?? null)), bereit = x.map((a) => mittel(woche(a), (t) => bereitschaftsWert(t.bereitschaft)));
   // Leistung: bestes e1RM des Tages je Übung relativ zum Bestwert der 90 Tage davor, gemittelt
   const E = normiere(trainings), leistung = (t) => {
     const vorher = E.filter((e) => e.datum < t.datum && e.datum >= plusTage(t.datum, -90)), q = [];
@@ -449,9 +449,7 @@ function SchlafKarte({ trainings, x }) {
   };
   const gut = mittel(mit.filter((t) => t.bereitschaft.sleep >= 4), leistung), schlecht = mittel(mit.filter((t) => t.bereitschaft.sleep != null && t.bereitschaft.sleep <= 2), leistung);
   const unterschied = gut != null && schlecht != null ? Math.round((gut - schlecht) * 1000) / 10 : null;
-  return html`<${LinienChart} titel=${deEn('Schlaf und Bereitschaft', 'Sleep and readiness')} unter=${deEn('Ø je Woche aus dem Readiness-Check (1–5, hoch = gut)', 'Weekly average from the readiness check (1–5, high = good)')}
-      x=${x} serien=${[{ id: 'schlaf', name: deEn('Schlaf', 'Sleep'), farbe: '#7C9CFF', werte: schlaf }, { id: 'bereit', name: deEn('Bereitschaft', 'Readiness'), farbe: '#34C77B', werte: bereit }]} einheit="" stellen=${1}/>
-    ${unterschied != null ? html`<section class="hint immer ${unterschied > 0 ? 'gut' : ''}">${I.info ?? I.warn}<span class="t">${deEn('Schlaf und Leistung', 'Sleep and performance')}</span><span></span>
+  return html`${unterschied != null ? html`<section class="hint immer ${unterschied > 0 ? 'gut' : ''}">${I.info ?? I.warn}<span class="t">${deEn('Schlaf und Leistung', 'Sleep and performance')}</span><span></span>
       <p>${unterschied > 0 ? deEn(`Nach gutem Schlaf (4–5) warst du im Schnitt ${fmt(unterschied, 1)} % stärker als nach schlechtem (1–2).`, `After good sleep (4–5) you were on average ${fmt(unterschied, 1)} % stronger than after poor sleep (1–2).`)
         : deEn('Zwischen guten und schlechten Schlaftagen zeigt sich bei dir bisher kaum ein Unterschied.', 'So far there is hardly any difference between good and poor sleep days.')}</p></section>` : null}`;
 }

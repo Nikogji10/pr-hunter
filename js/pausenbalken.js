@@ -11,3 +11,11 @@ export const pausePlus = (t) => {
   const jetzt = Date.now(), ende = Math.max(t.ende, jetzt) + 30000;
   return { ...t, beginn: jetzt, ende, fertig: false, dauer: Math.round((ende - jetzt) / 1000) };
 };
+
+/** 312: ganze Pause in s vom Start bis zum jetzigen Ende – mit allen −30/+30 (auch +30 nach Ablauf) – und die Änderung
+ *  gegenüber der geplanten Pause. `anfang` setzt der Start der Pause; ältere Timer ohne `anfang` gelten als unverändert. */
+export const pauseGesamt = (t) => {
+  const anfang = t.anfang ?? t.ende - (t.start0 ?? t.dauer ?? 0) * 1000;
+  const gesamt = Math.max(0, Math.round((t.ende - anfang) / 1000));
+  return { gesamt, plus: t.start0 != null ? gesamt - t.start0 : 0 };
+};

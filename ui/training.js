@@ -2,7 +2,7 @@
 // Oben stehen immer Trainingszeit und Pause bis zum nächsten Satz.
 import { html, useState, useRef, fmt, mmss, uhr, LIFT, liftVon, nameVon, pauseVon, stangeVon, incVon, uebung, koerperUebung, rollenText, rpeText,
   I, Sheet, Scheiben, Hantel, useTakt, PausenTimer, KopfZeit, KopfPause, gw, gwE, einheit, inKg, inAnzeige, anpassung, stangeKg, scheibenKg, satzExtras, formel, tonnage as tonnageText } from './basis.js';
-import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache, langhantel } from './basis.js';
+import { UebungsBild, useEffect, leseZahl, deEn, datumKurz, bilderVon, zeigeBild, sprache, langhantel, mitZusatzLast, kgSicht, koerperVon, useKgModus, KgModusSchalter } from './basis.js';
 import { technikVon } from '../js/technik.js';
 import { NOTIZ_CHIPS, chipsAus, mitChips } from '../js/notizchips.js';
 import { AufwaermRoutine } from './aufwaermroutine.js';
@@ -204,7 +204,7 @@ export function Training({ t, setT, timer, setTimer, einst, toast, lichter, mini
       else if (s.rpe >= 9.5) { pause += 30; grund = '+30 s · RPE 9,5'; }
       else if (s.rpe <= 6) { pause = Math.max(30, pause - 30); grund = `−30 s · RPE ${fmt(s.rpe)}`; }
     }
-    setTimer({ beginn: Date.now(), ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,
+    setTimer({ beginn: Date.now(), anfang: Date.now(), ende: Date.now() + pause * 1000, dauer: pause, start0: pause, fertig: false, grund,   // anfang: 312 Gesamtpause
       naechster: naechster ? `${gwE(naechster.kg)} × ${naechster.wdh}` : 'letzter Satz geschafft',
       naechsterUebung: naechster && naechsteKarte?.key ? nameVon(naechsteKarte.key) : null, naechsterKg: naechster?.kg ?? null, naechsterWdh: naechster?.wdh ?? null });
     // Letzter Satz der Übung: einklappen, die nächste offene Übung aufklappen – 252: mit Technik-Bewertung erst nach der Bewertung
@@ -340,6 +340,7 @@ const weiterZurNaechsten = (ki) => (ks) => {
 function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, bearbeiten = false, aktuell = null, gedimmt = false }) {
   const wisch = useWischen(() => setSheet({ art: 'entfernen', ki }), () => aendere(k.zu ? nurOffen(ki) : (ks) => { ks[ki].zu = true; }));
   const [technik, setTechnik] = useState(false);             // 163 e: Technik (Bilder + Hinweise) in der Karte aufgeklappt
+  useKgModus();                                              // 309: Schalter Gesamt/Zusatz zeichnet die Karte neu
   const videoAn = einst.satzVideo !== false && typeof indexedDB !== 'undefined';   // 268: Satz-Video, Standard an
   if (k.zu) {
     const alle = k.gruppen.flatMap((g) => g.saetze), fertig = alle.filter((s) => s.erledigt).length;
@@ -377,7 +378,7 @@ function Karte({ k, ki, karten, abhaken, aendere, setSheet, einst, zuVerlauf, be
           return v ? html`<div class="ex-werte"><span class="vorschlag">${`Heute: ${gw(v.kg)} × ${v.wdh} (${v.text})`}</span></div>`
             : !letzte ? html`<div class="ex-werte"><span class="erstes-mal">Erstes Mal: leicht anfangen – ein Gewicht, mit dem alle Wdh sauber gehen</span></div>` : null;
         })()
-        : BEST_E1RM[k.key] || heute1rm ? html`<div class="ex-werte">${BEST_E1RM[k.key] ? html`<span class="best-1rm" title=${E1RM_QUELLE[k.key]?.best ? datumKurz(E1RM_QUELLE[k.key].best.datum) : ''}>1RM ${gwE(BEST_E1RM[k.key], 1)}${quelleText(E1RM_QUELLE[k.key]?.best)}</span>` : null}${heute1rm ? html`<span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(heute1rm, 1)}</span>` : null}</div>` : null}
+        : BEST_E1RM[k.key] || heute1rm ? html`<div class="ex-werte">${BEST_E1RM[k.key] ? html`<span class="best-1rm" title=${E1RM_QUELLE[k.key]?.best ? datumKurz(E1RM_QUELLE[k.key].best.datum) : ''}>1RM ${gwE(kgSicht(k.key, BEST_E1RM[k.key], koerperVon(E1RM_QUELLE[k.key]?.best?.satz) ?? einst.koerpergewicht), 1)}${quelleText(E1RM_QUELLE[k.key]?.best)}</span>` : null}${heute1rm ? html`<span class="heute-1rm" title="Errechnet aus Gewicht × Wdh (mit RPE, falls eingetragen)">heute ≈ ${gwE(kgSicht(k.key, heute1rm, einst.koerpergewicht), 1)}</span>` : null}${mitZusatzLast(k.key) ? html`<${KgModusSchalter} klein=${true}/>` : null}</div>` : null}
         ${(() => {   // 207: beim aktuellen Satz – ab wie vielen Wdh wäre das ein neues e1RM (nicht bei Powerlifting: dort wird geplant getestet)
           if (einst.trainingsart !== 'einfach' || bearbeiten || !aktuell || aktuell[0] !== ki || !BEST_E1RM[k.key]) return null;
           const s = k.gruppen[aktuell[1]]?.saetze[aktuell[2]];
@@ -584,6 +585,7 @@ function SatzSheet({ t, s: z, zu, satz, aendere, koerperKg }) {
   const [kettenText, setKettenText] = useState(s.extra?.ketten != null ? String(inAnzeige(s.extra.ketten)) : '');
   const [msText, setMsText] = useState(s.extra?.ms != null ? String(s.extra.ms) : '');
   const wert = rpe != null ? satzE1rm(k.key, { ...s, rpe }, koerperKg, true) : null;
+  const kgM = useKgModus();                                  // 309: Klimmzug & Co. – Gesamt oder Zusatz
   const gear = (id) => setExtra((x) => ({ ...x, gear: x.gear.includes(id) ? x.gear.filter((y) => y !== id) : [...x.gear, id] }));
   const zahl = (v) => (String(v).trim() === '' || Number.isNaN(Number(String(v).replace(',', '.'))) ? null : Number(String(v).replace(',', '.')));
   const nimm = () => {
@@ -628,9 +630,9 @@ function SatzSheet({ t, s: z, zu, satz, aendere, koerperKg }) {
       <button aria-pressed=${String(rpe == null)} onClick=${() => setRpe(null)}><b>–</b><span>ohne</span></button>
     </div>
     <div class="kv knapp">
-      <div><span class="eyebrow">e1RM${koerperUebung(k.key) ? ' ges.' : ''}</span><b>${wert ? gw(wert, 1) : '–'}</b></div>
+      <div><span class="eyebrow">e1RM${mitZusatzLast(k.key) ? (kgM === 'zusatz' ? deEn(' Zusatz', ' added') : deEn(' ges.', ' total')) : koerperUebung(k.key) ? ' ges.' : ''}</span><b>${wert ? gw(kgSicht(k.key, wert, koerperKg), 1) : '–'}</b></div>
       <div><span class="eyebrow">% 1RM</span><b>${rpe != null && rtsPct(s.wdh, rpe) ? fmt(rtsPct(s.wdh, rpe) * 100, 1) : '–'}</b></div>
-      <div><span class="eyebrow">Bestwert</span><b>${gw(BEST_E1RM[k.key] ?? null, 1)}</b></div>
+      <div><span class="eyebrow">Bestwert</span><b>${gw(kgSicht(k.key, BEST_E1RM[k.key] ?? null, koerperVon(E1RM_QUELLE[k.key]?.best?.satz) ?? koerperKg), 1)}</b></div>
     </div>
     <div class="stack" style="gap:6px"><span class="eyebrow">Satztyp</span>
       <div class="chips-zeile">${SATZTYP.map(([id, text]) => html`<button key=${id} class="chip" aria-pressed=${String(typ === id)} onClick=${() => setTyp(id)}>${text}</button>`)}</div>

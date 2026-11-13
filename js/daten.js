@@ -209,7 +209,8 @@ export function erstelleStand(trainings, { heute, katalog = [], messwerte = [], 
         if (u.key !== k) continue;
         for (const s of u.saetze) {
           if (!(s.wdh > 0) || s.kg == null) continue;
-          for (let r = 1; r <= Math.min(s.wdh, REKORD_WDH); r++) if (!beste[r - 1] || s.kg > beste[r - 1][0]) beste[r - 1] = [s.kg, tag.datum];
+          // [Gewicht, Datum, Gesamtlast] – Gesamtlast für Körpergewicht + Zusatz (309), sonst gleich dem Gewicht
+          for (let r = 1; r <= Math.min(s.wdh, REKORD_WDH); r++) if (!beste[r - 1] || s.kg > beste[r - 1][0]) beste[r - 1] = [s.kg, tag.datum, s.last ?? s.kg];
         }
       }
     }

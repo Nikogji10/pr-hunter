@@ -1,6 +1,7 @@
 // PR Hunter · Verlauf – Monatskalender (erledigt, geplant, Urlaub), Tag antippen zeigt das Training.
 import { AusdauerListe } from './ausdauer.js';
-import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige, minutenText } from './basis.js';
+import { html, useState, fmt, I, Sheet, LIFT, liftVon, nameVon, datumLang, datumKurz, monatName, satzKurz, rpeKlein, satzExtras, tonnage, inAnzeige, minutenText,
+  mitZusatzLast, kgSicht, kgSatzText, koerperVon, useKgModus, KgModusSchalter } from './basis.js';
 import { HEUTE, URLAUB, DEMO, trainingAm, trainingsTage, imUrlaub } from './stand.js';
 
 const liftNamen = (t) => [...new Set(t.uebungen.filter((u) => u.lift !== 'andere').map((u) => LIFT[u.lift].name))].join(' · ') || 'Zubehör';
@@ -81,7 +82,8 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
         <div><span class="eyebrow">Session-RPE</span><b>${t.sessionRpe != null ? fmt(t.sessionRpe) : '–'}</b></div></div>
       ${t.uebungen.map((u, k) => html`<div key=${`${u.key}-${k}`} class="stack" style="gap:8px">
         <div class="row"><span class="badge" style=${u.lift === 'andere' ? 'background:var(--raised);color:var(--ink);width:30px;height:30px;font-size:12px' : `background:${LIFT[u.lift].farbe};color:#0B0C0E;width:30px;height:30px;font-size:12px`}>${LIFT[u.lift].kurz}</span>
-          ${zuUebung ? html`<button class="link-zeile" onClick=${() => { zu(); zuUebung(u.key); }}><b>${nameVon(u.key)}</b>${I.weiter}</button>` : html`<b>${nameVon(u.key)}</b>`}</div>
+          ${zuUebung ? html`<button class="link-zeile" onClick=${() => { zu(); zuUebung(u.key); }}><b>${nameVon(u.key)}</b>${I.weiter}</button>` : html`<b>${nameVon(u.key)}</b>`}
+          ${mitZusatzLast(u.key) ? html`<span style="margin-left:auto"><${KgModusSchalter} klein=${true}/></span>` : null}</div>
         <${SatzTabelle} u=${u}/>
         ${(() => {   // 277/287: Videos je Satz (auch Aufwärmsätze) und Tempo-Zeile der Übung
           const alle = [...(u.aufwaermen ?? []).map((s, i) => ({ s, name: deEn(`Aufw. ${i + 1}`, `Warm-up ${i + 1}`) })), ...u.saetze.map((s, i) => ({ s, name: deEn(`Satz ${i + 1}`, `Set ${i + 1}`) }))]
@@ -113,11 +115,13 @@ export function TagSheet({ d, plan, erledigt, zu, startenAm, bearbeiten, loesche
 
 /** Sätze einer Übung als Tabelle wie die Jefit-History: Aufwärmsätze als W, bester Satz (e1RM) hervorgehoben. */
 export function SatzTabelle({ u }) {
+  useKgModus();                                          // 309: Klimmzug & Co. als Gesamtlast oder Zusatz
+  const zl = mitZusatzLast(u.key);
   const alle = [...(u.aufwaermen ?? []).map((s) => [s, 'W']), ...u.saetze.map((s, i) => [s, i + 1])];
   const mitRpe = alle.some(([s]) => s.rpe != null);
   const beste = u.saetze.reduce((m, s, j) => (s.e1rm != null && (m < 0 || s.e1rm > u.saetze[m].e1rm) ? j : m), -1);
   return html`<table class="saetze"><thead><tr><th>Satz</th><th>Gewicht × Wdh</th>${mitRpe ? html`<th>RPE</th>` : null}<th>e1RM</th></tr></thead>
     <tbody>${alle.map(([s, nr], i) => html`<tr key=${i} class=${nr !== 'W' && nr - 1 === beste ? 'beste' : ''}>
-      <td class=${`satz-nr ${nr === 'W' ? 'w' : ''}`}>${nr}</td><td class="k">${satzKurz(s).replace('×', ' × ')}</td>
-      ${mitRpe ? html`<td class="muted">${s.rpe != null ? `@${fmt(s.rpe)}` : ''}</td>` : null}<td>${s.e1rm != null ? fmt(inAnzeige(s.e1rm), 0) : '–'}</td></tr>`)}</tbody></table>`;
+      <td class=${`satz-nr ${nr === 'W' ? 'w' : ''}`}>${nr}</td><td class="k">${zl && s.last != null ? `${kgSatzText(u.key, s)} × ${s.wdh ?? '–'}` : satzKurz(s).replace('×', ' × ')}</td>
+      ${mitRpe ? html`<td class="muted">${s.rpe != null ? `@${fmt(s.rpe)}` : ''}</td>` : null}<td>${s.e1rm != null ? fmt(inAnzeige(zl ? kgSicht(u.key, s.e1rm, koerperVon(s)) : s.e1rm), 0) : '–'}</td></tr>`)}</tbody></table>`;
 }
